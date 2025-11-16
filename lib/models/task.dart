@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 /// - status: 태스크 상태 (todo, inProgress, done)
 /// - createdAt: 생성 시간
 /// - updatedAt: 수정 시간
+/// - assignedMemberIds: 할당된 팀원 사용자 ID 목록
 class Task {
   final String id;
   final String title;
@@ -18,6 +19,7 @@ class Task {
   final DateTime? startDate; // 시작일
   final DateTime? endDate; // 종료일
   final String detail; // 상세 내용
+  final List<String> assignedMemberIds; // 할당된 팀원 사용자 ID 목록
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -30,9 +32,10 @@ class Task {
     this.startDate,
     this.endDate,
     this.detail = '',
+    List<String>? assignedMemberIds,
     required this.createdAt,
     required this.updatedAt,
-  });
+  }) : assignedMemberIds = assignedMemberIds ?? [];
 
   /// JSON으로 변환 (저장용)
   Map<String, dynamic> toJson() {
@@ -45,6 +48,7 @@ class Task {
       'startDate': startDate?.toIso8601String(),
       'endDate': endDate?.toIso8601String(),
       'detail': detail,
+      'assignedMemberIds': assignedMemberIds,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -52,6 +56,19 @@ class Task {
 
   /// JSON에서 Task 객체 생성
   factory Task.fromJson(Map<String, dynamic> json) {
+    // assignedMemberIds가 없거나 null인 경우 빈 리스트 반환
+    List<String> assignedMemberIds = [];
+    if (json.containsKey('assignedMemberIds') && json['assignedMemberIds'] != null) {
+      try {
+        final memberIds = json['assignedMemberIds'];
+        if (memberIds is List) {
+          assignedMemberIds = memberIds.map((e) => e.toString()).toList();
+        }
+      } catch (e) {
+        assignedMemberIds = [];
+      }
+    }
+    
     return Task(
       id: json['id'],
       title: json['title'],
@@ -64,6 +81,7 @@ class Task {
       startDate: json['startDate'] != null ? DateTime.parse(json['startDate']) : null,
       endDate: json['endDate'] != null ? DateTime.parse(json['endDate']) : null,
       detail: json['detail'] ?? '',
+      assignedMemberIds: assignedMemberIds,
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
     );
@@ -79,6 +97,7 @@ class Task {
     DateTime? startDate,
     DateTime? endDate,
     String? detail,
+    List<String>? assignedMemberIds,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -91,6 +110,7 @@ class Task {
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       detail: detail ?? this.detail,
+      assignedMemberIds: assignedMemberIds ?? this.assignedMemberIds,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

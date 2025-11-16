@@ -7,6 +7,7 @@
 /// - passwordHash: 해싱된 비밀번호
 /// - isAdmin: 관리자 여부
 /// - isApproved: 관리자 승인 여부
+/// - isPM: 프로젝트 매니저 권한 여부
 /// - createdAt: 생성 시간
 class User {
   final String id;
@@ -15,6 +16,7 @@ class User {
   final String passwordHash;
   final bool isAdmin;
   final bool isApproved;
+  final bool isPM;
   final DateTime createdAt;
 
   User({
@@ -24,6 +26,7 @@ class User {
     required this.passwordHash,
     this.isAdmin = false,
     this.isApproved = false,
+    this.isPM = false,
     required this.createdAt,
   });
 
@@ -36,6 +39,7 @@ class User {
       'passwordHash': passwordHash,
       'isAdmin': isAdmin,
       'isApproved': isApproved,
+      'isPM': isPM,
       'createdAt': createdAt.toIso8601String(),
     };
   }
@@ -49,6 +53,7 @@ class User {
       passwordHash: json['passwordHash'],
       isAdmin: json['isAdmin'] ?? false,
       isApproved: json['isApproved'] ?? false,
+      isPM: json['isPM'] ?? false,
       createdAt: DateTime.parse(json['createdAt']),
     );
   }
@@ -61,6 +66,7 @@ class User {
     String? passwordHash,
     bool? isAdmin,
     bool? isApproved,
+    bool? isPM,
     DateTime? createdAt,
   }) {
     return User(
@@ -70,6 +76,7 @@ class User {
       passwordHash: passwordHash ?? this.passwordHash,
       isAdmin: isAdmin ?? this.isAdmin,
       isApproved: isApproved ?? this.isApproved,
+      isPM: isPM ?? this.isPM,
       createdAt: createdAt ?? this.createdAt,
     );
   }

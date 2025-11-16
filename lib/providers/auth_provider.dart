@@ -15,6 +15,7 @@ class AuthProvider with ChangeNotifier {
   User? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
   bool get isAdmin => _currentUser?.isAdmin ?? false;
+  bool get isPM => _currentUser?.isPM ?? false;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
@@ -43,30 +44,54 @@ class AuthProvider with ChangeNotifier {
 
   /// 로그인
   Future<bool> login(String username, String password) async {
-    _isLoading = true;
+    print('[AuthProvider] 로그인 시도: $username');
+    // 이전 상태 완전히 초기화
+    _currentUser = null;
     _errorMessage = null;
+    _isLoading = true;
     notifyListeners();
+    print('[AuthProvider] 상태 초기화 완료, isLoading: $_isLoading');
 
     try {
+      print('[AuthProvider] AuthService.login 호출 중...');
       final user = await _authService.login(
         username: username,
         password: password,
       );
+      print('[AuthProvider] AuthService.login 결과: ${user != null ? "성공" : "실패"}');
 
       if (user != null) {
+        print('[AuthProvider] 사용자 정보: ${user.username}, isAdmin: ${user.isAdmin}, isApproved: ${user.isApproved}');
         _currentUser = user;
         _errorMessage = null;
+        _isLoading = false;
+        print('[AuthProvider] 로그인 성공, notifyListeners 호출');
         notifyListeners();
+        print('[AuthProvider] isAuthenticated: $isAuthenticated');
         return true;
       }
-      return false;
-    } catch (e) {
-      _errorMessage = e.toString();
-      notifyListeners();
-      return false;
-    } finally {
       _isLoading = false;
+      _errorMessage = '로그인에 실패했습니다.';
+      print('[AuthProvider] 로그인 실패: 사용자 정보 없음');
       notifyListeners();
+      return false;
+    } catch (e, stackTrace) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      print('[AuthProvider] 로그인 에러: $e');
+      print('[AuthProvider] 스택 트레이스: $stackTrace');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// 현재 사용자 정보 새로고침 (PM 권한 변경 등 반영)
+  Future<void> refreshCurrentUser() async {
+    try {
+      _currentUser = await _authService.getCurrentUser();
+      notifyListeners();
+    } catch (e) {
+      // 에러 무시
     }
   }
 
@@ -105,6 +130,7 @@ class AuthProvider with ChangeNotifier {
 
   /// 로그아웃
   Future<void> logout() async {
+    print('[AuthProvider] 로그아웃 시작');
     _isLoading = true;
     notifyListeners();
 
@@ -112,11 +138,14 @@ class AuthProvider with ChangeNotifier {
       await _authService.logout();
       _currentUser = null;
       _errorMessage = null;
+      print('[AuthProvider] 로그아웃 완료, _currentUser: $_currentUser, isAuthenticated: $isAuthenticated');
     } catch (e) {
       _errorMessage = e.toString();
+      print('[AuthProvider] 로그아웃 에러: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
+      print('[AuthProvider] 로그아웃 완료, isLoading: $_isLoading');
     }
   }
 

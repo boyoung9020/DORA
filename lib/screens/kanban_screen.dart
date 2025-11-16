@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/task.dart';
 import '../providers/task_provider.dart';
 import '../providers/project_provider.dart';
+import '../services/auth_service.dart';
 import '../widgets/glass_container.dart';
 import 'task_detail_screen.dart';
 
@@ -483,8 +484,74 @@ class _KanbanScreenState extends State<KanbanScreen> {
             overflow: TextOverflow.ellipsis,
           ),
         ],
+        // 할당된 팀원 태그
+        if (task.assignedMemberIds.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          FutureBuilder<List<dynamic>>(
+            future: _loadAssignedMembers(task.assignedMemberIds),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              final members = snapshot.data!;
+              return Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: members.map((member) {
+                  return GlassContainer(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    borderRadius: 6.0,
+                    blur: 10.0,
+                    gradientColors: [
+                      colorScheme.primary.withOpacity(0.2),
+                      colorScheme.primary.withOpacity(0.1),
+                    ],
+                    borderColor: colorScheme.primary.withOpacity(0.3),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircleAvatar(
+                          radius: 6,
+                          backgroundColor: colorScheme.primary,
+                          child: Text(
+                            member.username[0].toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 8,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          member.username,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
       ],
     );
+  }
+
+  /// 할당된 팀원 목록 로드
+  Future<List<dynamic>> _loadAssignedMembers(List<String> memberIds) async {
+    try {
+      final authService = AuthService();
+      final allUsers = await authService.getAllUsers();
+      return allUsers.where((user) => memberIds.contains(user.id)).toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   /// 새 태스크 추가 다이얼로그

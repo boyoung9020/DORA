@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/task.dart';
+import '../models/user.dart';
 import '../providers/task_provider.dart';
 import '../providers/project_provider.dart';
+import '../services/auth_service.dart';
 import '../widgets/glass_container.dart';
 
 /// 태스크 상세 화면 - GitHub 이슈 스타일
@@ -498,6 +500,116 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
+                            // 할당된 팀원
+                            GlassContainer(
+                              padding: const EdgeInsets.all(16),
+                              borderRadius: 15.0,
+                              blur: 20.0,
+                              gradientColors: [
+                                colorScheme.surface.withOpacity(0.4),
+                                colorScheme.surface.withOpacity(0.3),
+                              ],
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        '할당된 팀원',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.person_add,
+                                          size: 16,
+                                          color: colorScheme.primary,
+                                        ),
+                                        onPressed: () => _showAssignMemberDialog(context, currentTask, taskProvider, currentProject),
+                                        tooltip: '팀원 할당',
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  if (currentTask.assignedMemberIds.isEmpty)
+                                    Text(
+                                      '할당된 팀원이 없습니다',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: colorScheme.onSurface.withOpacity(0.5),
+                                      ),
+                                    )
+                                  else
+                                    FutureBuilder<List<User>>(
+                                      future: _loadAssignedMembers(currentTask.assignedMemberIds),
+                                      builder: (context, snapshot) {
+                                        if (!snapshot.hasData) {
+                                          return const SizedBox.shrink();
+                                        }
+                                        final members = snapshot.data!;
+                                        return Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: members.map((member) {
+                                            return GlassContainer(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              borderRadius: 8.0,
+                                              blur: 15.0,
+                                              gradientColors: [
+                                                colorScheme.primary.withOpacity(0.2),
+                                                colorScheme.primary.withOpacity(0.1),
+                                              ],
+                                              borderColor: colorScheme.primary.withOpacity(0.3),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  CircleAvatar(
+                                                    radius: 8,
+                                                    backgroundColor: colorScheme.primary,
+                                                    child: Text(
+                                                      member.username[0].toUpperCase(),
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        color: Colors.white,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    member.username,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: colorScheme.onSurface,
+                                                      fontWeight: FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  GestureDetector(
+                                                    onTap: () => _removeAssignedMember(context, currentTask, member.id, taskProvider),
+                                                    child: Icon(
+                                                      Icons.close,
+                                                      size: 14,
+                                                      color: colorScheme.onSurface.withOpacity(0.5),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          }).toList(),
+                                        );
+                                      },
+                                    ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
                             // 생성일
                             GlassContainer(
                               padding: const EdgeInsets.all(16),
@@ -559,6 +671,176 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     setState(() {
       _isEditing = false;
     });
+  }
+
+  /// 할당된 팀원 목록 로드
+  Future<List<User>> _loadAssignedMembers(List<String> memberIds) async {
+    try {
+      final authService = AuthService();
+      final allUsers = await authService.getAllUsers();
+      return allUsers.where((user) => memberIds.contains(user.id)).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// 팀원 할당 다이얼로그
+  Future<void> _showAssignMemberDialog(
+    BuildContext context,
+    Task task,
+    TaskProvider taskProvider,
+    currentProject,
+  ) async {
+    if (currentProject == null) return;
+    
+    final colorScheme = Theme.of(context).colorScheme;
+    final authService = AuthService();
+    
+    try {
+      final allUsers = await authService.getAllUsers();
+      final projectMembers = allUsers.where((user) {
+        return currentProject.teamMemberIds.contains(user.id);
+      }).toList();
+      
+      final availableMembers = projectMembers.where((user) {
+        return !task.assignedMemberIds.contains(user.id);
+      }).toList();
+      
+      if (availableMembers.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('할당할 수 있는 팀원이 없습니다'),
+            backgroundColor: colorScheme.error,
+          ),
+        );
+        return;
+      }
+      
+      showDialog(
+        context: context,
+        builder: (context) {
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            child: GlassContainer(
+              padding: const EdgeInsets.all(24),
+              borderRadius: 20.0,
+              blur: 25.0,
+              gradientColors: [
+                colorScheme.surface.withOpacity(0.6),
+                colorScheme.surface.withOpacity(0.5),
+              ],
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400, maxHeight: 500),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '팀원 할당',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: availableMembers.length,
+                        itemBuilder: (context, index) {
+                          final user = availableMembers[index];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: colorScheme.primary,
+                              child: Text(
+                                user.username[0].toUpperCase(),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            title: Text(
+                              user.username,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                            subtitle: Text(
+                              user.email,
+                              style: TextStyle(
+                                color: colorScheme.onSurface.withOpacity(0.7),
+                              ),
+                            ),
+                            trailing: IconButton(
+                              icon: Icon(
+                                Icons.add_circle,
+                                color: colorScheme.primary,
+                              ),
+                              onPressed: () async {
+                                final updatedMemberIds = List<String>.from(task.assignedMemberIds);
+                                updatedMemberIds.add(user.id);
+                                await taskProvider.updateTask(
+                                  task.copyWith(
+                                    assignedMemberIds: updatedMemberIds,
+                                    updatedAt: DateTime.now(),
+                                  ),
+                                );
+                                Navigator.of(context).pop();
+                                setState(() {});
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: Text(
+                            '닫기',
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('오류 발생: $e'),
+          backgroundColor: colorScheme.error,
+        ),
+      );
+    }
+  }
+
+  /// 할당된 팀원 제거
+  Future<void> _removeAssignedMember(
+    BuildContext context,
+    Task task,
+    String userId,
+    TaskProvider taskProvider,
+  ) async {
+    final updatedMemberIds = task.assignedMemberIds.where((id) => id != userId).toList();
+    await taskProvider.updateTask(
+      task.copyWith(
+        assignedMemberIds: updatedMemberIds,
+        updatedAt: DateTime.now(),
+      ),
+    );
+    setState(() {});
   }
 }
 

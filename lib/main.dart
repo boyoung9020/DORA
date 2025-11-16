@@ -27,7 +27,7 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'DORA - 프로젝트 관리',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
+      theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(0xFF2196F3), // 파란색 포인트 색상 (로고와 일치)
             brightness: Brightness.light,
@@ -52,28 +52,37 @@ class MyApp extends StatelessWidget {
         home: const AuthWrapper(),
       ),
     );
-  }
+}
 }
 
 /// 인증 상태에 따라 화면을 전환하는 위젯
-class AuthWrapper extends StatelessWidget {
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, _) {
+        print('[AuthWrapper] 빌드 중 - isLoading: ${authProvider.isLoading}, isAuthenticated: ${authProvider.isAuthenticated}');
         // 로딩 중이면 로딩 화면 표시
         if (authProvider.isLoading) {
+          print('[AuthWrapper] 로딩 화면 표시');
           return const Scaffold(
-            body: Center(
+      body: Center(
               child: CircularProgressIndicator(),
             ),
           );
         }
 
         // 로그인되어 있으면 메인 레이아웃, 아니면 로그인 화면
-        return authProvider.isAuthenticated
+        final isAuthenticated = authProvider.isAuthenticated;
+        print('[AuthWrapper] 인증 상태: $isAuthenticated, 화면 전환: ${isAuthenticated ? "MainLayout" : "LoginScreen"}');
+        return isAuthenticated
             ? const MainLayout()
             : const LoginScreen();
       },

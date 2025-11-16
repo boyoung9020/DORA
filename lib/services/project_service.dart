@@ -34,7 +34,31 @@ class ProjectService {
       }
 
       final List<dynamic> projectsList = json.decode(projectsJson);
-      return projectsList.map((json) => Project.fromJson(json)).toList();
+      final projects = projectsList.map((json) => Project.fromJson(json)).toList();
+      
+      // 기존 프로젝트에 teamMemberIds가 없는 경우 마이그레이션
+      bool needsMigration = false;
+      for (var project in projects) {
+        // teamMemberIds가 null이거나 없는 경우 빈 리스트로 설정
+        // fromJson에서 이미 처리하지만, 안전을 위해 다시 확인
+        if (project.teamMemberIds.isEmpty && projectsList.isNotEmpty) {
+          final projectJson = projectsList.firstWhere(
+            (p) => p['id'] == project.id,
+            orElse: () => {},
+          );
+          if (projectJson is Map && !projectJson.containsKey('teamMemberIds')) {
+            needsMigration = true;
+            break;
+          }
+        }
+      }
+      
+      // 마이그레이션이 필요한 경우 저장
+      if (needsMigration) {
+        await _saveProjects(projects);
+      }
+      
+      return projects;
     } catch (e) {
       return [];
     }
@@ -125,6 +149,31 @@ class ProjectService {
       (p) => p.id == projectId,
       orElse: () => projects.isNotEmpty ? projects.first : throw StateError('No projects'),
     );
+  }
+
+  /// 프로젝트에 팀원 추가
+  Future<void> addTeamMember(String projectId, String userId) async {
+    final projects = await getAllProjects();
+    final project = projects.firstWhere((p) => p.id == projectId);
+    if (!project.teamMemberIds.contains(userId)) {
+      final updatedProject = project.copyWith(
+        teamMemberIds: [...project.teamMemberIds, userId],
+        updatedAt: DateTime.now(),
+      );
+      await updateProject(updatedProject);
+    }
+  }
+
+  /// 프로젝트에서 팀원 제거
+  Future<void> removeTeamMember(String projectId, String userId) async {
+    final projects = await getAllProjects();
+    final project = projects.firstWhere((p) => p.id == projectId);
+    final updatedMemberIds = project.teamMemberIds.where((id) => id != userId).toList();
+    final updatedProject = project.copyWith(
+      teamMemberIds: updatedMemberIds,
+      updatedAt: DateTime.now(),
+    );
+    await updateProject(updatedProject);
   }
 }
 

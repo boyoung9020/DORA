@@ -4,7 +4,6 @@ import '../providers/auth_provider.dart';
 import '../widgets/glass_container.dart';
 import 'login_screen.dart';
 import 'admin_approval_screen.dart';
-import 'kanban_screen.dart';
 
 /// 홈 화면 - Liquid Glass 디자인
 class HomeScreen extends StatelessWidget {
@@ -238,22 +237,6 @@ class HomeScreen extends StatelessWidget {
                                 ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 40),
-                        // 칸반 보드 버튼
-                        GlassButton(
-                          text: '칸반 보드 열기',
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const KanbanScreen(),
-                              ),
-                            );
-                          },
-                          gradientColors: [
-                            colorScheme.primary.withOpacity(0.5),
-                            colorScheme.primary.withOpacity(0.4),
-                          ],
                         ),
                       ],
                     ),

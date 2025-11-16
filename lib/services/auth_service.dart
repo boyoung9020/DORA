@@ -91,27 +91,40 @@ class AuthService {
     required String username,
     required String password,
   }) async {
+    print('[AuthService] login 호출: $username');
     try {
       final users = await getAllUsers();
+      print('[AuthService] 전체 사용자 수: ${users.length}');
       final passwordHash = _hashPassword(password);
+      print('[AuthService] 비밀번호 해시 완료');
 
       // 사용자 찾기
-      final user = users.firstWhere(
-        (u) => u.username == username && u.passwordHash == passwordHash,
-        orElse: () => throw Exception('사용자 이름 또는 비밀번호가 잘못되었습니다.'),
-      );
+      User? foundUser;
+      try {
+        foundUser = users.firstWhere(
+          (u) => u.username == username && u.passwordHash == passwordHash,
+        );
+        print('[AuthService] 사용자 찾음: ${foundUser.username}, isApproved: ${foundUser.isApproved}, isAdmin: ${foundUser.isAdmin}');
+      } catch (e) {
+        print('[AuthService] 사용자를 찾을 수 없음: $e');
+        throw Exception('사용자 이름 또는 비밀번호가 잘못되었습니다.');
+      }
 
       // 승인 여부 확인
-      if (!user.isApproved) {
+      if (!foundUser.isApproved) {
+        print('[AuthService] 사용자 승인 대기 중');
         throw Exception('관리자 승인 대기 중입니다. 승인 후 로그인할 수 있습니다.');
       }
 
       // 현재 사용자 저장
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_currentUserKey, jsonEncode(user.toJson()));
+      final userJson = jsonEncode(foundUser.toJson());
+      await prefs.setString(_currentUserKey, userJson);
+      print('[AuthService] 현재 사용자 저장 완료: $_currentUserKey');
 
-      return user;
+      return foundUser;
     } catch (e) {
+      print('[AuthService] 로그인 에러: $e');
       throw Exception('로그인 실패: $e');
     }
   }
@@ -130,8 +143,11 @@ class AuthService {
 
   /// 로그아웃
   Future<void> logout() async {
+    print('[AuthService] logout 호출');
     final prefs = await SharedPreferences.getInstance();
+    final hadUser = prefs.containsKey(_currentUserKey);
     await prefs.remove(_currentUserKey);
+    print('[AuthService] 로그아웃 완료, 이전 사용자 존재: $hadUser');
   }
 
   /// 승인 대기 중인 사용자 목록 가져오기
@@ -163,6 +179,62 @@ class AuthService {
     final users = await getAllUsers();
     users.removeWhere((u) => u.id == userId);
     await _saveUsers(users);
+  }
+
+  /// 승인된 사용자 목록 가져오기
+  Future<List<User>> getApprovedUsers() async {
+    final users = await getAllUsers();
+    return users.where((user) => user.isApproved).toList();
+  }
+
+  /// PM 권한 부여
+  /// 
+  /// 관리자가 사용자에게 PM 권한을 부여합니다.
+  Future<void> grantPMPermission(String userId) async {
+    final users = await getAllUsers();
+    final userIndex = users.indexWhere((u) => u.id == userId);
+    
+    if (userIndex == -1) {
+      throw Exception('사용자를 찾을 수 없습니다.');
+    }
+
+    users[userIndex] = users[userIndex].copyWith(isPM: true);
+    await _saveUsers(users);
+    
+    // 현재 로그인한 사용자가 변경된 경우 현재 사용자 정보도 업데이트
+    final prefs = await SharedPreferences.getInstance();
+    final currentUserJson = prefs.getString(_currentUserKey);
+    if (currentUserJson != null) {
+      final currentUser = User.fromJson(jsonDecode(currentUserJson));
+      if (currentUser.id == userId) {
+        await prefs.setString(_currentUserKey, jsonEncode(users[userIndex].toJson()));
+      }
+    }
+  }
+
+  /// PM 권한 제거
+  /// 
+  /// 관리자가 사용자의 PM 권한을 제거합니다.
+  Future<void> revokePMPermission(String userId) async {
+    final users = await getAllUsers();
+    final userIndex = users.indexWhere((u) => u.id == userId);
+    
+    if (userIndex == -1) {
+      throw Exception('사용자를 찾을 수 없습니다.');
+    }
+
+    users[userIndex] = users[userIndex].copyWith(isPM: false);
+    await _saveUsers(users);
+    
+    // 현재 로그인한 사용자가 변경된 경우 현재 사용자 정보도 업데이트
+    final prefs = await SharedPreferences.getInstance();
+    final currentUserJson = prefs.getString(_currentUserKey);
+    if (currentUserJson != null) {
+      final currentUser = User.fromJson(jsonDecode(currentUserJson));
+      if (currentUser.id == userId) {
+        await prefs.setString(_currentUserKey, jsonEncode(users[userIndex].toJson()));
+      }
+    }
   }
 
   /// 초기 관리자 계정 생성

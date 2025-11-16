@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/glass_container.dart';
 import 'register_screen.dart';
-import 'home_screen.dart';
+import 'main_layout.dart';
 
 /// 로그인 화면 - Liquid Glass 디자인
 class LoginScreen extends StatefulWidget {
@@ -28,19 +28,32 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
+    print('[LoginScreen] _handleLogin 호출');
     if (_formKey.currentState!.validate()) {
+      print('[LoginScreen] 폼 검증 통과');
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       
+      // 이전 에러 메시지 초기화
+      authProvider.clearError();
+      print('[LoginScreen] 에러 메시지 초기화 완료');
+      
+      print('[LoginScreen] 로그인 시도: ${_usernameController.text.trim()}');
       final success = await authProvider.login(
         _usernameController.text.trim(),
         _passwordController.text,
       );
+      print('[LoginScreen] 로그인 결과: $success');
+      print('[LoginScreen] isAuthenticated: ${authProvider.isAuthenticated}');
+      print('[LoginScreen] errorMessage: ${authProvider.errorMessage}');
 
       if (success && mounted) {
+        print('[LoginScreen] 로그인 성공, MainLayout으로 이동');
+        // AuthWrapper의 Consumer가 리빌드되지 않을 수 있으므로 명시적으로 화면 전환
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => const MainLayout()),
         );
       } else if (mounted) {
+        print('[LoginScreen] 로그인 실패, 에러 메시지 표시: ${authProvider.errorMessage}');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(authProvider.errorMessage ?? '로그인에 실패했습니다.'),
@@ -49,12 +62,22 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       }
+    } else {
+      print('[LoginScreen] 폼 검증 실패');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, _) {
+        // 로그인 성공 시 자동으로 AuthWrapper가 화면을 전환하므로 여기서는 UI만 표시
+        return _buildLoginUI(context, authProvider);
+      },
+    );
+  }
+
+  Widget _buildLoginUI(BuildContext context, AuthProvider authProvider) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
