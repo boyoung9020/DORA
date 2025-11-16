@@ -1,0 +1,1001 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../models/task.dart';
+import '../providers/task_provider.dart';
+import '../providers/project_provider.dart';
+import '../widgets/glass_container.dart';
+import 'task_detail_screen.dart';
+
+/// 빠른 태스크 추가 화면
+class QuickTaskScreen extends StatefulWidget {
+  const QuickTaskScreen({super.key});
+
+  @override
+  State<QuickTaskScreen> createState() => _QuickTaskScreenState();
+}
+
+class _QuickTaskScreenState extends State<QuickTaskScreen> {
+  final TextEditingController _taskController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final Set<String> _expandedTasks = {}; // 펼쳐진 태스크 ID 집합
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TaskProvider>().loadTasks();
+    });
+  }
+
+  @override
+  void dispose() {
+    _taskController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _addTask() {
+    final text = _taskController.text.trim();
+    if (text.isEmpty) return;
+
+    final projectProvider = context.read<ProjectProvider>();
+    final currentProjectId = projectProvider.currentProject?.id;
+    if (currentProjectId == null) return;
+
+    final taskProvider = context.read<TaskProvider>();
+    taskProvider.createTask(
+      title: text,
+      description: '',
+      status: TaskStatus.backlog,
+      projectId: currentProjectId,
+    );
+
+    // 입력창 초기화
+    _taskController.clear();
+
+    // 스크롤을 맨 위로 이동 (새 태스크가 하단에 추가되므로)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final taskProvider = context.watch<TaskProvider>();
+    final projectProvider = context.watch<ProjectProvider>();
+    final currentProjectId = projectProvider.currentProject?.id;
+
+    // 현재 프로젝트의 모든 태스크 필터링
+    final allTasks = currentProjectId != null
+        ? taskProvider.tasks
+            .where((task) => task.projectId == currentProjectId)
+            .toList()
+        : taskProvider.tasks;
+
+    // 최신 태스크가 위에 오도록 정렬 (createdAt 기준 내림차순)
+    allTasks.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    return Container(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        children: [
+          // 헤더
+          Row(
+            children: [
+              Text(
+                '빠른 태스크 추가',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${allTasks.length}개',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: colorScheme.onSurface.withOpacity(0.7),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          // 태스크 리스트 (큐 형태)
+          Expanded(
+            child: allTasks.isEmpty
+                ? Center(
+                    child: GlassContainer(
+                      padding: const EdgeInsets.all(40),
+                      borderRadius: 30.0,
+                      blur: 25.0,
+                      gradientColors: [
+                        colorScheme.surface.withOpacity(0.3),
+                        colorScheme.surface.withOpacity(0.2),
+                      ],
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.inbox_outlined,
+                            size: 64,
+                            color: colorScheme.onSurface.withOpacity(0.5),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            '태스크가 없습니다',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '하단 입력창에서 태스크를 추가하세요',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.onSurface.withOpacity(0.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    reverse: false, // 최신 태스크가 위에
+                    itemCount: allTasks.length,
+                    itemBuilder: (context, index) {
+                      final task = allTasks[index];
+                      final statusColor = task.status.color;
+                      final isExpanded = _expandedTasks.contains(task.id);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (isExpanded) {
+                                _expandedTasks.remove(task.id);
+                              } else {
+                                _expandedTasks.add(task.id);
+                              }
+                            });
+                          },
+                          child: GlassContainer(
+                            padding: const EdgeInsets.all(16),
+                            borderRadius: 15.0,
+                            blur: 25.0,
+                            borderWidth: 1.0,
+                            gradientColors: [
+                              colorScheme.surface.withOpacity(0.6),
+                              colorScheme.surface.withOpacity(0.5),
+                            ],
+                            borderColor: statusColor.withOpacity(0.3),
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    // 상태 색상 인디케이터
+                                    Container(
+                                      width: 4,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: statusColor,
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    // 태스크 내용
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            task.title,
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                          if (task.description.isNotEmpty && !isExpanded) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              task.description,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: colorScheme.onSurface
+                                                    .withOpacity(0.7),
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                const SizedBox(width: 12),
+                                // 오른쪽 정보 (시작일, 종료일, 상태) - 한 줄로
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // 시작일 태그
+                                    InkWell(
+                                      onTap: () => _showDateRangePicker(context, task, taskProvider),
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: task.startDate != null
+                                              ? colorScheme.primary.withOpacity(0.15)
+                                              : colorScheme.onSurface.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: task.startDate != null
+                                                ? colorScheme.primary.withOpacity(0.5)
+                                                : colorScheme.onSurface.withOpacity(0.2),
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.calendar_today,
+                                              size: 14,
+                                              color: task.startDate != null
+                                                  ? colorScheme.primary
+                                                  : colorScheme.onSurface.withOpacity(0.4),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              task.startDate != null
+                                                  ? _formatDate(task.startDate!)
+                                                  : '시작일',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: task.startDate != null
+                                                    ? colorScheme.primary
+                                                    : colorScheme.onSurface.withOpacity(0.5),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // 종료일 태그
+                                    InkWell(
+                                      onTap: () => _showDateRangePicker(context, task, taskProvider),
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: task.endDate != null
+                                              ? colorScheme.secondary.withOpacity(0.15)
+                                              : colorScheme.onSurface.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: task.endDate != null
+                                                ? colorScheme.secondary.withOpacity(0.5)
+                                                : colorScheme.onSurface.withOpacity(0.2),
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.event,
+                                              size: 14,
+                                              color: task.endDate != null
+                                                  ? colorScheme.secondary
+                                                  : colorScheme.onSurface.withOpacity(0.4),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              task.endDate != null
+                                                  ? _formatDate(task.endDate!)
+                                                  : '종료일',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: task.endDate != null
+                                                    ? colorScheme.secondary
+                                                    : colorScheme.onSurface.withOpacity(0.5),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // 상태 (클릭 가능)
+                                    InkWell(
+                                      onTap: () => _showStatusPicker(context, task, taskProvider),
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: statusColor.withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: statusColor.withOpacity(0.5),
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.label,
+                                              size: 14,
+                                              color: statusColor,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              task.status.displayName,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: statusColor,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                    const SizedBox(width: 8),
+                                    // 편집 버튼
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.edit,
+                                        size: 20,
+                                        color: colorScheme.primary.withOpacity(0.7),
+                                      ),
+                                      onPressed: () {
+                                        showDialog(
+                                          context: context,
+                                          barrierColor: Colors.black.withOpacity(0.2),
+                                          builder: (context) => TaskDetailScreen(task: task),
+                                        );
+                                      },
+                                      tooltip: '편집',
+                                    ),
+                                    // 삭제 버튼
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.close,
+                                        size: 20,
+                                        color: Colors.red.withOpacity(0.7),
+                                      ),
+                                      onPressed: () {
+                                        _showDeleteConfirmDialog(
+                                            context, task, taskProvider);
+                                      },
+                                      tooltip: '삭제',
+                                    ),
+                                  ],
+                                ),
+                                // 펼쳐진 상세 내용
+                                if (isExpanded) ...[
+                                  const Divider(height: 1),
+                                  Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // 설명
+                                        if (task.description.isNotEmpty) ...[
+                                          Text(
+                                            '설명',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: colorScheme.onSurface.withOpacity(0.8),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            task.description,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: colorScheme.onSurface.withOpacity(0.7),
+                                              height: 1.5,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 16),
+                                        ],
+                                        // 상세 내용
+                                        if (task.detail.isNotEmpty) ...[
+                                          Text(
+                                            '상세 내용',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: colorScheme.onSurface.withOpacity(0.8),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            task.detail,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: colorScheme.onSurface.withOpacity(0.7),
+                                              height: 1.5,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 16),
+                                        ],
+                                        // 상세 화면으로 이동 버튼
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                            TextButton.icon(
+                                              onPressed: () {
+                                                Navigator.of(context).push(
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        TaskDetailScreen(task: task),
+                                                  ),
+                                                );
+                                              },
+                                              icon: Icon(
+                                                Icons.open_in_new,
+                                                size: 16,
+                                                color: colorScheme.primary,
+                                              ),
+                                              label: Text(
+                                                '상세 화면에서 편집',
+                                                style: TextStyle(
+                                                  color: colorScheme.primary,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          const SizedBox(height: 16),
+          // 하단 입력창
+          GlassContainer(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            borderRadius: 20.0,
+            blur: 25.0,
+            gradientColors: [
+              colorScheme.surface.withOpacity(0.6),
+              colorScheme.surface.withOpacity(0.5),
+            ],
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _taskController,
+                    decoration: InputDecoration(
+                      hintText: '태스크를 입력하고 Enter를 누르세요...',
+                      border: InputBorder.none,
+                      hintStyle: TextStyle(
+                        color: colorScheme.onSurface.withOpacity(0.5),
+                        fontSize: 16,
+                      ),
+                    ),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: colorScheme.onSurface,
+                    ),
+                    maxLines: null,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _addTask(),
+                    autofocus: false,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: Icon(
+                    Icons.send,
+                    color: colorScheme.primary,
+                  ),
+                  onPressed: _addTask,
+                  tooltip: '추가',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 태스크 삭제 확인 다이얼로그
+  Future<void> _showDeleteConfirmDialog(
+    BuildContext context,
+    Task task,
+    TaskProvider taskProvider,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.2),
+      builder: (context) {
+        final dialogColorScheme = Theme.of(context).colorScheme;
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 400,
+              maxHeight: 300,
+            ),
+            child: GlassContainer(
+              padding: const EdgeInsets.all(24),
+              borderRadius: 20.0,
+              blur: 25.0,
+              gradientColors: [
+                dialogColorScheme.surface.withOpacity(0.6),
+                dialogColorScheme.surface.withOpacity(0.5),
+              ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '태스크 삭제',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: dialogColorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '\'${task.title}\' 태스크를 삭제하시겠습니까?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: dialogColorScheme.onSurface.withOpacity(0.8),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: Text(
+                          '취소',
+                          style: TextStyle(color: dialogColorScheme.onSurface),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: GlassContainer(
+                          padding: EdgeInsets.zero,
+                          borderRadius: 12.0,
+                          blur: 20.0,
+                          gradientColors: [
+                            Colors.red.withOpacity(0.5),
+                            Colors.red.withOpacity(0.4),
+                          ],
+                          child: TextButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            child: const Text(
+                              '삭제',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (confirmed == true && context.mounted) {
+      await taskProvider.deleteTask(task.id);
+    }
+  }
+
+  /// 날짜 포맷팅
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  /// 기간 선택 다이얼로그
+  Future<void> _showDateRangePicker(
+    BuildContext context,
+    Task task,
+    TaskProvider taskProvider,
+  ) async {
+    final colorScheme = Theme.of(context).colorScheme;
+    DateTime? selectedStartDate = task.startDate;
+    DateTime? selectedEndDate = task.endDate;
+
+    final result = await showDialog<Map<String, DateTime?>>(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.2),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 500,
+                  maxHeight: 600,
+                ),
+                child: GlassContainer(
+                  padding: const EdgeInsets.all(24),
+                  borderRadius: 20.0,
+                  blur: 25.0,
+                  gradientColors: [
+                    colorScheme.surface.withOpacity(0.6),
+                    colorScheme.surface.withOpacity(0.5),
+                  ],
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '기간 선택',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      // 시작일 선택
+                      Text(
+                        '시작일',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: selectedStartDate ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: selectedEndDate ?? DateTime(2030),
+                          );
+                          if (date != null) {
+                            setState(() {
+                              selectedStartDate = date;
+                              // 시작일이 종료일보다 늦으면 종료일 초기화
+                              if (selectedEndDate != null &&
+                                  date.isAfter(selectedEndDate!)) {
+                                selectedEndDate = null;
+                              }
+                            });
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: colorScheme.primary.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.calendar_today,
+                                size: 20,
+                                color: colorScheme.primary,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                selectedStartDate != null
+                                    ? _formatDate(selectedStartDate!)
+                                    : '날짜 선택',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: selectedStartDate != null
+                                      ? colorScheme.onSurface
+                                      : colorScheme.onSurface.withOpacity(0.5),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      // 종료일 선택
+                      Text(
+                        '종료일',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: selectedEndDate ??
+                                (selectedStartDate ?? DateTime.now()),
+                            firstDate: selectedStartDate ?? DateTime(2020),
+                            lastDate: DateTime(2030),
+                          );
+                          if (date != null) {
+                            setState(() {
+                              selectedEndDate = date;
+                            });
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: colorScheme.secondary.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.event,
+                                size: 20,
+                                color: colorScheme.secondary,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                selectedEndDate != null
+                                    ? _formatDate(selectedEndDate!)
+                                    : '날짜 선택',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: selectedEndDate != null
+                                      ? colorScheme.onSurface
+                                      : colorScheme.onSurface.withOpacity(0.5),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      // 버튼
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: Text(
+                              '취소',
+                              style: TextStyle(color: colorScheme.onSurface),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.of(context).pop({
+                                'startDate': selectedStartDate,
+                                'endDate': selectedEndDate,
+                              });
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: colorScheme.primary,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('확인'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (result != null && context.mounted) {
+      await taskProvider.updateTask(
+        task.copyWith(
+          startDate: result['startDate'],
+          endDate: result['endDate'],
+          updatedAt: DateTime.now(),
+        ),
+      );
+    }
+  }
+
+  /// 상태 선택 다이얼로그
+  Future<void> _showStatusPicker(
+    BuildContext context,
+    Task task,
+    TaskProvider taskProvider,
+  ) async {
+    final colorScheme = Theme.of(context).colorScheme;
+    TaskStatus? selectedStatus = task.status;
+
+    final result = await showDialog<TaskStatus>(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.2),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 400,
+                  maxHeight: 500,
+                ),
+                child: GlassContainer(
+                  padding: const EdgeInsets.all(24),
+                  borderRadius: 20.0,
+                  blur: 25.0,
+                  gradientColors: [
+                    colorScheme.surface.withOpacity(0.6),
+                    colorScheme.surface.withOpacity(0.5),
+                  ],
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '상태 선택',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      // 모든 상태 옵션 표시
+                      ...TaskStatus.values.map((status) {
+                        final statusColor = status.color;
+                        final isSelected = selectedStatus == status;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: InkWell(
+                            onTap: () {
+                              setState(() {
+                                selectedStatus = status;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? statusColor.withOpacity(0.2)
+                                    : colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? statusColor.withOpacity(0.8)
+                                      : colorScheme.onSurface.withOpacity(0.2),
+                                  width: isSelected ? 2 : 1,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 12,
+                                    height: 12,
+                                    decoration: BoxDecoration(
+                                      color: statusColor,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      status.displayName,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: isSelected
+                                            ? statusColor
+                                            : colorScheme.onSurface,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isSelected)
+                                    Icon(
+                                      Icons.check,
+                                      color: statusColor,
+                                      size: 20,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 24),
+                      // 버튼
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: Text(
+                              '취소',
+                              style: TextStyle(color: colorScheme.onSurface),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () {
+                              if (selectedStatus != null) {
+                                Navigator.of(context).pop(selectedStatus);
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: colorScheme.primary,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('확인'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (result != null && context.mounted) {
+      await taskProvider.updateTask(
+        task.copyWith(
+          status: result,
+          updatedAt: DateTime.now(),
+        ),
+      );
+    }
+  }
+}
+
