@@ -20,6 +20,8 @@ class Task {
   final DateTime? endDate; // 종료일
   final String detail; // 상세 내용
   final List<String> assignedMemberIds; // 할당된 팀원 사용자 ID 목록
+  final List<String> commentIds; // 댓글 ID 목록
+  final TaskPriority priority; // 중요도
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -33,9 +35,13 @@ class Task {
     this.endDate,
     this.detail = '',
     List<String>? assignedMemberIds,
+    List<String>? commentIds,
+    TaskPriority? priority,
     required this.createdAt,
     required this.updatedAt,
-  }) : assignedMemberIds = assignedMemberIds ?? [];
+  }) : assignedMemberIds = assignedMemberIds ?? [],
+       commentIds = commentIds ?? [],
+       priority = priority ?? TaskPriority.p1;
 
   /// JSON으로 변환 (저장용)
   Map<String, dynamic> toJson() {
@@ -49,6 +55,8 @@ class Task {
       'endDate': endDate?.toIso8601String(),
       'detail': detail,
       'assignedMemberIds': assignedMemberIds,
+      'commentIds': commentIds,
+      'priority': priority.name,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -69,6 +77,19 @@ class Task {
       }
     }
     
+    // commentIds가 없거나 null인 경우 빈 리스트 반환
+    List<String> commentIds = [];
+    if (json.containsKey('commentIds') && json['commentIds'] != null) {
+      try {
+        final ids = json['commentIds'];
+        if (ids is List) {
+          commentIds = ids.map((e) => e.toString()).toList();
+        }
+      } catch (e) {
+        commentIds = [];
+      }
+    }
+    
     return Task(
       id: json['id'],
       title: json['title'],
@@ -82,6 +103,13 @@ class Task {
       endDate: json['endDate'] != null ? DateTime.parse(json['endDate']) : null,
       detail: json['detail'] ?? '',
       assignedMemberIds: assignedMemberIds,
+      commentIds: commentIds,
+      priority: json.containsKey('priority') && json['priority'] != null
+          ? TaskPriority.values.firstWhere(
+              (e) => e.name == json['priority'],
+              orElse: () => TaskPriority.p1,
+            )
+          : TaskPriority.p1,
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
     );
@@ -98,6 +126,8 @@ class Task {
     DateTime? endDate,
     String? detail,
     List<String>? assignedMemberIds,
+    List<String>? commentIds,
+    TaskPriority? priority,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -111,6 +141,8 @@ class Task {
       endDate: endDate ?? this.endDate,
       detail: detail ?? this.detail,
       assignedMemberIds: assignedMemberIds ?? this.assignedMemberIds,
+      commentIds: commentIds ?? this.commentIds,
+      priority: priority ?? this.priority,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -156,6 +188,58 @@ extension TaskStatusExtension on TaskStatus {
         return const Color(0xFF9C27B0); // 보라색
       case TaskStatus.done:
         return const Color(0xFF4CAF50); // 초록색
+    }
+  }
+}
+
+/// 태스크 중요도 열거형
+enum TaskPriority {
+  p0,  // 최우선
+  p1,  // 높음
+  p2,  // 보통
+  p3,  // 낮음
+}
+
+/// 중요도별 확장
+extension TaskPriorityExtension on TaskPriority {
+  String get displayName {
+    switch (this) {
+      case TaskPriority.p0:
+        return 'P0';
+      case TaskPriority.p1:
+        return 'P1';
+      case TaskPriority.p2:
+        return 'P2';
+      case TaskPriority.p3:
+        return 'P3';
+    }
+  }
+
+  /// 중요도별 색상
+  Color get color {
+    switch (this) {
+      case TaskPriority.p0:
+        return const Color(0xFFE53935); // 빨간색 (최우선)
+      case TaskPriority.p1:
+        return const Color(0xFFFF9800); // 주황색 (높음)
+      case TaskPriority.p2:
+        return const Color(0xFF2196F3); // 파란색 (보통)
+      case TaskPriority.p3:
+        return const Color(0xFF9E9E9E); // 회색 (낮음)
+    }
+  }
+
+  /// 중요도별 설명
+  String get description {
+    switch (this) {
+      case TaskPriority.p0:
+        return '최우선';
+      case TaskPriority.p1:
+        return '높음';
+      case TaskPriority.p2:
+        return '보통';
+      case TaskPriority.p3:
+        return '낮음';
     }
   }
 }

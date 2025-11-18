@@ -1410,58 +1410,58 @@ class _MainLayoutState extends State<MainLayout> {
 
   /// 설정 다이얼로그
   void _showSettingsDialog(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final authProvider = Provider.of<AuthProvider>(context);
-
     showDialog(
       context: context,
       barrierColor: Colors.black.withOpacity(0.2),
-      builder: (context) {
+      builder: (dialogContext) {
+        final colorScheme = Theme.of(dialogContext).colorScheme;
         return Dialog(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          child: GlassContainer(
-            padding: const EdgeInsets.all(0),
-            borderRadius: 24.0,
-            blur: 25.0,
-            gradientColors: [
-              colorScheme.surface.withOpacity(0.6),
-              colorScheme.surface.withOpacity(0.5),
-            ],
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: 500,
-                maxHeight: 600,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+          child: Consumer<AuthProvider>(
+            builder: (context, authProvider, _) {
+              return GlassContainer(
+                padding: const EdgeInsets.all(0),
+                borderRadius: 24.0,
+                blur: 25.0,
+                gradientColors: [
+                  colorScheme.surface.withOpacity(0.6),
+                  colorScheme.surface.withOpacity(0.5),
+                ],
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 500,
+                    maxHeight: 600,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '설정',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              '설정',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: Icon(
+                                Icons.close,
+                                color: colorScheme.onSurface.withOpacity(0.7),
+                              ),
+                              onPressed: () => Navigator.of(dialogContext).pop(),
+                            ),
+                          ],
                         ),
-                        const Spacer(),
-                        IconButton(
-                          icon: Icon(
-                            Icons.close,
-                            color: colorScheme.onSurface.withOpacity(0.7),
-                          ),
-                          onPressed: () => Navigator.of(context).pop(),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    // 사용자 정보
-                    if (authProvider.currentUser != null) ...[
+                        const SizedBox(height: 24),
+                        // 사용자 정보
+                        if (authProvider.currentUser != null) ...[
                       Row(
                         children: [
                           CircleAvatar(
@@ -1547,12 +1547,12 @@ class _MainLayoutState extends State<MainLayout> {
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         onPressed: () async {
-                          Navigator.of(context).pop(); // 설정 다이얼로그 닫기
+                          Navigator.of(dialogContext).pop(); // 설정 다이얼로그 닫기
                           final confirmed = await showDialog<bool>(
-                            context: context,
+                            context: dialogContext,
                             barrierColor: Colors.black.withOpacity(0.2),
-                            builder: (context) {
-                              final dialogColorScheme = Theme.of(context).colorScheme;
+                            builder: (logoutDialogContext) {
+                              final dialogColorScheme = Theme.of(logoutDialogContext).colorScheme;
                               return Dialog(
                                 backgroundColor: Colors.transparent,
                                 elevation: 0,
@@ -1591,7 +1591,7 @@ class _MainLayoutState extends State<MainLayout> {
                                           mainAxisAlignment: MainAxisAlignment.end,
                                           children: [
                                             TextButton(
-                                              onPressed: () => Navigator.of(context).pop(false),
+                                              onPressed: () => Navigator.of(logoutDialogContext).pop(false),
                                               child: Text(
                                                 '취소',
                                                 style: TextStyle(
@@ -1602,7 +1602,7 @@ class _MainLayoutState extends State<MainLayout> {
                                             ),
                                             const SizedBox(width: 8),
                                             TextButton(
-                                              onPressed: () => Navigator.of(context).pop(true),
+                                              onPressed: () => Navigator.of(logoutDialogContext).pop(true),
                                               style: TextButton.styleFrom(
                                                 backgroundColor: dialogColorScheme.primary.withOpacity(0.2),
                                                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -1626,10 +1626,10 @@ class _MainLayoutState extends State<MainLayout> {
                             },
                           );
 
-                          if (confirmed == true && context.mounted) {
+                          if (confirmed == true && dialogContext.mounted) {
                             await authProvider.logout();
-                            if (context.mounted) {
-                              Navigator.of(context).pushReplacement(
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pushReplacement(
                                 MaterialPageRoute(builder: (_) => const LoginScreen()),
                               );
                             }
@@ -1656,6 +1656,8 @@ class _MainLayoutState extends State<MainLayout> {
                 ),
               ),
             ),
+          );
+            },
           ),
         );
       },

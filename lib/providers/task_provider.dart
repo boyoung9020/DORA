@@ -50,6 +50,7 @@ class TaskProvider extends ChangeNotifier {
     DateTime? startDate,
     DateTime? endDate,
     String detail = '',
+    TaskPriority priority = TaskPriority.p1,
   }) async {
     try {
       final task = await _taskService.createTask(
@@ -60,6 +61,7 @@ class TaskProvider extends ChangeNotifier {
         startDate: startDate,
         endDate: endDate,
         detail: detail,
+        priority: priority,
       );
       _tasks.add(task);
       notifyListeners();

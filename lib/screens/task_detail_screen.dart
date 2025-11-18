@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/task.dart';
 import '../models/user.dart';
+import '../models/comment.dart';
 import '../providers/task_provider.dart';
 import '../providers/project_provider.dart';
+import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
+import '../services/comment_service.dart';
 import '../widgets/glass_container.dart';
 
 /// 태스크 상세 화면 - GitHub 이슈 스타일
@@ -24,10 +27,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   late TextEditingController _detailController;
+  late TextEditingController _commentController;
   late TaskStatus _selectedStatus;
+  late TaskPriority _selectedPriority;
   DateTime? _startDate;
   DateTime? _endDate;
   bool _isEditing = false;
+  final CommentService _commentService = CommentService();
+  List<Comment> _comments = [];
+  bool _isLoadingComments = false;
 
   @override
   void initState() {
@@ -35,9 +43,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _titleController = TextEditingController(text: widget.task.title);
     _descriptionController = TextEditingController(text: widget.task.description);
     _detailController = TextEditingController(text: widget.task.detail);
+    _commentController = TextEditingController();
     _selectedStatus = widget.task.status;
+    _selectedPriority = widget.task.priority;
     _startDate = widget.task.startDate;
     _endDate = widget.task.endDate;
+    _loadComments();
   }
 
   @override
@@ -45,7 +56,134 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _detailController.dispose();
+    _commentController.dispose();
     super.dispose();
+  }
+
+  /// 댓글 로드
+  Future<void> _loadComments() async {
+    setState(() {
+      _isLoadingComments = true;
+    });
+    try {
+      final comments = await _commentService.getCommentsByTaskId(widget.task.id);
+      setState(() {
+        _comments = comments;
+        _isLoadingComments = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingComments = false;
+      });
+    }
+  }
+
+  /// 댓글 추가
+  Future<void> _addComment() async {
+    if (_commentController.text.trim().isEmpty) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.currentUser == null) return;
+
+    final user = authProvider.currentUser!;
+    final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+    
+    try {
+      final comment = await _commentService.createComment(
+        taskId: widget.task.id,
+        userId: user.id,
+        username: user.username,
+        content: _commentController.text.trim(),
+      );
+
+      // Task에 댓글 ID 추가
+      final currentTask = taskProvider.tasks.firstWhere(
+        (t) => t.id == widget.task.id,
+        orElse: () => widget.task,
+      );
+      
+      // commentIds가 null이거나 잘못된 타입인 경우를 대비
+      List<String> updatedCommentIds;
+      try {
+        updatedCommentIds = List<String>.from(currentTask.commentIds);
+      } catch (e) {
+        // commentIds가 null이거나 잘못된 타입인 경우 빈 리스트로 시작
+        updatedCommentIds = [];
+      }
+      
+      updatedCommentIds.add(comment.id);
+      await taskProvider.updateTask(
+        currentTask.copyWith(
+          commentIds: updatedCommentIds,
+          updatedAt: DateTime.now(),
+        ),
+      );
+
+      _commentController.clear();
+      await _loadComments();
+    } catch (e, stackTrace) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('댓글 추가 중 오류가 발생했습니다: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+      print('댓글 추가 오류: $e');
+      print('스택 트레이스: $stackTrace');
+    }
+  }
+
+  /// 댓글 삭제
+  Future<void> _deleteComment(String commentId) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.currentUser == null) return;
+
+    final comment = _comments.firstWhere((c) => c.id == commentId);
+    
+    // 본인 댓글만 삭제 가능
+    if (comment.userId != authProvider.currentUser!.id) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('본인의 댓글만 삭제할 수 있습니다'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      await _commentService.deleteComment(commentId);
+      
+      // Task에서 댓글 ID 제거
+      final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+      final currentTask = taskProvider.tasks.firstWhere(
+        (t) => t.id == widget.task.id,
+        orElse: () => widget.task,
+      );
+      final updatedCommentIds = currentTask.commentIds.where((id) => id != commentId).toList();
+      await taskProvider.updateTask(
+        currentTask.copyWith(
+          commentIds: updatedCommentIds,
+          updatedAt: DateTime.now(),
+        ),
+      );
+
+      await _loadComments();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('댓글 삭제 중 오류가 발생했습니다: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -94,6 +232,40 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       ),
                     ),
                   ),
+                  // 중요도 배지
+                  GlassContainer(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    borderRadius: 20.0,
+                    blur: 20.0,
+                    gradientColors: [
+                      currentTask.priority.color.withOpacity(0.3),
+                      currentTask.priority.color.withOpacity(0.2),
+                    ],
+                    borderColor: currentTask.priority.color.withOpacity(0.5),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: currentTask.priority.color,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          currentTask.priority.displayName,
+                          style: TextStyle(
+                            color: currentTask.priority.color,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   // 상태 배지
                   GlassContainer(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -247,6 +419,177 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 ],
                               ),
                             ),
+                            const SizedBox(height: 16),
+                            // 댓글 섹션
+                            GlassContainer(
+                              padding: const EdgeInsets.all(20),
+                              borderRadius: 15.0,
+                              blur: 20.0,
+                              gradientColors: [
+                                colorScheme.surface.withOpacity(0.4),
+                                colorScheme.surface.withOpacity(0.3),
+                              ],
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.comment_outlined,
+                                        size: 20,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '댓글 (${_comments.length})',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  // 댓글 입력
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: TextField(
+                                          controller: _commentController,
+                                          maxLines: 3,
+                                          minLines: 1,
+                                          decoration: InputDecoration(
+                                            hintText: '댓글을 입력하세요...',
+                                            border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            filled: true,
+                                            fillColor: Colors.white.withOpacity(0.5),
+                                            contentPadding: const EdgeInsets.all(12),
+                                          ),
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: colorScheme.onSurface,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.send,
+                                          color: colorScheme.primary,
+                                        ),
+                                        onPressed: _addComment,
+                                        tooltip: '댓글 추가',
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  // 댓글 목록
+                                  if (_isLoadingComments)
+                                    const Center(
+                                      child: Padding(
+                                        padding: EdgeInsets.all(16.0),
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    )
+                                  else if (_comments.isEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.all(16.0),
+                                      child: Text(
+                                        '댓글이 없습니다. 첫 댓글을 작성해보세요!',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: colorScheme.onSurface.withOpacity(0.5),
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    ..._comments.map((comment) {
+                                      final isMyComment = comment.userId == 
+                                        (Provider.of<AuthProvider>(context, listen: false).currentUser?.id ?? '');
+                                      return Container(
+                                        margin: const EdgeInsets.only(bottom: 12),
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: colorScheme.surface.withOpacity(0.3),
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: colorScheme.onSurface.withOpacity(0.1),
+                                          ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                CircleAvatar(
+                                                  radius: 12,
+                                                  backgroundColor: colorScheme.primary,
+                                                  child: Text(
+                                                    comment.username[0].toUpperCase(),
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.white,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        comment.username,
+                                                        style: TextStyle(
+                                                          fontSize: 14,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: colorScheme.onSurface,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        '${comment.createdAt.year}-${comment.createdAt.month.toString().padLeft(2, '0')}-${comment.createdAt.day.toString().padLeft(2, '0')} ${comment.createdAt.hour.toString().padLeft(2, '0')}:${comment.createdAt.minute.toString().padLeft(2, '0')}',
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          color: colorScheme.onSurface.withOpacity(0.5),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                if (isMyComment)
+                                                  IconButton(
+                                                    icon: Icon(
+                                                      Icons.delete_outline,
+                                                      size: 18,
+                                                      color: colorScheme.error,
+                                                    ),
+                                                    onPressed: () => _deleteComment(comment.id),
+                                                    tooltip: '삭제',
+                                                    padding: EdgeInsets.zero,
+                                                    constraints: const BoxConstraints(),
+                                                  ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              comment.content,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: colorScheme.onSurface.withOpacity(0.8),
+                                                height: 1.5,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -367,6 +710,79 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           _selectedStatus = value;
                                         });
                                         taskProvider.changeTaskStatus(currentTask.id, value);
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            // 중요도
+                            GlassContainer(
+                              padding: const EdgeInsets.all(16),
+                              borderRadius: 15.0,
+                              blur: 20.0,
+                              gradientColors: [
+                                colorScheme.surface.withOpacity(0.4),
+                                colorScheme.surface.withOpacity(0.3),
+                              ],
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        '중요도',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Icon(Icons.priority_high, size: 16, color: colorScheme.onSurface.withOpacity(0.5)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  DropdownButton<TaskPriority>(
+                                    value: _selectedPriority,
+                                    isExpanded: true,
+                                    items: TaskPriority.values.map((priority) {
+                                      return DropdownMenuItem(
+                                        value: priority,
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 8,
+                                              height: 8,
+                                              decoration: BoxDecoration(
+                                                color: priority.color,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '${priority.displayName} - ${priority.description}',
+                                              style: TextStyle(
+                                                color: priority.color,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                    onChanged: (value) {
+                                      if (value != null) {
+                                        setState(() {
+                                          _selectedPriority = value;
+                                        });
+                                        taskProvider.updateTask(
+                                          currentTask.copyWith(
+                                            priority: value,
+                                            updatedAt: DateTime.now(),
+                                          ),
+                                        );
                                       }
                                     },
                                   ),

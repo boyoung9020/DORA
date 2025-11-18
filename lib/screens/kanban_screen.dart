@@ -16,6 +16,8 @@ class KanbanScreen extends StatefulWidget {
 }
 
 class _KanbanScreenState extends State<KanbanScreen> {
+  final ScrollController _horizontalScrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -23,6 +25,12 @@ class _KanbanScreenState extends State<KanbanScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TaskProvider>().loadTasks();
     });
+  }
+
+  @override
+  void dispose() {
+    _horizontalScrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -89,7 +97,6 @@ class _KanbanScreenState extends State<KanbanScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         // 화면 너비에 따라 컬럼 너비 계산
-        // 최소 250px, 최대 300px, 화면이 작으면 더 작게 조정
         final screenWidth = constraints.maxWidth;
         final columnCount = 5; // 컬럼 개수
         final spacing = 16.0; // 컬럼 간 간격
@@ -97,56 +104,64 @@ class _KanbanScreenState extends State<KanbanScreen> {
         
         // 사용 가능한 너비 계산
         final availableWidth = screenWidth - padding - (spacing * (columnCount - 1));
-        // 컬럼 너비 계산 (최소 250px, 최대 300px)
-        final columnWidth = (availableWidth / columnCount).clamp(250.0, 300.0);
+        // 컬럼 너비 계산 (최소 180px로 낮춤, 최대 300px)
+        // 화면이 작아도 모든 컬럼이 보이도록 최소값을 낮춤
+        final columnWidth = (availableWidth / columnCount).clamp(180.0, 300.0);
         
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildColumn(
-                context,
-                TaskStatus.backlog,
-                taskProvider.getTasksByStatus(TaskStatus.backlog, projectId: currentProjectId),
-                taskProvider,
-                columnWidth: columnWidth,
-              ),
-              SizedBox(width: spacing),
-              _buildColumn(
-                context,
-                TaskStatus.ready,
-                taskProvider.getTasksByStatus(TaskStatus.ready, projectId: currentProjectId),
-                taskProvider,
-                columnWidth: columnWidth,
-              ),
-              SizedBox(width: spacing),
-              _buildColumn(
-                context,
-                TaskStatus.inProgress,
-                taskProvider.getTasksByStatus(TaskStatus.inProgress, projectId: currentProjectId),
-                taskProvider,
-                columnWidth: columnWidth,
-              ),
-              SizedBox(width: spacing),
-              _buildColumn(
-                context,
-                TaskStatus.inReview,
-                taskProvider.getTasksByStatus(TaskStatus.inReview, projectId: currentProjectId),
-                taskProvider,
-                columnWidth: columnWidth,
-              ),
-              SizedBox(width: spacing),
-              _buildColumn(
-                context,
-                TaskStatus.done,
-                taskProvider.getTasksByStatus(TaskStatus.done, projectId: currentProjectId),
-                taskProvider,
-                columnWidth: columnWidth,
-              ),
-            ],
+        return Scrollbar(
+          controller: _horizontalScrollController,
+          thumbVisibility: true,
+          thickness: 8.0,
+          radius: const Radius.circular(4.0),
+          child: SingleChildScrollView(
+            controller: _horizontalScrollController,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildColumn(
+                  context,
+                  TaskStatus.backlog,
+                  taskProvider.getTasksByStatus(TaskStatus.backlog, projectId: currentProjectId),
+                  taskProvider,
+                  columnWidth: columnWidth,
+                ),
+                SizedBox(width: spacing),
+                _buildColumn(
+                  context,
+                  TaskStatus.ready,
+                  taskProvider.getTasksByStatus(TaskStatus.ready, projectId: currentProjectId),
+                  taskProvider,
+                  columnWidth: columnWidth,
+                ),
+                SizedBox(width: spacing),
+                _buildColumn(
+                  context,
+                  TaskStatus.inProgress,
+                  taskProvider.getTasksByStatus(TaskStatus.inProgress, projectId: currentProjectId),
+                  taskProvider,
+                  columnWidth: columnWidth,
+                ),
+                SizedBox(width: spacing),
+                _buildColumn(
+                  context,
+                  TaskStatus.inReview,
+                  taskProvider.getTasksByStatus(TaskStatus.inReview, projectId: currentProjectId),
+                  taskProvider,
+                  columnWidth: columnWidth,
+                ),
+                SizedBox(width: spacing),
+                _buildColumn(
+                  context,
+                  TaskStatus.done,
+                  taskProvider.getTasksByStatus(TaskStatus.done, projectId: currentProjectId),
+                  taskProvider,
+                  columnWidth: columnWidth,
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -470,6 +485,40 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            const SizedBox(width: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: task.priority.color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: task.priority.color.withOpacity(0.5),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 4,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: task.priority.color,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    task.priority.displayName,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: task.priority.color,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
         if (task.description.isNotEmpty) ...[
@@ -564,6 +613,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
     TaskStatus selectedStatus = initialStatus;
+    TaskPriority selectedPriority = TaskPriority.p1;
     DateTime? startDate;
     DateTime? endDate;
 
@@ -648,6 +698,60 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                 fontWeight: selectedStatus == status
                                     ? FontWeight.bold
                                     : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      '중요도',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: TaskPriority.values.map((priority) {
+                        return Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: ChoiceChip(
+                              label: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      color: priority.color,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(priority.displayName),
+                                ],
+                              ),
+                              selected: selectedPriority == priority,
+                              onSelected: (selected) {
+                                if (selected) {
+                                  setState(() {
+                                    selectedPriority = priority;
+                                  });
+                                }
+                              },
+                              selectedColor: priority.color.withOpacity(0.3),
+                              labelStyle: TextStyle(
+                                color: selectedPriority == priority
+                                    ? priority.color
+                                    : colorScheme.onSurface,
+                                fontWeight: selectedPriority == priority
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                fontSize: 12,
                               ),
                             ),
                           ),
@@ -785,6 +889,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                         projectId: currentProjectId,
                                         startDate: startDate,
                                         endDate: endDate,
+                                        priority: selectedPriority,
                                       );
                                 }
                                 Navigator.of(context).pop();
