@@ -42,6 +42,7 @@ class GlassContainer extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isDarkMode = theme.brightness == Brightness.dark;
     
     return Container(
       width: width,
@@ -71,20 +72,11 @@ class GlassContainer extends StatelessWidget {
           child: Container(
             padding: padding,
             decoration: BoxDecoration(
-              gradient: gradientColors != null
-                  ? LinearGradient(
-                      begin: gradientBegin ?? Alignment.topLeft,
-                      end: gradientEnd ?? Alignment.bottomRight,
-                      colors: gradientColors!,
-                    )
-                  : LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white.withOpacity(0.4),  // 밝은 흰색 배경에 맞게
-                        Colors.white.withOpacity(0.3),  // 밝은 흰색 배경에 맞게
-                      ],
-                    ),
+              color: gradientColors != null
+                  ? (isDarkMode ? const Color.fromARGB(255, 34, 34, 34) : gradientColors!.first)
+                  : isDarkMode
+                      ? const Color(0xFF0F0F0F)
+                      : Colors.white.withOpacity(0.4),
             ),
             child: child,
           ),
@@ -123,14 +115,17 @@ class GlassTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    
     return GlassContainer(
       padding: EdgeInsets.zero,
       borderRadius: 15.0,
       blur: 20.0,  // 더 강한 블러
       borderWidth: 0.8,  // 더 미묘한 테두리
       gradientColors: [
-        Colors.white.withOpacity(0.5),  // 밝은 배경에 맞게 더 밝게
-        Colors.white.withOpacity(0.4),  // 밝은 배경에 맞게 더 밝게
+        isDarkMode
+            ? const Color(0xFF0F0F0F)
+            : Colors.white.withOpacity(0.5),
       ],
       child: TextFormField(
         controller: controller,
@@ -202,27 +197,23 @@ class _GlassButtonState extends State<GlassButton> {
 
   @override
   Widget build(BuildContext context) {
-    // 기본 그라데이션 색상
-    final defaultGradient = widget.gradientColors ??
-        [
-          Colors.white.withOpacity(0.5),
-          Colors.white.withOpacity(0.4),
-        ];
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    
+    // 기본 단색
+    final defaultColor = widget.gradientColors != null
+        ? (isDarkMode ? const Color(0xFF0F0F0F) : widget.gradientColors!.first)
+        : isDarkMode
+            ? const Color(0xFF0F0F0F)
+            : Colors.white.withOpacity(0.5);
 
-    // 호버 시 그라데이션 색상 (더 진하게)
-    final hoverGradient = widget.gradientColors != null
-        ? [
-            widget.gradientColors!.first.withOpacity(
-              (widget.gradientColors!.first.opacity + 0.2).clamp(0.0, 1.0),  // 더 진하게 (최대 1.0)
-            ),
-            widget.gradientColors!.last.withOpacity(
-              (widget.gradientColors!.last.opacity + 0.15).clamp(0.0, 1.0),  // 더 진하게 (최대 1.0)
-            ),
-          ]
-        : [
-            Colors.white.withOpacity(0.7),  // 호버 시 더 밝게
-            Colors.white.withOpacity(0.6),  // 호버 시 더 밝게
-          ];
+    // 호버 시 색상 (더 진하게)
+    final hoverColor = widget.gradientColors != null
+        ? (isDarkMode ? const Color(0xFF000000) : widget.gradientColors!.first.withOpacity(
+            (widget.gradientColors!.first.opacity + 0.2).clamp(0.0, 1.0),
+          ))
+        : isDarkMode
+            ? const Color(0xFF000000)
+            : Colors.white.withOpacity(0.7);
 
     return GlassContainer(
       width: widget.width,
@@ -230,7 +221,7 @@ class _GlassButtonState extends State<GlassButton> {
       borderRadius: 15.0,
       blur: 20.0,  // 더 강한 블러
       borderWidth: 1.0,  // 더 미묘한 테두리
-      gradientColors: _isHovered ? hoverGradient : defaultGradient,
+      gradientColors: [_isHovered ? hoverColor : defaultColor],
       child: Material(
         color: Colors.transparent,
         child: MouseRegion(

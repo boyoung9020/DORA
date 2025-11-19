@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import '../providers/task_provider.dart';
 import '../providers/project_provider.dart';
 import '../models/task.dart';
@@ -16,10 +18,18 @@ class CalendarScreen extends StatefulWidget {
 class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _selectedDate = DateTime.now();
   DateTime _currentMonth = DateTime.now();
+  bool _isLocaleReady = false;
 
   @override
   void initState() {
     super.initState();
+    initializeDateFormatting('ko').then((_) {
+      if (mounted) {
+        setState(() {
+          _isLocaleReady = true;
+        });
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TaskProvider>().loadTasks();
     });
@@ -32,20 +42,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final projectProvider = context.watch<ProjectProvider>();
     final currentProjectId = projectProvider.currentProject?.id;
 
-    // 현재 월에 해당하는 태스크 필터링 (시작일/종료일 기준)
     final projectTasks = currentProjectId != null
-        ? taskProvider.tasks.where((task) => task.projectId == currentProjectId).toList()
-        : taskProvider.tasks;
+        ? taskProvider.tasks
+            .where((task) => 
+                task.projectId == currentProjectId && 
+                task.status != TaskStatus.backlog)
+            .toList()
+        : <Task>[];
     
-    // 현재 월의 첫날과 마지막날
     final firstDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
     final lastDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
     
-    // 현재 월에 기간이 겹치는 태스크만 필터링
     final tasksInMonth = projectTasks.where((task) {
       final startDate = task.startDate ?? task.createdAt;
       final endDate = task.endDate ?? task.updatedAt;
-      // 태스크 기간이 현재 월과 겹치는지 확인
       return (startDate.isBefore(lastDayOfMonth.add(const Duration(days: 1))) &&
           endDate.isAfter(firstDayOfMonth.subtract(const Duration(days: 1))));
     }).toList();
@@ -59,7 +69,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
           Row(
             children: [
               Text(
-                '달력',
+                _isLocaleReady
+                    ? DateFormat.MMMM('ko').format(_currentMonth)
+                    : '${_currentMonth.month}월',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -199,22 +211,28 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }).toList();
   }
 
-  /// 달력 위젯
+  /// 달력 위젯 (주 단위 타임라인 방식)
   Widget _buildCalendar(
     BuildContext context,
     List<Task> tasks,
     ColorScheme colorScheme,
   ) {
     final firstDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
-    final lastDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
     final firstDayWeekday = firstDayOfMonth.weekday;
-    final daysInMonth = lastDayOfMonth.day;
-
-    // 주 시작일 계산 (월요일 기준)
-    final startOffset = (firstDayWeekday == 7) ? 0 : firstDayWeekday;
     
-    // 태스크 행 인덱스 맵 생성 (같은 태스크는 같은 행에 배치)
-    final taskRowMap = _buildTaskRowMap(tasks);
+    // 달력 시작일 (월요일부터 시작)
+    final startOffset = (firstDayWeekday == 7) ? 0 : firstDayWeekday;
+    final calendarStartDate = firstDayOfMonth.subtract(Duration(days: startOffset));
+    
+    // 6주치 날짜 생성
+    final weeks = <List<DateTime>>[];
+    for (int week = 0; week < 6; week++) {
+      final weekDates = <DateTime>[];
+      for (int day = 0; day < 7; day++) {
+        weekDates.add(calendarStartDate.add(Duration(days: week * 7 + day)));
+      }
+      weeks.add(weekDates);
+    }
 
     return Column(
       children: [
@@ -236,105 +254,150 @@ class _CalendarScreenState extends State<CalendarScreen> {
           }).toList(),
         ),
         const SizedBox(height: 16),
-        // 날짜 그리드
+        // 주 단위 행들 (스크롤 가능)
         Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 7,
-                      childAspectRatio: 1.2,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                    ),
-                    itemCount: 42, // 6주 * 7일
-                    itemBuilder: (context, index) {
-                      if (index < startOffset || index >= startOffset + daysInMonth) {
-                        return const SizedBox.shrink();
-                      }
-
-                      final day = index - startOffset + 1;
-                      final date = DateTime(_currentMonth.year, _currentMonth.month, day);
-                      final isSelected = date.year == _selectedDate.year &&
-                          date.month == _selectedDate.month &&
-                          date.day == _selectedDate.day;
-                      final isToday = date.year == DateTime.now().year &&
-                          date.month == DateTime.now().month &&
-                          date.day == DateTime.now().day;
-
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedDate = date;
-                          });
-                        },
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? colorScheme.primary
-                                    : isToday
-                                        ? colorScheme.primary.withOpacity(0.2)
-                                        : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
-                                border: isToday && !isSelected
-                                    ? Border.all(
-                                        color: colorScheme.primary,
-                                        width: 2,
-                                      )
-                                    : null,
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  // 날짜 숫자
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Text(
-                                      '$day',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: isSelected || isToday
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
-                                        color: isSelected
-                                            ? Colors.white
-                                            : colorScheme.onSurface,
-                                      ),
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                ],
-                              ),
-                            ),
-                            // 이 날짜의 태스크 바들 (날짜 숫자 아래에 표시, 같은 태스크는 같은 행)
-                            ..._buildTaskBarsForDate(
-                              date,
-                              tasks,
-                              colorScheme,
-                              isSelected,
-                              taskRowMap,
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-            },
+          child: SingleChildScrollView(
+            child: Column(
+              children: weeks.map((weekDates) {
+                return _buildWeekRow(weekDates, tasks, colorScheme);
+              }).toList(),
+            ),
           ),
         ),
       ],
     );
   }
 
-  /// 태스크 행 인덱스 맵 생성 (같은 태스크는 같은 행에 배치)
-  Map<String, int> _buildTaskRowMap(List<Task> tasks) {
-    final Map<String, int> taskRowMap = {};
+  /// 한 주 행 빌드 (태스크 바를 Positioned로 배치)
+  Widget _buildWeekRow(
+    List<DateTime> weekDates,
+    List<Task> tasks,
+    ColorScheme colorScheme,
+  ) {
+    // 이 주에 걸리는 태스크들 필터링 및 행 배정
+    final weekTasks = tasks.where((task) {
+      final startDate = task.startDate ?? task.createdAt;
+      final endDate = task.endDate ?? task.updatedAt;
+      return weekDates.any((date) {
+        final dateOnly = DateTime(date.year, date.month, date.day);
+        final startOnly = DateTime(startDate.year, startDate.month, startDate.day);
+        final endOnly = DateTime(endDate.year, endDate.month, endDate.day);
+        return dateOnly.isAtSameMomentAs(startOnly) ||
+            dateOnly.isAtSameMomentAs(endOnly) ||
+            (dateOnly.isAfter(startOnly) && dateOnly.isBefore(endOnly));
+      });
+    }).toList();
+
+    // 태스크 행 할당 (충돌 방지, 무제한)
+    final taskRows = _assignTaskRows(weekTasks, weekDates);
+    
+    // 필요한 행 수 계산
+    final maxRow = taskRows.values.isEmpty ? 0 : taskRows.values.reduce((a, b) => a > b ? a : b);
+    final taskBarHeight = 12.0;
+    final taskBarSpacing = 4.0;
+    final dateNumberHeight = 24.0;
+    final topPadding = 32.0;
+    final bottomPadding = 8.0;
+    final weekHeight = dateNumberHeight + topPadding + (maxRow + 1) * (taskBarHeight + taskBarSpacing) + bottomPadding;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final dayWidth = constraints.maxWidth / 7;
+        
+        return SizedBox(
+          height: weekHeight,
+          child: Stack(
+            children: [
+              // 날짜 셀들
+              Row(
+              children: weekDates.map((date) {
+                final isCurrentMonth = date.month == _currentMonth.month;
+                final isSelected = date.year == _selectedDate.year &&
+                    date.month == _selectedDate.month &&
+                    date.day == _selectedDate.day;
+                final isToday = date.year == DateTime.now().year &&
+                    date.month == DateTime.now().month &&
+                    date.day == DateTime.now().day;
+
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedDate = date;
+                      });
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.all(1),
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                        border: isSelected
+                            ? Border.all(
+                                color: colorScheme.primary,
+                                width: 2,
+                              )
+                            : null,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '${date.day}',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: isSelected || isToday
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: !isCurrentMonth
+                                        ? colorScheme.onSurface.withOpacity(0.3)
+                                        : colorScheme.onSurface,
+                                  ),
+                                ),
+                                if (isToday) ...[
+                                  const SizedBox(width: 4),
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+              // 태스크 바들 (Positioned)
+              ...taskRows.entries.map((entry) {
+                final task = entry.key;
+                final row = entry.value;
+                return _buildTaskBar(task, weekDates, dayWidth, row, colorScheme);
+              }).toList(),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 태스크에 행 번호 할당 (간단한 충돌 방지)
+  Map<Task, int> _assignTaskRows(List<Task> tasks, List<DateTime> weekDates) {
+    final Map<Task, int> taskRows = {};
+    final List<List<DateTime>> occupiedRanges = [];
+
+    // 시작일 기준 정렬
     final sortedTasks = List<Task>.from(tasks);
     sortedTasks.sort((a, b) {
       final aStart = a.startDate ?? a.createdAt;
@@ -342,109 +405,140 @@ class _CalendarScreenState extends State<CalendarScreen> {
       return aStart.compareTo(bStart);
     });
 
-    int currentRow = 0;
     for (final task in sortedTasks) {
-      if (currentRow >= 3) break; // 최대 3개 행만 사용
-      taskRowMap[task.id] = currentRow;
-      currentRow++;
-    }
-
-    return taskRowMap;
-  }
-
-  /// 특정 날짜에 대한 태스크 바들 생성 (연속 표시, 같은 태스크는 같은 행)
-  List<Widget> _buildTaskBarsForDate(
-    DateTime date,
-    List<Task> tasks,
-    ColorScheme colorScheme,
-    bool isSelected,
-    Map<String, int> taskRowMap,
-  ) {
-    final dayTasks = _getTasksForDate(date, tasks);
-    final List<Widget> bars = [];
-
-    for (final task in dayTasks) {
-      // 태스크가 행 맵에 없으면 건너뛰기 (최대 3개만 표시)
-      if (!taskRowMap.containsKey(task.id) || taskRowMap[task.id]! >= 3) {
-        continue;
-      }
-
-      final rowIndex = taskRowMap[task.id]!;
-      final statusColor = task.status.color;
       final startDate = task.startDate ?? task.createdAt;
       final endDate = task.endDate ?? task.updatedAt;
       
+      // 이 주에서 태스크가 차지하는 날짜 범위
+      final taskDates = weekDates.where((date) {
+        final dateOnly = DateTime(date.year, date.month, date.day);
+        final startOnly = DateTime(startDate.year, startDate.month, startDate.day);
+        final endOnly = DateTime(endDate.year, endDate.month, endDate.day);
+        return dateOnly.isAtSameMomentAs(startOnly) ||
+            dateOnly.isAtSameMomentAs(endOnly) ||
+            (dateOnly.isAfter(startOnly) && dateOnly.isBefore(endOnly));
+      }).toList();
+
+      if (taskDates.isEmpty) continue;
+
+      // 빈 행 찾기
+      int assignedRow = 0;
+      for (int row = 0; row < occupiedRanges.length; row++) {
+        final occupied = occupiedRanges[row];
+        final hasConflict = taskDates.any((date) => occupied.contains(date));
+        if (!hasConflict) {
+          assignedRow = row;
+          occupiedRanges[row].addAll(taskDates);
+          break;
+        }
+        assignedRow = row + 1;
+      }
+
+      if (assignedRow >= occupiedRanges.length) {
+        occupiedRanges.add(taskDates);
+      }
+
+      // 모든 태스크 표시 (제한 없음)
+      taskRows[task] = assignedRow;
+    }
+
+    return taskRows;
+  }
+
+  /// 태스크 바 위젯 (Positioned로 주 전체에 걸쳐 배치)
+  Widget _buildTaskBar(
+    Task task,
+    List<DateTime> weekDates,
+    double dayWidth,
+    int row,
+    ColorScheme colorScheme,
+  ) {
+    final startDate = task.startDate ?? task.createdAt;
+    final endDate = task.endDate ?? task.updatedAt;
+    final statusColor = task.status.color;
+
+    // 이 주에서 태스크 시작·종료 컬럼 찾기
+    int? startCol;
+    int? endCol;
+
+    for (int i = 0; i < weekDates.length; i++) {
+      final date = weekDates[i];
       final dateOnly = DateTime(date.year, date.month, date.day);
       final startOnly = DateTime(startDate.year, startDate.month, startDate.day);
       final endOnly = DateTime(endDate.year, endDate.month, endDate.day);
-      
-      // 이 날짜가 태스크의 시작일인지, 중간인지, 종료일인지 확인
-      final isStart = dateOnly.isAtSameMomentAs(startOnly);
-      final isEnd = dateOnly.isAtSameMomentAs(endOnly);
-      final isSingleDay = isStart && isEnd;
-      
-      // 왼쪽/오른쪽 모서리 둥글게 처리
-      BorderRadius borderRadius;
-      if (isSingleDay) {
-        borderRadius = BorderRadius.circular(2);
-      } else if (isStart) {
-        borderRadius = const BorderRadius.only(
-          topLeft: Radius.circular(2),
-          bottomLeft: Radius.circular(2),
-        );
-      } else if (isEnd) {
-        borderRadius = const BorderRadius.only(
-          topRight: Radius.circular(2),
-          bottomRight: Radius.circular(2),
-        );
-      } else {
-        borderRadius = BorderRadius.zero;
+
+      if (dateOnly.isAtSameMomentAs(startOnly) ||
+          (dateOnly.isAfter(startOnly) && dateOnly.isBefore(endOnly)) ||
+          (startCol == null && dateOnly.isAfter(startOnly))) {
+        startCol ??= i;
       }
-      
-      // 같은 행에 배치하기 위해 Positioned 사용
-      bars.add(
-        Positioned(
-          left: 0,
-          right: 0,
-          top: 30.0 + (rowIndex * 18.0), // 날짜 숫자 아래 + 행 인덱스 * 간격
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 2),
-            padding: EdgeInsets.symmetric(
-              horizontal: isStart || isSingleDay ? 4 : 2,
-              vertical: 1,
-            ),
-            constraints: const BoxConstraints(
-              minHeight: 14,
-            ),
-            decoration: BoxDecoration(
-              color: statusColor.withOpacity(1.0),
-              borderRadius: borderRadius,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isStart || isSingleDay)
-                  Expanded(
-                    child: Text(
-                      task.title,
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                        height: 1.0,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      );
+
+      if (dateOnly.isAtSameMomentAs(endOnly) ||
+          dateOnly.isBefore(endOnly)) {
+        endCol = i;
+      }
     }
 
-    return bars;
+    if (startCol == null || endCol == null) return const SizedBox.shrink();
+
+    final left = startCol * dayWidth;
+    final width = (endCol - startCol + 1) * dayWidth;
+    final taskBarHeight = 12.0;
+    final taskBarSpacing = 4.0;
+    final top = 32.0 + row * (taskBarHeight + taskBarSpacing); // 날짜 숫자 아래부터 시작
+
+    // 시작/끝 모서리 둥글게
+    final dateOnly = DateTime(weekDates[startCol].year, weekDates[startCol].month, weekDates[startCol].day);
+    final startOnly = DateTime(startDate.year, startDate.month, startDate.day);
+    final endOnly = DateTime(endDate.year, endDate.month, endDate.day);
+    
+    final isStart = dateOnly.isAtSameMomentAs(startOnly);
+    final isEnd = weekDates[endCol].day == endOnly.day &&
+        weekDates[endCol].month == endOnly.month &&
+        weekDates[endCol].year == endOnly.year;
+
+    BorderRadius borderRadius;
+    if (isStart && isEnd) {
+      borderRadius = BorderRadius.circular(4);
+    } else if (isStart) {
+      borderRadius = const BorderRadius.only(
+        topLeft: Radius.circular(4),
+        bottomLeft: Radius.circular(4),
+      );
+    } else if (isEnd) {
+      borderRadius = const BorderRadius.only(
+        topRight: Radius.circular(4),
+        bottomRight: Radius.circular(4),
+      );
+    } else {
+      borderRadius = BorderRadius.zero;
+    }
+
+    return Positioned(
+      left: left + 2,
+      top: top,
+      width: width - 4,
+      height: taskBarHeight,
+      child: Container(
+        decoration: BoxDecoration(
+          color: statusColor.withOpacity(0.8),
+          borderRadius: borderRadius,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: isStart
+            ? Text(
+                task.title,
+                style: const TextStyle(
+                  fontSize: 9,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              )
+            : null,
+      ),
+    );
   }
 
   /// 태스크 목록 위젯
@@ -458,8 +552,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
         child: Text(
           '이 날짜에 태스크가 없습니다',
           style: TextStyle(
-            color: colorScheme.onSurface.withOpacity(0.5),
             fontSize: 14,
+            color: colorScheme.onSurface.withOpacity(0.5),
           ),
         ),
       );
@@ -470,58 +564,75 @@ class _CalendarScreenState extends State<CalendarScreen> {
       itemBuilder: (context, index) {
         final task = tasks[index];
         final statusColor = task.status.color;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: GlassContainer(
-            padding: const EdgeInsets.all(16),
-            borderRadius: 15.0,
-            blur: 20.0,
-            gradientColors: [
-              Colors.white.withOpacity(0.5),
-              Colors.white.withOpacity(0.4),
-            ],
-            child: Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    shape: BoxShape.circle,
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: colorScheme.surface.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: statusColor.withOpacity(0.5),
+              width: 2,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: statusColor,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        task.title,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      task.title,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
                       ),
-                      if (task.description.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          task.description,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colorScheme.onSurface.withOpacity(0.7),
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                ],
+              ),
+              if (task.description.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  task.description,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
-            ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  task.status.displayName,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: statusColor,
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },

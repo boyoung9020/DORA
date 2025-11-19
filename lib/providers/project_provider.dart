@@ -47,14 +47,23 @@ class ProjectProvider extends ChangeNotifier {
       return;
     }
 
+    print('[ProjectProvider] 프로젝트 필터링 시작');
+    print('[ProjectProvider] 사용자 ID: $_currentUserId');
+    print('[ProjectProvider] 관리자: $_isAdmin, PM: $_isPM');
+    print('[ProjectProvider] 전체 프로젝트 수: ${_allProjects.length}');
+
     // 관리자나 PM은 모든 프로젝트를 볼 수 있음
     if (_isAdmin || _isPM) {
       _projects = List.from(_allProjects);
+      print('[ProjectProvider] 관리자/PM - 모든 프로젝트 표시: ${_projects.length}개');
     } else {
       // 일반 사용자는 자신이 속한 프로젝트만 볼 수 있음
       _projects = _allProjects.where((project) {
-        return project.teamMemberIds.contains(_currentUserId);
+        final isMember = project.teamMemberIds.contains(_currentUserId);
+        print('[ProjectProvider] 프로젝트 "${project.name}" - 팀원 여부: $isMember (팀원 수: ${project.teamMemberIds.length})');
+        return isMember;
       }).toList();
+      print('[ProjectProvider] 일반 사용자 - 필터링된 프로젝트: ${_projects.length}개');
     }
 
     // 현재 프로젝트가 필터링된 목록에 없으면 첫 번째 프로젝트로 설정
@@ -69,6 +78,7 @@ class ProjectProvider extends ChangeNotifier {
       _currentProject = _projects.first;
     }
 
+    print('[ProjectProvider] 현재 선택된 프로젝트: ${_currentProject?.name ?? "없음"}');
     notifyListeners();
   }
 

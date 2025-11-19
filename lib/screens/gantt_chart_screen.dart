@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/task_provider.dart';
-import '../providers/project_provider.dart';
 import '../models/task.dart';
+import '../models/user.dart';
+import '../providers/project_provider.dart';
+import '../providers/task_provider.dart';
+import '../services/auth_service.dart';
+import '../utils/avatar_color.dart';
 import '../widgets/glass_container.dart';
 
 /// 날짜별 그리드 페인터
@@ -58,6 +61,7 @@ class GanttChartScreen extends StatefulWidget {
 class _GanttChartScreenState extends State<GanttChartScreen> {
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 30));
   DateTime _endDate = DateTime.now().add(const Duration(days: 30));
+  final Map<String, Future<List<User>>> _assignedMembersCache = {};
 
   @override
   void initState() {
@@ -74,10 +78,14 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
     final projectProvider = context.watch<ProjectProvider>();
     final currentProjectId = projectProvider.currentProject?.id;
 
-    // 현재 프로젝트의 태스크만 필터링
+    // 현재 프로젝트의 태스크만 필터링 (backlog 제외)
     final projectTasks = currentProjectId != null
-        ? taskProvider.tasks.where((task) => task.projectId == currentProjectId).toList()
-        : taskProvider.tasks;
+        ? taskProvider.tasks
+            .where((task) => 
+                task.projectId == currentProjectId && 
+                task.status != TaskStatus.backlog)
+            .toList()
+        : <Task>[];
 
     // 태스크들 중 가장 빠른 날짜 찾기
     if (projectTasks.isNotEmpty) {
@@ -220,6 +228,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
 
     final days = _endDate.difference(_startDate).inDays;
     final dayWidth = 40.0;
+    const taskRowHeight = 56.0;
 
     return GlassContainer(
       padding: const EdgeInsets.all(20),
@@ -247,7 +256,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                   ),
                 ),
                 child: Text(
-                  '작업',
+                  'Task',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -287,30 +296,13 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                   child: ListView.builder(
                     itemCount: sortedTasks.length,
                     itemBuilder: (context, index) {
-                      return Container(
-                        height: 60,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surface.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: colorScheme.onSurface.withOpacity(0.15),
-                            width: 1,
-                          ),
-                        ),
-                        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            sortedTasks[index].title,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: colorScheme.onSurface,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
+                      return SizedBox(
+                        height: taskRowHeight,
+                        child: _buildTaskInfoTile(
+                          context,
+                          sortedTasks[index],
+                          colorScheme,
+                          taskRowHeight,
                         ),
                       );
                     },
@@ -326,13 +318,14 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                         itemCount: sortedTasks.length,
                         itemBuilder: (context, index) {
                           return Container(
-                            height: 60,
-                            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                            height: taskRowHeight,
+                            margin: const EdgeInsets.only(left: 4, right: 4),
                             child: _buildGanttBar(
                               context,
                               sortedTasks[index],
                               colorScheme,
                               dayWidth,
+                              taskRowHeight,
                             ),
                           );
                         },
@@ -346,6 +339,172 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildTaskInfoTile(
+    BuildContext context,
+    Task task,
+    ColorScheme colorScheme,
+    double rowHeight,
+  ) {
+    final statusColor = task.status.color;
+    final assignedMembers = task.assignedMemberIds;
+
+    return Container(
+      height: rowHeight,
+      margin: EdgeInsets.zero,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: statusColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: statusColor.withOpacity(0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  task.title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildPriorityChip(task.priority, colorScheme),
+                  if (assignedMembers.isNotEmpty)
+                    FutureBuilder<List<User>>(
+                      future: _loadAssignedMembers(assignedMembers),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Padding(
+                            padding: EdgeInsets.only(left: 8),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          );
+                        }
+                        final members = snapshot.data;
+                        if (members == null || members.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: _buildAssigneeStack(members, colorScheme),
+                        );
+                      },
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPriorityChip(TaskPriority priority, ColorScheme colorScheme) {
+    final priorityColor = priority.color;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: priorityColor.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        priority.displayName,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: priorityColor,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAssigneeStack(List<User> members, ColorScheme colorScheme) {
+    if (members.isEmpty) return const SizedBox.shrink();
+    final display = members.take(3).toList();
+    final overflow = members.length - display.length;
+
+    return SizedBox(
+      height: 28,
+      width: (display.length * 24 + (overflow > 0 ? 28 : 0)).toDouble(),
+      child: Stack(
+        children: [
+          for (int i = 0; i < display.length; i++)
+            Positioned(
+              left: i * 20,
+              child: CircleAvatar(
+                radius: 12,
+                backgroundColor: AvatarColor.getColorForUser(display[i].id),
+                child: Text(
+                  AvatarColor.getInitial(display[i].username),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          if (overflow > 0)
+            Positioned(
+              left: display.length * 20,
+              child: CircleAvatar(
+                radius: 12,
+                backgroundColor: colorScheme.onSurface.withOpacity(0.4),
+                child: Text(
+                  '+$overflow',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<List<User>> _loadAssignedMembers(List<String> memberIds) {
+    final cacheKey = memberIds.join(',');
+    if (_assignedMembersCache.containsKey(cacheKey)) {
+      return _assignedMembersCache[cacheKey]!;
+    }
+
+    final future = AuthService().getAllUsers().then((users) {
+      return users.where((user) => memberIds.contains(user.id)).toList();
+    }).catchError((_) => <User>[]);
+
+    _assignedMembersCache[cacheKey] = future;
+    return future;
   }
 
   /// 날짜 헤더
@@ -482,6 +641,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
     Task task,
     ColorScheme colorScheme,
     double dayWidth,
+    double rowHeight,
   ) {
     final statusColor = task.status.color;
     // 시작일과 종료일 사용 (없으면 createdAt/updatedAt 사용)
@@ -507,7 +667,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
     final days = _endDate.difference(_startDate).inDays;
 
     return Container(
-      height: 60,
+      height: rowHeight,
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
@@ -520,7 +680,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
         children: [
           // 날짜별 세로선 배경
           CustomPaint(
-            size: Size(days * dayWidth, 60),
+            size: Size(days * dayWidth, rowHeight),
             painter: _DateGridPainter(
               startDate: _startDate,
               endDate: _endDate,
@@ -531,7 +691,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
           // 간트 바
           Positioned(
             left: startOffset,
-            top: 14,
+            top: (rowHeight - 32) / 2,
             child: Container(
               width: barWidth,
               height: 32,

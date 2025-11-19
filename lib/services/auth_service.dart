@@ -34,6 +34,16 @@ class AuthService {
     return usersJson.map((json) => User.fromJson(jsonDecode(json))).toList();
   }
 
+  /// ID로 사용자 가져오기
+  Future<User?> getUserById(String userId) async {
+    try {
+      final users = await getAllUsers();
+      return users.firstWhere((user) => user.id == userId);
+    } catch (e) {
+      return null;
+    }
+  }
+
   /// 사용자 저장
   Future<void> _saveUsers(List<User> users) async {
     final prefs = await SharedPreferences.getInstance();

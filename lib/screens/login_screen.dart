@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:bitsdojo_window/bitsdojo_window.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/glass_container.dart';
 import 'register_screen.dart';
@@ -81,21 +82,65 @@ class _LoginScreenState extends State<LoginScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      body: Container(
-        // 밝은 흰색 배경 + 포인트 색상 그라데이션
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.white,                                    // 순수 흰색
-              const Color(0xFFF8F9FA),                        // 매우 밝은 회색
-              colorScheme.primaryContainer.withOpacity(0.3),  // 포인트 색상 (아주 약하게)
-            ],
+      body: Column(
+        children: [
+          // 커스텀 타이틀바
+          WindowTitleBarBox(
+            child: Row(
+              children: [
+                Expanded(
+                  child: MoveWindow(
+                    child: Container(
+                      color: Colors.transparent,
+                      height: 40,
+                    ),
+                  ),
+                ),
+                // 윈도우 컨트롤 버튼
+                MinimizeWindowButton(
+                  colors: WindowButtonColors(
+                    iconNormal: colorScheme.onSurface,
+                    iconMouseOver: colorScheme.primary,
+                    mouseOver: colorScheme.primary.withOpacity(0.1),
+                    mouseDown: colorScheme.primary.withOpacity(0.2),
+                  ),
+                ),
+                MaximizeWindowButton(
+                  colors: WindowButtonColors(
+                    iconNormal: colorScheme.onSurface,
+                    iconMouseOver: colorScheme.primary,
+                    mouseOver: colorScheme.primary.withOpacity(0.1),
+                    mouseDown: colorScheme.primary.withOpacity(0.2),
+                  ),
+                ),
+                CloseWindowButton(
+                  colors: WindowButtonColors(
+                    iconNormal: colorScheme.onSurface,
+                    iconMouseOver: Colors.white,
+                    mouseOver: Colors.red,
+                    mouseDown: Colors.red.shade700,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Center(
+          // 메인 컨텐츠
+          Expanded(
+            child: Container(
+              // 밝은 흰색 배경 + 포인트 색상 그라데이션
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white,                                    // 순수 흰색
+                    const Color(0xFFF8F9FA),                        // 매우 밝은 회색
+                    colorScheme.primaryContainer.withOpacity(0.3),  // 포인트 색상 (아주 약하게)
+                  ],
+                ),
+              ),
+              child: SafeArea(
+                child: Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
               child: Form(
@@ -227,8 +272,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             ),
+                ),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

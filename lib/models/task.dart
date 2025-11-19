@@ -1,5 +1,128 @@
 import 'package:flutter/material.dart';
 
+/// 상태 변경 히스토리
+class StatusChangeHistory {
+  final TaskStatus fromStatus;
+  final TaskStatus toStatus;
+  final String userId;
+  final String username;
+  final DateTime changedAt;
+
+  StatusChangeHistory({
+    required this.fromStatus,
+    required this.toStatus,
+    required this.userId,
+    required this.username,
+    required this.changedAt,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'fromStatus': fromStatus.name,
+      'toStatus': toStatus.name,
+      'userId': userId,
+      'username': username,
+      'changedAt': changedAt.toIso8601String(),
+    };
+  }
+
+  factory StatusChangeHistory.fromJson(Map<String, dynamic> json) {
+    return StatusChangeHistory(
+      fromStatus: TaskStatus.values.firstWhere(
+        (e) => e.name == json['fromStatus'],
+        orElse: () => TaskStatus.backlog,
+      ),
+      toStatus: TaskStatus.values.firstWhere(
+        (e) => e.name == json['toStatus'],
+        orElse: () => TaskStatus.backlog,
+      ),
+      userId: json['userId'],
+      username: json['username'],
+      changedAt: DateTime.parse(json['changedAt']),
+    );
+  }
+}
+
+/// 팀원 할당 히스토리
+class AssignmentHistory {
+  final String assignedUserId;
+  final String assignedUsername;
+  final String assignedBy;
+  final String assignedByUsername;
+  final DateTime assignedAt;
+
+  AssignmentHistory({
+    required this.assignedUserId,
+    required this.assignedUsername,
+    required this.assignedBy,
+    required this.assignedByUsername,
+    required this.assignedAt,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'assignedUserId': assignedUserId,
+      'assignedUsername': assignedUsername,
+      'assignedBy': assignedBy,
+      'assignedByUsername': assignedByUsername,
+      'assignedAt': assignedAt.toIso8601String(),
+    };
+  }
+
+  factory AssignmentHistory.fromJson(Map<String, dynamic> json) {
+    return AssignmentHistory(
+      assignedUserId: json['assignedUserId'],
+      assignedUsername: json['assignedUsername'],
+      assignedBy: json['assignedBy'],
+      assignedByUsername: json['assignedByUsername'],
+      assignedAt: DateTime.parse(json['assignedAt']),
+    );
+  }
+}
+
+/// 중요도 변경 히스토리
+class PriorityChangeHistory {
+  final TaskPriority fromPriority;
+  final TaskPriority toPriority;
+  final String userId;
+  final String username;
+  final DateTime changedAt;
+
+  PriorityChangeHistory({
+    required this.fromPriority,
+    required this.toPriority,
+    required this.userId,
+    required this.username,
+    required this.changedAt,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'fromPriority': fromPriority.name,
+      'toPriority': toPriority.name,
+      'userId': userId,
+      'username': username,
+      'changedAt': changedAt.toIso8601String(),
+    };
+  }
+
+  factory PriorityChangeHistory.fromJson(Map<String, dynamic> json) {
+    return PriorityChangeHistory(
+      fromPriority: TaskPriority.values.firstWhere(
+        (e) => e.name == json['fromPriority'],
+        orElse: () => TaskPriority.p2,
+      ),
+      toPriority: TaskPriority.values.firstWhere(
+        (e) => e.name == json['toPriority'],
+        orElse: () => TaskPriority.p2,
+      ),
+      userId: json['userId'],
+      username: json['username'],
+      changedAt: DateTime.parse(json['changedAt']),
+    );
+  }
+}
+
 /// 태스크 모델 클래스
 /// 
 /// 칸반 보드의 각 카드를 나타내는 데이터 모델입니다.
@@ -22,6 +145,9 @@ class Task {
   final List<String> assignedMemberIds; // 할당된 팀원 사용자 ID 목록
   final List<String> commentIds; // 댓글 ID 목록
   final TaskPriority priority; // 중요도
+  final List<StatusChangeHistory> statusHistory; // 상태 변경 히스토리
+  final List<AssignmentHistory> assignmentHistory; // 할당 히스토리
+  final List<PriorityChangeHistory> priorityHistory; // 중요도 변경 히스토리
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -37,11 +163,17 @@ class Task {
     List<String>? assignedMemberIds,
     List<String>? commentIds,
     TaskPriority? priority,
+    List<StatusChangeHistory>? statusHistory,
+    List<AssignmentHistory>? assignmentHistory,
+    List<PriorityChangeHistory>? priorityHistory,
     required this.createdAt,
     required this.updatedAt,
   }) : assignedMemberIds = assignedMemberIds ?? [],
        commentIds = commentIds ?? [],
-       priority = priority ?? TaskPriority.p2;
+       priority = priority ?? TaskPriority.p2,
+       statusHistory = statusHistory ?? [],
+       assignmentHistory = assignmentHistory ?? [],
+       priorityHistory = priorityHistory ?? [];
 
   /// JSON으로 변환 (저장용)
   Map<String, dynamic> toJson() {
@@ -57,6 +189,9 @@ class Task {
       'assignedMemberIds': assignedMemberIds,
       'commentIds': commentIds,
       'priority': priority.name,
+      'statusHistory': statusHistory.map((h) => h.toJson()).toList(),
+      'assignmentHistory': assignmentHistory.map((h) => h.toJson()).toList(),
+      'priorityHistory': priorityHistory.map((h) => h.toJson()).toList(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -90,6 +225,45 @@ class Task {
       }
     }
     
+    // statusHistory가 없거나 null인 경우 빈 리스트 반환
+    List<StatusChangeHistory> statusHistory = [];
+    if (json.containsKey('statusHistory') && json['statusHistory'] != null) {
+      try {
+        final history = json['statusHistory'];
+        if (history is List) {
+          statusHistory = history.map((e) => StatusChangeHistory.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      } catch (e) {
+        statusHistory = [];
+      }
+    }
+    
+    // assignmentHistory가 없거나 null인 경우 빈 리스트 반환
+    List<AssignmentHistory> assignmentHistory = [];
+    if (json.containsKey('assignmentHistory') && json['assignmentHistory'] != null) {
+      try {
+        final history = json['assignmentHistory'];
+        if (history is List) {
+          assignmentHistory = history.map((e) => AssignmentHistory.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      } catch (e) {
+        assignmentHistory = [];
+      }
+    }
+    
+    // priorityHistory가 없거나 null인 경우 빈 리스트 반환
+    List<PriorityChangeHistory> priorityHistory = [];
+    if (json.containsKey('priorityHistory') && json['priorityHistory'] != null) {
+      try {
+        final history = json['priorityHistory'];
+        if (history is List) {
+          priorityHistory = history.map((e) => PriorityChangeHistory.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      } catch (e) {
+        priorityHistory = [];
+      }
+    }
+    
     return Task(
       id: json['id'],
       title: json['title'],
@@ -110,6 +284,9 @@ class Task {
               orElse: () => TaskPriority.p2,
             )
           : TaskPriority.p2,
+      statusHistory: statusHistory,
+      assignmentHistory: assignmentHistory,
+      priorityHistory: priorityHistory,
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
     );
@@ -128,6 +305,9 @@ class Task {
     List<String>? assignedMemberIds,
     List<String>? commentIds,
     TaskPriority? priority,
+    List<StatusChangeHistory>? statusHistory,
+    List<AssignmentHistory>? assignmentHistory,
+    List<PriorityChangeHistory>? priorityHistory,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -143,6 +323,9 @@ class Task {
       assignedMemberIds: assignedMemberIds ?? this.assignedMemberIds,
       commentIds: commentIds ?? this.commentIds,
       priority: priority ?? this.priority,
+      statusHistory: statusHistory ?? this.statusHistory,
+      assignmentHistory: assignmentHistory ?? this.assignmentHistory,
+      priorityHistory: priorityHistory ?? this.priorityHistory,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

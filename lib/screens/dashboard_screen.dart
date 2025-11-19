@@ -419,7 +419,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                     Text(
                                                       task.title,
                                                       style: TextStyle(
-                                                        fontSize: 16,
+                                                        fontSize: 14,
                                                         fontWeight: FontWeight.bold,
                                                         color: colorScheme.onSurface,
                                                       ),
@@ -466,8 +466,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                                       radius: 6,
                                                                       backgroundColor: AvatarColor.getColorForUser(member.id),
                                                                       child: Text(
-                                                                        member.username[0].toUpperCase(),
-                                                                        style: TextStyle(
+                                                                    AvatarColor.getInitial(member.username),
+                                                                    style: const TextStyle(
                                                                           fontSize: 8,
                                                                           color: Colors.white,
                                                                           fontWeight: FontWeight.bold,

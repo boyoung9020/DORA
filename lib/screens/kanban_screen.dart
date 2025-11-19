@@ -154,6 +154,38 @@ class _KanbanScreenState extends State<KanbanScreen> {
 
   /// 칸반 보드 UI 구성
   Widget _buildKanbanBoard(BuildContext context, TaskProvider taskProvider, String? currentProjectId) {
+    // 프로젝트가 없으면 빈 상태 표시
+    if (currentProjectId == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.folder_open,
+              size: 64,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '프로젝트가 없습니다',
+              style: TextStyle(
+                fontSize: 18,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '관리자에게 프로젝트 참여를 요청하세요',
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
     return LayoutBuilder(
       builder: (context, constraints) {
         // 화면 너비에 따라 컬럼 너비 계산
@@ -271,7 +303,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                       child: Text(
                         status.displayName,
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: colorScheme.onSurface,
                         ),
@@ -280,7 +312,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     Text(
                       '${tasks.length}',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 12,
                         fontWeight: FontWeight.w500,
                         color: colorScheme.onSurface.withOpacity(0.7),
                       ),
@@ -291,7 +323,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 Text(
                   status.description,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 11,
                     color: colorScheme.onSurface.withOpacity(0.6),
                   ),
                 ),
@@ -309,7 +341,14 @@ class _KanbanScreenState extends State<KanbanScreen> {
               onAccept: (task) {
                 if (task.status != status) {
                   // 상태 변경
-                  taskProvider.changeTaskStatus(task.id, status);
+                  final authProvider = context.read<AuthProvider>();
+                  final currentUser = authProvider.currentUser;
+                  taskProvider.changeTaskStatus(
+                    task.id, 
+                    status,
+                    userId: currentUser?.id,
+                    username: currentUser?.username,
+                  );
                 }
               },
               onLeave: (data) {
@@ -319,9 +358,12 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 // candidateData를 사용하여 드래그 오버 상태 확인
                 final isDraggingOver = candidateData.isNotEmpty;
                 final colorScheme = Theme.of(context).colorScheme;
+                final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+                
                 return Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
+                    color: isDarkMode ? Colors.transparent : colorScheme.onSurface.withOpacity(0.02),
                     borderRadius: BorderRadius.circular(15),
                     border: Border.all(
                       color: isDraggingOver
@@ -408,10 +450,13 @@ class _KanbanScreenState extends State<KanbanScreen> {
   /// 빈 컬럼 표시
   Widget _buildEmptyColumn(BuildContext context, TaskStatus status) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    
     return Container(
       width: double.infinity,
       height: double.infinity,
       decoration: BoxDecoration(
+        color: isDarkMode ? Colors.transparent : colorScheme.onSurface.withOpacity(0.02),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
           color: colorScheme.onSurface.withOpacity(0.1),
@@ -527,8 +572,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
                       radius: 12,
                       backgroundColor: AvatarColor.getColorForUser(member.id),
                       child: Text(
-                        member.username[0].toUpperCase(),
-                        style: TextStyle(
+                        AvatarColor.getInitial(member.username),
+                        style: const TextStyle(
                           fontSize: 12,
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -591,7 +636,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
         Text(
           task.title,
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.bold,
             color: colorScheme.onSurface,
           ),
@@ -1172,64 +1217,73 @@ class _KanbanScreenState extends State<KanbanScreen> {
         final dialogColorScheme = Theme.of(context).colorScheme;
         return Dialog(
           backgroundColor: Colors.transparent,
-          child: GlassContainer(
-            padding: const EdgeInsets.all(24),
-            borderRadius: 20.0,
-            blur: 25.0,
-            gradientColors: [
-              dialogColorScheme.surface.withOpacity(0.6),
-              dialogColorScheme.surface.withOpacity(0.5),
-            ],
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '태스크 삭제',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: dialogColorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '${task.title}을(를) 삭제하시겠습니까?',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: dialogColorScheme.onSurface.withOpacity(0.8),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text(
-                        '취소',
-                        style: TextStyle(color: dialogColorScheme.onSurface),
-                      ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320),
+            child: GlassContainer(
+              padding: const EdgeInsets.all(24),
+              borderRadius: 20.0,
+              blur: 25.0,
+              gradientColors: [
+                dialogColorScheme.surface.withOpacity(0.6),
+                dialogColorScheme.surface.withOpacity(0.5),
+              ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '태스크 삭제',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: dialogColorScheme.onSurface,
                     ),
-                    const SizedBox(width: 8),
-                    TextButton(
-                      onPressed: () {
-                        taskProvider.deleteTask(task.id);
-                        Navigator.of(context).pop();
-                      },
-                      style: TextButton.styleFrom(
-                        backgroundColor: Colors.red.withOpacity(0.2),
-                      ),
-                      child: Text(
-                        '삭제',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontWeight: FontWeight.bold,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '${task.title}을(를) 삭제하시겠습니까?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: dialogColorScheme.onSurface.withOpacity(0.8),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(
+                          '취소',
+                          style: TextStyle(
+                            color: dialogColorScheme.onSurface,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () {
+                          taskProvider.deleteTask(task.id);
+                          Navigator.of(context).pop();
+                        },
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.red.withOpacity(0.2),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
+                        child: Text(
+                          '삭제',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         );

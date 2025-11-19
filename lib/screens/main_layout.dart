@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:bitsdojo_window/bitsdojo_window.dart';
 import '../providers/auth_provider.dart';
 import '../providers/project_provider.dart';
 import '../providers/task_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/auth_service.dart';
 import '../widgets/glass_container.dart';
 import '../utils/avatar_color.dart';
@@ -193,40 +195,89 @@ class _MainLayoutState extends State<MainLayout> {
     // 메뉴 아이템 (관리자 메뉴는 사이드바에서 제거, 대시보드 버튼으로 대체)
     final menuItems = List<MenuItem>.from(_menuItems);
 
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.white,
-              const Color(0xFFF8F9FA),
-              colorScheme.primaryContainer.withOpacity(0.3),
-            ],
-          ),
-        ),
-        child: Row(
-          children: [
-            // 왼쪽 사이드바
-            _buildSidebar(context, menuItems, colorScheme, authProvider),
-            // 중간: 팀원 관리 사이드바 (대시보드에서만 표시)
-            if (_isDashboardSelected()) _buildTeamMemberSidebar(context, colorScheme),
-            // 오른쪽 컨텐츠 영역
-            Expanded(
-              child: Column(
+      body: Column(
+        children: [
+          // 커스텀 타이틀바
+          WindowTitleBarBox(
+            child: Container(
+              height: 40,
+              color: isDarkMode ? const Color(0xFF0F0F0F) : const Color(0xFFF8F9FA),
+              child: Row(
                 children: [
-                  // 프로젝트 선택 영역 (최상단, 가로로 끝까지)
-                  _buildProjectInfoBar(context),
-                  // 실제 컨텐츠
+                  // 왼쪽 사이드바 영역 (80px, 색상 동일)
+                  Container(
+                    width: 80,
+                  ),
+                  // 나머지 타이틀바 영역
                   Expanded(
-                    child: _buildContent(context),
+                    child: MoveWindow(
+                      child: Row(
+                        children: [
+                          const Spacer(),
+                          // 윈도우 컨트롤 버튼
+                          MinimizeWindowButton(
+                            colors: WindowButtonColors(
+                              iconNormal: colorScheme.onSurface.withOpacity(0.7),
+                              iconMouseOver: colorScheme.primary,
+                              mouseOver: colorScheme.primary.withOpacity(0.1),
+                              mouseDown: colorScheme.primary.withOpacity(0.2),
+                            ),
+                          ),
+                          MaximizeWindowButton(
+                            colors: WindowButtonColors(
+                              iconNormal: colorScheme.onSurface.withOpacity(0.7),
+                              iconMouseOver: colorScheme.primary,
+                              mouseOver: colorScheme.primary.withOpacity(0.1),
+                              mouseDown: colorScheme.primary.withOpacity(0.2),
+                            ),
+                          ),
+                          CloseWindowButton(
+                            colors: WindowButtonColors(
+                              iconNormal: colorScheme.onSurface.withOpacity(0.7),
+                              iconMouseOver: Colors.white,
+                              mouseOver: Colors.red,
+                              mouseDown: Colors.red.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          // 메인 컨텐츠
+          Expanded(
+            child: Row(
+              children: [
+                // 왼쪽 사이드바 (L자 형태로 타이틀바와 이어짐)
+                _buildSidebar(context, menuItems, colorScheme, authProvider, isDarkMode),
+                // 중간: 팀원 관리 사이드바 (대시보드에서만 표시)
+                if (_isDashboardSelected()) _buildTeamMemberSidebar(context, colorScheme),
+                // 오른쪽 컨텐츠 영역
+                Expanded(
+                  child: Container(
+                    color: isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
+                    child: Column(
+                      children: [
+                        // 프로젝트 선택 영역 (최상단, 가로로 끝까지)
+                        _buildProjectInfoBar(context),
+                        // 실제 컨텐츠
+                        Expanded(
+                          child: _buildContent(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -237,26 +288,23 @@ class _MainLayoutState extends State<MainLayout> {
     List<MenuItem> menuItems,
     ColorScheme colorScheme,
     AuthProvider authProvider,
+    bool isDarkMode,
   ) {
     return Container(
-      width: 80,  // 아이콘만 표시하므로 좁게
-      child: GlassContainer(
-        padding: EdgeInsets.zero,
-        margin: const EdgeInsets.all(16),
-        borderRadius: 20.0,
-        blur: 25.0,
-        gradientColors: [
-          colorScheme.surface.withOpacity(0.4),
-          colorScheme.surface.withOpacity(0.3),
-        ],
-        child: Column(
+      width: 80,
+      color: isDarkMode ? const Color(0xFF0F0F0F) : const Color(0xFFF8F9FA),
+      child: Column(
           children: [
             // 유저 프로필 (상단)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
+              padding: const EdgeInsets.only(top: 16.0, bottom: 8.0, left: 8.0, right: 8.0),
               child: _buildUserProfile(context, colorScheme, authProvider),
             ),
-            const Divider(height: 1),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: colorScheme.outline.withOpacity(0.2),
+            ),
             Expanded(
               child: ReorderableListView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -297,7 +345,11 @@ class _MainLayoutState extends State<MainLayout> {
                 }).toList(),
               ),
             ),
-            const Divider(height: 1),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: colorScheme.outline.withOpacity(0.2),
+            ),
             // 설정 버튼 및 로그아웃
             Column(
               children: [
@@ -342,69 +394,72 @@ class _MainLayoutState extends State<MainLayout> {
                             return Dialog(
                               backgroundColor: Colors.transparent,
                               elevation: 0,
-                              child: GlassContainer(
-                                padding: const EdgeInsets.all(0),
-                                borderRadius: 24.0,
-                                blur: 25.0,
-                                gradientColors: [
-                                  dialogColorScheme.surface.withOpacity(0.6),
-                                  dialogColorScheme.surface.withOpacity(0.5),
-                                ],
-                                child: Padding(
-                                  padding: const EdgeInsets.all(24.0),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '로그아웃',
-                                        style: TextStyle(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.bold,
-                                          color: dialogColorScheme.onSurface,
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 320),
+                                child: GlassContainer(
+                                  padding: const EdgeInsets.all(0),
+                                  borderRadius: 24.0,
+                                  blur: 25.0,
+                                  gradientColors: [
+                                    dialogColorScheme.surface.withOpacity(0.6),
+                                    dialogColorScheme.surface.withOpacity(0.5),
+                                  ],
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(24.0),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '로그아웃',
+                                          style: TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                            color: dialogColorScheme.onSurface,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        '로그아웃하시겠습니까?',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          color: dialogColorScheme.onSurface.withOpacity(0.8),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          '로그아웃하시겠습니까?',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            color: dialogColorScheme.onSurface.withOpacity(0.8),
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 24),
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.end,
-                                        children: [
-                                          TextButton(
-                                            onPressed: () => Navigator.of(context).pop(false),
-                                            child: Text(
-                                              '취소',
-                                              style: TextStyle(
-                                                color: dialogColorScheme.onSurface.withOpacity(0.7),
-                                                fontSize: 16,
+                                        const SizedBox(height: 20),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                            TextButton(
+                                              onPressed: () => Navigator.of(context).pop(false),
+                                              child: Text(
+                                                '취소',
+                                                style: TextStyle(
+                                                  color: dialogColorScheme.onSurface.withOpacity(0.7),
+                                                  fontSize: 14,
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          TextButton(
-                                            onPressed: () => Navigator.of(context).pop(true),
-                                            style: TextButton.styleFrom(
-                                              backgroundColor: dialogColorScheme.primary.withOpacity(0.2),
-                                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                            ),
-                                            child: Text(
-                                              '로그아웃',
-                                              style: TextStyle(
-                                                color: dialogColorScheme.primary,
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
+                                            const SizedBox(width: 8),
+                                            TextButton(
+                                              onPressed: () => Navigator.of(context).pop(true),
+                                              style: TextButton.styleFrom(
+                                                backgroundColor: dialogColorScheme.primary.withOpacity(0.2),
+                                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                              ),
+                                              child: Text(
+                                                '로그아웃',
+                                                style: TextStyle(
+                                                  color: dialogColorScheme.primary,
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
+                                          ],
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -444,7 +499,6 @@ class _MainLayoutState extends State<MainLayout> {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -458,16 +512,16 @@ class _MainLayoutState extends State<MainLayout> {
     
     return Center(
       child: CircleAvatar(
-        radius: 24,
+        radius: 18,
         backgroundColor: AvatarColor.getColorForUser(user?.id ?? user?.username ?? 'U'),
-        child: Text(
-          user?.username[0].toUpperCase() ?? 'U',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
+      child: Text(
+        AvatarColor.getInitial(user?.username ?? 'U'),
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
         ),
+      ),
       ),
     );
   }
@@ -951,8 +1005,8 @@ class _MainLayoutState extends State<MainLayout> {
                           radius: 18,
                           backgroundColor: AvatarColor.getColorForUser(member.id),
                           child: Text(
-                            member.username[0].toUpperCase(),
-                            style: TextStyle(
+                            AvatarColor.getInitial(member.username),
+                            style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
@@ -1162,8 +1216,8 @@ class _MainLayoutState extends State<MainLayout> {
                               leading: CircleAvatar(
                                 backgroundColor: AvatarColor.getColorForUser(user.id),
                                 child: Text(
-                                  user.username[0].toUpperCase(),
-                                  style: TextStyle(
+                                  AvatarColor.getInitial(user.username),
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -1419,8 +1473,8 @@ class _MainLayoutState extends State<MainLayout> {
         return Dialog(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          child: Consumer<AuthProvider>(
-            builder: (context, authProvider, _) {
+          child: Consumer2<AuthProvider, ThemeProvider>(
+            builder: (context, authProvider, themeProvider, _) {
               return GlassContainer(
                 padding: const EdgeInsets.all(0),
                 borderRadius: 24.0,
@@ -1469,8 +1523,8 @@ class _MainLayoutState extends State<MainLayout> {
                             radius: 30,
                             backgroundColor: AvatarColor.getColorForUser(authProvider.currentUser!.id),
                             child: Text(
-                              authProvider.currentUser!.username[0].toUpperCase(),
-                              style: TextStyle(
+                              AvatarColor.getInitial(authProvider.currentUser!.username),
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 24,
@@ -1543,6 +1597,133 @@ class _MainLayoutState extends State<MainLayout> {
                       ),
                       const SizedBox(height: 32),
                     ],
+                    // 테마 설정
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surface.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: colorScheme.onSurface.withOpacity(0.1),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.palette_outlined,
+                                size: 20,
+                                color: colorScheme.onSurface.withOpacity(0.7),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '테마 설정',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => themeProvider.setLightMode(),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: !themeProvider.isDarkMode
+                                          ? colorScheme.primary.withOpacity(0.2)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: !themeProvider.isDarkMode
+                                            ? colorScheme.primary
+                                            : colorScheme.onSurface.withOpacity(0.2),
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Icon(
+                                          Icons.light_mode,
+                                          color: !themeProvider.isDarkMode
+                                              ? colorScheme.primary
+                                              : colorScheme.onSurface.withOpacity(0.5),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '라이트',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: !themeProvider.isDarkMode
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                            color: !themeProvider.isDarkMode
+                                                ? colorScheme.primary
+                                                : colorScheme.onSurface.withOpacity(0.7),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => themeProvider.setDarkMode(),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: themeProvider.isDarkMode
+                                          ? colorScheme.primary.withOpacity(0.2)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: themeProvider.isDarkMode
+                                            ? colorScheme.primary
+                                            : colorScheme.onSurface.withOpacity(0.2),
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Icon(
+                                          Icons.dark_mode,
+                                          color: themeProvider.isDarkMode
+                                              ? colorScheme.primary
+                                              : colorScheme.onSurface.withOpacity(0.5),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '다크',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: themeProvider.isDarkMode
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                            color: themeProvider.isDarkMode
+                                                ? colorScheme.primary
+                                                : colorScheme.onSurface.withOpacity(0.7),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                     // 로그아웃 버튼
                     SizedBox(
                       width: double.infinity,
@@ -1557,69 +1738,72 @@ class _MainLayoutState extends State<MainLayout> {
                               return Dialog(
                                 backgroundColor: Colors.transparent,
                                 elevation: 0,
-                                child: GlassContainer(
-                                  padding: const EdgeInsets.all(0),
-                                  borderRadius: 24.0,
-                                  blur: 25.0,
-                                  gradientColors: [
-                                    dialogColorScheme.surface.withOpacity(0.6),
-                                    dialogColorScheme.surface.withOpacity(0.5),
-                                  ],
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(24.0),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '로그아웃',
-                                          style: TextStyle(
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.bold,
-                                            color: dialogColorScheme.onSurface,
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 320),
+                                  child: GlassContainer(
+                                    padding: const EdgeInsets.all(0),
+                                    borderRadius: 24.0,
+                                    blur: 25.0,
+                                    gradientColors: [
+                                      dialogColorScheme.surface.withOpacity(0.6),
+                                      dialogColorScheme.surface.withOpacity(0.5),
+                                    ],
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(24.0),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '로그아웃',
+                                            style: TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold,
+                                              color: dialogColorScheme.onSurface,
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          '로그아웃하시겠습니까?',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            color: dialogColorScheme.onSurface.withOpacity(0.8),
+                                          const SizedBox(height: 12),
+                                          Text(
+                                            '로그아웃하시겠습니까?',
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              color: dialogColorScheme.onSurface.withOpacity(0.8),
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(height: 24),
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.end,
-                                          children: [
-                                            TextButton(
-                                              onPressed: () => Navigator.of(logoutDialogContext).pop(false),
-                                              child: Text(
-                                                '취소',
-                                                style: TextStyle(
-                                                  color: dialogColorScheme.onSurface.withOpacity(0.7),
-                                                  fontSize: 16,
+                                          const SizedBox(height: 20),
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.end,
+                                            children: [
+                                              TextButton(
+                                                onPressed: () => Navigator.of(logoutDialogContext).pop(false),
+                                                child: Text(
+                                                  '취소',
+                                                  style: TextStyle(
+                                                    color: dialogColorScheme.onSurface.withOpacity(0.7),
+                                                    fontSize: 14,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            TextButton(
-                                              onPressed: () => Navigator.of(logoutDialogContext).pop(true),
-                                              style: TextButton.styleFrom(
-                                                backgroundColor: dialogColorScheme.primary.withOpacity(0.2),
-                                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                              ),
-                                              child: Text(
-                                                '로그아웃',
-                                                style: TextStyle(
-                                                  color: dialogColorScheme.primary,
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
+                                              const SizedBox(width: 8),
+                                              TextButton(
+                                                onPressed: () => Navigator.of(logoutDialogContext).pop(true),
+                                                style: TextButton.styleFrom(
+                                                  backgroundColor: dialogColorScheme.primary.withOpacity(0.2),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                                ),
+                                                child: Text(
+                                                  '로그아웃',
+                                                  style: TextStyle(
+                                                    color: dialogColorScheme.primary,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
+                                            ],
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),

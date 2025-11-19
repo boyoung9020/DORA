@@ -1,3 +1,4 @@
+import 'package:characters/characters.dart';
 import 'package:flutter/material.dart';
 
 /// 유저 아바타 색상 생성 유틸리티
@@ -35,6 +36,15 @@ class AvatarColor {
     int hash = userIdOrUsername.hashCode;
     int index = hash.abs() % _colorPalette.length;
     return _colorPalette[index];
+  }
+
+  /// 유저명을 기반으로 단일 이니셜 반환
+  static String getInitial(String? name) {
+    if (name == null) return '?';
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '?';
+    final firstChar = trimmed.characters.first;
+    return firstChar.toUpperCase();
   }
 }
 

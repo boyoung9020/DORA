@@ -86,7 +86,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
         ? taskProvider.tasks
             .where((task) => task.projectId == currentProjectId)
             .toList()
-        : taskProvider.tasks;
+        : <Task>[];
 
     // 최신 태스크가 위에 오도록 정렬 (createdAt 기준 내림차순)
     allTasks.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -210,7 +210,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                           Text(
                                             task.title,
                                             style: TextStyle(
-                                              fontSize: 16,
+                                              fontSize: 14,
                                               fontWeight: FontWeight.bold,
                                               color: colorScheme.onSurface,
                                             ),
@@ -258,8 +258,8 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                                             radius: 6,
                                                             backgroundColor: AvatarColor.getColorForUser(member.id),
                                                             child: Text(
-                                                              member.username[0].toUpperCase(),
-                                                              style: TextStyle(
+                                                              AvatarColor.getInitial(member.username),
+                                                              style: const TextStyle(
                                                                 fontSize: 8,
                                                                 color: Colors.white,
                                                                 fontWeight: FontWeight.bold,
@@ -608,12 +608,8 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
         final dialogColorScheme = Theme.of(context).colorScheme;
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 400,
-              maxHeight: 300,
-            ),
+            constraints: const BoxConstraints(maxWidth: 320),
             child: GlassContainer(
               padding: const EdgeInsets.all(24),
               borderRadius: 20.0,
@@ -628,20 +624,21 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                   Text(
                     '태스크 삭제',
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: dialogColorScheme.onSurface,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   Text(
                     '\'${task.title}\' 태스크를 삭제하시겠습니까?',
                     textAlign: TextAlign.center,
                     style: TextStyle(
+                      fontSize: 15,
                       color: dialogColorScheme.onSurface.withOpacity(0.8),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
@@ -649,25 +646,25 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                         onPressed: () => Navigator.of(context).pop(false),
                         child: Text(
                           '취소',
-                          style: TextStyle(color: dialogColorScheme.onSurface),
+                          style: TextStyle(
+                            color: dialogColorScheme.onSurface,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Expanded(
-                        child: GlassContainer(
-                          padding: EdgeInsets.zero,
-                          borderRadius: 12.0,
-                          blur: 20.0,
-                          gradientColors: [
-                            Colors.red.withOpacity(0.5),
-                            Colors.red.withOpacity(0.4),
-                          ],
-                          child: TextButton(
-                            onPressed: () => Navigator.of(context).pop(true),
-                            child: const Text(
-                              '삭제',
-                              style: TextStyle(color: Colors.white),
-                            ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.red.withOpacity(0.2),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
+                        child: const Text(
+                          '삭제',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),

@@ -148,6 +148,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       }
       
       updatedCommentIds.add(comment.id);
+      
+      // 디버깅: statusHistory 확인
+      print('[TaskDetail] Current statusHistory: ${currentTask.statusHistory}');
+      print('[TaskDetail] statusHistory length: ${currentTask.statusHistory.length}');
+      
       await taskProvider.updateTask(
         currentTask.copyWith(
           commentIds: updatedCommentIds,
@@ -530,7 +535,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                         setState(() {
                                           _selectedStatus = value;
                                         });
-                                        taskProvider.changeTaskStatus(currentTask.id, value);
+                                        final authProvider = context.read<AuthProvider>();
+                                        final currentUser = authProvider.currentUser;
+                                        taskProvider.changeTaskStatus(
+                                          currentTask.id, 
+                                          value,
+                                          userId: currentUser?.id,
+                                          username: currentUser?.username,
+                                        );
                                         // 상태 변경 후 타임라인 업데이트를 위해 setState 호출
                                         setState(() {});
                                       }
@@ -600,11 +612,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                         setState(() {
                                           _selectedPriority = value;
                                         });
+                                        final authProvider = context.read<AuthProvider>();
+                                        final currentUser = authProvider.currentUser;
                                         taskProvider.updateTask(
                                           currentTask.copyWith(
                                             priority: value,
                                             updatedAt: DateTime.now(),
                                           ),
+                                          userId: currentUser?.id,
+                                          username: currentUser?.username,
                                         );
                                       }
                                     },
@@ -846,8 +862,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                                     radius: 8,
                                                     backgroundColor: AvatarColor.getColorForUser(member.id),
                                                     child: Text(
-                                                      member.username[0].toUpperCase(),
-                                                      style: TextStyle(
+                                                      AvatarColor.getInitial(member.username),
+                                                      style: const TextStyle(
                                                         fontSize: 10,
                                                         color: Colors.white,
                                                         fontWeight: FontWeight.bold,
@@ -975,11 +991,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         return currentProject.teamMemberIds.contains(user.id);
       }).toList();
       
-      final availableMembers = projectMembers.where((user) {
-        return !task.assignedMemberIds.contains(user.id);
-      }).toList();
-      
-      if (availableMembers.isEmpty) {
+      if (projectMembers.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('할당할 수 있는 팀원이 없습니다'),
@@ -1020,15 +1032,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     Flexible(
                       child: ListView.builder(
                         shrinkWrap: true,
-                        itemCount: availableMembers.length,
+                        itemCount: projectMembers.length,
                         itemBuilder: (context, index) {
-                          final user = availableMembers[index];
+                          final user = projectMembers[index];
+                          final isAssigned = task.assignedMemberIds.contains(user.id);
                           return ListTile(
                             leading: CircleAvatar(
                               backgroundColor: AvatarColor.getColorForUser(user.id),
                               child: Text(
-                                user.username[0].toUpperCase(),
-                                style: TextStyle(
+                                AvatarColor.getInitial(user.username),
+                                style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -1047,24 +1060,32 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 color: colorScheme.onSurface.withOpacity(0.7),
                               ),
                             ),
-                            trailing: IconButton(
-                              icon: Icon(
-                                Icons.add_circle,
-                                color: colorScheme.primary,
-                              ),
-                              onPressed: () async {
-                                final updatedMemberIds = List<String>.from(task.assignedMemberIds);
-                                updatedMemberIds.add(user.id);
+                            trailing: isAssigned
+                                ? Icon(
+                                    Icons.check_circle,
+                                    color: colorScheme.primary,
+                                  )
+                                : Icon(
+                                    Icons.radio_button_unchecked,
+                                    color: colorScheme.onSurface.withOpacity(0.3),
+                                  ),
+                            onTap: () async {
+                              // 한 명만 선택 가능하도록 기존 할당을 대체
+                              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                              final currentUser = authProvider.currentUser;
+                              if (currentUser != null) {
                                 await taskProvider.updateTask(
                                   task.copyWith(
-                                    assignedMemberIds: updatedMemberIds,
+                                    assignedMemberIds: [user.id],
                                     updatedAt: DateTime.now(),
                                   ),
+                                  userId: currentUser.id,
+                                  username: currentUser.username,
                                 );
-                                Navigator.of(context).pop();
-                                setState(() {});
-                              },
-                            ),
+                              }
+                              Navigator.of(context).pop();
+                              setState(() {});
+                            },
                           );
                         },
                       ),
@@ -1141,33 +1162,25 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       ),
     ));
 
-    // 할당 히스토리 (할당된 멤버가 있고, 할당 시간이 생성 시간 이후인 경우만)
-    if (task.assignedMemberIds.isNotEmpty) {
-      final members = await _loadAssignedMembers(task.assignedMemberIds);
-      for (final member in members) {
-        // 할당은 updatedAt을 사용하되, 코멘트와 비교해서 정확한 순서를 맞춤
-        final assignmentDate = task.updatedAt.isAfter(task.createdAt) 
-            ? task.updatedAt 
-            : task.createdAt.add(const Duration(seconds: 1));
-        
-        items.add(TimelineItem(
-          type: TimelineItemType.history,
-          date: assignmentDate,
-          data: HistoryEvent(
-            username: currentUser?.username ?? 'Unknown',
-            action: 'assigned',
-            target: Text(
-              member.username,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.primary,
-              ),
+    // 할당 히스토리 (실제 할당 기록 사용)
+    for (final history in task.assignmentHistory) {
+      items.add(TimelineItem(
+        type: TimelineItemType.history,
+        date: history.assignedAt,
+        data: HistoryEvent(
+          username: history.assignedByUsername,
+          action: 'assigned',
+          target: Text(
+            history.assignedUsername,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.primary,
             ),
-            icon: Icons.person_outline,
           ),
-        ));
-      }
+          icon: Icons.person_outline,
+        ),
+      ));
     }
 
     // 코멘트 추가
@@ -1179,29 +1192,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       ));
     }
 
-    // 상태 변경 히스토리 (상태가 backlog가 아니고, updatedAt이 생성 시간 이후인 경우)
-    // 상태 변경은 코멘트와 비교해서 정확한 순서를 맞춤
-    if (task.status != TaskStatus.backlog && task.updatedAt.isAfter(task.createdAt)) {
-      // 코멘트가 있으면 가장 최근 코멘트 이후에 상태 변경이 일어났다고 가정
-      // 코멘트가 없으면 updatedAt 사용
-      DateTime statusChangeDate = task.updatedAt;
-      if (_comments.isNotEmpty) {
-        final latestComment = _comments.reduce((a, b) => 
-          a.createdAt.isAfter(b.createdAt) ? a : b);
-        // 상태 변경이 코멘트 이후에 일어났다면 코멘트 시간보다 조금 늦게
-        if (task.updatedAt.isAfter(latestComment.createdAt)) {
-          statusChangeDate = task.updatedAt;
-        } else {
-          // 상태 변경이 코멘트 이전에 일어났다면 코멘트 시간보다 조금 이전
-          statusChangeDate = latestComment.createdAt.subtract(const Duration(seconds: 1));
-        }
-      }
-      
+    // 상태 변경 히스토리 (실제 상태 변경 기록 사용)
+    for (final history in task.statusHistory) {
       items.add(TimelineItem(
         type: TimelineItemType.history,
-        date: statusChangeDate,
+        date: history.changedAt,
         data: HistoryEvent(
-          username: _getCreatorUsername(task),
+          username: history.username,
           action: 'moved this to',
           target: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1210,17 +1207,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
-                  color: task.status.color,
+                  color: history.toStatus.color,
                   shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 6),
               Text(
-                task.status.displayName,
+                history.toStatus.displayName,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: task.status.color,
+                  color: history.toStatus.color,
                 ),
               ),
             ],
@@ -1229,9 +1226,61 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ),
       ));
     }
+    
+    // 중요도 변경 히스토리
+    for (final history in task.priorityHistory) {
+      items.add(TimelineItem(
+        type: TimelineItemType.history,
+        date: history.changedAt,
+        data: HistoryEvent(
+          username: history.username,
+          action: 'changed priority to',
+          target: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: history.toPriority.color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '${history.toPriority.displayName} - ${history.toPriority.description}',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: history.toPriority.color,
+                ),
+              ),
+            ],
+          ),
+          icon: Icons.priority_high,
+        ),
+      ));
+    }
 
-    // 시간순으로 정렬 (오래된 것부터)
+    // 시간순으로 정렬 (오래된 것부터 - 최신 항목이 아래에 표시됨)
     items.sort((a, b) => a.date.compareTo(b.date));
+
+    // 디버깅: 타임라인 아이템 순서 로깅
+    print('[TaskDetail] Timeline items (${items.length}):');
+    for (var i = 0; i < items.length; i++) {
+      final item = items[i];
+      String description;
+      if (item.type == TimelineItemType.history) {
+        final event = item.data as HistoryEvent;
+        description = '${event.username} ${event.action}';
+      } else if (item.type == TimelineItemType.comment) {
+        final comment = item.data as Comment;
+        description = 'Comment by ${comment.username}: ${comment.content.substring(0, comment.content.length > 20 ? 20 : comment.content.length)}...';
+      } else {
+        description = 'Detail';
+      }
+      print('  [$i] ${item.date.toString()} - $description');
+    }
 
     return items;
   }
@@ -1316,8 +1365,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           radius: 16,
           backgroundColor: AvatarColor.getColorForUser(username),
           child: Text(
-            username[0].toUpperCase(),
-            style: TextStyle(
+            AvatarColor.getInitial(username),
+            style: const TextStyle(
               fontSize: 14,
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -1456,59 +1505,60 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               colorScheme.surface.withOpacity(0.4),
               colorScheme.surface.withOpacity(0.3),
             ],
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Stack(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        isEditing ? Icons.check : Icons.edit,
-                        size: 18,
-                        color: colorScheme.primary,
-                      ),
-                      onPressed: onEditToggle,
-                      tooltip: isEditing ? '저장' : '편집',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
+                // 메인 컨텐츠 (최상단 배치)
+                Padding(
+                  padding: const EdgeInsets.only(right: 36), // 연필 아이콘 공간 확보
+                  child: isEditing
+                      ? TextField(
+                          controller: _detailController,
+                          maxLines: null,
+                          minLines: 8,
+                          decoration: InputDecoration(
+                            hintText: '상세 내용을 입력하세요...',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            filled: true,
+                            fillColor: Colors.white.withOpacity(0.5),
+                            contentPadding: const EdgeInsets.all(12),
+                          ),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: colorScheme.onSurface,
+                            height: 1.5,
+                          ),
+                        )
+                      : Text(
+                          task.detail.isEmpty
+                              ? '상세 내용이 없습니다. 편집 버튼을 눌러 추가하세요.'
+                              : task.detail,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: task.detail.isEmpty
+                                ? colorScheme.onSurface.withOpacity(0.5)
+                                : colorScheme.onSurface.withOpacity(0.8),
+                            height: 1.5,
+                          ),
+                        ),
                 ),
-                const SizedBox(height: 12),
-                if (isEditing)
-                  TextField(
-                    controller: _detailController,
-                    maxLines: null,
-                    minLines: 8,
-                    decoration: InputDecoration(
-                      hintText: '상세 내용을 입력하세요...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.5),
-                      contentPadding: const EdgeInsets.all(12),
+                // 연필 아이콘 (오른쪽 상단 고정)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: IconButton(
+                    icon: Icon(
+                      isEditing ? Icons.check : Icons.edit,
+                      size: 18,
+                      color: colorScheme.primary,
                     ),
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: colorScheme.onSurface,
-                      height: 1.5,
-                    ),
-                  )
-                else
-                  Text(
-                    task.detail.isEmpty
-                        ? '상세 내용이 없습니다. 편집 버튼을 눌러 추가하세요.'
-                        : task.detail,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: task.detail.isEmpty
-                          ? colorScheme.onSurface.withOpacity(0.5)
-                          : colorScheme.onSurface.withOpacity(0.8),
-                      height: 1.5,
-                    ),
+                    onPressed: onEditToggle,
+                    tooltip: isEditing ? '저장' : '편집',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
+                ),
               ],
             ),
           ),
@@ -1535,8 +1585,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             radius: 16,
             backgroundColor: AvatarColor.getColorForUser(comment.userId),
             child: Text(
-              comment.username[0].toUpperCase(),
-              style: TextStyle(
+              AvatarColor.getInitial(comment.username),
+              style: const TextStyle(
                 fontSize: 14,
                 color: Colors.white,
                 fontWeight: FontWeight.bold,

@@ -44,36 +44,65 @@ class _RegisterScreenState extends State<RegisterScreen> {
           context: context,
           builder: (context) {
             final dialogColorScheme = Theme.of(context).colorScheme;
-            return GlassContainer(
-              padding: const EdgeInsets.all(24),
-              borderRadius: 20.0,
-              blur: 25.0,
-              gradientColors: [
-                dialogColorScheme.surface.withOpacity(0.3),
-                dialogColorScheme.surface.withOpacity(0.2),
-              ],
-              child: AlertDialog(
-                backgroundColor: Colors.transparent,
-                title: Text(
-                  '회원가입 완료',
-                  style: TextStyle(color: dialogColorScheme.onSurface, fontWeight: FontWeight.bold),
-                ),
-                content: Text(
-                  '회원가입이 완료되었습니다.\n관리자 승인 후 로그인할 수 있습니다.',
-                  style: TextStyle(color: dialogColorScheme.onSurface.withOpacity(0.9)),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      Navigator.of(context).pop();
-                    },
-                    child: Text(
-                      '확인',
-                      style: TextStyle(color: dialogColorScheme.primary, fontWeight: FontWeight.bold),
-                    ),
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: GlassContainer(
+                  padding: const EdgeInsets.all(24),
+                  borderRadius: 20.0,
+                  blur: 25.0,
+                  gradientColors: [
+                    dialogColorScheme.surface.withOpacity(0.6),
+                    dialogColorScheme.surface.withOpacity(0.5),
+                  ],
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '회원가입 완료',
+                        style: TextStyle(
+                          color: dialogColorScheme.onSurface,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '회원가입이 완료되었습니다.\n관리자 승인 후 로그인할 수 있습니다.',
+                        style: TextStyle(
+                          color: dialogColorScheme.onSurface.withOpacity(0.8),
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              Navigator.of(context).pop();
+                            },
+                            style: TextButton.styleFrom(
+                              backgroundColor: dialogColorScheme.primary.withOpacity(0.2),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            ),
+                            child: Text(
+                              '확인',
+                              style: TextStyle(
+                                color: dialogColorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             );
           },
