@@ -60,14 +60,16 @@ class _KanbanScreenState extends State<KanbanScreen> {
           Row(
             children: [
               Expanded(
-                child: GlassContainer(
+                child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  borderRadius: 8.0,
-                  blur: 20.0,
-                  gradientColors: [
-                    colorScheme.surface.withOpacity(0.6),
-                    colorScheme.surface.withOpacity(0.5),
-                  ],
+                  decoration: BoxDecoration(
+                    color: colorScheme.onSurface.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8.0),
+                    border: Border.all(
+                      color: colorScheme.onSurface.withOpacity(0.1),
+                      width: 1,
+                    ),
+                  ),
                   child: Row(
                     children: [
                       Icon(

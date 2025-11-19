@@ -82,26 +82,47 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
     // 태스크들 중 가장 빠른 날짜 찾기
     if (projectTasks.isNotEmpty) {
       DateTime? earliestDate;
+      DateTime? latestDate;
+      
       for (final task in projectTasks) {
+        // 시작일 기준 (startDate가 있으면 startDate, 없으면 createdAt)
         final taskStart = task.startDate ?? task.createdAt;
         if (earliestDate == null || taskStart.isBefore(earliestDate)) {
           earliestDate = taskStart;
         }
+        
+        // 종료일 기준 (endDate가 있으면 endDate, 없으면 updatedAt 또는 createdAt + 1일)
+        final taskEnd = task.endDate ?? 
+            (task.updatedAt.isAfter(task.createdAt)
+                ? task.updatedAt
+                : task.createdAt.add(const Duration(days: 1)));
+        if (latestDate == null || taskEnd.isAfter(latestDate)) {
+          latestDate = taskEnd;
+        }
       }
+      
       if (earliestDate != null) {
-        // 가장 빠른 날짜를 시작일로 설정 (약간의 여유 공간 추가)
+        // 가장 빠른 날짜를 시작일로 설정 (정확히 그 날짜부터)
         final calculatedStartDate = DateTime(
           earliestDate.year,
           earliestDate.month,
           earliestDate.day,
-        ).subtract(const Duration(days: 7));
+        );
         
-        // 시작일이 변경되었을 때만 업데이트
-        if (_startDate != calculatedStartDate) {
+        // 시작일로부터 정확히 한 달 후를 종료일로 설정
+        final calculatedEndDate = DateTime(
+          calculatedStartDate.year,
+          calculatedStartDate.month + 1,
+          calculatedStartDate.day,
+        );
+        
+        // 날짜가 변경되었을 때만 업데이트
+        if (_startDate != calculatedStartDate || _endDate != calculatedEndDate) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               setState(() {
                 _startDate = calculatedStartDate;
+                _endDate = calculatedEndDate;
               });
             }
           });
@@ -250,6 +271,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
           // 간트 차트 바
           Expanded(
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 작업 이름 영역 (고정)
                 Container(
@@ -266,16 +288,17 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                     itemCount: sortedTasks.length,
                     itemBuilder: (context, index) {
                       return Container(
-                        height: 52,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                        height: 60,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(
-                              color: colorScheme.onSurface.withOpacity(0.1),
-                              width: 1,
-                            ),
+                          color: colorScheme.surface.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: colorScheme.onSurface.withOpacity(0.15),
+                            width: 1,
                           ),
                         ),
+                        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
@@ -302,11 +325,15 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                       child: ListView.builder(
                         itemCount: sortedTasks.length,
                         itemBuilder: (context, index) {
-                          return _buildGanttBar(
-                            context,
-                            sortedTasks[index],
-                            colorScheme,
-                            dayWidth,
+                          return Container(
+                            height: 60,
+                            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                            child: _buildGanttBar(
+                              context,
+                              sortedTasks[index],
+                              colorScheme,
+                              dayWidth,
+                            ),
                           );
                         },
                       ),
@@ -328,53 +355,125 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
     double dayWidth,
   ) {
     final days = _endDate.difference(_startDate).inDays;
-    final weeks = (days / 7).ceil();
 
     return Container(
       height: 60,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: weeks,
-        itemBuilder: (context, weekIndex) {
-          final weekStart = _startDate.add(Duration(days: weekIndex * 7));
-          return Container(
-            width: dayWidth * 7,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${weekStart.month}/${weekStart.day}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface.withOpacity(0.7),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.onSurface.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Column(
+        children: [
+          // 주 단위 헤더
+          Container(
+            height: 24,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: (days / 7).ceil(),
+              itemBuilder: (context, weekIndex) {
+                final weekStart = _startDate.add(Duration(days: weekIndex * 7));
+                final weekEnd = weekStart.add(const Duration(days: 6));
+                final actualEnd = weekEnd.isAfter(_endDate) ? _endDate : weekEnd;
+                
+                return Container(
+                  width: dayWidth * 7,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      right: BorderSide(
+                        color: colorScheme.onSurface.withOpacity(0.15),
+                        width: 1,
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: List.generate(7, (dayIndex) {
-                    final date = weekStart.add(Duration(days: dayIndex));
-                    if (date.isAfter(_endDate)) return const SizedBox.shrink();
-                    return Expanded(
-                      child: Center(
-                        child: Text(
-                          '${date.day}',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: colorScheme.onSurface.withOpacity(0.6),
-                          ),
+                  child: Center(
+                    child: Text(
+                      '${weekStart.month}/${weekStart.day} - ${actualEnd.month}/${actualEnd.day}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface.withOpacity(0.8),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          // 일 단위 헤더
+          Expanded(
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: days,
+              itemBuilder: (context, dayIndex) {
+                final date = _startDate.add(Duration(days: dayIndex));
+                if (date.isAfter(_endDate)) return const SizedBox.shrink();
+                
+                final isWeekend = date.weekday == DateTime.saturday || date.weekday == DateTime.sunday;
+                final isToday = date.year == DateTime.now().year &&
+                    date.month == DateTime.now().month &&
+                    date.day == DateTime.now().day;
+                
+                return Container(
+                  width: dayWidth,
+                  decoration: BoxDecoration(
+                    color: isToday 
+                        ? colorScheme.primary.withOpacity(0.1)
+                        : isWeekend
+                            ? colorScheme.onSurface.withOpacity(0.03)
+                            : null,
+                    border: Border(
+                      right: BorderSide(
+                        color: colorScheme.onSurface.withOpacity(0.15),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _getWeekdayAbbr(date.weekday),
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: isWeekend
+                              ? colorScheme.onSurface.withOpacity(0.5)
+                              : colorScheme.onSurface.withOpacity(0.6),
+                          fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
-                    );
-                  }),
-                ),
-              ],
+                      const SizedBox(height: 2),
+                      Text(
+                        '${date.day}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
+                          color: isToday
+                              ? colorScheme.primary
+                              : isWeekend
+                                  ? colorScheme.onSurface.withOpacity(0.6)
+                                  : colorScheme.onSurface.withOpacity(0.8),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
+  }
+
+  /// 요일 약자 반환
+  String _getWeekdayAbbr(int weekday) {
+    const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+    return weekdays[weekday - 1];
   }
 
   /// 간트 바 위젯
@@ -408,7 +507,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
     final days = _endDate.difference(_startDate).inDays;
 
     return Container(
-      height: 52,
+      height: 60,
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
@@ -421,7 +520,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
         children: [
           // 날짜별 세로선 배경
           CustomPaint(
-            size: Size(days * dayWidth, 52),
+            size: Size(days * dayWidth, 60),
             painter: _DateGridPainter(
               startDate: _startDate,
               endDate: _endDate,
@@ -432,7 +531,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
           // 간트 바
           Positioned(
             left: startOffset,
-            top: 10,
+            top: 14,
             child: Container(
               width: barWidth,
               height: 32,

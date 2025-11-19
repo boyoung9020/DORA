@@ -364,12 +364,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             ),
                             const SizedBox(height: 16),
                             // 타임라인 아이템들 (시간순 정렬)
-                            if (_isLoadingComments)
+                                  if (_isLoadingComments)
                               const Padding(
-                                padding: EdgeInsets.all(16.0),
+                                        padding: EdgeInsets.all(16.0),
                                 child: Center(child: CircularProgressIndicator()),
-                              )
-                            else
+                                    )
+                                  else
                               FutureBuilder<List<TimelineItem>>(
                                 future: _buildTimelineItems(currentTask),
                                 builder: (context, snapshot) {
