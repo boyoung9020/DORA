@@ -53,7 +53,8 @@ class TaskService {
     DateTime? startDate,
     DateTime? endDate,
     String detail = '',
-    TaskPriority priority = TaskPriority.p1,
+    TaskPriority priority = TaskPriority.p2,
+    List<String>? assignedMemberIds,
   }) async {
     final now = DateTime.now();
     final task = Task(
@@ -66,6 +67,7 @@ class TaskService {
       endDate: endDate,
       detail: detail,
       priority: priority,
+      assignedMemberIds: assignedMemberIds,
       createdAt: now,
       updatedAt: now,
     );

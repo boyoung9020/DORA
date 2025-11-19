@@ -5,6 +5,48 @@ import '../providers/project_provider.dart';
 import '../models/task.dart';
 import '../widgets/glass_container.dart';
 
+/// 날짜별 그리드 페인터
+class _DateGridPainter extends CustomPainter {
+  final DateTime startDate;
+  final DateTime endDate;
+  final double dayWidth;
+  final Color lineColor;
+
+  _DateGridPainter({
+    required this.startDate,
+    required this.endDate,
+    required this.dayWidth,
+    required this.lineColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 1.0;
+
+    final days = endDate.difference(startDate).inDays;
+    
+    // 각 날짜마다 세로선 그리기
+    for (int i = 0; i <= days; i++) {
+      final x = i * dayWidth;
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DateGridPainter oldDelegate) {
+    return oldDelegate.startDate != startDate ||
+        oldDelegate.endDate != endDate ||
+        oldDelegate.dayWidth != dayWidth ||
+        oldDelegate.lineColor != lineColor;
+  }
+}
+
 /// 간트 차트 화면
 class GanttChartScreen extends StatefulWidget {
   const GanttChartScreen({super.key});
@@ -72,18 +114,10 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 헤더
+          // 헤더 (날짜 범위 조정 버튼만)
           Row(
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Text(
-                '간트 차트',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onSurface,
-                ),
-              ),
-              const Spacer(),
               // 날짜 범위 조정 버튼
               GlassContainer(
                 padding: EdgeInsets.zero,
@@ -371,6 +405,8 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
         : taskEnd.difference(_startDate).inDays * dayWidth;
     final barWidth = (endOffset - startOffset).clamp(dayWidth, double.infinity);
 
+    final days = _endDate.difference(_startDate).inDays;
+
     return Container(
       height: 52,
       decoration: BoxDecoration(
@@ -383,9 +419,15 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
       ),
       child: Stack(
         children: [
-          // 배경 그리드
-          Container(
-            height: 52,
+          // 날짜별 세로선 배경
+          CustomPaint(
+            size: Size(days * dayWidth, 52),
+            painter: _DateGridPainter(
+              startDate: _startDate,
+              endDate: _endDate,
+              dayWidth: dayWidth,
+              lineColor: colorScheme.onSurface.withOpacity(0.1),
+            ),
           ),
           // 간트 바
           Positioned(

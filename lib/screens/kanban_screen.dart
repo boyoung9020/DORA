@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/task.dart';
+import '../models/project.dart';
 import '../providers/task_provider.dart';
 import '../providers/project_provider.dart';
+import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
 import '../widgets/glass_container.dart';
+import '../utils/avatar_color.dart';
 import 'task_detail_screen.dart';
 
 /// 칸반 보드 화면
@@ -17,6 +20,8 @@ class KanbanScreen extends StatefulWidget {
 
 class _KanbanScreenState extends State<KanbanScreen> {
   final ScrollController _horizontalScrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -25,11 +30,17 @@ class _KanbanScreenState extends State<KanbanScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TaskProvider>().loadTasks();
     });
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
+    });
   }
 
   @override
   void dispose() {
     _horizontalScrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -45,35 +56,63 @@ class _KanbanScreenState extends State<KanbanScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // 헤더
+          // 검색창
           Row(
             children: [
               Expanded(
-                child: Center(
-                  child: Text(
-                    '칸반 보드',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.onSurface,
-                    ),
+                child: GlassContainer(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  borderRadius: 8.0,
+                  blur: 20.0,
+                  gradientColors: [
+                    colorScheme.surface.withOpacity(0.6),
+                    colorScheme.surface.withOpacity(0.5),
+                  ],
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.search,
+                        color: colorScheme.onSurface.withOpacity(0.5),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: 'Filter by keyword or by field',
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                            hintStyle: TextStyle(
+                              color: colorScheme.onSurface.withOpacity(0.5),
+                              fontSize: 13,
+                            ),
+                          ),
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              GlassContainer(
-                padding: EdgeInsets.zero,
-                borderRadius: 12.0,
-                blur: 20.0,
-                gradientColors: [
-                  colorScheme.primary.withOpacity(0.3),
-                  colorScheme.primary.withOpacity(0.2),
-                ],
-                child: IconButton(
-                  icon: Icon(Icons.add, color: colorScheme.primary),
-                  onPressed: () => _showAddTaskDialog(context),
-                  tooltip: '새 태스크 추가',
+              const SizedBox(width: 12),
+              if (_searchQuery.isNotEmpty)
+                TextButton(
+                  onPressed: () {
+                    _searchController.clear();
+                  },
+                  child: Text(
+                    'Discard',
+                    style: TextStyle(
+                      color: colorScheme.onSurface.withOpacity(0.7),
+                      fontSize: 14,
+                    ),
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -90,6 +129,25 @@ class _KanbanScreenState extends State<KanbanScreen> {
         ],
       ),
     );
+  }
+
+  /// 태스크 필터링
+  List<Task> _filterTasks(List<Task> tasks, String? currentProjectId) {
+    if (_searchQuery.trim().isEmpty) {
+      return tasks;
+    }
+    
+    final query = _searchQuery.toLowerCase();
+    return tasks.where((task) {
+      if (currentProjectId != null && task.projectId != currentProjectId) {
+        return false;
+      }
+      return task.title.toLowerCase().contains(query) ||
+             task.description.toLowerCase().contains(query) ||
+             task.detail.toLowerCase().contains(query) ||
+             task.status.displayName.toLowerCase().contains(query) ||
+             task.priority.displayName.toLowerCase().contains(query);
+    }).toList();
   }
 
   /// 칸반 보드 UI 구성
@@ -124,7 +182,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 _buildColumn(
                   context,
                   TaskStatus.backlog,
-                  taskProvider.getTasksByStatus(TaskStatus.backlog, projectId: currentProjectId),
+                  _filterTasks(taskProvider.getTasksByStatus(TaskStatus.backlog, projectId: currentProjectId), currentProjectId),
                   taskProvider,
                   columnWidth: columnWidth,
                 ),
@@ -132,7 +190,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 _buildColumn(
                   context,
                   TaskStatus.ready,
-                  taskProvider.getTasksByStatus(TaskStatus.ready, projectId: currentProjectId),
+                  _filterTasks(taskProvider.getTasksByStatus(TaskStatus.ready, projectId: currentProjectId), currentProjectId),
                   taskProvider,
                   columnWidth: columnWidth,
                 ),
@@ -140,7 +198,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 _buildColumn(
                   context,
                   TaskStatus.inProgress,
-                  taskProvider.getTasksByStatus(TaskStatus.inProgress, projectId: currentProjectId),
+                  _filterTasks(taskProvider.getTasksByStatus(TaskStatus.inProgress, projectId: currentProjectId), currentProjectId),
                   taskProvider,
                   columnWidth: columnWidth,
                 ),
@@ -148,7 +206,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 _buildColumn(
                   context,
                   TaskStatus.inReview,
-                  taskProvider.getTasksByStatus(TaskStatus.inReview, projectId: currentProjectId),
+                  _filterTasks(taskProvider.getTasksByStatus(TaskStatus.inReview, projectId: currentProjectId), currentProjectId),
                   taskProvider,
                   columnWidth: columnWidth,
                 ),
@@ -156,7 +214,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 _buildColumn(
                   context,
                   TaskStatus.done,
-                  taskProvider.getTasksByStatus(TaskStatus.done, projectId: currentProjectId),
+                  _filterTasks(taskProvider.getTasksByStatus(TaskStatus.done, projectId: currentProjectId), currentProjectId),
                   taskProvider,
                   columnWidth: columnWidth,
                 ),
@@ -190,35 +248,49 @@ class _KanbanScreenState extends State<KanbanScreen> {
             borderRadius: 15.0,
             blur: 20.0,
             gradientColors: [
-              statusColor.withOpacity(0.4),
-              statusColor.withOpacity(0.3),
+              colorScheme.surface.withOpacity(0.6),
+              colorScheme.surface.withOpacity(0.5),
             ],
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    shape: BoxShape.circle,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: statusColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        status.displayName,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${tasks.length}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(height: 8),
                 Text(
-                  status.displayName,
+                  status.description,
                   style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  '${tasks.length}',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: colorScheme.onSurface.withOpacity(0.7),
+                    fontSize: 13,
+                    color: colorScheme.onSurface.withOpacity(0.6),
                   ),
                 ),
               ],
@@ -251,7 +323,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     borderRadius: BorderRadius.circular(15),
                     border: Border.all(
                       color: isDraggingOver
-                          ? statusColor
+                          ? colorScheme.primary
                           : colorScheme.onSurface.withOpacity(0.1),
                       width: isDraggingOver ? 2 : 1,
                     ),
@@ -301,10 +373,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
                               borderRadius: 20.0,
                               blur: 20.0,
                               gradientColors: [
-                                statusColor.withOpacity(0.4),
-                                statusColor.withOpacity(0.3),
+                                colorScheme.surface.withOpacity(0.6),
+                                colorScheme.surface.withOpacity(0.5),
                               ],
-                              borderColor: statusColor.withOpacity(0.6),
+                              borderColor: colorScheme.onSurface.withOpacity(0.2),
                               borderWidth: 1.0,
                               child: Container(
                                 width: 36,
@@ -312,7 +384,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                 alignment: Alignment.center,
                                 child: Icon(
                                   Icons.add,
-                                  color: statusColor,
+                                  color: colorScheme.onSurface,
                                   size: 20,
                                 ),
                               ),
@@ -414,6 +486,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => _showTaskDetailScreen(context, task, taskProvider),
+      onLongPressStart: (details) => _showTaskContextMenu(context, task, taskProvider, details.globalPosition),
+      onSecondaryTapDown: (details) => _showTaskContextMenu(context, task, taskProvider, details.globalPosition),
       child: GlassContainer(
         padding: const EdgeInsets.all(16),
         borderRadius: 15.0,
@@ -423,7 +497,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
           colorScheme.surface.withOpacity(0.6),
           colorScheme.surface.withOpacity(0.5),
         ],
-        borderColor: statusColor.withOpacity(0.3),
+        borderColor: colorScheme.onSurface.withOpacity(0.1),
         child: Stack(
           clipBehavior: Clip.none, // 경계 밖으로 나가는 것을 허용
           children: [
@@ -433,23 +507,35 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 _buildTaskCardContent(context, task, statusColor),
               ],
             ),
-            // 오른쪽 상단 X 버튼 (삭제)
-            Positioned(
-              top: -6,
-              right: -6,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => _showDeleteConfirmDialog(context, task, taskProvider),
-                  borderRadius: BorderRadius.circular(9),
-                  child: Icon(
-                    Icons.close,
-                    size: 12,
-                    color: Colors.red,
-                  ),
+            // 오른쪽 상단 할당자 프로필 아이콘
+            if (task.assignedMemberIds.isNotEmpty)
+              Positioned(
+                top: -6,
+                right: -6,
+                child: FutureBuilder<List<dynamic>>(
+                  future: _loadAssignedMembers(task.assignedMemberIds),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    final members = snapshot.data!;
+                    // 첫 번째 할당자만 표시 (여러 명이면 첫 번째)
+                    final member = members.first;
+                    return CircleAvatar(
+                      radius: 12,
+                      backgroundColor: AvatarColor.getColorForUser(member.id),
+                      child: Text(
+                        member.username[0].toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -459,67 +545,56 @@ class _KanbanScreenState extends State<KanbanScreen> {
   /// 태스크 카드 내용
   Widget _buildTaskCardContent(BuildContext context, Task task, Color statusColor) {
     final colorScheme = Theme.of(context).colorScheme;
+    final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
+    Project? project;
+    try {
+      project = projectProvider.projects.firstWhere(
+        (p) => p.id == task.projectId,
+      );
+    } catch (e) {
+      project = projectProvider.currentProject;
+    }
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: statusColor,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                task.title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onSurface,
+        // 프로젝트 명
+        if (project != null) ...[
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: project.color,
+                  shape: BoxShape.circle,
                 ),
-                maxLines: 2,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                project.name,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.onSurface.withOpacity(0.7),
+                ),
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-            ),
-            const SizedBox(width: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: task.priority.color.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: task.priority.color.withOpacity(0.5),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 4,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: task.priority.color,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    task.priority.displayName,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: task.priority.color,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
+        // 태스크 제목
+        Text(
+          task.title,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: colorScheme.onSurface,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
         if (task.description.isNotEmpty) ...[
           const SizedBox(height: 8),
@@ -533,61 +608,41 @@ class _KanbanScreenState extends State<KanbanScreen> {
             overflow: TextOverflow.ellipsis,
           ),
         ],
-        // 할당된 팀원 태그
-        if (task.assignedMemberIds.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          FutureBuilder<List<dynamic>>(
-            future: _loadAssignedMembers(task.assignedMemberIds),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const SizedBox.shrink();
-              }
-              final members = snapshot.data!;
-              return Wrap(
-                spacing: 4,
-                runSpacing: 4,
-                children: members.map((member) {
-                  return GlassContainer(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    borderRadius: 6.0,
-                    blur: 10.0,
-                    gradientColors: [
-                      colorScheme.primary.withOpacity(0.2),
-                      colorScheme.primary.withOpacity(0.1),
-                    ],
-                    borderColor: colorScheme.primary.withOpacity(0.3),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircleAvatar(
-                          radius: 6,
-                          backgroundColor: colorScheme.primary,
-                          child: Text(
-                            member.username[0].toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 8,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          member.username,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: colorScheme.onSurface,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              );
-            },
+        // 중요도 태그
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: task.priority.color.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: task.priority.color.withOpacity(0.5),
+              width: 1,
+            ),
           ),
-        ],
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 4,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: task.priority.color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                task.priority.displayName,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: task.priority.color,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -611,7 +666,6 @@ class _KanbanScreenState extends State<KanbanScreen> {
   /// 특정 상태로 태스크 추가 다이얼로그
   void _showAddTaskDialogForStatus(BuildContext context, TaskStatus initialStatus) {
     final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
     TaskStatus selectedStatus = initialStatus;
     TaskPriority selectedPriority = TaskPriority.p1;
     DateTime? startDate;
@@ -657,13 +711,6 @@ class _KanbanScreenState extends State<KanbanScreen> {
                       controller: titleController,
                       labelText: '제목',
                       prefixIcon: const Icon(Icons.title),
-                    ),
-                    const SizedBox(height: 16),
-                    GlassTextField(
-                      controller: descriptionController,
-                      labelText: '설명 (선택사항)',
-                      prefixIcon: const Icon(Icons.description),
-                      keyboardType: TextInputType.multiline,
                     ),
                     const SizedBox(height: 20),
                     Text(
@@ -881,15 +928,18 @@ class _KanbanScreenState extends State<KanbanScreen> {
                               if (titleController.text.trim().isNotEmpty) {
                                 final projectProvider = context.read<ProjectProvider>();
                                 final currentProjectId = projectProvider.currentProject?.id;
-                                if (currentProjectId != null) {
+                                final authProvider = context.read<AuthProvider>();
+                                final currentUserId = authProvider.currentUser?.id;
+                                if (currentProjectId != null && currentUserId != null) {
                                   context.read<TaskProvider>().createTask(
                                         title: titleController.text.trim(),
-                                        description: descriptionController.text.trim(),
+                                        description: '',
                                         status: selectedStatus,
                                         projectId: currentProjectId,
                                         startDate: startDate,
                                         endDate: endDate,
                                         priority: selectedPriority,
+                                        assignedMemberIds: [currentUserId],
                                       );
                                 }
                                 Navigator.of(context).pop();
@@ -1062,6 +1112,49 @@ class _KanbanScreenState extends State<KanbanScreen> {
           },
         );
       },
+    );
+  }
+
+  /// 태스크 컨텍스트 메뉴 표시
+  void _showTaskContextMenu(BuildContext context, Task task, TaskProvider taskProvider, Offset position) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final size = MediaQuery.of(context).size;
+    
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        size.width - position.dx,
+        size.height - position.dy,
+      ),
+      items: [
+        PopupMenuItem(
+          child: Row(
+            children: [
+              Icon(
+                Icons.delete_outline,
+                size: 20,
+                color: Colors.red,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                '삭제',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          onTap: () {
+            // 메뉴가 닫힌 후에 다이얼로그 표시
+            Future.delayed(const Duration(milliseconds: 100), () {
+              _showDeleteConfirmDialog(context, task, taskProvider);
+            });
+          },
+        ),
+      ],
     );
   }
 

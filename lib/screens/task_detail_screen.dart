@@ -9,6 +9,42 @@ import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
 import '../services/comment_service.dart';
 import '../widgets/glass_container.dart';
+import '../utils/avatar_color.dart';
+
+/// 타임라인 아이템 타입
+enum TimelineItemType {
+  history,
+  comment,
+  detail,
+}
+
+/// 타임라인 아이템 데이터 클래스
+class TimelineItem {
+  final TimelineItemType type;
+  final DateTime date;
+  final dynamic data; // HistoryEvent 또는 Comment
+
+  TimelineItem({
+    required this.type,
+    required this.date,
+    required this.data,
+  });
+}
+
+/// 히스토리 이벤트 데이터 클래스
+class HistoryEvent {
+  final String username;
+  final String action;
+  final Widget? target;
+  final IconData icon;
+
+  HistoryEvent({
+    required this.username,
+    required this.action,
+    this.target,
+    required this.icon,
+  });
+}
 
 /// 태스크 상세 화면 - GitHub 이슈 스타일
 class TaskDetailScreen extends StatefulWidget {
@@ -121,6 +157,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
       _commentController.clear();
       await _loadComments();
+      if (mounted) {
+        setState(() {});
+      }
     } catch (e, stackTrace) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -300,77 +339,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 왼쪽: 상세 내용
+                      // 왼쪽: 타임라인
                       Expanded(
                         flex: 2,
+                        child: SingleChildScrollView(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // 설명
-                            if (currentTask.description.isNotEmpty) ...[
-                              GlassContainer(
-                                padding: const EdgeInsets.all(20),
-                                borderRadius: 15.0,
-                                blur: 20.0,
-                                gradientColors: [
-                                  colorScheme.surface.withOpacity(0.4),
-                                  colorScheme.surface.withOpacity(0.3),
-                                ],
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '설명',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: colorScheme.onSurface,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      currentTask.description,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: colorScheme.onSurface.withOpacity(0.8),
-                                        height: 1.5,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-                            // 상세 내용
-                            GlassContainer(
-                              padding: const EdgeInsets.all(20),
-                              borderRadius: 15.0,
-                              blur: 20.0,
-                              gradientColors: [
-                                colorScheme.surface.withOpacity(0.4),
-                                colorScheme.surface.withOpacity(0.3),
-                              ],
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '상세 내용',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: colorScheme.onSurface,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      IconButton(
-                                        icon: Icon(
-                                          _isEditing ? Icons.check : Icons.edit,
-                                          size: 20,
-                                          color: colorScheme.primary,
-                                        ),
-                                        onPressed: () {
+                            // 상세 내용 (항상 맨 위)
+                            _buildDetailTimelineItem(
+                              context,
+                              currentTask,
+                              _isEditing,
+                              () {
                                           if (_isEditing) {
                                             _saveTask(context, taskProvider);
                                           } else {
@@ -379,218 +360,58 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                             });
                                           }
                                         },
-                                        tooltip: _isEditing ? '저장' : '편집',
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  if (_isEditing)
-                                    TextField(
-                                      controller: _detailController,
-                                      maxLines: null,
-                                      minLines: 10,
-                                      decoration: InputDecoration(
-                                        hintText: '상세 내용을 입력하세요...',
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        filled: true,
-                                        fillColor: Colors.white.withOpacity(0.5),
-                                      ),
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: colorScheme.onSurface,
-                                        height: 1.5,
-                                      ),
-                                    )
-                                  else
-                                    Text(
-                                      currentTask.detail.isEmpty
-                                          ? '상세 내용이 없습니다. 편집 버튼을 눌러 추가하세요.'
-                                          : currentTask.detail,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: currentTask.detail.isEmpty
-                                            ? colorScheme.onSurface.withOpacity(0.5)
-                                            : colorScheme.onSurface.withOpacity(0.8),
-                                        height: 1.5,
-                                      ),
-                                    ),
-                                ],
-                              ),
+                              colorScheme,
                             ),
                             const SizedBox(height: 16),
-                            // 댓글 섹션
-                            GlassContainer(
-                              padding: const EdgeInsets.all(20),
-                              borderRadius: 15.0,
-                              blur: 20.0,
-                              gradientColors: [
-                                colorScheme.surface.withOpacity(0.4),
-                                colorScheme.surface.withOpacity(0.3),
-                              ],
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.comment_outlined,
-                                        size: 20,
-                                        color: colorScheme.onSurface,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '댓글 (${_comments.length})',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: colorScheme.onSurface,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 16),
-                                  // 댓글 입력
-                                  Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _commentController,
-                                          maxLines: 3,
-                                          minLines: 1,
-                                          decoration: InputDecoration(
-                                            hintText: '댓글을 입력하세요...',
-                                            border: OutlineInputBorder(
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
-                                            filled: true,
-                                            fillColor: Colors.white.withOpacity(0.5),
-                                            contentPadding: const EdgeInsets.all(12),
+                            // 타임라인 아이템들 (시간순 정렬)
+                            if (_isLoadingComments)
+                              const Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: Center(child: CircularProgressIndicator()),
+                              )
+                            else
+                              FutureBuilder<List<TimelineItem>>(
+                                future: _buildTimelineItems(currentTask),
+                                builder: (context, snapshot) {
+                                  if (!snapshot.hasData) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  final timelineItems = snapshot.data!;
+                                  
+                                  return Column(
+                                    children: timelineItems.map((item) {
+                                      if (item.type == TimelineItemType.history) {
+                                        final event = item.data as HistoryEvent;
+                                        return Padding(
+                                          padding: const EdgeInsets.only(bottom: 8),
+                                          child: _buildHistoryItem(
+                                            context,
+                                            item.date,
+                                            event.username,
+                                            event.action,
+                                            event.target,
+                                            event.icon,
+                                            colorScheme,
                                           ),
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: colorScheme.onSurface,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      IconButton(
-                                        icon: Icon(
-                                          Icons.send,
-                                          color: colorScheme.primary,
-                                        ),
-                                        onPressed: _addComment,
-                                        tooltip: '댓글 추가',
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 16),
-                                  // 댓글 목록
-                                  if (_isLoadingComments)
-                                    const Center(
-                                      child: Padding(
-                                        padding: EdgeInsets.all(16.0),
-                                        child: CircularProgressIndicator(),
-                                      ),
-                                    )
-                                  else if (_comments.isEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.all(16.0),
-                                      child: Text(
-                                        '댓글이 없습니다. 첫 댓글을 작성해보세요!',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: colorScheme.onSurface.withOpacity(0.5),
-                                        ),
-                                      ),
-                                    )
-                                  else
-                                    ..._comments.map((comment) {
-                                      final isMyComment = comment.userId == 
-                                        (Provider.of<AuthProvider>(context, listen: false).currentUser?.id ?? '');
-                                      return Container(
-                                        margin: const EdgeInsets.only(bottom: 12),
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: colorScheme.surface.withOpacity(0.3),
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: colorScheme.onSurface.withOpacity(0.1),
-                                          ),
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                CircleAvatar(
-                                                  radius: 12,
-                                                  backgroundColor: colorScheme.primary,
-                                                  child: Text(
-                                                    comment.username[0].toUpperCase(),
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.white,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                      Text(
-                                                        comment.username,
-                                                        style: TextStyle(
-                                                          fontSize: 14,
-                                                          fontWeight: FontWeight.bold,
-                                                          color: colorScheme.onSurface,
-                                                        ),
-                                                      ),
-                                                      Text(
-                                                        '${comment.createdAt.year}-${comment.createdAt.month.toString().padLeft(2, '0')}-${comment.createdAt.day.toString().padLeft(2, '0')} ${comment.createdAt.hour.toString().padLeft(2, '0')}:${comment.createdAt.minute.toString().padLeft(2, '0')}',
-                                                        style: TextStyle(
-                                                          fontSize: 11,
-                                                          color: colorScheme.onSurface.withOpacity(0.5),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                if (isMyComment)
-                                                  IconButton(
-                                                    icon: Icon(
-                                                      Icons.delete_outline,
-                                                      size: 18,
-                                                      color: colorScheme.error,
-                                                    ),
-                                                    onPressed: () => _deleteComment(comment.id),
-                                                    tooltip: '삭제',
-                                                    padding: EdgeInsets.zero,
-                                                    constraints: const BoxConstraints(),
-                                                  ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Text(
-                                              comment.content,
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: colorScheme.onSurface.withOpacity(0.8),
-                                                height: 1.5,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
+                                        );
+                                      } else if (item.type == TimelineItemType.comment) {
+                                        final comment = item.data as Comment;
+                                        return _buildCommentTimelineItem(
+                                          context,
+                                          comment,
+                                          colorScheme,
+                                        );
+                                      }
+                                      return const SizedBox.shrink();
                                     }).toList(),
-                                ],
+                                  );
+                                },
                               ),
-                            ),
+                            // 댓글 입력
+                            const SizedBox(height: 16),
+                            _buildCommentInput(context, colorScheme),
                           ],
+                        ),
                         ),
                       ),
                       const SizedBox(width: 24),
@@ -710,6 +531,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           _selectedStatus = value;
                                         });
                                         taskProvider.changeTaskStatus(currentTask.id, value);
+                                        // 상태 변경 후 타임라인 업데이트를 위해 setState 호출
+                                        setState(() {});
                                       }
                                     },
                                   ),
@@ -790,7 +613,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            // 시작일
+                            // 기간 (시작일 ~ 종료일)
                             GlassContainer(
                               padding: const EdgeInsets.all(16),
                               borderRadius: 15.0,
@@ -805,7 +628,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   Row(
                                     children: [
                                       Text(
-                                        '시작일',
+                                        '기간',
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
@@ -816,14 +639,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       Icon(Icons.settings, size: 16, color: colorScheme.onSurface.withOpacity(0.5)),
                                     ],
                                   ),
-                                  const SizedBox(height: 8),
-                                  InkWell(
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      // 시작일
+                                      Expanded(
+                                        child: InkWell(
                                     onTap: () async {
                                       final date = await showDatePicker(
                                         context: context,
                                         initialDate: _startDate ?? DateTime.now(),
                                         firstDate: DateTime(2020),
-                                        lastDate: DateTime(2030),
+                                              lastDate: _endDate ?? DateTime(2030),
                                       );
                                       if (date != null) {
                                         setState(() {
@@ -837,7 +664,27 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                         );
                                       }
                                     },
-                                    child: Text(
+                                          child: Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: colorScheme.surface.withOpacity(0.3),
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: colorScheme.onSurface.withOpacity(0.1),
+                                              ),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '시작일',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: colorScheme.onSurface.withOpacity(0.6),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
                                       _startDate != null
                                           ? '${_startDate!.year}-${_startDate!.month.toString().padLeft(2, '0')}-${_startDate!.day.toString().padLeft(2, '0')}'
                                           : '날짜 선택',
@@ -846,41 +693,24 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                         color: _startDate != null
                                             ? colorScheme.onSurface
                                             : colorScheme.onSurface.withOpacity(0.5),
-                                      ),
+                                                    fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            // 종료일
-                            GlassContainer(
-                              padding: const EdgeInsets.all(16),
-                              borderRadius: 15.0,
-                              blur: 20.0,
-                              gradientColors: [
-                                colorScheme.surface.withOpacity(0.4),
-                                colorScheme.surface.withOpacity(0.3),
-                              ],
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '종료일',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: colorScheme.onSurface,
                                         ),
                                       ),
-                                      const Spacer(),
-                                      Icon(Icons.settings, size: 16, color: colorScheme.onSurface.withOpacity(0.5)),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  InkWell(
+                                      const SizedBox(width: 12),
+                                      Icon(
+                                        Icons.arrow_forward,
+                                        size: 16,
+                                        color: colorScheme.onSurface.withOpacity(0.5),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      // 종료일
+                                      Expanded(
+                                        child: InkWell(
                                     onTap: () async {
                                       final date = await showDatePicker(
                                         context: context,
@@ -900,7 +730,27 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                         );
                                       }
                                     },
-                                    child: Text(
+                                          child: Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: colorScheme.surface.withOpacity(0.3),
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: colorScheme.onSurface.withOpacity(0.1),
+                                              ),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '종료일',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: colorScheme.onSurface.withOpacity(0.6),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
                                       _endDate != null
                                           ? '${_endDate!.year}-${_endDate!.month.toString().padLeft(2, '0')}-${_endDate!.day.toString().padLeft(2, '0')}'
                                           : '날짜 선택',
@@ -909,8 +759,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                         color: _endDate != null
                                             ? colorScheme.onSurface
                                             : colorScheme.onSurface.withOpacity(0.5),
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                       ),
                                     ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -987,7 +844,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                                 children: [
                                                   CircleAvatar(
                                                     radius: 8,
-                                                    backgroundColor: colorScheme.primary,
+                                                    backgroundColor: AvatarColor.getColorForUser(member.id),
                                                     child: Text(
                                                       member.username[0].toUpperCase(),
                                                       style: TextStyle(
@@ -1168,7 +1025,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           final user = availableMembers[index];
                           return ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: colorScheme.primary,
+                              backgroundColor: AvatarColor.getColorForUser(user.id),
                               child: Text(
                                 user.username[0].toUpperCase(),
                                 style: TextStyle(
@@ -1257,6 +1114,615 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       ),
     );
     setState(() {});
+  }
+
+  /// 생성자 이름 가져오기
+  String _getCreatorUsername(Task task) {
+    // 실제로는 태스크에 creatorId가 있어야 하지만, 현재는 없으므로 기본값 반환
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    return authProvider.currentUser?.username ?? 'Unknown';
+  }
+
+  /// 타임라인 아이템들 빌드 (시간순 정렬)
+  Future<List<TimelineItem>> _buildTimelineItems(Task task) async {
+    final List<TimelineItem> items = [];
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final currentUser = authProvider.currentUser;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    // 이슈 생성 기록
+    items.add(TimelineItem(
+      type: TimelineItemType.history,
+      date: task.createdAt,
+      data: HistoryEvent(
+        username: _getCreatorUsername(task),
+        action: 'opened this',
+        icon: Icons.circle_outlined,
+      ),
+    ));
+
+    // 할당 히스토리 (할당된 멤버가 있고, 할당 시간이 생성 시간 이후인 경우만)
+    if (task.assignedMemberIds.isNotEmpty) {
+      final members = await _loadAssignedMembers(task.assignedMemberIds);
+      for (final member in members) {
+        // 할당은 updatedAt을 사용하되, 코멘트와 비교해서 정확한 순서를 맞춤
+        final assignmentDate = task.updatedAt.isAfter(task.createdAt) 
+            ? task.updatedAt 
+            : task.createdAt.add(const Duration(seconds: 1));
+        
+        items.add(TimelineItem(
+          type: TimelineItemType.history,
+          date: assignmentDate,
+          data: HistoryEvent(
+            username: currentUser?.username ?? 'Unknown',
+            action: 'assigned',
+            target: Text(
+              member.username,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.primary,
+              ),
+            ),
+            icon: Icons.person_outline,
+          ),
+        ));
+      }
+    }
+
+    // 코멘트 추가
+    for (final comment in _comments) {
+      items.add(TimelineItem(
+        type: TimelineItemType.comment,
+        date: comment.createdAt,
+        data: comment,
+      ));
+    }
+
+    // 상태 변경 히스토리 (상태가 backlog가 아니고, updatedAt이 생성 시간 이후인 경우)
+    // 상태 변경은 코멘트와 비교해서 정확한 순서를 맞춤
+    if (task.status != TaskStatus.backlog && task.updatedAt.isAfter(task.createdAt)) {
+      // 코멘트가 있으면 가장 최근 코멘트 이후에 상태 변경이 일어났다고 가정
+      // 코멘트가 없으면 updatedAt 사용
+      DateTime statusChangeDate = task.updatedAt;
+      if (_comments.isNotEmpty) {
+        final latestComment = _comments.reduce((a, b) => 
+          a.createdAt.isAfter(b.createdAt) ? a : b);
+        // 상태 변경이 코멘트 이후에 일어났다면 코멘트 시간보다 조금 늦게
+        if (task.updatedAt.isAfter(latestComment.createdAt)) {
+          statusChangeDate = task.updatedAt;
+        } else {
+          // 상태 변경이 코멘트 이전에 일어났다면 코멘트 시간보다 조금 이전
+          statusChangeDate = latestComment.createdAt.subtract(const Duration(seconds: 1));
+        }
+      }
+      
+      items.add(TimelineItem(
+        type: TimelineItemType.history,
+        date: statusChangeDate,
+        data: HistoryEvent(
+          username: _getCreatorUsername(task),
+          action: 'moved this to',
+          target: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: task.status.color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                task.status.displayName,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: task.status.color,
+                ),
+              ),
+            ],
+          ),
+          icon: Icons.view_kanban_outlined,
+        ),
+      ));
+    }
+
+    // 시간순으로 정렬 (오래된 것부터)
+    items.sort((a, b) => a.date.compareTo(b.date));
+
+    return items;
+  }
+
+  /// 히스토리 아이템 빌드 (GitHub 스타일 - 작은 아이콘과 텍스트)
+  Widget _buildHistoryItem(
+    BuildContext context,
+    DateTime date,
+    String username,
+    String action,
+    Widget? target,
+    IconData icon,
+    ColorScheme colorScheme,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 작은 아이콘 (아바타 대신)
+          Container(
+            width: 20,
+            height: 20,
+            margin: const EdgeInsets.only(top: 2),
+            child: Icon(
+              icon,
+              size: 16,
+              color: colorScheme.onSurface.withOpacity(0.5),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // 내용
+          Expanded(
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  username,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                Text(
+                  ' $action ',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: colorScheme.onSurface.withOpacity(0.8),
+                  ),
+                ),
+                if (target != null) target,
+                Text(
+                  ' ${_formatRelativeDate(date)}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: colorScheme.onSurface.withOpacity(0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 타임라인 아이템 빌드 (코멘트용 - 아바타 포함)
+  Widget _buildTimelineItem(
+    BuildContext context,
+    DateTime date,
+    String username,
+    String action,
+    Widget? content,
+    ColorScheme colorScheme,
+  ) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 아바타
+        CircleAvatar(
+          radius: 16,
+          backgroundColor: AvatarColor.getColorForUser(username),
+          child: Text(
+            username[0].toUpperCase(),
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // 내용
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    username,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    action,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.onSurface.withOpacity(0.7),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _formatRelativeDate(date),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.onSurface.withOpacity(0.5),
+                    ),
+                  ),
+                ],
+              ),
+              if (content != null) ...[
+                const SizedBox(height: 8),
+                content,
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 상대적 날짜 포맷팅 (예: "5 days ago", "yesterday")
+  String _formatRelativeDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+    
+    if (difference.inDays == 0) {
+      if (difference.inHours == 0) {
+        if (difference.inMinutes == 0) {
+          return 'just now';
+        }
+        return '${difference.inMinutes} minutes ago';
+      }
+      return '${difference.inHours} hours ago';
+    } else if (difference.inDays == 1) {
+      return 'yesterday';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} days ago';
+    } else if (difference.inDays < 14) {
+      return 'last week';
+    } else if (difference.inDays < 30) {
+      final weeks = (difference.inDays / 7).floor();
+      return '$weeks ${weeks == 1 ? 'week' : 'weeks'} ago';
+    } else if (difference.inDays < 365) {
+      final months = (difference.inDays / 30).floor();
+      return '$months ${months == 1 ? 'month' : 'months'} ago';
+    } else {
+      final years = (difference.inDays / 365).floor();
+      return '$years ${years == 1 ? 'year' : 'years'} ago';
+    }
+  }
+
+  /// 설명 타임라인 아이템
+  Widget _buildDescriptionTimelineItem(
+    BuildContext context,
+    String description,
+    DateTime date,
+    String username,
+    ColorScheme colorScheme,
+  ) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(width: 44), // 아바타 너비 + 간격
+        Expanded(
+          child: GlassContainer(
+            padding: const EdgeInsets.all(16),
+            borderRadius: 12.0,
+            blur: 20.0,
+            gradientColors: [
+              colorScheme.surface.withOpacity(0.4),
+              colorScheme.surface.withOpacity(0.3),
+            ],
+            child: Text(
+              description,
+              style: TextStyle(
+                fontSize: 14,
+                color: colorScheme.onSurface.withOpacity(0.8),
+                height: 1.5,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 상세 내용 타임라인 아이템
+  Widget _buildDetailTimelineItem(
+    BuildContext context,
+    Task task,
+    bool isEditing,
+    VoidCallback onEditToggle,
+    ColorScheme colorScheme,
+  ) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(width: 44), // 아바타 너비 + 간격
+        Expanded(
+          child: GlassContainer(
+            padding: const EdgeInsets.all(16),
+            borderRadius: 12.0,
+            blur: 20.0,
+            gradientColors: [
+              colorScheme.surface.withOpacity(0.4),
+              colorScheme.surface.withOpacity(0.3),
+            ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        isEditing ? Icons.check : Icons.edit,
+                        size: 18,
+                        color: colorScheme.primary,
+                      ),
+                      onPressed: onEditToggle,
+                      tooltip: isEditing ? '저장' : '편집',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (isEditing)
+                  TextField(
+                    controller: _detailController,
+                    maxLines: null,
+                    minLines: 8,
+                    decoration: InputDecoration(
+                      hintText: '상세 내용을 입력하세요...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.5),
+                      contentPadding: const EdgeInsets.all(12),
+                    ),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.onSurface,
+                      height: 1.5,
+                    ),
+                  )
+                else
+                  Text(
+                    task.detail.isEmpty
+                        ? '상세 내용이 없습니다. 편집 버튼을 눌러 추가하세요.'
+                        : task.detail,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: task.detail.isEmpty
+                          ? colorScheme.onSurface.withOpacity(0.5)
+                          : colorScheme.onSurface.withOpacity(0.8),
+                      height: 1.5,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 댓글 타임라인 아이템 (코멘트 스타일 - 아바타와 박스)
+  Widget _buildCommentTimelineItem(
+    BuildContext context,
+    Comment comment,
+    ColorScheme colorScheme,
+  ) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isMyComment = comment.userId == (authProvider.currentUser?.id ?? '');
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: AvatarColor.getColorForUser(comment.userId),
+            child: Text(
+              comment.username[0].toUpperCase(),
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      comment.username,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _formatRelativeDate(comment.createdAt),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.onSurface.withOpacity(0.5),
+                      ),
+                    ),
+                    if (isMyComment) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Author',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const Spacer(),
+                    if (isMyComment)
+                      IconButton(
+                        icon: Icon(
+                          Icons.more_vert,
+                          size: 16,
+                          color: colorScheme.onSurface.withOpacity(0.5),
+                        ),
+                        onPressed: () => _deleteComment(comment.id),
+                        tooltip: '삭제',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                GlassContainer(
+                  padding: const EdgeInsets.all(12),
+                  borderRadius: 8.0,
+                  blur: 15.0,
+                  gradientColors: [
+                    colorScheme.surface.withOpacity(0.3),
+                    colorScheme.surface.withOpacity(0.2),
+                  ],
+                  child: Text(
+                    comment.content,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.onSurface.withOpacity(0.8),
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 댓글 입력 위젯
+  Widget _buildCommentInput(BuildContext context, ColorScheme colorScheme) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CircleAvatar(
+          radius: 16,
+          backgroundColor: AvatarColor.getColorForUser(
+            Provider.of<AuthProvider>(context, listen: false).currentUser?.id ?? 
+            Provider.of<AuthProvider>(context, listen: false).currentUser?.username ?? 'U'
+          ),
+          child: Text(
+            (Provider.of<AuthProvider>(context, listen: false).currentUser?.username ?? 'U')[0].toUpperCase(),
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              GlassContainer(
+                padding: const EdgeInsets.all(12),
+                borderRadius: 12.0,
+                blur: 20.0,
+                gradientColors: [
+                  colorScheme.surface.withOpacity(0.4),
+                  colorScheme.surface.withOpacity(0.3),
+                ],
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: _commentController,
+                      maxLines: null,
+                      minLines: 3,
+                      decoration: InputDecoration(
+                        hintText: 'Add a comment...',
+                        border: InputBorder.none,
+                        hintStyle: TextStyle(
+                          color: colorScheme.onSurface.withOpacity(0.5),
+                        ),
+                      ),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colorScheme.onSurface,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: _addComment,
+                          child: Text(
+                            'Comment',
+                            style: TextStyle(
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 날짜 포맷팅
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays == 0) {
+      if (difference.inHours == 0) {
+        if (difference.inMinutes == 0) {
+          return 'just now';
+        }
+        return '${difference.inMinutes}m ago';
+      }
+      return '${difference.inHours}h ago';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}d ago';
+    } else {
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${months[date.month - 1]} ${date.day}';
+    }
   }
 }
 

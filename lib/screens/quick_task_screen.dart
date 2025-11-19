@@ -4,8 +4,10 @@ import 'package:provider/provider.dart';
 import '../models/task.dart';
 import '../providers/task_provider.dart';
 import '../providers/project_provider.dart';
+import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
 import '../widgets/glass_container.dart';
+import '../utils/avatar_color.dart';
 import 'task_detail_screen.dart';
 
 /// 빠른 태스크 추가 화면
@@ -44,12 +46,17 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
     final currentProjectId = projectProvider.currentProject?.id;
     if (currentProjectId == null) return;
 
+    final authProvider = context.read<AuthProvider>();
+    final currentUserId = authProvider.currentUser?.id;
+    if (currentUserId == null) return;
+
     final taskProvider = context.read<TaskProvider>();
     taskProvider.createTask(
       title: text,
       description: '',
       status: TaskStatus.backlog,
       projectId: currentProjectId,
+      assignedMemberIds: [currentUserId],
     );
 
     // 입력창 초기화
@@ -249,7 +256,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                                         children: [
                                                           CircleAvatar(
                                                             radius: 6,
-                                                            backgroundColor: colorScheme.primary,
+                                                            backgroundColor: AvatarColor.getColorForUser(member.id),
                                                             child: Text(
                                                               member.username[0].toUpperCase(),
                                                               style: TextStyle(

@@ -41,7 +41,7 @@ class Task {
     required this.updatedAt,
   }) : assignedMemberIds = assignedMemberIds ?? [],
        commentIds = commentIds ?? [],
-       priority = priority ?? TaskPriority.p1;
+       priority = priority ?? TaskPriority.p2;
 
   /// JSON으로 변환 (저장용)
   Map<String, dynamic> toJson() {
@@ -107,9 +107,9 @@ class Task {
       priority: json.containsKey('priority') && json['priority'] != null
           ? TaskPriority.values.firstWhere(
               (e) => e.name == json['priority'],
-              orElse: () => TaskPriority.p1,
+              orElse: () => TaskPriority.p2,
             )
-          : TaskPriority.p1,
+          : TaskPriority.p2,
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
     );
@@ -188,6 +188,22 @@ extension TaskStatusExtension on TaskStatus {
         return const Color(0xFF9C27B0); // 보라색
       case TaskStatus.done:
         return const Color(0xFF4CAF50); // 초록색
+    }
+  }
+
+  /// 상태별 설명
+  String get description {
+    switch (this) {
+      case TaskStatus.backlog:
+        return 'This item hasn\'t been started';
+      case TaskStatus.ready:
+        return 'This is ready to be picked up';
+      case TaskStatus.inProgress:
+        return 'This is actively being worked on';
+      case TaskStatus.inReview:
+        return 'This item is in review';
+      case TaskStatus.done:
+        return 'This has been completed';
     }
   }
 }

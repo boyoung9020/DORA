@@ -6,6 +6,7 @@ import '../providers/project_provider.dart';
 import '../providers/task_provider.dart';
 import '../services/auth_service.dart';
 import '../widgets/glass_container.dart';
+import '../utils/avatar_color.dart';
 import 'login_screen.dart';
 import 'dashboard_screen.dart';
 import 'kanban_screen.dart';
@@ -458,7 +459,7 @@ class _MainLayoutState extends State<MainLayout> {
     return Center(
       child: CircleAvatar(
         radius: 24,
-        backgroundColor: colorScheme.primary,
+        backgroundColor: AvatarColor.getColorForUser(user?.id ?? user?.username ?? 'U'),
         child: Text(
           user?.username[0].toUpperCase() ?? 'U',
           style: TextStyle(
@@ -948,7 +949,7 @@ class _MainLayoutState extends State<MainLayout> {
                       children: [
                         CircleAvatar(
                           radius: 18,
-                          backgroundColor: colorScheme.primary,
+                          backgroundColor: AvatarColor.getColorForUser(member.id),
                           child: Text(
                             member.username[0].toUpperCase(),
                             style: TextStyle(
@@ -1159,7 +1160,7 @@ class _MainLayoutState extends State<MainLayout> {
                             final user = availableUsers[index];
                             return ListTile(
                               leading: CircleAvatar(
-                                backgroundColor: colorScheme.primary,
+                                backgroundColor: AvatarColor.getColorForUser(user.id),
                                 child: Text(
                                   user.username[0].toUpperCase(),
                                   style: TextStyle(
@@ -1466,7 +1467,7 @@ class _MainLayoutState extends State<MainLayout> {
                         children: [
                           CircleAvatar(
                             radius: 30,
-                            backgroundColor: colorScheme.primary,
+                            backgroundColor: AvatarColor.getColorForUser(authProvider.currentUser!.id),
                             child: Text(
                               authProvider.currentUser!.username[0].toUpperCase(),
                               style: TextStyle(

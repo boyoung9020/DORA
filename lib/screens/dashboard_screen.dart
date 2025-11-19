@@ -7,6 +7,7 @@ import '../models/task.dart';
 import '../models/project.dart';
 import '../services/auth_service.dart';
 import '../widgets/glass_container.dart';
+import '../utils/avatar_color.dart';
 import 'admin_approval_screen.dart';
 
 /// 대시보드 화면 - 홈 화면
@@ -18,32 +19,71 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  /// 오늘 할 일 필터링 (모든 프로젝트) - In review와 In progress만
-  List<Task> _getTodayTasks(List<Task> allTasks) {
+  @override
+  void initState() {
+    super.initState();
+    // 화면 로드 시 태스크 불러오기
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TaskProvider>().loadTasks();
+    });
+  }
+
+  /// 오늘 할 일 필터링 (모든 프로젝트) - In review와 In progress만, 현재 사용자에게 할당된 것만
+  List<Task> _getTodayTasks(List<Task> allTasks, String? currentUserId) {
     final today = DateTime.now();
     final todayStart = DateTime(today.year, today.month, today.day);
     final todayEnd = todayStart.add(const Duration(days: 1));
 
     return allTasks.where((task) {
+      // 현재 사용자에게 할당된 태스크만 필터링
+      if (currentUserId == null || !task.assignedMemberIds.contains(currentUserId)) {
+        return false;
+      }
+      
       // In review 또는 In progress 상태만 필터링
       if (task.status != TaskStatus.inReview && task.status != TaskStatus.inProgress) {
         return false;
       }
       
-      final startDate = task.startDate ?? task.createdAt;
-      final endDate = task.endDate ?? task.updatedAt;
+      // 시작일이 있으면 시작일 기준, 없으면 생성일 기준
+      final startDate = task.startDate;
+      final endDate = task.endDate;
       
-      // 오늘이 시작일과 종료일 사이에 있거나, 시작일이 오늘인 경우
-      return (startDate.isBefore(todayEnd) && endDate.isAfter(todayStart)) ||
-             (startDate.year == today.year &&
-              startDate.month == today.month &&
-              startDate.day == today.day);
+      // 비교할 날짜 결정: 시작일이 있으면 시작일, 없으면 생성일
+      DateTime dateToCheck;
+      if (startDate != null) {
+        dateToCheck = DateTime(startDate.year, startDate.month, startDate.day);
+      } else {
+        dateToCheck = DateTime(task.createdAt.year, task.createdAt.month, task.createdAt.day);
+      }
+      
+      // 날짜가 오늘인 경우
+      if (dateToCheck.isAtSameMomentAs(todayStart)) {
+        return true;
+      }
+      
+      // 시작일과 종료일이 모두 있고, 오늘이 그 사이에 있는 경우
+      if (startDate != null && endDate != null) {
+        final startDateOnly = DateTime(startDate.year, startDate.month, startDate.day);
+        final endDateOnly = DateTime(endDate.year, endDate.month, endDate.day);
+        return (todayStart.isAfter(startDateOnly.subtract(const Duration(days: 1))) &&
+                todayStart.isBefore(endDateOnly.add(const Duration(days: 1))));
+      }
+      
+      return false;
     }).toList();
   }
 
+  /// 날짜 포맷팅
+  String _formatDate(DateTime date) {
+    final months = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+    final weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+    return '${date.year}년 ${months[date.month - 1]} ${date.day}일 (${weekdays[date.weekday - 1]})';
+  }
+
   /// 프로젝트별 오늘 할 일 그룹화
-  Map<String, List<Task>> _getTodayTasksByProject(List<Task> allTasks, List<Project> projects) {
-    final todayTasks = _getTodayTasks(allTasks);
+  Map<String, List<Task>> _getTodayTasksByProject(List<Task> allTasks, List<Project> projects, String? currentUserId) {
+    final todayTasks = _getTodayTasks(allTasks, currentUserId);
     final Map<String, List<Task>> tasksByProject = {};
     
     for (final project in projects) {
@@ -96,78 +136,88 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final allTasks = taskProvider.tasks;
 
     // 모든 프로젝트의 오늘 할 일 필터링
-    final todayTasks = _getTodayTasks(allTasks);
+    final todayTasks = _getTodayTasks(allTasks, user?.id);
     // 프로젝트별 오늘 할 일 그룹화
-    final todayTasksByProject = _getTodayTasksByProject(allTasks, allProjects);
+    final todayTasksByProject = _getTodayTasksByProject(allTasks, allProjects, user?.id);
 
     return Container(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 헤더 (환영 메시지 + 관리자 버튼)
-          Row(
+          // 헤더 (날짜 + 환영 메시지 + 관리자 버튼)
+          Stack(
             children: [
-              Expanded(
-                child: Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '${_getGreetingMessage()}, ',
-                        style: TextStyle(
-                          fontSize: 20,
-                          color: colorScheme.onSurface.withOpacity(0.7),
-                        ),
+              // 인삿말 (진짜 중앙)
+              Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${_getGreetingMessage()}, ',
+                      style: TextStyle(
+                        fontSize: 20,
+                        color: colorScheme.onSurface.withOpacity(0.7),
                       ),
-                      Text(
-                        '${user?.username ?? '사용자'}님!',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
+                    ),
+                    Text(
+                      '${user?.username ?? '사용자'}님!',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
                       ),
-                      if (authProvider.isAdmin) ...[
-                        const SizedBox(width: 12),
-                        GlassContainer(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          borderRadius: 12.0,
-                          blur: 15.0,
-                          gradientColors: [
-                            colorScheme.primary.withOpacity(0.3),
-                            colorScheme.primary.withOpacity(0.2),
-                          ],
-                          borderColor: colorScheme.primary.withOpacity(0.5),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.admin_panel_settings,
-                                size: 16,
+                    ),
+                    if (authProvider.isAdmin) ...[
+                      const SizedBox(width: 12),
+                      GlassContainer(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        borderRadius: 12.0,
+                        blur: 15.0,
+                        gradientColors: [
+                          colorScheme.primary.withOpacity(0.3),
+                          colorScheme.primary.withOpacity(0.2),
+                        ],
+                        borderColor: colorScheme.primary.withOpacity(0.5),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.admin_panel_settings,
+                              size: 16,
+                              color: colorScheme.primary,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '관리자',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
                                 color: colorScheme.primary,
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '관리자',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.primary,
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ],
+                  ],
+                ),
+              ),
+              // 오늘 날짜 (가장 왼쪽)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _formatDate(DateTime.now()),
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: colorScheme.onSurface.withOpacity(0.6),
                   ),
                 ),
               ),
-              // 관리자 페이지 버튼 (오른쪽 상단)
+              // 관리자 페이지 버튼 (오른쪽)
               if (authProvider.isAdmin)
-                Padding(
-                  padding: const EdgeInsets.only(left: 16),
+                Align(
+                  alignment: Alignment.centerRight,
                   child: GlassContainer(
                     padding: EdgeInsets.zero,
                     borderRadius: 12.0,
@@ -414,7 +464,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                                   children: [
                                                                     CircleAvatar(
                                                                       radius: 6,
-                                                                      backgroundColor: colorScheme.primary,
+                                                                      backgroundColor: AvatarColor.getColorForUser(member.id),
                                                                       child: Text(
                                                                         member.username[0].toUpperCase(),
                                                                         style: TextStyle(
