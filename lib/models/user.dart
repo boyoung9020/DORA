@@ -46,15 +46,44 @@ class User {
 
   /// JSON에서 User 객체 생성
   factory User.fromJson(Map<String, dynamic> json) {
+    // API는 snake_case를 사용하지만 Flutter는 camelCase를 사용
+    // 두 가지 형식 모두 지원
+    final createdAtKey = json.containsKey('created_at') ? 'created_at' : 'createdAt';
+    final isAdminKey = json.containsKey('is_admin') ? 'is_admin' : 'isAdmin';
+    final isApprovedKey = json.containsKey('is_approved') ? 'is_approved' : 'isApproved';
+    final isPMKey = json.containsKey('is_pm') ? 'is_pm' : 'isPM';
+    
+    // 날짜 파싱 (ISO 8601 형식 또는 다른 형식 지원)
+    DateTime parseDate(dynamic dateValue) {
+      if (dateValue == null) {
+        return DateTime.now();
+      }
+      if (dateValue is String) {
+        try {
+          return DateTime.parse(dateValue);
+        } catch (e) {
+          // ISO 8601 형식이 아닌 경우 시도
+          try {
+            // "2025-11-20T04:30:00.123456+00:00" 형식 처리
+            return DateTime.parse(dateValue.replaceAll(' ', 'T'));
+          } catch (e2) {
+            print('[User.fromJson] 날짜 파싱 실패: $dateValue, 오류: $e2');
+            return DateTime.now();
+          }
+        }
+      }
+      return DateTime.now();
+    }
+    
     return User(
-      id: json['id'],
-      username: json['username'],
-      email: json['email'],
-      passwordHash: json['passwordHash'] ?? '', // API 응답에는 비밀번호 해시가 포함되지 않을 수 있음
-      isAdmin: json['isAdmin'] ?? false,
-      isApproved: json['isApproved'] ?? false,
-      isPM: json['isPM'] ?? false,
-      createdAt: DateTime.parse(json['createdAt']),
+      id: json['id'] as String,
+      username: json['username'] as String,
+      email: json['email'] as String,
+      passwordHash: json['passwordHash'] ?? json['password_hash'] ?? '', // API 응답에는 비밀번호 해시가 포함되지 않을 수 있음
+      isAdmin: json[isAdminKey] ?? false,
+      isApproved: json[isApprovedKey] ?? false,
+      isPM: json[isPMKey] ?? false,
+      createdAt: parseDate(json[createdAtKey]),
     );
   }
 

@@ -48,11 +48,9 @@ class _LoginScreenState extends State<LoginScreen> {
       print('[LoginScreen] errorMessage: ${authProvider.errorMessage}');
 
       if (success && mounted) {
-        print('[LoginScreen] 로그인 성공, MainLayout으로 이동');
-        // AuthWrapper의 Consumer가 리빌드되지 않을 수 있으므로 명시적으로 화면 전환
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainLayout()),
-        );
+        print('[LoginScreen] 로그인 성공, AuthWrapper가 자동으로 화면 전환');
+        // AuthWrapper의 Consumer가 자동으로 MainLayout으로 전환합니다
+        // Navigator를 사용하지 않고 상태 변경만으로 화면이 전환됩니다
       } else if (mounted) {
         print('[LoginScreen] 로그인 실패, 에러 메시지 표시: ${authProvider.errorMessage}');
         ScaffoldMessenger.of(context).showSnackBar(
