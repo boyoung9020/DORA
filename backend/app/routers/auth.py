@@ -11,6 +11,7 @@ from app.models.user import User
 from app.schemas.user import UserCreate, UserLogin, UserResponse
 from app.schemas.auth import Token
 from app.utils.security import get_password_hash, verify_password, create_access_token
+from app.utils.dependencies import get_current_user
 from app.config import settings
 
 router = APIRouter()

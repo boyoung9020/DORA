@@ -2,7 +2,7 @@
 태스크 관련 Pydantic 스키마
 """
 from pydantic import BaseModel
-from datetime import datetime, Optional as OptDateTime
+from datetime import datetime
 from typing import Optional, List, Dict, Any
 from app.models.task import TaskStatus, TaskPriority
 
