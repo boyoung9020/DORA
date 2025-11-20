@@ -13,6 +13,9 @@ DATABASE_URL = (
     f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
 )
 
+# 디버깅: 연결 정보 출력 (비밀번호는 숨김)
+print(f"[Database] Connecting to: postgresql://{settings.DB_USER}:***@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}")
+
 # SQLAlchemy 엔진 생성
 # pool_pre_ping=True: 연결이 끊어졌을 때 자동으로 재연결
 engine = create_engine(

@@ -1,7 +1,6 @@
-version: "3.8"
-
 # Docker Compose 설정 파일
 # 여러 컨테이너를 하나의 네트워크에서 함께 실행합니다
+# version은 더 이상 필요 없음 (최신 Docker Compose는 자동 감지)
 
 services:
   # PostgreSQL 데이터베이스 서비스

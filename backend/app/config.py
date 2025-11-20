@@ -11,8 +11,8 @@ class Settings(BaseSettings):
     # 데이터베이스 설정
     DB_HOST: str = "postgres"  # Docker Compose에서 postgres 서비스 이름
     DB_PORT: int = 5432
-    DB_USER: str = "dora_user"
-    DB_PASSWORD: str = "dora_password"
+    DB_USER: str = "admin"  # docker-compose.yml과 일치
+    DB_PASSWORD: str = "admin123"  # docker-compose.yml과 일치
     DB_NAME: str = "dora_db"
     
     # JWT 토큰 설정
