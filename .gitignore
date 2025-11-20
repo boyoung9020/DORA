@@ -1,104 +1,228 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.buildlog/
-.history
-.svn/
-migrate_working_dir/
+# 기존 내용 유지
+# ...
 
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-.idea/
-
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
+# ============================================
+# Flutter 관련
+# ============================================
+# Flutter/Dart/Pub 관련
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 .packages
 .pub-cache/
 .pub/
-/build/
+build/
+*.dart.js
+*.dart.js.map
+*.info.json
+*.js
+*.js.map
+*.js_
+*.js.deps
+*.js.map
 
-# Symbolication related
-app.*.symbols
+# Flutter 로그
+flutter_log.txt
+*.log
 
-# Obfuscation related
-app.*.map.json
+# ============================================
+# 백엔드 관련 (Python)
+# ============================================
+# 환경 변수
+backend/.env
+backend/.env.local
+backend/.env.*.local
+.env
+.env.local
+.env.*.local
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+# Python 캐시 및 컴파일 파일
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/**/*.pyo
+backend/**/*.pyd
+backend/*.py[cod]
+backend/*$py.class
+backend/**/*.so
 
-# Android related
-**/android/**/gradle-wrapper.jar
-.gradle/
-**/android/captures/
-**/android/gradlew
-**/android/gradlew.bat
-**/android/local.properties
-**/android/**/GeneratedPluginRegistrant.java
-**/android/key.properties
-*.jks
+# Python 가상 환경
+backend/.venv/
+backend/venv/
+backend/env/
+backend/ENV/
+backend/env.bak/
+backend/venv.bak/
 
-# iOS/XCode related
-**/ios/**/*.mode1v3
-**/ios/**/*.mode2v3
-**/ios/**/*.moved-aside
-**/ios/**/*.pbxuser
-**/ios/**/*.perspectivev3
-**/ios/**/*sync/
-**/ios/**/.sconsign.dblite
-**/ios/**/.tags*
-**/ios/**/.vagrant/
-**/ios/**/DerivedData/
-**/ios/**/Icon?
-**/ios/**/Pods/
-**/ios/**/.symlinks/
-**/ios/**/profile
-**/ios/**/xcuserdata
-**/ios/.generated/
-**/ios/Flutter/App.framework
-**/ios/Flutter/Flutter.framework
-**/ios/Flutter/Flutter.podspec
-**/ios/Flutter/Generated.xcconfig
-**/ios/Flutter/ephemeral
-**/ios/Flutter/app.flx
-**/ios/Flutter/app.zip
-**/ios/Flutter/flutter_assets/
-**/ios/Flutter/flutter_export_environment.sh
-**/ios/ServiceDefinitions.json
-**/ios/Runner/GeneratedPluginRegistrant.*
+# Python 패키지 및 배포
+backend/*.egg
+backend/*.egg-info/
+backend/dist/
+backend/build/
+backend/.eggs/
+backend/.pytest_cache/
+backend/.coverage
+backend/htmlcov/
+backend/.tox/
+backend/.mypy_cache/
+backend/.dmypy.json
+backend/dmypy.json
 
+# Python IDE
+backend/.idea/
+backend/.vscode/
+backend/*.swp
+backend/*.swo
+backend/*~
+
+# ============================================
+# 데이터베이스
+# ============================================
+# PostgreSQL 데이터
+postgres_data/
+*.db
+*.sqlite
+*.sqlite3
+
+# ============================================
+# Docker 관련
+# ============================================
+.docker/
+docker-compose.override.yml
+
+# ============================================
+# Android 관련
+# ============================================
+android/local.properties
+android/.gradle/
+android/captures/
+android/gradlew
+android/gradlew.bat
+android/.idea/
+android/*.iml
+android/app/release/
+android/app/debug/
+android/app/profile/
+
+# ============================================
+# iOS 관련
+# ============================================
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+ios/.generated/
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/ServiceDefinitions.json
+ios/Runner/GeneratedPluginRegistrant.*
+
+# ============================================
+# macOS 관련
+# ============================================
+macos/Flutter/ephemeral/
+macos/Flutter/GeneratedPluginRegistrant.swift
+macos/.symlinks/
+macos/Pods/
+
+# ============================================
+# Windows 관련
+# ============================================
+windows/flutter/ephemeral/
+windows/flutter/generated_plugin_registrant.cc
+windows/flutter/generated_plugin_registrant.h
+windows/flutter/generated_plugins.cmake
+
+# ============================================
+# Linux 관련
+# ============================================
+linux/flutter/ephemeral/
+linux/flutter/generated_plugin_registrant.cc
+linux/flutter/generated_plugin_registrant.h
+linux/flutter/generated_plugins.cmake
+
+# ============================================
+# IDE 및 에디터
+# ============================================
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Vim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# ============================================
+# OS 관련
+# ============================================
 # macOS
-**/Flutter/ephemeral/
-**/Pods/
-**/macos/Flutter/GeneratedPluginRegistrant.swift
-**/macos/Flutter/ephemeral
-**/xcuserdata/
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
 
 # Windows
-**/windows/flutter/generated_plugin_registrant.cc
-**/windows/flutter/generated_plugin_registrant.h
-**/windows/flutter/generated_plugins.cmake
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
 
 # Linux
-**/linux/flutter/generated_plugin_registrant.cc
-**/linux/flutter/generated_plugin_registrant.h
-**/linux/flutter/generated_plugins.cmake
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
 
-# Coverage
-coverage/
+# ============================================
+# 기타
+# ============================================
+# 임시 파일
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+
+# 압축 파일 (필요시 제외)
+# *.zip
+# *.tar
+# *.tar.gz
+# *.rar
+
+# 문서 (선택적 - 필요시 주석 해제)
+# *.pdf
+# *.doc
+# *.docx

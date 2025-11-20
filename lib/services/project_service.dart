@@ -1,76 +1,21 @@
-import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart';
 import '../models/project.dart';
+import '../utils/api_client.dart';
 
 /// 프로젝트 서비스 클래스
 class ProjectService {
-  static const String _projectsKey = 'projects';
   static const String _currentProjectKey = 'current_project_id';
-
-  /// 고유 ID 생성
-  String _generateId() {
-    return DateTime.now().millisecondsSinceEpoch.toString();
-  }
 
   /// 모든 프로젝트 가져오기
   Future<List<Project>> getAllProjects() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final projectsJson = prefs.getString(_projectsKey);
-      
-      if (projectsJson == null) {
-        // 기본 프로젝트 생성
-        final defaultProject = Project(
-          id: _generateId(),
-          name: '기본 프로젝트',
-          description: '기본 프로젝트입니다',
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-        await _saveProjects([defaultProject]);
-        await setCurrentProject(defaultProject.id);
-        return [defaultProject];
-      }
-
-      final List<dynamic> projectsList = json.decode(projectsJson);
-      final projects = projectsList.map((json) => Project.fromJson(json)).toList();
-      
-      // 기존 프로젝트에 teamMemberIds가 없는 경우 마이그레이션
-      bool needsMigration = false;
-      for (var project in projects) {
-        // teamMemberIds가 null이거나 없는 경우 빈 리스트로 설정
-        // fromJson에서 이미 처리하지만, 안전을 위해 다시 확인
-        if (project.teamMemberIds.isEmpty && projectsList.isNotEmpty) {
-          final projectJson = projectsList.firstWhere(
-            (p) => p['id'] == project.id,
-            orElse: () => {},
-          );
-          if (projectJson is Map && !projectJson.containsKey('teamMemberIds')) {
-            needsMigration = true;
-            break;
-          }
-        }
-      }
-      
-      // 마이그레이션이 필요한 경우 저장
-      if (needsMigration) {
-        await _saveProjects(projects);
-      }
-      
-      return projects;
+      final response = await ApiClient.get('/api/projects');
+      final projectsData = ApiClient.handleListResponse(response);
+      return projectsData.map((json) => Project.fromJson(json as Map<String, dynamic>)).toList();
     } catch (e) {
-      return [];
+      throw Exception('프로젝트 목록 가져오기 실패: $e');
     }
-  }
-
-  /// 프로젝트 저장
-  Future<void> _saveProjects(List<Project> projects) async {
-    final prefs = await SharedPreferences.getInstance();
-    final projectsJson = json.encode(
-      projects.map((project) => project.toJson()).toList(),
-    );
-    await prefs.setString(_projectsKey, projectsJson);
   }
 
   /// 새 프로젝트 생성
@@ -79,51 +24,69 @@ class ProjectService {
     String? description,
     Color? color,
   }) async {
-    final now = DateTime.now();
-    final project = Project(
-      id: _generateId(),
-      name: name,
-      description: description,
-      color: color ?? const Color(0xFF2196F3),
-      createdAt: now,
-      updatedAt: now,
-    );
-
-    final projects = await getAllProjects();
-    projects.add(project);
-    await _saveProjects(projects);
-
-    return project;
+    try {
+      final response = await ApiClient.post(
+        '/api/projects',
+        body: {
+          'name': name,
+          'description': description,
+          'color': color?.value ?? 0xFF2196F3,
+        },
+      );
+      
+      final projectData = ApiClient.handleResponse(response);
+      return Project.fromJson(projectData);
+    } catch (e) {
+      throw Exception('프로젝트 생성 실패: $e');
+    }
   }
 
   /// 프로젝트 업데이트
   Future<void> updateProject(Project project) async {
-    final projects = await getAllProjects();
-    final index = projects.indexWhere((p) => p.id == project.id);
-    
-    if (index != -1) {
-      projects[index] = project.copyWith(updatedAt: DateTime.now());
-      await _saveProjects(projects);
+    try {
+      final response = await ApiClient.patch(
+        '/api/projects/${project.id}',
+        body: {
+          'name': project.name,
+          'description': project.description,
+          'color': project.color.value,
+          'team_member_ids': project.teamMemberIds,
+        },
+      );
+      
+      ApiClient.handleResponse(response);
+    } catch (e) {
+      throw Exception('프로젝트 업데이트 실패: $e');
     }
   }
 
   /// 프로젝트 삭제
   Future<void> deleteProject(String projectId) async {
-    final projects = await getAllProjects();
-    projects.removeWhere((project) => project.id == projectId);
-    await _saveProjects(projects);
-    
-    // 현재 프로젝트가 삭제된 프로젝트면 기본 프로젝트로 변경
-    final currentProjectId = await getCurrentProjectId();
-    if (currentProjectId == projectId && projects.isNotEmpty) {
-      await setCurrentProject(projects.first.id);
+    try {
+      final response = await ApiClient.delete('/api/projects/$projectId');
+      ApiClient.handleResponse(response);
+      
+      // 현재 프로젝트가 삭제된 프로젝트면 기본 프로젝트로 변경
+      final currentProjectId = await getCurrentProjectId();
+      if (currentProjectId == projectId) {
+        final projects = await getAllProjects();
+        if (projects.isNotEmpty) {
+          await setCurrentProject(projects.first.id);
+        }
+      }
+    } catch (e) {
+      throw Exception('프로젝트 삭제 실패: $e');
     }
   }
 
   /// 현재 프로젝트 ID 가져오기
   Future<String?> getCurrentProjectId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_currentProjectKey);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_currentProjectKey);
+    } catch (e) {
+      return null;
+    }
   }
 
   /// 현재 프로젝트 설정
@@ -134,46 +97,42 @@ class ProjectService {
 
   /// 현재 프로젝트 가져오기
   Future<Project?> getCurrentProject() async {
-    final projectId = await getCurrentProjectId();
-    if (projectId == null) {
-      final projects = await getAllProjects();
-      if (projects.isNotEmpty) {
-        await setCurrentProject(projects.first.id);
-        return projects.first;
+    try {
+      final projectId = await getCurrentProjectId();
+      if (projectId == null) {
+        final projects = await getAllProjects();
+        if (projects.isNotEmpty) {
+          await setCurrentProject(projects.first.id);
+          return projects.first;
+        }
+        return null;
       }
+      
+      final response = await ApiClient.get('/api/projects/$projectId');
+      final projectData = ApiClient.handleResponse(response);
+      return Project.fromJson(projectData);
+    } catch (e) {
       return null;
     }
-    
-    final projects = await getAllProjects();
-    return projects.firstWhere(
-      (p) => p.id == projectId,
-      orElse: () => projects.isNotEmpty ? projects.first : throw StateError('No projects'),
-    );
   }
 
   /// 프로젝트에 팀원 추가
   Future<void> addTeamMember(String projectId, String userId) async {
-    final projects = await getAllProjects();
-    final project = projects.firstWhere((p) => p.id == projectId);
-    if (!project.teamMemberIds.contains(userId)) {
-      final updatedProject = project.copyWith(
-        teamMemberIds: [...project.teamMemberIds, userId],
-        updatedAt: DateTime.now(),
-      );
-      await updateProject(updatedProject);
+    try {
+      final response = await ApiClient.post('/api/projects/$projectId/members/$userId');
+      ApiClient.handleResponse(response);
+    } catch (e) {
+      throw Exception('팀원 추가 실패: $e');
     }
   }
 
   /// 프로젝트에서 팀원 제거
   Future<void> removeTeamMember(String projectId, String userId) async {
-    final projects = await getAllProjects();
-    final project = projects.firstWhere((p) => p.id == projectId);
-    final updatedMemberIds = project.teamMemberIds.where((id) => id != userId).toList();
-    final updatedProject = project.copyWith(
-      teamMemberIds: updatedMemberIds,
-      updatedAt: DateTime.now(),
-    );
-    await updateProject(updatedProject);
+    try {
+      final response = await ApiClient.delete('/api/projects/$projectId/members/$userId');
+      ApiClient.handleResponse(response);
+    } catch (e) {
+      throw Exception('팀원 제거 실패: $e');
+    }
   }
 }
-

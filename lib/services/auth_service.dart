@@ -1,7 +1,8 @@
 import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
+import '../utils/api_client.dart';
+import 'package:http/http.dart' as http;
 
 /// 인증 서비스 클래스
 /// 
@@ -12,44 +13,7 @@ import '../models/user.dart';
 /// - 사용자 데이터 관리
 /// - 관리자 승인 관리
 class AuthService {
-  static const String _usersKey = 'users';
   static const String _currentUserKey = 'current_user';
-
-  /// 비밀번호를 SHA-256으로 해싱
-  String _hashPassword(String password) {
-    var bytes = utf8.encode(password);
-    var digest = sha256.convert(bytes);
-    return digest.toString();
-  }
-
-  /// 고유 ID 생성
-  String _generateId() {
-    return DateTime.now().millisecondsSinceEpoch.toString();
-  }
-
-  /// 모든 사용자 가져오기
-  Future<List<User>> getAllUsers() async {
-    final prefs = await SharedPreferences.getInstance();
-    final usersJson = prefs.getStringList(_usersKey) ?? [];
-    return usersJson.map((json) => User.fromJson(jsonDecode(json))).toList();
-  }
-
-  /// ID로 사용자 가져오기
-  Future<User?> getUserById(String userId) async {
-    try {
-      final users = await getAllUsers();
-      return users.firstWhere((user) => user.id == userId);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  /// 사용자 저장
-  Future<void> _saveUsers(List<User> users) async {
-    final prefs = await SharedPreferences.getInstance();
-    final usersJson = users.map((user) => jsonEncode(user.toJson())).toList();
-    await prefs.setStringList(_usersKey, usersJson);
-  }
 
   /// 회원가입
   /// 
@@ -61,32 +25,17 @@ class AuthService {
     required String password,
   }) async {
     try {
-      // 기존 사용자 확인
-      final users = await getAllUsers();
-      
-      // 중복 체크
-      if (users.any((user) => user.username == username)) {
-        throw Exception('이미 사용 중인 사용자 이름입니다.');
-      }
-      if (users.any((user) => user.email == email)) {
-        throw Exception('이미 사용 중인 이메일입니다.');
-      }
-
-      // 새 사용자 생성
-      final newUser = User(
-        id: _generateId(),
-        username: username,
-        email: email,
-        passwordHash: _hashPassword(password),
-        isAdmin: false,
-        isApproved: false, // 관리자 승인 대기 상태
-        createdAt: DateTime.now(),
+      final response = await ApiClient.post(
+        '/api/auth/register',
+        body: {
+          'username': username,
+          'email': email,
+          'password': password,
+        },
+        includeAuth: false,
       );
 
-      // 사용자 목록에 추가
-      users.add(newUser);
-      await _saveUsers(users);
-
+      ApiClient.handleResponse(response);
       return true;
     } catch (e) {
       throw Exception('회원가입 실패: $e');
@@ -103,36 +52,33 @@ class AuthService {
   }) async {
     print('[AuthService] login 호출: $username');
     try {
-      final users = await getAllUsers();
-      print('[AuthService] 전체 사용자 수: ${users.length}');
-      final passwordHash = _hashPassword(password);
-      print('[AuthService] 비밀번호 해시 완료');
+      final response = await ApiClient.post(
+        '/api/auth/login',
+        body: {
+          'username': username,
+          'password': password,
+        },
+        includeAuth: false,
+      );
 
-      // 사용자 찾기
-      User? foundUser;
-      try {
-        foundUser = users.firstWhere(
-          (u) => u.username == username && u.passwordHash == passwordHash,
-        );
-        print('[AuthService] 사용자 찾음: ${foundUser.username}, isApproved: ${foundUser.isApproved}, isAdmin: ${foundUser.isAdmin}');
-      } catch (e) {
-        print('[AuthService] 사용자를 찾을 수 없음: $e');
-        throw Exception('사용자 이름 또는 비밀번호가 잘못되었습니다.');
-      }
+      final data = ApiClient.handleResponse(response);
+      
+      // JWT 토큰 저장
+      final token = data['access_token'] as String;
+      await ApiClient.saveToken(token);
 
-      // 승인 여부 확인
-      if (!foundUser.isApproved) {
-        print('[AuthService] 사용자 승인 대기 중');
-        throw Exception('관리자 승인 대기 중입니다. 승인 후 로그인할 수 있습니다.');
-      }
-
-      // 현재 사용자 저장
+      // 현재 사용자 정보 가져오기
+      final userResponse = await ApiClient.get('/api/auth/me');
+      final userData = ApiClient.handleResponse(userResponse);
+      
+      final user = User.fromJson(userData);
+      
+      // 현재 사용자 정보 로컬 저장 (오프라인 지원)
       final prefs = await SharedPreferences.getInstance();
-      final userJson = jsonEncode(foundUser.toJson());
-      await prefs.setString(_currentUserKey, userJson);
-      print('[AuthService] 현재 사용자 저장 완료: $_currentUserKey');
-
-      return foundUser;
+      await prefs.setString(_currentUserKey, jsonEncode(user.toJson()));
+      
+      print('[AuthService] 로그인 완료: ${user.username}');
+      return user;
     } catch (e) {
       print('[AuthService] 로그인 에러: $e');
       throw Exception('로그인 실패: $e');
@@ -142,10 +88,25 @@ class AuthService {
   /// 현재 로그인한 사용자 가져오기
   Future<User?> getCurrentUser() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userJson = prefs.getString(_currentUserKey);
-      if (userJson == null) return null;
-      return User.fromJson(jsonDecode(userJson));
+      // 먼저 API에서 최신 정보 가져오기 시도
+      try {
+        final response = await ApiClient.get('/api/auth/me');
+        final userData = ApiClient.handleResponse(response);
+        final user = User.fromJson(userData);
+        
+        // 로컬에도 저장
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_currentUserKey, jsonEncode(user.toJson()));
+        
+        return user;
+      } catch (e) {
+        // API 호출 실패 시 로컬 저장소에서 가져오기
+        print('[AuthService] API 호출 실패, 로컬 데이터 사용: $e');
+        final prefs = await SharedPreferences.getInstance();
+        final userJson = prefs.getString(_currentUserKey);
+        if (userJson == null) return null;
+        return User.fromJson(jsonDecode(userJson));
+      }
     } catch (e) {
       return null;
     }
@@ -154,71 +115,89 @@ class AuthService {
   /// 로그아웃
   Future<void> logout() async {
     print('[AuthService] logout 호출');
+    await ApiClient.clearToken();
+    
     final prefs = await SharedPreferences.getInstance();
-    final hadUser = prefs.containsKey(_currentUserKey);
     await prefs.remove(_currentUserKey);
-    print('[AuthService] 로그아웃 완료, 이전 사용자 존재: $hadUser');
+    print('[AuthService] 로그아웃 완료');
   }
 
   /// 승인 대기 중인 사용자 목록 가져오기
   Future<List<User>> getPendingUsers() async {
-    final users = await getAllUsers();
-    return users.where((user) => !user.isApproved && !user.isAdmin).toList();
+    try {
+      final response = await ApiClient.get('/api/users/pending');
+      final usersData = ApiClient.handleListResponse(response);
+      return usersData.map((json) => User.fromJson(json as Map<String, dynamic>)).toList();
+    } catch (e) {
+      throw Exception('승인 대기 사용자 목록 가져오기 실패: $e');
+    }
   }
 
   /// 사용자 승인
   /// 
   /// 관리자가 회원가입 신청을 승인합니다.
   Future<void> approveUser(String userId) async {
-    final users = await getAllUsers();
-    final userIndex = users.indexWhere((u) => u.id == userId);
-    
-    if (userIndex == -1) {
-      throw Exception('사용자를 찾을 수 없습니다.');
+    try {
+      final response = await ApiClient.patch('/api/users/$userId/approve');
+      ApiClient.handleResponse(response);
+    } catch (e) {
+      throw Exception('사용자 승인 실패: $e');
     }
-
-    // 사용자 승인
-    users[userIndex] = users[userIndex].copyWith(isApproved: true);
-    await _saveUsers(users);
   }
 
   /// 사용자 거부
   /// 
   /// 관리자가 회원가입 신청을 거부합니다.
   Future<void> rejectUser(String userId) async {
-    final users = await getAllUsers();
-    users.removeWhere((u) => u.id == userId);
-    await _saveUsers(users);
+    try {
+      final response = await ApiClient.delete('/api/users/$userId/reject');
+      ApiClient.handleResponse(response);
+    } catch (e) {
+      throw Exception('사용자 거부 실패: $e');
+    }
   }
 
   /// 승인된 사용자 목록 가져오기
   Future<List<User>> getApprovedUsers() async {
-    final users = await getAllUsers();
-    return users.where((user) => user.isApproved).toList();
+    try {
+      final response = await ApiClient.get('/api/users/approved', includeAuth: false);
+      final usersData = ApiClient.handleListResponse(response);
+      return usersData.map((json) => User.fromJson(json as Map<String, dynamic>)).toList();
+    } catch (e) {
+      throw Exception('승인된 사용자 목록 가져오기 실패: $e');
+    }
+  }
+
+  /// ID로 사용자 가져오기
+  Future<User?> getUserById(String userId) async {
+    try {
+      final response = await ApiClient.get('/api/users/$userId');
+      final userData = ApiClient.handleResponse(response);
+      return User.fromJson(userData);
+    } catch (e) {
+      return null;
+    }
   }
 
   /// PM 권한 부여
   /// 
   /// 관리자가 사용자에게 PM 권한을 부여합니다.
   Future<void> grantPMPermission(String userId) async {
-    final users = await getAllUsers();
-    final userIndex = users.indexWhere((u) => u.id == userId);
-    
-    if (userIndex == -1) {
-      throw Exception('사용자를 찾을 수 없습니다.');
-    }
-
-    users[userIndex] = users[userIndex].copyWith(isPM: true);
-    await _saveUsers(users);
-    
-    // 현재 로그인한 사용자가 변경된 경우 현재 사용자 정보도 업데이트
-    final prefs = await SharedPreferences.getInstance();
-    final currentUserJson = prefs.getString(_currentUserKey);
-    if (currentUserJson != null) {
-      final currentUser = User.fromJson(jsonDecode(currentUserJson));
-      if (currentUser.id == userId) {
-        await prefs.setString(_currentUserKey, jsonEncode(users[userIndex].toJson()));
+    try {
+      final response = await ApiClient.patch('/api/users/$userId/grant-pm');
+      final userData = ApiClient.handleResponse(response);
+      
+      // 현재 로그인한 사용자가 변경된 경우 현재 사용자 정보도 업데이트
+      final prefs = await SharedPreferences.getInstance();
+      final currentUserJson = prefs.getString(_currentUserKey);
+      if (currentUserJson != null) {
+        final currentUser = User.fromJson(jsonDecode(currentUserJson));
+        if (currentUser.id == userId) {
+          await prefs.setString(_currentUserKey, jsonEncode(userData));
+        }
       }
+    } catch (e) {
+      throw Exception('PM 권한 부여 실패: $e');
     }
   }
 
@@ -226,48 +205,30 @@ class AuthService {
   /// 
   /// 관리자가 사용자의 PM 권한을 제거합니다.
   Future<void> revokePMPermission(String userId) async {
-    final users = await getAllUsers();
-    final userIndex = users.indexWhere((u) => u.id == userId);
-    
-    if (userIndex == -1) {
-      throw Exception('사용자를 찾을 수 없습니다.');
-    }
-
-    users[userIndex] = users[userIndex].copyWith(isPM: false);
-    await _saveUsers(users);
-    
-    // 현재 로그인한 사용자가 변경된 경우 현재 사용자 정보도 업데이트
-    final prefs = await SharedPreferences.getInstance();
-    final currentUserJson = prefs.getString(_currentUserKey);
-    if (currentUserJson != null) {
-      final currentUser = User.fromJson(jsonDecode(currentUserJson));
-      if (currentUser.id == userId) {
-        await prefs.setString(_currentUserKey, jsonEncode(users[userIndex].toJson()));
+    try {
+      final response = await ApiClient.patch('/api/users/$userId/revoke-pm');
+      final userData = ApiClient.handleResponse(response);
+      
+      // 현재 로그인한 사용자가 변경된 경우 현재 사용자 정보도 업데이트
+      final prefs = await SharedPreferences.getInstance();
+      final currentUserJson = prefs.getString(_currentUserKey);
+      if (currentUserJson != null) {
+        final currentUser = User.fromJson(jsonDecode(currentUserJson));
+        if (currentUser.id == userId) {
+          await prefs.setString(_currentUserKey, jsonEncode(userData));
+        }
       }
+    } catch (e) {
+      throw Exception('PM 권한 제거 실패: $e');
     }
   }
 
   /// 초기 관리자 계정 생성
   /// 
-  /// 앱을 처음 실행할 때 관리자 계정이 없으면 생성합니다.
+  /// 서버에서 자동으로 생성되므로 더 이상 필요 없음
+  /// 호환성을 위해 빈 함수로 유지
   Future<void> initializeAdmin() async {
-    final users = await getAllUsers();
-    
-    // 관리자가 없으면 생성
-    if (users.isEmpty || !users.any((u) => u.isAdmin)) {
-      final admin = User(
-        id: _generateId(),
-        username: 'admin',
-        email: 'admin@dora.com',
-        passwordHash: _hashPassword('admin123'), // 기본 비밀번호
-        isAdmin: true,
-        isApproved: true,
-        createdAt: DateTime.now(),
-      );
-
-      users.add(admin);
-      await _saveUsers(users);
-    }
+    // 서버에서 자동으로 관리자 계정을 생성하므로
+    // 클라이언트에서는 아무 작업도 하지 않음
   }
 }
-

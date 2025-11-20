@@ -1,6 +1,7 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 import '../models/task.dart';
+import '../utils/api_client.dart';
 
 /// 태스크 서비스 클래스
 /// 
@@ -9,39 +10,28 @@ import '../models/task.dart';
 /// - 태스크 수정
 /// - 태스크 삭제
 /// - 태스크 조회
-/// - 로컬 저장소에 저장
 class TaskService {
-  static const String _tasksKey = 'tasks';
-
-  /// 고유 ID 생성
-  String _generateId() {
-    return DateTime.now().millisecondsSinceEpoch.toString();
-  }
-
   /// 모든 태스크 가져오기
-  Future<List<Task>> getAllTasks() async {
+  Future<List<Task>> getAllTasks({String? projectId, TaskStatus? status}) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final tasksJson = prefs.getString(_tasksKey);
-      
-      if (tasksJson == null) {
-        return [];
+      final queryParams = <String, String>{};
+      if (projectId != null) {
+        queryParams['project_id'] = projectId;
       }
-
-      final List<dynamic> tasksList = json.decode(tasksJson);
-      return tasksList.map((json) => Task.fromJson(json)).toList();
+      if (status != null) {
+        queryParams['status'] = status.name;
+      }
+      
+      final response = await ApiClient.get(
+        '/api/tasks',
+        queryParams: queryParams.isEmpty ? null : queryParams,
+      );
+      
+      final tasksData = ApiClient.handleListResponse(response);
+      return tasksData.map((json) => Task.fromJson(json as Map<String, dynamic>)).toList();
     } catch (e) {
-      return [];
+      throw Exception('태스크 목록 가져오기 실패: $e');
     }
-  }
-
-  /// 태스크 저장
-  Future<void> _saveTasks(List<Task> tasks) async {
-    final prefs = await SharedPreferences.getInstance();
-    final tasksJson = json.encode(
-      tasks.map((task) => task.toJson()).toList(),
-    );
-    await prefs.setString(_tasksKey, tasksJson);
   }
 
   /// 새 태스크 생성
@@ -56,75 +46,95 @@ class TaskService {
     TaskPriority priority = TaskPriority.p2,
     List<String>? assignedMemberIds,
   }) async {
-    final now = DateTime.now();
-    final task = Task(
-      id: _generateId(),
-      title: title,
-      description: description,
-      status: status,
-      projectId: projectId,
-      startDate: startDate,
-      endDate: endDate,
-      detail: detail,
-      priority: priority,
-      assignedMemberIds: assignedMemberIds,
-      createdAt: now,
-      updatedAt: now,
-    );
-
-    final tasks = await getAllTasks();
-    tasks.add(task);
-    await _saveTasks(tasks);
-
-    return task;
+    try {
+      final response = await ApiClient.post(
+        '/api/tasks',
+        body: {
+          'title': title,
+          'description': description,
+          'status': status.name,
+          'project_id': projectId,
+          'start_date': startDate?.toIso8601String(),
+          'end_date': endDate?.toIso8601String(),
+          'detail': detail,
+          'priority': priority.name,
+          'assigned_member_ids': assignedMemberIds ?? [],
+        },
+      );
+      
+      final taskData = ApiClient.handleResponse(response);
+      return Task.fromJson(taskData);
+    } catch (e) {
+      throw Exception('태스크 생성 실패: $e');
+    }
   }
 
   /// 태스크 업데이트
   Future<void> updateTask(Task task) async {
-    final tasks = await getAllTasks();
-    final index = tasks.indexWhere((t) => t.id == task.id);
-    
-    if (index != -1) {
-      tasks[index] = task.copyWith(updatedAt: DateTime.now());
-      await _saveTasks(tasks);
+    try {
+      final body = <String, dynamic>{
+        'title': task.title,
+        'description': task.description,
+        'status': task.status.name,
+        'start_date': task.startDate?.toIso8601String(),
+        'end_date': task.endDate?.toIso8601String(),
+        'detail': task.detail,
+        'priority': task.priority.name,
+        'assigned_member_ids': task.assignedMemberIds,
+      };
+      
+      final response = await ApiClient.patch(
+        '/api/tasks/${task.id}',
+        body: body,
+      );
+      
+      ApiClient.handleResponse(response);
+    } catch (e) {
+      throw Exception('태스크 업데이트 실패: $e');
     }
   }
 
   /// 태스크 삭제
   Future<void> deleteTask(String taskId) async {
-    final tasks = await getAllTasks();
-    tasks.removeWhere((task) => task.id == taskId);
-    await _saveTasks(tasks);
+    try {
+      final response = await ApiClient.delete('/api/tasks/$taskId');
+      ApiClient.handleResponse(response);
+    } catch (e) {
+      throw Exception('태스크 삭제 실패: $e');
+    }
   }
 
   /// 상태별 태스크 가져오기
   Future<List<Task>> getTasksByStatus(TaskStatus status, {String? projectId}) async {
-    final tasks = await getAllTasks();
-    var filteredTasks = tasks.where((task) => task.status == status);
-    if (projectId != null) {
-      filteredTasks = filteredTasks.where((task) => task.projectId == projectId);
-    }
-    return filteredTasks.toList();
+    return getAllTasks(projectId: projectId, status: status);
   }
 
   /// 프로젝트별 태스크 가져오기
   Future<List<Task>> getTasksByProject(String projectId) async {
-    final tasks = await getAllTasks();
-    return tasks.where((task) => task.projectId == projectId).toList();
+    return getAllTasks(projectId: projectId);
   }
 
   /// 태스크 상태 변경
   Future<void> changeTaskStatus(String taskId, TaskStatus newStatus) async {
-    final tasks = await getAllTasks();
-    final index = tasks.indexWhere((t) => t.id == taskId);
-    
-    if (index != -1) {
-      tasks[index] = tasks[index].copyWith(
-        status: newStatus,
-        updatedAt: DateTime.now(),
-      );
-      await _saveTasks(tasks);
+    try {
+      // FastAPI는 쿼리 파라미터로 new_status를 받음
+      final uri = Uri.parse('${ApiClient.baseUrl}/api/tasks/$taskId/status')
+          .replace(queryParameters: {'new_status': newStatus.name});
+      
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+      
+      final token = await ApiClient.getToken();
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+      
+      final response = await http.patch(uri, headers: headers);
+      ApiClient.handleResponse(response);
+    } catch (e) {
+      throw Exception('태스크 상태 변경 실패: $e');
     }
   }
 }
-

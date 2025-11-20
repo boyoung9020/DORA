@@ -33,14 +33,20 @@ class Comment {
 
   /// JSON에서 Comment 객체 생성
   factory Comment.fromJson(Map<String, dynamic> json) {
+    // API 응답은 snake_case, 로컬 저장은 camelCase 지원
+    final taskIdKey = json.containsKey('task_id') ? 'task_id' : 'taskId';
+    final userIdKey = json.containsKey('user_id') ? 'user_id' : 'userId';
+    final createdAtKey = json.containsKey('created_at') ? 'created_at' : 'createdAt';
+    final updatedAtKey = json.containsKey('updated_at') ? 'updated_at' : 'updatedAt';
+    
     return Comment(
       id: json['id'],
-      taskId: json['taskId'],
-      userId: json['userId'],
+      taskId: json[taskIdKey],
+      userId: json[userIdKey],
       username: json['username'],
       content: json['content'],
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      createdAt: DateTime.parse(json[createdAtKey]),
+      updatedAt: json[updatedAtKey] != null ? DateTime.parse(json[updatedAtKey]) : null,
     );
   }
 

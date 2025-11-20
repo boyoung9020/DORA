@@ -35,11 +35,15 @@ class Project {
 
   /// JSON에서 Project 객체 생성
   factory Project.fromJson(Map<String, dynamic> json) {
-    // teamMemberIds가 없거나 null인 경우 빈 리스트 반환
+    // team_member_ids (API 응답) 또는 teamMemberIds (로컬 저장) 처리
     List<String> teamMemberIds = [];
-    if (json.containsKey('teamMemberIds') && json['teamMemberIds'] != null) {
+    final memberIdsKey = json.containsKey('team_member_ids') 
+        ? 'team_member_ids' 
+        : (json.containsKey('teamMemberIds') ? 'teamMemberIds' : null);
+    
+    if (memberIdsKey != null && json[memberIdsKey] != null) {
       try {
-        final memberIds = json['teamMemberIds'];
+        final memberIds = json[memberIdsKey];
         if (memberIds is List) {
           teamMemberIds = memberIds.map((e) => e.toString()).toList();
         }

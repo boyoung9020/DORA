@@ -50,7 +50,7 @@ class User {
       id: json['id'],
       username: json['username'],
       email: json['email'],
-      passwordHash: json['passwordHash'],
+      passwordHash: json['passwordHash'] ?? '', // API 응답에는 비밀번호 해시가 포함되지 않을 수 있음
       isAdmin: json['isAdmin'] ?? false,
       isApproved: json['isApproved'] ?? false,
       isPM: json['isPM'] ?? false,

@@ -199,11 +199,17 @@ class Task {
 
   /// JSON에서 Task 객체 생성
   factory Task.fromJson(Map<String, dynamic> json) {
-    // assignedMemberIds가 없거나 null인 경우 빈 리스트 반환
+    // API 응답은 snake_case, 로컬 저장은 camelCase 지원
+    String getKey(String camelKey, String snakeKey) {
+      return json.containsKey(snakeKey) ? snakeKey : camelKey;
+    }
+    
+    // assigned_member_ids 또는 assignedMemberIds 처리
     List<String> assignedMemberIds = [];
-    if (json.containsKey('assignedMemberIds') && json['assignedMemberIds'] != null) {
+    final assignedKey = getKey('assignedMemberIds', 'assigned_member_ids');
+    if (json.containsKey(assignedKey) && json[assignedKey] != null) {
       try {
-        final memberIds = json['assignedMemberIds'];
+        final memberIds = json[assignedKey];
         if (memberIds is List) {
           assignedMemberIds = memberIds.map((e) => e.toString()).toList();
         }
@@ -212,11 +218,12 @@ class Task {
       }
     }
     
-    // commentIds가 없거나 null인 경우 빈 리스트 반환
+    // comment_ids 또는 commentIds 처리
     List<String> commentIds = [];
-    if (json.containsKey('commentIds') && json['commentIds'] != null) {
+    final commentKey = getKey('commentIds', 'comment_ids');
+    if (json.containsKey(commentKey) && json[commentKey] != null) {
       try {
-        final ids = json['commentIds'];
+        final ids = json[commentKey];
         if (ids is List) {
           commentIds = ids.map((e) => e.toString()).toList();
         }
@@ -225,11 +232,12 @@ class Task {
       }
     }
     
-    // statusHistory가 없거나 null인 경우 빈 리스트 반환
+    // status_history 또는 statusHistory 처리
     List<StatusChangeHistory> statusHistory = [];
-    if (json.containsKey('statusHistory') && json['statusHistory'] != null) {
+    final statusHistoryKey = getKey('statusHistory', 'status_history');
+    if (json.containsKey(statusHistoryKey) && json[statusHistoryKey] != null) {
       try {
-        final history = json['statusHistory'];
+        final history = json[statusHistoryKey];
         if (history is List) {
           statusHistory = history.map((e) => StatusChangeHistory.fromJson(e as Map<String, dynamic>)).toList();
         }
@@ -238,11 +246,12 @@ class Task {
       }
     }
     
-    // assignmentHistory가 없거나 null인 경우 빈 리스트 반환
+    // assignment_history 또는 assignmentHistory 처리
     List<AssignmentHistory> assignmentHistory = [];
-    if (json.containsKey('assignmentHistory') && json['assignmentHistory'] != null) {
+    final assignmentHistoryKey = getKey('assignmentHistory', 'assignment_history');
+    if (json.containsKey(assignmentHistoryKey) && json[assignmentHistoryKey] != null) {
       try {
-        final history = json['assignmentHistory'];
+        final history = json[assignmentHistoryKey];
         if (history is List) {
           assignmentHistory = history.map((e) => AssignmentHistory.fromJson(e as Map<String, dynamic>)).toList();
         }
@@ -251,11 +260,12 @@ class Task {
       }
     }
     
-    // priorityHistory가 없거나 null인 경우 빈 리스트 반환
+    // priority_history 또는 priorityHistory 처리
     List<PriorityChangeHistory> priorityHistory = [];
-    if (json.containsKey('priorityHistory') && json['priorityHistory'] != null) {
+    final priorityHistoryKey = getKey('priorityHistory', 'priority_history');
+    if (json.containsKey(priorityHistoryKey) && json[priorityHistoryKey] != null) {
       try {
-        final history = json['priorityHistory'];
+        final history = json[priorityHistoryKey];
         if (history is List) {
           priorityHistory = history.map((e) => PriorityChangeHistory.fromJson(e as Map<String, dynamic>)).toList();
         }
@@ -263,6 +273,26 @@ class Task {
         priorityHistory = [];
       }
     }
+    
+    // project_id 또는 projectId 처리
+    final projectIdKey = getKey('projectId', 'project_id');
+    final projectId = json[projectIdKey] ?? '';
+    
+    // start_date 또는 startDate 처리
+    final startDateKey = getKey('startDate', 'start_date');
+    final startDate = json[startDateKey] != null ? DateTime.parse(json[startDateKey]) : null;
+    
+    // end_date 또는 endDate 처리
+    final endDateKey = getKey('endDate', 'end_date');
+    final endDate = json[endDateKey] != null ? DateTime.parse(json[endDateKey]) : null;
+    
+    // created_at 또는 createdAt 처리
+    final createdAtKey = getKey('createdAt', 'created_at');
+    final createdAt = DateTime.parse(json[createdAtKey]);
+    
+    // updated_at 또는 updatedAt 처리
+    final updatedAtKey = getKey('updatedAt', 'updated_at');
+    final updatedAt = DateTime.parse(json[updatedAtKey]);
     
     return Task(
       id: json['id'],
@@ -272,9 +302,9 @@ class Task {
         (e) => e.name == json['status'],
         orElse: () => TaskStatus.backlog,
       ),
-      projectId: json['projectId'] ?? '',
-      startDate: json['startDate'] != null ? DateTime.parse(json['startDate']) : null,
-      endDate: json['endDate'] != null ? DateTime.parse(json['endDate']) : null,
+      projectId: projectId,
+      startDate: startDate,
+      endDate: endDate,
       detail: json['detail'] ?? '',
       assignedMemberIds: assignedMemberIds,
       commentIds: commentIds,
@@ -287,8 +317,8 @@ class Task {
       statusHistory: statusHistory,
       assignmentHistory: assignmentHistory,
       priorityHistory: priorityHistory,
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: DateTime.parse(json['updatedAt']),
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 

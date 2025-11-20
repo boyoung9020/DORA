@@ -2,7 +2,7 @@ name: dora_project_manager
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -37,14 +37,17 @@ dependencies:
 
   # 상태 관리
   provider: ^6.1.1
-  
+
   # 로컬 저장소 (사용자 데이터, 세션 저장)
   shared_preferences: ^2.2.2
-  
+
   # 비밀번호 해싱
   crypto: ^3.0.3
   intl: ^0.19.0
-  
+
+  # HTTP 클라이언트 (API 호출)
+  http: ^1.1.0
+
   # 커스텀 윈도우 타이틀바
   bitsdojo_window: ^0.1.6
 
@@ -58,7 +61,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
-  
+
   # 앱 아이콘 생성
   flutter_launcher_icons: ^0.13.1
 
@@ -67,7 +70,6 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
@@ -105,9 +107,9 @@ flutter:
 
 # 앱 아이콘 설정
 flutter_launcher_icons:
-  android: false  # Android는 필요 없으면 false
-  ios: false      # iOS는 필요 없으면 false
+  android: false # Android는 필요 없으면 false
+  ios: false # iOS는 필요 없으면 false
   windows:
     generate: true
     image_path: "dora.png"
-    icon_size: 256  # Windows 아이콘 크기
+    icon_size: 256 # Windows 아이콘 크기
