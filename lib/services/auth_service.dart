@@ -122,6 +122,17 @@ class AuthService {
     print('[AuthService] 로그아웃 완료');
   }
 
+  /// 모든 사용자 목록 가져오기 (관리자만)
+  Future<List<User>> getAllUsers() async {
+    try {
+      final response = await ApiClient.get('/api/users');
+      final usersData = ApiClient.handleListResponse(response);
+      return usersData.map((json) => User.fromJson(json as Map<String, dynamic>)).toList();
+    } catch (e) {
+      throw Exception('사용자 목록 가져오기 실패: $e');
+    }
+  }
+
   /// 승인 대기 중인 사용자 목록 가져오기
   Future<List<User>> getPendingUsers() async {
     try {

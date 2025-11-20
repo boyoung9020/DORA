@@ -77,6 +77,9 @@ services:
     volumes:
       # Nginx 설정 파일을 컨테이너에 마운트
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Flutter 웹 앱 빌드 결과물 마운트
+      # 먼저 'flutter build web --release' 실행 필요
+      - ./build/web:/usr/share/nginx/html:ro
     depends_on:
       # API 서비스가 먼저 시작되도록 설정
       - api
