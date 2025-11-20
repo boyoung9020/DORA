@@ -46,6 +46,8 @@ services:
       DB_NAME: dora_db
       # JWT 시크릿 키 (프로덕션에서는 반드시 변경!)
       SECRET_KEY: TH-Xej6q7F3K3tJGtR7R20T2miI1h_P0myhfjke-rak
+      # Python 경로 설정 (app 모듈을 찾기 위해)
+      PYTHONPATH: /app
     volumes:
       # 코드 변경 시 자동 반영 (개발용)
       - ./backend:/app
@@ -58,6 +60,7 @@ services:
         condition: service_healthy
     command: >
       sh -c "
+        export PYTHONPATH=/app:$PYTHONPATH &&
         python app/init_db.py &&
         uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
       "

@@ -19,6 +19,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 애플리케이션 코드 복사
 COPY . .
 
+# Python 경로 설정 (app 모듈을 찾기 위해)
+ENV PYTHONPATH=/app
+
 # 포트 8000 노출 (FastAPI 기본 포트)
 EXPOSE 8000
 
