@@ -19,6 +19,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     """비밀번호를 해시로 변환"""
+    # bcrypt는 72바이트 제한이 있으므로 초과 시 자동으로 잘림
+    # 하지만 명시적으로 처리하는 것이 안전
+    if len(password.encode('utf-8')) > 72:
+        password = password[:72]
     return pwd_context.hash(password)
 
 
