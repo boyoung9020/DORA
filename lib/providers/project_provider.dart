@@ -204,5 +204,51 @@ class ProjectProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  /// 프로젝트에 팀원 추가
+  Future<bool> addTeamMember(String projectId, String userId) async {
+    try {
+      await _projectService.addTeamMember(projectId, userId);
+      // 프로젝트 목록 다시 로드
+      await loadProjects(userId: _currentUserId, isAdmin: _isAdmin, isPM: _isPM);
+      // 현재 프로젝트 업데이트 (최신 데이터로)
+      if (_currentProject?.id == projectId) {
+        final updatedProject = _projects.firstWhere(
+          (p) => p.id == projectId,
+          orElse: () => _currentProject!,
+        );
+        _currentProject = updatedProject;
+        print('[ProjectProvider] 팀원 추가 후 현재 프로젝트 업데이트: ${_currentProject?.name}, 팀원 수: ${_currentProject?.teamMemberIds.length}');
+      }
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = '팀원 추가 중 오류가 발생했습니다: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// 프로젝트에서 팀원 제거
+  Future<bool> removeTeamMember(String projectId, String userId) async {
+    try {
+      await _projectService.removeTeamMember(projectId, userId);
+      await loadProjects(userId: _currentUserId, isAdmin: _isAdmin, isPM: _isPM);
+      // 현재 프로젝트 업데이트
+      if (_currentProject?.id == projectId) {
+        final updatedProject = _projects.firstWhere(
+          (p) => p.id == projectId,
+          orElse: () => _currentProject!,
+        );
+        _currentProject = updatedProject;
+      }
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = '팀원 제거 중 오류가 발생했습니다: $e';
+      notifyListeners();
+      return false;
+    }
+  }
 }
 

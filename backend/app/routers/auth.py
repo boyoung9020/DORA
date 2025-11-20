@@ -67,15 +67,25 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
     # 사용자 찾기
     user = db.query(User).filter(User.username == user_data.username).first()
     
-    if not user or not verify_password(user_data.password, user.password_hash):
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="사용자 이름 또는 비밀번호가 잘못되었습니다",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # 승인 여부 확인
+    # 비밀번호 확인
+    if not verify_password(user_data.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="사용자 이름 또는 비밀번호가 잘못되었습니다",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # 승인 여부 확인 (디버깅 로그 추가)
+    print(f"[Login] 사용자: {user.username}, is_approved: {user.is_approved}, is_admin: {user.is_admin}")
     if not user.is_approved:
+        print(f"[Login] 승인되지 않은 사용자: {user.username}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="관리자 승인 대기 중입니다. 승인 후 로그인할 수 있습니다."
@@ -88,6 +98,7 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
         expires_delta=access_token_expires
     )
     
+    print(f"[Login] 로그인 성공: {user.username}")
     return {"access_token": access_token, "token_type": "bearer"}
 
 

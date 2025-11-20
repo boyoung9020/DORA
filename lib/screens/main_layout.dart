@@ -7,6 +7,7 @@ import '../providers/project_provider.dart';
 import '../providers/task_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/auth_service.dart';
+import '../models/project.dart';
 import '../widgets/glass_container.dart';
 import '../utils/avatar_color.dart';
 import 'login_screen.dart';
@@ -611,37 +612,54 @@ class _MainLayoutState extends State<MainLayout> {
                 items.add(
                   PopupMenuItem<String>(
                     value: project.id,
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: project.color,
-                            shape: BoxShape.circle,
+                    child: GestureDetector(
+                      // 오른쪽 클릭 감지
+                      onSecondaryTapDown: (details) {
+                        // 드롭다운 메뉴 닫기
+                        Navigator.of(context).pop();
+                        // 컨텍스트 메뉴 표시
+                        Future.delayed(const Duration(milliseconds: 100), () {
+                          _showProjectContextMenu(
+                            context,
+                            project,
+                            projectProvider,
+                            authProvider,
+                            details.globalPosition,
+                          );
+                        });
+                      },
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: project.color,
+                              shape: BoxShape.circle,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          project.name,
-                          style: TextStyle(
-                            fontWeight: currentProject?.id == project.id
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                            color: currentProject?.id == project.id
-                                ? colorScheme.primary
-                                : colorScheme.onSurface,
+                          const SizedBox(width: 12),
+                          Text(
+                            project.name,
+                            style: TextStyle(
+                              fontWeight: currentProject?.id == project.id
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: currentProject?.id == project.id
+                                  ? colorScheme.primary
+                                  : colorScheme.onSurface,
+                            ),
                           ),
-                        ),
-                        if (currentProject?.id == project.id) ...[
-                          const Spacer(),
-                          Icon(
-                            Icons.check,
-                            color: colorScheme.primary,
-                            size: 20,
-                          ),
+                          if (currentProject?.id == project.id) ...[
+                            const Spacer(),
+                            Icon(
+                              Icons.check,
+                              color: colorScheme.primary,
+                              size: 20,
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 );
@@ -689,6 +707,124 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 
+
+  /// 프로젝트 컨텍스트 메뉴 표시 (오른쪽 클릭)
+  void _showProjectContextMenu(
+    BuildContext context,
+    Project project,
+    ProjectProvider projectProvider,
+    AuthProvider authProvider,
+    Offset position,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final size = MediaQuery.of(context).size;
+    
+    // PM 또는 Admin만 삭제 가능
+    if (!authProvider.isPM && !authProvider.isAdmin) {
+      return;
+    }
+    
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        size.width - position.dx,
+        size.height - position.dy,
+      ),
+      items: [
+        PopupMenuItem(
+          child: Row(
+            children: [
+              Icon(
+                Icons.delete_outline,
+                size: 20,
+                color: Colors.red,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                '프로젝트 삭제',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          onTap: () {
+            // 메뉴가 닫힌 후에 다이얼로그 표시
+            Future.delayed(const Duration(milliseconds: 100), () {
+              _showDeleteProjectDialog(context, project, projectProvider);
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  /// 프로젝트 삭제 확인 다이얼로그
+  void _showDeleteProjectDialog(
+    BuildContext context,
+    Project project,
+    ProjectProvider projectProvider,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: colorScheme.surface,
+          title: Text(
+            '프로젝트 삭제',
+            style: TextStyle(color: colorScheme.onSurface),
+          ),
+          content: Text(
+            '${project.name} 프로젝트를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.',
+            style: TextStyle(color: colorScheme.onSurface),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                '취소',
+                style: TextStyle(color: colorScheme.onSurface),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                final success = await projectProvider.deleteProject(project.id);
+                if (context.mounted) {
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${project.name} 프로젝트가 삭제되었습니다'),
+                        backgroundColor: colorScheme.primary,
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          projectProvider.errorMessage ?? '프로젝트 삭제에 실패했습니다',
+                        ),
+                        backgroundColor: colorScheme.error,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: Text(
+                '삭제',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   /// 프로젝트 생성 다이얼로그
   void _showCreateProjectDialog(BuildContext context) {
@@ -908,9 +1044,15 @@ class _MainLayoutState extends State<MainLayout> {
             const SizedBox(height: 16),
             const Divider(height: 1),
             const SizedBox(height: 16),
-            // 팀원 목록
+            // 팀원 목록 (ProjectProvider 변경 감지)
             Expanded(
-              child: _buildTeamMemberList(context, currentProject, colorScheme, projectProvider),
+              child: Consumer<ProjectProvider>(
+                builder: (context, provider, _) {
+                  // currentProject를 provider에서 가져와서 최신 데이터 사용
+                  final latestProject = provider.currentProject ?? currentProject;
+                  return _buildTeamMemberList(context, latestProject, colorScheme, projectProvider);
+                },
+              ),
             ),
           ],
         ),
@@ -1105,8 +1247,9 @@ class _MainLayoutState extends State<MainLayout> {
   Future<List<dynamic>> _loadTeamMembers(currentProject) async {
     try {
       final authService = AuthService();
-      final allUsers = await authService.getAllUsers();
-      final approvedUsers = allUsers.where((u) => u.isApproved).toList();
+      // 승인된 사용자 목록 가져오기 (PM도 사용 가능)
+      final approvedUsers = await authService.getApprovedUsers();
+      // 프로젝트 팀원에 포함된 사용자만 필터링
       final teamMembers = approvedUsers
           .where((u) => currentProject.teamMemberIds.contains(u.id))
           .toList();
@@ -1120,6 +1263,7 @@ class _MainLayoutState extends State<MainLayout> {
       
       return teamMembers;
     } catch (e) {
+      print('[MainLayout] 팀원 목록 로드 실패: $e');
       return [];
     }
   }
@@ -1242,30 +1386,40 @@ class _MainLayoutState extends State<MainLayout> {
                                   color: colorScheme.primary,
                                 ),
                                 onPressed: () async {
-                                  final updatedTeamMemberIds = List<String>.from(currentProject.teamMemberIds);
-                                  updatedTeamMemberIds.add(user.id);
-                                  await projectProvider.updateProject(
-                                    currentProject.copyWith(
-                                      teamMemberIds: updatedTeamMemberIds,
-                                      updatedAt: DateTime.now(),
-                                    ),
-                                  );
-                                  Navigator.of(context).pop();
-                                  // 프로젝트 목록 다시 로드 (필터링 적용)
-                                  final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                                  if (authProvider.currentUser != null) {
-                                    await projectProvider.loadProjects(
-                                      userId: authProvider.currentUser!.id,
-                                      isAdmin: authProvider.isAdmin,
-                                      isPM: authProvider.isPM,
+                                  try {
+                                    // 팀원 추가 API 사용
+                                    await projectProvider.addTeamMember(
+                                      currentProject.id,
+                                      user.id,
                                     );
+                                    Navigator.of(context).pop();
+                                    // 프로젝트 목록 다시 로드 (필터링 적용)
+                                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                                    if (authProvider.currentUser != null) {
+                                      await projectProvider.loadProjects(
+                                        userId: authProvider.currentUser!.id,
+                                        isAdmin: authProvider.isAdmin,
+                                        isPM: authProvider.isPM,
+                                      );
+                                    }
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('${user.username}님이 팀에 추가되었습니다'),
+                                          backgroundColor: colorScheme.primary,
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('팀원 추가 실패: $e'),
+                                          backgroundColor: colorScheme.error,
+                                        ),
+                                      );
+                                    }
                                   }
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('${user.username}님이 팀에 추가되었습니다'),
-                                      backgroundColor: colorScheme.primary,
-                                    ),
-                                  );
                                 },
                               ),
                             );
@@ -1300,12 +1454,14 @@ class _MainLayoutState extends State<MainLayout> {
   Future<List<dynamic>> _loadAvailableUsers(currentProject) async {
     try {
       final authService = AuthService();
-      final allUsers = await authService.getAllUsers();
-      final approvedUsers = allUsers.where((u) => u.isApproved).toList();
+      // 승인된 사용자 목록 가져오기 (PM도 사용 가능)
+      final approvedUsers = await authService.getApprovedUsers();
+      // 이미 팀원에 포함된 사용자는 제외
       return approvedUsers
           .where((u) => !currentProject.teamMemberIds.contains(u.id))
           .toList();
     } catch (e) {
+      print('[MainLayout] 사용 가능한 사용자 로드 실패: $e');
       return [];
     }
   }

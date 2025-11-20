@@ -48,9 +48,12 @@ class _LoginScreenState extends State<LoginScreen> {
       print('[LoginScreen] errorMessage: ${authProvider.errorMessage}');
 
       if (success && mounted) {
-        print('[LoginScreen] 로그인 성공, AuthWrapper가 자동으로 화면 전환');
-        // AuthWrapper의 Consumer가 자동으로 MainLayout으로 전환합니다
-        // Navigator를 사용하지 않고 상태 변경만으로 화면이 전환됩니다
+        print('[LoginScreen] 로그인 성공, MainLayout으로 이동');
+        // Flutter 웹에서 Consumer 리빌드가 즉시 반영되지 않을 수 있으므로
+        // 명시적으로 화면을 전환합니다
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MainLayout()),
+        );
       } else if (mounted) {
         print('[LoginScreen] 로그인 실패, 에러 메시지 표시: ${authProvider.errorMessage}');
         ScaffoldMessenger.of(context).showSnackBar(
@@ -68,12 +71,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, _) {
-        // 로그인 성공 시 자동으로 AuthWrapper가 화면을 전환하므로 여기서는 UI만 표시
-        return _buildLoginUI(context, authProvider);
-      },
-    );
+    // Consumer를 제거하고 Provider.of만 사용
+    // AuthWrapper가 상태 변경을 감지하여 화면을 전환합니다
+    final authProvider = Provider.of<AuthProvider>(context);
+    return _buildLoginUI(context, authProvider);
   }
 
   Widget _buildLoginUI(BuildContext context, AuthProvider authProvider) {

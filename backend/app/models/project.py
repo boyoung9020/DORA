@@ -1,7 +1,7 @@
 """
 프로젝트 모델 (SQLAlchemy)
 """
-from sqlalchemy import Column, String, Integer, DateTime, ARRAY
+from sqlalchemy import Column, String, Integer, BigInteger, DateTime, ARRAY
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -13,7 +13,7 @@ class Project(Base):
     id = Column(String, primary_key=True, index=True)
     name = Column(String, nullable=False, index=True)
     description = Column(String, nullable=True)
-    color = Column(Integer, nullable=False, default=0xFF2196F3)  # Color 값을 정수로 저장
+    color = Column(BigInteger, nullable=False, default=0xFF2196F3)  # Color 값을 BigInteger로 저장 (Flutter Color는 32비트)
     team_member_ids = Column(ARRAY(String), default=[], nullable=False)  # 팀원 ID 배열
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

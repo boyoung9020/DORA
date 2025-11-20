@@ -171,7 +171,8 @@ class AuthService {
   /// 승인된 사용자 목록 가져오기
   Future<List<User>> getApprovedUsers() async {
     try {
-      final response = await ApiClient.get('/api/users/approved', includeAuth: false);
+      // PM도 사용할 수 있도록 인증 포함
+      final response = await ApiClient.get('/api/users/approved');
       final usersData = ApiClient.handleListResponse(response);
       return usersData.map((json) => User.fromJson(json as Map<String, dynamic>)).toList();
     } catch (e) {

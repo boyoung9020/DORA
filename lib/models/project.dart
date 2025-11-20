@@ -52,14 +52,42 @@ class Project {
       }
     }
     
+    // 필드명 변환 (API는 snake_case, Flutter는 camelCase)
+    final createdAtKey = json.containsKey('created_at') ? 'created_at' : 'createdAt';
+    final updatedAtKey = json.containsKey('updated_at') ? 'updated_at' : 'updatedAt';
+    
+    // 날짜 파싱 (null 처리 포함)
+    DateTime parseDate(dynamic dateValue) {
+      if (dateValue == null) {
+        return DateTime.now();
+      }
+      if (dateValue is String) {
+        try {
+          return DateTime.parse(dateValue);
+        } catch (e) {
+          print('[Project.fromJson] 날짜 파싱 실패: $dateValue, 오류: $e');
+          return DateTime.now();
+        }
+      }
+      return DateTime.now();
+    }
+    
+    // null 안전 처리
+    final id = json['id'] as String?;
+    final name = json['name'] as String?;
+    
+    if (id == null || name == null) {
+      throw Exception('프로젝트 데이터에 필수 필드(id, name)가 없습니다: $json');
+    }
+    
     return Project(
-      id: json['id'] as String,
-      name: json['name'] as String,
+      id: id,
+      name: name,
       description: json['description'] as String?,
-      color: Color(json['color'] ?? 0xFF2196F3),
+      color: Color(json['color'] is int ? json['color'] as int : (json['color'] is String ? int.parse(json['color'] as String) : 0xFF2196F3)),
       teamMemberIds: teamMemberIds,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
+      createdAt: parseDate(json[createdAtKey]),
+      updatedAt: parseDate(json[updatedAtKey]),
     );
   }
 

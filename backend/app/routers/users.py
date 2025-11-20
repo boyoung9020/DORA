@@ -72,9 +72,11 @@ async def approve_user(
             detail="사용자를 찾을 수 없습니다"
         )
     
+    print(f"[Approve] 승인 전: {user.username}, is_approved: {user.is_approved}")
     user.is_approved = True
     db.commit()
     db.refresh(user)
+    print(f"[Approve] 승인 후: {user.username}, is_approved: {user.is_approved}")
     return user
 
 
