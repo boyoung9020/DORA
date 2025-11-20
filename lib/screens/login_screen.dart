@@ -126,17 +126,22 @@ class _LoginScreenState extends State<LoginScreen> {
           // 메인 컨텐츠
           Expanded(
             child: Container(
-              // 밝은 흰색 배경 + 포인트 색상 그라데이션
+              // 다크 테마일 때는 단색 배경, 라이트 테마일 때는 그라데이션
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white,                                    // 순수 흰색
-                    const Color(0xFFF8F9FA),                        // 매우 밝은 회색
-                    colorScheme.primaryContainer.withOpacity(0.3),  // 포인트 색상 (아주 약하게)
-                  ],
-                ),
+                color: colorScheme.brightness == Brightness.dark
+                    ? colorScheme.background  // 다크 테마: 단색 배경
+                    : null,  // 라이트 테마: 그라데이션 사용
+                gradient: colorScheme.brightness == Brightness.dark
+                    ? null  // 다크 테마: 그라데이션 없음
+                    : LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white,                                    // 순수 흰색
+                          const Color(0xFFF8F9FA),                        // 매우 밝은 회색
+                          colorScheme.primaryContainer.withOpacity(0.3),  // 포인트 색상 (아주 약하게)
+                        ],
+                      ),
               ),
               child: SafeArea(
                 child: Center(
@@ -166,7 +171,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           style: TextStyle(
                             fontSize: 42,
                             fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
+                            color: colorScheme.brightness == Brightness.dark
+                                ? Colors.white
+                                : colorScheme.onSurface,
                             letterSpacing: 3,
                           ),
                         ),
@@ -176,7 +183,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 16,
-                            color: colorScheme.onSurface.withOpacity(0.7),
+                            color: colorScheme.brightness == Brightness.dark
+                                ? Colors.white.withOpacity(0.8)
+                                : colorScheme.onSurface.withOpacity(0.7),
                             fontWeight: FontWeight.w300,
                           ),
                         ),
@@ -259,7 +268,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Text(
                         '계정이 없으신가요? 회원가입',
                         style: TextStyle(
-                          color: colorScheme.onSurface.withOpacity(0.7),
+                          color: colorScheme.brightness == Brightness.dark
+                              ? Colors.white.withOpacity(0.8)
+                              : colorScheme.onSurface.withOpacity(0.7),
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
                           decoration: TextDecoration.underline,

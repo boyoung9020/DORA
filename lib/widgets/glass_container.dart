@@ -135,7 +135,7 @@ class GlassTextField extends StatelessWidget {
         onFieldSubmitted: onFieldSubmitted,  // 엔터 키 처리
         validator: validator,
         style: TextStyle(
-          color: const Color(0xFF1F2937),  // 밝은 배경에 맞게 어두운 텍스트
+          color: isDarkMode ? Colors.white : const Color(0xFF1F2937),  // 다크 테마: 흰색, 라이트 테마: 어두운 텍스트
           fontWeight: FontWeight.w500,
         ),
         decoration: InputDecoration(
@@ -143,22 +143,26 @@ class GlassTextField extends StatelessWidget {
           hintText: hintText,
           prefixIcon: prefixIcon != null
               ? IconTheme(
-                  data: const IconThemeData(color: Color(0xFF6B7280)),  // 밝은 배경에 맞게 어두운 아이콘
+                  data: IconThemeData(
+                    color: isDarkMode ? Colors.white.withOpacity(0.7) : const Color(0xFF6B7280),  // 다크 테마: 흰색, 라이트 테마: 어두운 아이콘
+                  ),
                   child: prefixIcon!,
                 )
               : null,
           suffixIcon: suffixIcon != null
               ? IconTheme(
-                  data: const IconThemeData(color: Color(0xFF6B7280)),  // 밝은 배경에 맞게 어두운 아이콘
+                  data: IconThemeData(
+                    color: isDarkMode ? Colors.white.withOpacity(0.7) : const Color(0xFF6B7280),  // 다크 테마: 흰색, 라이트 테마: 어두운 아이콘
+                  ),
                   child: suffixIcon!,
                 )
               : null,
           labelStyle: TextStyle(
-            color: const Color(0xFF4B5563).withOpacity(0.8),  // 밝은 배경에 맞게 어두운 텍스트
+            color: isDarkMode ? Colors.white.withOpacity(0.7) : const Color(0xFF4B5563).withOpacity(0.8),  // 다크 테마: 흰색, 라이트 테마: 어두운 텍스트
             fontWeight: FontWeight.w400,
           ),
           hintStyle: TextStyle(
-            color: const Color(0xFF9CA3AF),  // 밝은 배경에 맞게 회색 텍스트
+            color: isDarkMode ? Colors.white.withOpacity(0.5) : const Color(0xFF9CA3AF),  // 다크 테마: 흰색, 라이트 테마: 회색 텍스트
           ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(

@@ -126,16 +126,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     return Scaffold(
       body: Container(
+        // 다크 테마일 때는 단색 배경, 라이트 테마일 때는 그라데이션
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.white,                                    // 순수 흰색
-              const Color(0xFFF8F9FA),                        // 매우 밝은 회색
-              colorScheme.primaryContainer.withOpacity(0.3),  // 포인트 색상 (아주 약하게)
-            ],
-          ),
+          color: colorScheme.brightness == Brightness.dark
+              ? colorScheme.background  // 다크 테마: 단색 배경
+              : null,  // 라이트 테마: 그라데이션 사용
+          gradient: colorScheme.brightness == Brightness.dark
+              ? null  // 다크 테마: 그라데이션 없음
+              : LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white,                                    // 순수 흰색
+                    const Color(0xFFF8F9FA),                        // 매우 밝은 회색
+                    colorScheme.primaryContainer.withOpacity(0.3),  // 포인트 색상 (아주 약하게)
+                  ],
+                ),
         ),
         child: SafeArea(
           child: SingleChildScrollView(
@@ -162,7 +168,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
+                        color: colorScheme.brightness == Brightness.dark
+                            ? Colors.white
+                            : colorScheme.onSurface,
                         letterSpacing: 2,
                       ),
                     ),
@@ -312,7 +320,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       child: Text(
                         '이미 계정이 있으신가요? 로그인',
                         style: TextStyle(
-                          color: colorScheme.onSurface.withOpacity(0.7),
+                          color: colorScheme.brightness == Brightness.dark
+                              ? Colors.white.withOpacity(0.8)
+                              : colorScheme.onSurface.withOpacity(0.7),
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
                           decoration: TextDecoration.underline,
