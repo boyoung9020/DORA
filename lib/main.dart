@@ -45,6 +45,7 @@ class MyApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             themeMode: themeProvider.themeMode,
             theme: ThemeData(
+              fontFamily: 'NanumSquareRound',
               scaffoldBackgroundColor: Colors.white, // 전체 배경을 흰색으로 설정
               colorScheme: ColorScheme.fromSeed(
                 seedColor: const Color(0xFF2196F3), // 파란색 포인트 색상 (로고와 일치)
@@ -67,6 +68,7 @@ class MyApp extends StatelessWidget {
               useMaterial3: true,
             ),
             darkTheme: ThemeData(
+              fontFamily: 'NanumSquareRound',
               scaffoldBackgroundColor: const Color(0xFF1A1A1A), // 매우 어두운 회색 배경
               colorScheme: ColorScheme.fromSeed(
                 seedColor: const Color(0xFF2196F3),

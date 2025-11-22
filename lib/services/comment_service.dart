@@ -28,13 +28,15 @@ class CommentService {
     required String userId,
     required String username,
     required String content,
+    List<String> imageUrls = const [],
   }) async {
     try {
       final response = await ApiClient.post(
-        '/api/comments',
+        '/api/comments/',
         body: {
           'task_id': taskId,
           'content': content,
+          'image_urls': imageUrls,
         },
       );
       
@@ -52,6 +54,7 @@ class CommentService {
         '/api/comments/${comment.id}',
         body: {
           'content': comment.content,
+          'image_urls': comment.imageUrls,
         },
       );
       

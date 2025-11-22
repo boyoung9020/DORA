@@ -50,6 +50,11 @@ dependencies:
 
   # 커스텀 윈도우 타이틀바
   bitsdojo_window: ^0.1.6
+  
+  # 이미지 선택
+  image_picker: ^1.0.7
+  desktop_drop: ^0.4.4
+  flutter_markdown: ^0.6.18
 
 dev_dependencies:
   flutter_test:
@@ -104,6 +109,18 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  fonts:
+    - family: NanumSquareRound
+      fonts:
+        - asset: font/nanum-square-round/NanumSquareRoundL.ttf
+          weight: 300
+        - asset: font/nanum-square-round/NanumSquareRoundR.ttf
+          weight: 400
+        - asset: font/nanum-square-round/NanumSquareRoundB.ttf
+          weight: 700
+        - asset: font/nanum-square-round/NanumSquareRoundEB.ttf
+          weight: 800
 
 # 앱 아이콘 설정
 flutter_launcher_icons:

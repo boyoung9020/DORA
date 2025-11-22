@@ -1,7 +1,7 @@
 """
 댓글 모델 (SQLAlchemy)
 """
-from sqlalchemy import Column, String, DateTime
+from sqlalchemy import Column, String, DateTime, ARRAY
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -15,6 +15,7 @@ class Comment(Base):
     user_id = Column(String, nullable=False, index=True)
     username = Column(String, nullable=False)
     content = Column(String, nullable=False)
+    image_urls = Column(ARRAY(String), default=[], nullable=False)  # 이미지 URL 배열
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=True)
     

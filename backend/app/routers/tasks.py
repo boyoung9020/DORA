@@ -66,6 +66,7 @@ async def create_task(
         start_date=task_data.start_date,
         end_date=task_data.end_date,
         detail=task_data.detail,
+        detail_image_urls=task_data.detail_image_urls or [],
         priority=task_data.priority,
         assigned_member_ids=task_data.assigned_member_ids,
         comment_ids=[],
@@ -119,6 +120,8 @@ async def update_task(
         task.end_date = task_data.end_date
     if task_data.detail is not None:
         task.detail = task_data.detail
+    if task_data.detail_image_urls is not None:
+        task.detail_image_urls = task_data.detail_image_urls
     if task_data.priority is not None:
         # 중요도 변경 히스토리 추가
         old_priority = task.priority
@@ -133,6 +136,27 @@ async def update_task(
             task.priority_history = list(task.priority_history) + [history_entry]
         task.priority = task_data.priority
     if task_data.assigned_member_ids is not None:
+        # 할당 변경 히스토리 추가
+        old_member_ids = set(task.assigned_member_ids or [])
+        new_member_ids = set(task_data.assigned_member_ids or [])
+        
+        # 새로 할당된 팀원들에 대해 히스토리 추가
+        added_members = new_member_ids - old_member_ids
+        if added_members:
+            for member_id in added_members:
+                # 할당된 사용자 정보 가져오기
+                assigned_user = db.query(User).filter(User.id == member_id).first()
+                assigned_username = assigned_user.username if assigned_user else "Unknown"
+                
+                history_entry = {
+                    "assignedUserId": member_id,
+                    "assignedUsername": assigned_username,
+                    "assignedBy": current_user.id,
+                    "assignedByUsername": current_user.username,
+                    "assignedAt": datetime.utcnow().isoformat()
+                }
+                task.assignment_history = list(task.assignment_history) + [history_entry]
+        
         task.assigned_member_ids = task_data.assigned_member_ids
     
     db.commit()

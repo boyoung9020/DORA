@@ -16,6 +16,7 @@ class TaskBase(BaseModel):
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     detail: str = ""
+    detail_image_urls: List[str] = []  # 상세 내용 이미지 URL 배열
     priority: TaskPriority = TaskPriority.P2
     assigned_member_ids: List[str] = []
 
@@ -33,6 +34,7 @@ class TaskUpdate(BaseModel):
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     detail: Optional[str] = None
+    detail_image_urls: Optional[List[str]] = None  # 상세 내용 이미지 URL 배열
     priority: Optional[TaskPriority] = None
     assigned_member_ids: Optional[List[str]] = None
 

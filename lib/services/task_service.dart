@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/task.dart';
 import '../utils/api_client.dart';
@@ -43,6 +42,7 @@ class TaskService {
     DateTime? startDate,
     DateTime? endDate,
     String detail = '',
+    List<String> detailImageUrls = const [],
     TaskPriority priority = TaskPriority.p2,
     List<String>? assignedMemberIds,
   }) async {
@@ -57,6 +57,7 @@ class TaskService {
           'start_date': startDate?.toIso8601String(),
           'end_date': endDate?.toIso8601String(),
           'detail': detail,
+          'detail_image_urls': detailImageUrls,
           'priority': priority.name,
           'assigned_member_ids': assignedMemberIds ?? [],
         },
@@ -70,7 +71,7 @@ class TaskService {
   }
 
   /// 태스크 업데이트
-  Future<void> updateTask(Task task) async {
+  Future<Task> updateTask(Task task) async {
     try {
       final body = <String, dynamic>{
         'title': task.title,
@@ -79,6 +80,7 @@ class TaskService {
         'start_date': task.startDate?.toIso8601String(),
         'end_date': task.endDate?.toIso8601String(),
         'detail': task.detail,
+        'detail_image_urls': task.detailImageUrls,
         'priority': task.priority.name,
         'assigned_member_ids': task.assignedMemberIds,
       };
@@ -88,7 +90,8 @@ class TaskService {
         body: body,
       );
       
-      ApiClient.handleResponse(response);
+      final taskData = ApiClient.handleResponse(response);
+      return Task.fromJson(taskData);
     } catch (e) {
       throw Exception('태스크 업데이트 실패: $e');
     }
@@ -115,7 +118,7 @@ class TaskService {
   }
 
   /// 태스크 상태 변경
-  Future<void> changeTaskStatus(String taskId, TaskStatus newStatus) async {
+  Future<Task> changeTaskStatus(String taskId, TaskStatus newStatus) async {
     try {
       // FastAPI는 쿼리 파라미터로 new_status를 받음
       final uri = Uri.parse('${ApiClient.baseUrl}/api/tasks/$taskId/status')
@@ -132,7 +135,8 @@ class TaskService {
       }
       
       final response = await http.patch(uri, headers: headers);
-      ApiClient.handleResponse(response);
+      final taskData = ApiClient.handleResponse(response);
+      return Task.fromJson(taskData);
     } catch (e) {
       throw Exception('태스크 상태 변경 실패: $e');
     }

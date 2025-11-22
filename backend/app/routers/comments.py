@@ -62,7 +62,8 @@ async def create_comment(
         task_id=comment_data.task_id,
         user_id=current_user.id,
         username=current_user.username,
-        content=comment_data.content
+        content=comment_data.content,
+        image_urls=comment_data.image_urls or []
     )
     
     db.add(new_comment)
@@ -99,6 +100,8 @@ async def update_comment(
         )
     
     comment.content = comment_data.content
+    if comment_data.image_urls is not None:
+        comment.image_urls = comment_data.image_urls
     db.commit()
     db.refresh(comment)
     return comment

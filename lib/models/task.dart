@@ -1,5 +1,17 @@
 import 'package:flutter/material.dart';
 
+/// UTC 날짜 시간 파싱 헬퍼 함수
+/// 백엔드에서 datetime.utcnow().isoformat()로 저장된 경우 'Z'가 없을 수 있으므로
+/// 명시적으로 UTC로 파싱
+DateTime _parseUtcDateTime(String dateString) {
+  // 'Z'가 있으면 이미 UTC로 표시됨
+  if (dateString.endsWith('Z')) {
+    return DateTime.parse(dateString);
+  }
+  // 'Z'가 없으면 UTC로 명시적으로 파싱
+  return DateTime.parse('${dateString}Z');
+}
+
 /// 상태 변경 히스토리
 class StatusChangeHistory {
   final TaskStatus fromStatus;
@@ -38,7 +50,7 @@ class StatusChangeHistory {
       ),
       userId: json['userId'],
       username: json['username'],
-      changedAt: DateTime.parse(json['changedAt']),
+      changedAt: _parseUtcDateTime(json['changedAt']),
     );
   }
 }
@@ -75,7 +87,7 @@ class AssignmentHistory {
       assignedUsername: json['assignedUsername'],
       assignedBy: json['assignedBy'],
       assignedByUsername: json['assignedByUsername'],
-      assignedAt: DateTime.parse(json['assignedAt']),
+      assignedAt: _parseUtcDateTime(json['assignedAt']),
     );
   }
 }
@@ -118,7 +130,7 @@ class PriorityChangeHistory {
       ),
       userId: json['userId'],
       username: json['username'],
-      changedAt: DateTime.parse(json['changedAt']),
+      changedAt: _parseUtcDateTime(json['changedAt']),
     );
   }
 }
@@ -142,6 +154,7 @@ class Task {
   final DateTime? startDate; // 시작일
   final DateTime? endDate; // 종료일
   final String detail; // 상세 내용
+  final List<String> detailImageUrls; // 상세 내용 이미지 URL 배열
   final List<String> assignedMemberIds; // 할당된 팀원 사용자 ID 목록
   final List<String> commentIds; // 댓글 ID 목록
   final TaskPriority priority; // 중요도
@@ -160,6 +173,7 @@ class Task {
     this.startDate,
     this.endDate,
     this.detail = '',
+    List<String>? detailImageUrls,
     List<String>? assignedMemberIds,
     List<String>? commentIds,
     TaskPriority? priority,
@@ -168,7 +182,8 @@ class Task {
     List<PriorityChangeHistory>? priorityHistory,
     required this.createdAt,
     required this.updatedAt,
-  }) : assignedMemberIds = assignedMemberIds ?? [],
+  }) : detailImageUrls = detailImageUrls ?? [],
+       assignedMemberIds = assignedMemberIds ?? [],
        commentIds = commentIds ?? [],
        priority = priority ?? TaskPriority.p2,
        statusHistory = statusHistory ?? [],
@@ -186,6 +201,7 @@ class Task {
       'startDate': startDate?.toIso8601String(),
       'endDate': endDate?.toIso8601String(),
       'detail': detail,
+      'detail_image_urls': detailImageUrls,
       'assignedMemberIds': assignedMemberIds,
       'commentIds': commentIds,
       'priority': priority.name,
@@ -306,6 +322,9 @@ class Task {
       startDate: startDate,
       endDate: endDate,
       detail: json['detail'] ?? '',
+      detailImageUrls: json.containsKey('detail_image_urls') && json['detail_image_urls'] != null
+          ? List<String>.from(json['detail_image_urls'])
+          : [],
       assignedMemberIds: assignedMemberIds,
       commentIds: commentIds,
       priority: json.containsKey('priority') && json['priority'] != null
@@ -332,6 +351,7 @@ class Task {
     DateTime? startDate,
     DateTime? endDate,
     String? detail,
+    List<String>? detailImageUrls,
     List<String>? assignedMemberIds,
     List<String>? commentIds,
     TaskPriority? priority,
@@ -350,6 +370,7 @@ class Task {
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       detail: detail ?? this.detail,
+      detailImageUrls: detailImageUrls ?? this.detailImageUrls,
       assignedMemberIds: assignedMemberIds ?? this.assignedMemberIds,
       commentIds: commentIds ?? this.commentIds,
       priority: priority ?? this.priority,
@@ -376,15 +397,15 @@ extension TaskStatusExtension on TaskStatus {
   String get displayName {
     switch (this) {
       case TaskStatus.backlog:
-        return 'Backlog';
+        return '백로그';
       case TaskStatus.ready:
-        return 'Ready';
+        return '요청';
       case TaskStatus.inProgress:
-        return 'In Progress';
+        return '진행';
       case TaskStatus.inReview:
-        return 'In Review';
+        return '리뷰';
       case TaskStatus.done:
-        return 'Done';
+        return '완료';
     }
   }
 

@@ -36,6 +36,7 @@ class Task(Base):
     start_date = Column(DateTime(timezone=True), nullable=True)
     end_date = Column(DateTime(timezone=True), nullable=True)
     detail = Column(String, nullable=True, default="")
+    detail_image_urls = Column(ARRAY(String), default=[], nullable=False)  # 상세 내용 이미지 URL 배열
     assigned_member_ids = Column(ARRAY(String), default=[], nullable=False)
     comment_ids = Column(ARRAY(String), default=[], nullable=False)
     priority = Column(SQLEnum(TaskPriority), nullable=False, default=TaskPriority.P2)

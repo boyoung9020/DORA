@@ -7,6 +7,7 @@ import '../providers/project_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/date_range_picker_dialog.dart';
 import '../utils/avatar_color.dart';
 import 'task_detail_screen.dart';
 
@@ -291,93 +292,52 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    // 시작일 태그
                                     InkWell(
-                                      onTap: () => _showDateRangePicker(context, task, taskProvider),
+                                      onTap: () => _pickTaskDateRange(
+                                          context, task, taskProvider),
                                       borderRadius: BorderRadius.circular(12),
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 6),
+                                            horizontal: 14, vertical: 8),
                                         decoration: BoxDecoration(
-                                          color: task.startDate != null
-                                              ? colorScheme.primary.withOpacity(0.15)
-                                              : colorScheme.onSurface.withOpacity(0.1),
+                                          color: (task.startDate != null ||
+                                                  task.endDate != null)
+                                              ? colorScheme.primary
+                                                  .withOpacity(0.12)
+                                              : colorScheme.onSurface
+                                                  .withOpacity(0.08),
                                           borderRadius: BorderRadius.circular(12),
                                           border: Border.all(
-                                            color: task.startDate != null
-                                                ? colorScheme.primary.withOpacity(0.5)
-                                                : colorScheme.onSurface.withOpacity(0.2),
-                                            width: 1,
+                                            color: (task.startDate != null ||
+                                                    task.endDate != null)
+                                                ? colorScheme.primary.withOpacity(0.4)
+                                                : colorScheme.onSurface
+                                                    .withOpacity(0.2),
                                           ),
                                         ),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Icon(
-                                              Icons.calendar_today,
-                                              size: 14,
-                                              color: task.startDate != null
+                                              Icons.date_range,
+                                              size: 16,
+                                              color: (task.startDate != null ||
+                                                      task.endDate != null)
                                                   ? colorScheme.primary
-                                                  : colorScheme.onSurface.withOpacity(0.4),
+                                                  : colorScheme.onSurface
+                                                      .withOpacity(0.4),
                                             ),
-                                            const SizedBox(width: 6),
+                                            const SizedBox(width: 8),
                                             Text(
-                                              task.startDate != null
-                                                  ? _formatDate(task.startDate!)
-                                                  : '시작일',
+                                              _buildRangeLabel(task),
                                               style: TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w600,
-                                                color: task.startDate != null
+                                                color: (task.startDate != null ||
+                                                        task.endDate != null)
                                                     ? colorScheme.primary
-                                                    : colorScheme.onSurface.withOpacity(0.5),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    // 종료일 태그
-                                    InkWell(
-                                      onTap: () => _showDateRangePicker(context, task, taskProvider),
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color: task.endDate != null
-                                              ? colorScheme.secondary.withOpacity(0.15)
-                                              : colorScheme.onSurface.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: task.endDate != null
-                                                ? colorScheme.secondary.withOpacity(0.5)
-                                                : colorScheme.onSurface.withOpacity(0.2),
-                                            width: 1,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.event,
-                                              size: 14,
-                                              color: task.endDate != null
-                                                  ? colorScheme.secondary
-                                                  : colorScheme.onSurface.withOpacity(0.4),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              task.endDate != null
-                                                  ? _formatDate(task.endDate!)
-                                                  : '종료일',
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w600,
-                                                color: task.endDate != null
-                                                    ? colorScheme.secondary
-                                                    : colorScheme.onSurface.withOpacity(0.5),
+                                                    : colorScheme.onSurface
+                                                        .withOpacity(0.6),
                                               ),
                                             ),
                                           ],
@@ -688,208 +648,32 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
+  String _buildRangeLabel(Task task) {
+    final hasStart = task.startDate != null;
+    final hasEnd = task.endDate != null;
+
+    if (!hasStart && !hasEnd) {
+      return '기간 설정';
+    }
+
+    final startText =
+        hasStart ? _formatDate(task.startDate!) : '시작 미정';
+    final endText = hasEnd ? _formatDate(task.endDate!) : '종료 미정';
+    return '$startText ~ $endText';
+  }
+
   /// 기간 선택 다이얼로그
-  Future<void> _showDateRangePicker(
+  Future<void> _pickTaskDateRange(
     BuildContext context,
     Task task,
     TaskProvider taskProvider,
   ) async {
-    final colorScheme = Theme.of(context).colorScheme;
-    DateTime? selectedStartDate = task.startDate;
-    DateTime? selectedEndDate = task.endDate;
-
-    final result = await showDialog<Map<String, DateTime?>>(
+    final result = await showTaskDateRangePickerDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.2),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: 500,
-                  maxHeight: 600,
-                ),
-                child: GlassContainer(
-                  padding: const EdgeInsets.all(24),
-                  borderRadius: 20.0,
-                  blur: 25.0,
-                  gradientColors: [
-                    colorScheme.surface.withOpacity(0.6),
-                    colorScheme.surface.withOpacity(0.5),
-                  ],
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '기간 선택',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      // 시작일 선택
-                      Text(
-                        '시작일',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      InkWell(
-                        onTap: () async {
-                          final date = await showDatePicker(
-                            context: context,
-                            initialDate: selectedStartDate ?? DateTime.now(),
-                            firstDate: DateTime(2020),
-                            lastDate: selectedEndDate ?? DateTime(2030),
-                          );
-                          if (date != null) {
-                            setState(() {
-                              selectedStartDate = date;
-                              // 시작일이 종료일보다 늦으면 종료일 초기화
-                              if (selectedEndDate != null &&
-                                  date.isAfter(selectedEndDate!)) {
-                                selectedEndDate = null;
-                              }
-                            });
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: colorScheme.primary.withOpacity(0.3),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.calendar_today,
-                                size: 20,
-                                color: colorScheme.primary,
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                selectedStartDate != null
-                                    ? _formatDate(selectedStartDate!)
-                                    : '날짜 선택',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: selectedStartDate != null
-                                      ? colorScheme.onSurface
-                                      : colorScheme.onSurface.withOpacity(0.5),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      // 종료일 선택
-                      Text(
-                        '종료일',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      InkWell(
-                        onTap: () async {
-                          final date = await showDatePicker(
-                            context: context,
-                            initialDate: selectedEndDate ??
-                                (selectedStartDate ?? DateTime.now()),
-                            firstDate: selectedStartDate ?? DateTime(2020),
-                            lastDate: DateTime(2030),
-                          );
-                          if (date != null) {
-                            setState(() {
-                              selectedEndDate = date;
-                            });
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: colorScheme.secondary.withOpacity(0.3),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.event,
-                                size: 20,
-                                color: colorScheme.secondary,
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                selectedEndDate != null
-                                    ? _formatDate(selectedEndDate!)
-                                    : '날짜 선택',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: selectedEndDate != null
-                                      ? colorScheme.onSurface
-                                      : colorScheme.onSurface.withOpacity(0.5),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      // 버튼
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            child: Text(
-                              '취소',
-                              style: TextStyle(color: colorScheme.onSurface),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.of(context).pop({
-                                'startDate': selectedStartDate,
-                                'endDate': selectedEndDate,
-                              });
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: colorScheme.primary,
-                              foregroundColor: Colors.white,
-                            ),
-                            child: const Text('확인'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
+      initialStartDate: task.startDate,
+      initialEndDate: task.endDate,
+      minDate: DateTime(2020),
+      maxDate: DateTime(2030),
     );
 
     if (result != null && context.mounted) {

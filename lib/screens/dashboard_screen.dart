@@ -9,6 +9,7 @@ import '../services/auth_service.dart';
 import '../widgets/glass_container.dart';
 import '../utils/avatar_color.dart';
 import 'admin_approval_screen.dart';
+import 'task_detail_screen.dart';
 
 /// 대시보드 화면 - 홈 화면
 class DashboardScreen extends StatefulWidget {
@@ -32,7 +33,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Task> _getTodayTasks(List<Task> allTasks, String? currentUserId) {
     final today = DateTime.now();
     final todayStart = DateTime(today.year, today.month, today.day);
-    final todayEnd = todayStart.add(const Duration(days: 1));
 
     return allTasks.where((task) {
       // 현재 사용자에게 할당된 태스크만 필터링
@@ -389,17 +389,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       
                                       return Padding(
                                         padding: const EdgeInsets.only(bottom: 12),
-                                        child: GlassContainer(
-                                          padding: const EdgeInsets.all(16),
-                                          borderRadius: 12.0,
-                                          blur: 15.0,
-                                          borderWidth: 1.0,
-                                          gradientColors: [
-                                            colorScheme.surface.withOpacity(0.6),
-                                            colorScheme.surface.withOpacity(0.5),
-                                          ],
-                                          borderColor: statusColor.withOpacity(0.3),
-                                          child: Row(
+                                        child: InkWell(
+                                          onTap: () {
+                                            showDialog(
+                                              context: context,
+                                              builder: (context) => TaskDetailScreen(task: task),
+                                            );
+                                          },
+                                          borderRadius: BorderRadius.circular(12.0),
+                                          child: GlassContainer(
+                                            padding: const EdgeInsets.all(16),
+                                            borderRadius: 12.0,
+                                            blur: 15.0,
+                                            borderWidth: 1.0,
+                                            gradientColors: [
+                                              colorScheme.surface.withOpacity(0.6),
+                                              colorScheme.surface.withOpacity(0.5),
+                                            ],
+                                            borderColor: statusColor.withOpacity(0.3),
+                                            child: Row(
                                             children: [
                                               // 상태 색상 인디케이터
                                               Container(
@@ -519,6 +527,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                               ),
                                             ],
                                           ),
+                                        ),
                                         ),
                                       );
                                     }).toList(),

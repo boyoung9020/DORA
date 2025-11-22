@@ -9,6 +9,7 @@ from typing import Optional
 class CommentBase(BaseModel):
     """댓글 기본 스키마"""
     content: str
+    image_urls: list[str] = []  # 이미지 URL 배열
 
 
 class CommentCreate(CommentBase):
@@ -19,6 +20,7 @@ class CommentCreate(CommentBase):
 class CommentUpdate(BaseModel):
     """댓글 수정 요청 스키마"""
     content: str
+    image_urls: list[str] = []  # 이미지 URL 배열
 
 
 class CommentResponse(CommentBase):

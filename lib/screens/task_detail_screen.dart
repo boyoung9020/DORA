@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:desktop_drop/desktop_drop.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'dart:io';
+import 'dart:convert';
 import '../models/task.dart';
 import '../models/user.dart';
 import '../models/comment.dart';
@@ -8,8 +14,20 @@ import '../providers/project_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
 import '../services/comment_service.dart';
+import '../services/upload_service.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/date_range_picker_dialog.dart';
 import '../utils/avatar_color.dart';
+
+/// 붙여넣기 Intent
+class _PasteIntent extends Intent {
+  const _PasteIntent();
+}
+
+/// 코멘트 전송 Intent (Ctrl+Enter)
+class _SubmitCommentIntent extends Intent {
+  const _SubmitCommentIntent();
+}
 
 /// 타임라인 아이템 타입
 enum TimelineItemType {
@@ -70,8 +88,20 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   DateTime? _endDate;
   bool _isEditing = false;
   final CommentService _commentService = CommentService();
+  final UploadService _uploadService = UploadService();
+  final ImagePicker _imagePicker = ImagePicker();
+  final FocusNode _commentFocusNode = FocusNode();
+  final ScrollController _timelineScrollController = ScrollController();
+  bool _isCommentDropHover = false;
   List<Comment> _comments = [];
   bool _isLoadingComments = false;
+  List<TimelineItem>? _timelineItems;  // 타임라인 아이템 캐시
+  String? _editingCommentId;  // 편집 중인 코멘트 ID
+  late TextEditingController _editCommentController;  // 편집용 컨트롤러
+  List<File> _selectedCommentImages = [];  // 댓글용 선택된 이미지
+  List<File> _selectedDetailImages = [];    // 상세 내용용 선택된 이미지
+  List<String> _uploadedCommentImageUrls = [];  // 업로드된 댓글 이미지 URL
+  List<String> _uploadedDetailImageUrls = [];   // 업로드된 상세 내용 이미지 URL
 
   @override
   void initState() {
@@ -80,6 +110,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _descriptionController = TextEditingController(text: widget.task.description);
     _detailController = TextEditingController(text: widget.task.detail);
     _commentController = TextEditingController();
+    _editCommentController = TextEditingController();
     _selectedStatus = widget.task.status;
     _selectedPriority = widget.task.priority;
     _startDate = widget.task.startDate;
@@ -93,11 +124,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _descriptionController.dispose();
     _detailController.dispose();
     _commentController.dispose();
+    _editCommentController.dispose();
+    _commentFocusNode.dispose();
+    _timelineScrollController.dispose();
     super.dispose();
   }
 
   /// 댓글 로드
-  Future<void> _loadComments() async {
+  Future<void> _loadComments({bool updateTimeline = true}) async {
     setState(() {
       _isLoadingComments = true;
     });
@@ -107,6 +141,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         _comments = comments;
         _isLoadingComments = false;
       });
+      // 코멘트 로드 후 타임라인 아이템 업데이트 (옵션)
+      if (updateTimeline) {
+        await _loadTimelineItems();
+      }
     } catch (e) {
       setState(() {
         _isLoadingComments = false;
@@ -114,9 +152,163 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
+  /// 타임라인 아이템 로드 (스크롤 위치 유지)
+  Future<void> _loadTimelineItems({bool scrollToBottom = false}) async {
+    final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+    final currentTask = taskProvider.tasks.firstWhere(
+      (t) => t.id == widget.task.id,
+      orElse: () => widget.task,
+    );
+    
+    // setState 전에 스크롤 위치 저장 (맨 아래로 이동하지 않는 경우에만)
+    double? savedScrollPosition;
+    if (!scrollToBottom && _timelineScrollController.hasClients) {
+      savedScrollPosition = _timelineScrollController.offset;
+    }
+    
+    final timelineItems = await _buildTimelineItems(currentTask);
+    
+    if (mounted) {
+      // setState를 호출하기 전에 스크롤 위치를 미리 저장
+      final maxScrollBefore = _timelineScrollController.hasClients 
+          ? _timelineScrollController.position.maxScrollExtent 
+          : 0.0;
+      
+      setState(() {
+        _timelineItems = timelineItems;
+      });
+      
+      // setState 후 스크롤 위치 복원 또는 맨 아래로 이동
+      if (scrollToBottom) {
+        // 코멘트 추가 시 맨 아래로 이동 - 여러 번 시도하여 확실하게
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToBottom();
+        });
+      } else if (savedScrollPosition != null) {
+        // 저장된 위치로 복원
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_timelineScrollController.hasClients) return;
+          final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
+          final scrollDelta = maxScrollAfter - maxScrollBefore;
+          final adjustedPosition = savedScrollPosition! + scrollDelta;
+          
+          _timelineScrollController.jumpTo(
+            adjustedPosition.clamp(0.0, maxScrollAfter),
+          );
+        });
+      }
+    }
+  }
+
+  /// 맨 아래로 스크롤 (여러 번 시도하여 확실하게)
+  void _scrollToBottom() {
+    if (!mounted || !_timelineScrollController.hasClients) return;
+    
+    // 즉시 시도
+    final maxScroll = _timelineScrollController.position.maxScrollExtent;
+    _timelineScrollController.jumpTo(maxScroll);
+    
+    // 약간의 지연 후 다시 시도 (레이아웃이 완전히 완료된 후)
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (!mounted || !_timelineScrollController.hasClients) return;
+      final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
+      _timelineScrollController.animateTo(
+        maxScrollAfter,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    });
+    
+    // 추가 지연 후 한 번 더 시도 (이미지 로딩 등으로 높이가 변경될 수 있음)
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted || !_timelineScrollController.hasClients) return;
+      final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
+      _timelineScrollController.jumpTo(maxScrollAfter);
+    });
+  }
+
+  /// 부드럽게 맨 아래로 스크롤 (카카오톡 스타일)
+  void _scrollToBottomSmooth() {
+    if (!mounted || !_timelineScrollController.hasClients) return;
+    
+    // 즉시 시도 (레이아웃이 이미 완료된 경우)
+    final maxScroll = _timelineScrollController.position.maxScrollExtent;
+    if (maxScroll > 0) {
+      _timelineScrollController.animateTo(
+        maxScroll,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      );
+    }
+    
+    // 레이아웃 완료 후 다시 시도
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (!mounted || !_timelineScrollController.hasClients) return;
+      final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
+      if (maxScrollAfter > 0) {
+        _timelineScrollController.animateTo(
+          maxScrollAfter,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    });
+    
+    // 이미지 로딩 등으로 높이가 변경될 수 있으므로 한 번 더 시도
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (!mounted || !_timelineScrollController.hasClients) return;
+      final maxScrollFinal = _timelineScrollController.position.maxScrollExtent;
+      if (maxScrollFinal > 0) {
+        _timelineScrollController.jumpTo(maxScrollFinal);
+      }
+    });
+  }
+
+  /// 이미지 선택 (댓글용)
+  Future<void> _pickCommentImages() async {
+    try {
+      final List<XFile> images = await _imagePicker.pickMultiImage();
+      if (images.isNotEmpty) {
+        setState(() {
+          _selectedCommentImages = images.map((xFile) => File(xFile.path)).toList();
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('이미지 선택 중 오류가 발생했습니다: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  /// 이미지 선택 (상세 내용용)
+  Future<void> _pickDetailImages() async {
+    try {
+      final List<XFile> images = await _imagePicker.pickMultiImage();
+      if (images.isNotEmpty) {
+        setState(() {
+          _selectedDetailImages = images.map((xFile) => File(xFile.path)).toList();
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('이미지 선택 중 오류가 발생했습니다: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   /// 댓글 추가
   Future<void> _addComment() async {
-    if (_commentController.text.trim().isEmpty) return;
+    if (_commentController.text.trim().isEmpty && _selectedCommentImages.isEmpty) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.currentUser == null) return;
@@ -125,11 +317,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
     
     try {
+      // 이미지 업로드
+      List<String> imageUrls = [];
+      if (_selectedCommentImages.isNotEmpty) {
+        imageUrls = await _uploadService.uploadImages(_selectedCommentImages);
+      }
+      
       final comment = await _commentService.createComment(
         taskId: widget.task.id,
         userId: user.id,
         username: user.username,
         content: _commentController.text.trim(),
+        imageUrls: imageUrls,
       );
 
       // Task에 댓글 ID 추가
@@ -149,9 +348,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       
       updatedCommentIds.add(comment.id);
       
-      // 디버깅: statusHistory 확인
-      print('[TaskDetail] Current statusHistory: ${currentTask.statusHistory}');
-      print('[TaskDetail] statusHistory length: ${currentTask.statusHistory.length}');
       
       await taskProvider.updateTask(
         currentTask.copyWith(
@@ -160,12 +356,24 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ),
       );
 
+      // 입력 필드 초기화
       _commentController.clear();
-      await _loadComments();
-      if (mounted) {
-        setState(() {});
-      }
-    } catch (e, stackTrace) {
+      _selectedCommentImages.clear();
+      _uploadedCommentImageUrls.clear();
+      
+      // 낙관적 업데이트: 즉시 로컬 상태에 댓글 추가 (카카오톡처럼 부드럽게)
+      setState(() {
+        _comments.add(comment);
+      });
+      
+      // 타임라인에 새 댓글만 부드럽게 추가
+      await _addCommentToTimeline(comment);
+      
+      // 백그라운드에서 서버 동기화 (사용자 경험에 영향 없음)
+      _loadComments(updateTimeline: false).catchError((e) {
+        // 동기화 실패해도 이미 로컬에 추가되어 있으므로 무시
+      });
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -175,8 +383,62 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
         );
       }
-      print('댓글 추가 오류: $e');
-      print('스택 트레이스: $stackTrace');
+    }
+  }
+
+  /// 댓글 편집 시작
+  void _startEditComment(Comment comment) {
+    setState(() {
+      _editingCommentId = comment.id;
+      _editCommentController.text = comment.content;
+    });
+  }
+
+  /// 댓글 편집 취소
+  void _cancelEditComment() {
+    setState(() {
+      _editingCommentId = null;
+      _editCommentController.clear();
+    });
+  }
+
+  /// 댓글 업데이트
+  Future<void> _updateComment(String commentId) async {
+    if (_editCommentController.text.trim().isEmpty) {
+      _cancelEditComment();
+      return;
+    }
+
+    try {
+      final comment = _comments.firstWhere((c) => c.id == commentId);
+      final updatedComment = comment.copyWith(
+        content: _editCommentController.text.trim(),
+        updatedAt: DateTime.now(),
+      );
+
+      await _commentService.updateComment(updatedComment);
+      
+      // 로컬 코멘트 리스트 업데이트
+      final index = _comments.indexWhere((c) => c.id == commentId);
+      if (index != -1) {
+        setState(() {
+          _comments[index] = updatedComment;
+          _editingCommentId = null;
+          _editCommentController.clear();
+        });
+      }
+
+      // 타임라인 업데이트
+      await _loadTimelineItems();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('댓글 수정 중 오류가 발생했습니다: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
     }
   }
 
@@ -339,15 +601,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               ),
               const SizedBox(height: 24),
               // 메인 컨텐츠
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 왼쪽: 타임라인
-                      Expanded(
-                        flex: 2,
-                        child: SingleChildScrollView(
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 왼쪽: 타임라인
+                    Expanded(
+                      flex: 2,
+                      child: SingleChildScrollView(
+                        controller: _timelineScrollController,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -374,58 +636,64 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                         padding: EdgeInsets.all(16.0),
                                 child: Center(child: CircularProgressIndicator()),
                                     )
+                                  else if (_timelineItems == null)
+                              const SizedBox.shrink()
                                   else
-                              FutureBuilder<List<TimelineItem>>(
-                                future: _buildTimelineItems(currentTask),
-                                builder: (context, snapshot) {
-                                  if (!snapshot.hasData) {
-                                    return const SizedBox.shrink();
-                                  }
-                                  final timelineItems = snapshot.data!;
-                                  
-                                  return Column(
-                                    children: timelineItems.map((item) {
-                                      if (item.type == TimelineItemType.history) {
-                                        final event = item.data as HistoryEvent;
-                                        return Padding(
-                                          padding: const EdgeInsets.only(bottom: 8),
-                                          child: _buildHistoryItem(
-                                            context,
-                                            item.date,
-                                            event.username,
-                                            event.action,
-                                            event.target,
-                                            event.icon,
-                                            colorScheme,
+                              Column(
+                                children: _timelineItems!.map((item) {
+                                  if (item.type == TimelineItemType.history) {
+                                    final event = item.data as HistoryEvent;
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: _buildHistoryItem(
+                                        context,
+                                        item.date,
+                                        event.username,
+                                        event.action,
+                                        event.target,
+                                        event.icon,
+                                        colorScheme,
+                                      ),
+                                    );
+                                  } else if (item.type == TimelineItemType.comment) {
+                                    final comment = item.data as Comment;
+                                    return TweenAnimationBuilder<double>(
+                                      tween: Tween(begin: 0.0, end: 1.0),
+                                      duration: const Duration(milliseconds: 300),
+                                      curve: Curves.easeOut,
+                                      builder: (context, opacity, child) {
+                                        return Opacity(
+                                          opacity: opacity,
+                                          child: Transform.translate(
+                                            offset: Offset(0, 20 * (1 - opacity)),
+                                            child: _buildCommentTimelineItem(
+                                              context,
+                                              comment,
+                                              colorScheme,
+                                            ),
                                           ),
                                         );
-                                      } else if (item.type == TimelineItemType.comment) {
-                                        final comment = item.data as Comment;
-                                        return _buildCommentTimelineItem(
-                                          context,
-                                          comment,
-                                          colorScheme,
-                                        );
-                                      }
-                                      return const SizedBox.shrink();
-                                    }).toList(),
-                                  );
-                                },
+                                      },
+                                    );
+                                  }
+                                  return const SizedBox.shrink();
+                                }).toList(),
                               ),
                             // 댓글 입력
                             const SizedBox(height: 16),
                             _buildCommentInput(context, colorScheme),
                           ],
                         ),
-                        ),
                       ),
+                    ),
                       const SizedBox(width: 24),
                       // 오른쪽: 사이드바
                       SizedBox(
                         width: 300,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                             // 프로젝트
                             if (currentProject != null)
                               GlassContainer(
@@ -530,21 +798,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                         ),
                                       );
                                     }).toList(),
-                                    onChanged: (value) {
+                                    onChanged: (value) async {
                                       if (value != null) {
                                         setState(() {
                                           _selectedStatus = value;
                                         });
                                         final authProvider = context.read<AuthProvider>();
                                         final currentUser = authProvider.currentUser;
-                                        taskProvider.changeTaskStatus(
+                                        await taskProvider.changeTaskStatus(
                                           currentTask.id, 
                                           value,
                                           userId: currentUser?.id,
                                           username: currentUser?.username,
                                         );
-                                        // 상태 변경 후 타임라인 업데이트를 위해 setState 호출
-                                        setState(() {});
+                                        // 상태 변경 후 타임라인 업데이트
+                                        await _loadTimelineItems();
                                       }
                                     },
                                   ),
@@ -607,14 +875,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                         ),
                                       );
                                     }).toList(),
-                                    onChanged: (value) {
+                                    onChanged: (value) async {
                                       if (value != null) {
                                         setState(() {
                                           _selectedPriority = value;
                                         });
                                         final authProvider = context.read<AuthProvider>();
                                         final currentUser = authProvider.currentUser;
-                                        taskProvider.updateTask(
+                                        await taskProvider.updateTask(
                                           currentTask.copyWith(
                                             priority: value,
                                             updatedAt: DateTime.now(),
@@ -622,6 +890,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           userId: currentUser?.id,
                                           username: currentUser?.username,
                                         );
+                                        // 중요도 변경 후 타임라인 업데이트
+                                        await _loadTimelineItems();
                                       }
                                     },
                                   ),
@@ -661,25 +931,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       // 시작일
                                       Expanded(
                                         child: InkWell(
-                                    onTap: () async {
-                                      final date = await showDatePicker(
-                                        context: context,
-                                        initialDate: _startDate ?? DateTime.now(),
-                                        firstDate: DateTime(2020),
-                                              lastDate: _endDate ?? DateTime(2030),
-                                      );
-                                      if (date != null) {
-                                        setState(() {
-                                          _startDate = date;
-                                        });
-                                        await taskProvider.updateTask(
-                                          currentTask.copyWith(
-                                            startDate: date,
-                                            updatedAt: DateTime.now(),
+                                          onTap: () => _openDateRangePicker(
+                                            context,
+                                            currentTask,
+                                            taskProvider,
                                           ),
-                                        );
-                                      }
-                                    },
                                           child: Container(
                                             padding: const EdgeInsets.all(12),
                                             decoration: BoxDecoration(
@@ -727,25 +983,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       // 종료일
                                       Expanded(
                                         child: InkWell(
-                                    onTap: () async {
-                                      final date = await showDatePicker(
-                                        context: context,
-                                        initialDate: _endDate ?? (_startDate ?? DateTime.now()),
-                                        firstDate: _startDate ?? DateTime(2020),
-                                        lastDate: DateTime(2030),
-                                      );
-                                      if (date != null) {
-                                        setState(() {
-                                          _endDate = date;
-                                        });
-                                        await taskProvider.updateTask(
-                                          currentTask.copyWith(
-                                            endDate: date,
-                                            updatedAt: DateTime.now(),
+                                          onTap: () => _openDateRangePicker(
+                                            context,
+                                            currentTask,
+                                            taskProvider,
                                           ),
-                                        );
-                                      }
-                                    },
                                           child: Container(
                                             padding: const EdgeInsets.all(12),
                                             decoration: BoxDecoration(
@@ -780,8 +1022,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                                 ),
                                               ],
                                             ),
-                                      ),
-                                    ),
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -933,10 +1175,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           ],
                         ),
                       ),
+                      ),
                     ],
                   ),
                 ),
-              ),
             ],
           ),
         ),
@@ -950,16 +1192,37 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       orElse: () => widget.task,
     );
 
-    await taskProvider.updateTask(
-      currentTask.copyWith(
-        detail: _detailController.text,
-        updatedAt: DateTime.now(),
-      ),
-    );
+    try {
+      // 이미지 업로드
+      List<String> imageUrls = List<String>.from(currentTask.detailImageUrls);
+      if (_selectedDetailImages.isNotEmpty) {
+        final uploadedUrls = await _uploadService.uploadImages(_selectedDetailImages);
+        imageUrls.addAll(uploadedUrls);
+      }
 
-    setState(() {
-      _isEditing = false;
-    });
+      await taskProvider.updateTask(
+        currentTask.copyWith(
+          detail: _detailController.text,
+          detailImageUrls: imageUrls,
+          updatedAt: DateTime.now(),
+        ),
+      );
+
+      setState(() {
+        _isEditing = false;
+        _selectedDetailImages.clear();
+        _uploadedDetailImageUrls.clear();
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('태스크 저장 중 오류가 발생했습니다: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
   }
 
   /// 할당된 팀원 목록 로드
@@ -974,6 +1237,35 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   /// 팀원 할당 다이얼로그
+  Future<void> _openDateRangePicker(
+    BuildContext context,
+    Task currentTask,
+    TaskProvider taskProvider,
+  ) async {
+    final result = await showTaskDateRangePickerDialog(
+      context: context,
+      initialStartDate: _startDate,
+      initialEndDate: _endDate,
+      minDate: DateTime(2020),
+      maxDate: DateTime(2030),
+    );
+
+    if (result == null) return;
+
+    setState(() {
+      _startDate = result['startDate'];
+      _endDate = result['endDate'];
+    });
+
+    await taskProvider.updateTask(
+      currentTask.copyWith(
+        startDate: result['startDate'],
+        endDate: result['endDate'],
+        updatedAt: DateTime.now(),
+      ),
+    );
+  }
+
   Future<void> _showAssignMemberDialog(
     BuildContext context,
     Task task,
@@ -1144,11 +1436,53 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return authProvider.currentUser?.username ?? 'Unknown';
   }
 
+  /// 새 댓글을 타임라인에 부드럽게 추가
+  Future<void> _addCommentToTimeline(Comment comment) async {
+    // 현재 타임라인 아이템 가져오기
+    final currentItems = _timelineItems ?? [];
+    
+    // 새 댓글 아이템 생성
+    final newCommentItem = TimelineItem(
+      type: TimelineItemType.comment,
+      date: comment.createdAt,
+      data: comment,
+    );
+    
+    // 기존 아이템에 새 댓글 추가
+    final updatedItems = List<TimelineItem>.from(currentItems);
+    updatedItems.add(newCommentItem);
+    
+    // 시간순으로 정렬
+    updatedItems.sort((a, b) {
+      final aUtc = a.date.isUtc ? a.date : a.date.toUtc();
+      final bUtc = b.date.isUtc ? b.date : b.date.toUtc();
+      final aMs = aUtc.millisecondsSinceEpoch;
+      final bMs = bUtc.millisecondsSinceEpoch;
+      return aMs.compareTo(bMs);
+    });
+    
+    if (mounted) {
+      setState(() {
+        _timelineItems = updatedItems;
+      });
+      
+      // 부드럽게 맨 아래로 스크롤 - 여러 번 시도하여 확실하게
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToBottomSmooth();
+      });
+      
+      // 추가 시도: 애니메이션 완료 후 다시 스크롤
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (mounted) {
+          _scrollToBottomSmooth();
+        }
+      });
+    }
+  }
+
   /// 타임라인 아이템들 빌드 (시간순 정렬)
   Future<List<TimelineItem>> _buildTimelineItems(Task task) async {
     final List<TimelineItem> items = [];
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final currentUser = authProvider.currentUser;
     final colorScheme = Theme.of(context).colorScheme;
 
     // 이슈 생성 기록
@@ -1261,26 +1595,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ),
       ));
     }
-
+    
     // 시간순으로 정렬 (오래된 것부터 - 최신 항목이 아래에 표시됨)
-    items.sort((a, b) => a.date.compareTo(b.date));
-
-    // 디버깅: 타임라인 아이템 순서 로깅
-    print('[TaskDetail] Timeline items (${items.length}):');
-    for (var i = 0; i < items.length; i++) {
-      final item = items[i];
-      String description;
-      if (item.type == TimelineItemType.history) {
-        final event = item.data as HistoryEvent;
-        description = '${event.username} ${event.action}';
-      } else if (item.type == TimelineItemType.comment) {
-        final comment = item.data as Comment;
-        description = 'Comment by ${comment.username}: ${comment.content.substring(0, comment.content.length > 20 ? 20 : comment.content.length)}...';
-      } else {
-        description = 'Detail';
-      }
-      print('  [$i] ${item.date.toString()} - $description');
-    }
+    // 모든 날짜를 UTC로 변환하여 타임존 차이 문제 해결
+    items.sort((a, b) {
+      // Local 타임존을 UTC로 변환
+      final aUtc = a.date.isUtc ? a.date : a.date.toUtc();
+      final bUtc = b.date.isUtc ? b.date : b.date.toUtc();
+      
+      // UTC로 변환한 후 millisecondsSinceEpoch 비교
+      final aMs = aUtc.millisecondsSinceEpoch;
+      final bMs = bUtc.millisecondsSinceEpoch;
+      return aMs.compareTo(bMs);
+    });
 
     return items;
   }
@@ -1419,9 +1746,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   /// 상대적 날짜 포맷팅 (예: "5 days ago", "yesterday")
+  /// 상대 날짜 포맷팅 (한국 시간 기준)
   String _formatRelativeDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
+    // UTC 날짜를 로컬 시간(한국 시간)으로 변환
+    final localDate = date.isUtc ? date.toLocal() : date;
+    final now = DateTime.now(); // 이미 로컬 시간
+    final difference = now.difference(localDate);
     
     if (difference.inDays == 0) {
       if (difference.inHours == 0) {
@@ -1511,36 +1841,149 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 Padding(
                   padding: const EdgeInsets.only(right: 36), // 연필 아이콘 공간 확보
                   child: isEditing
-                      ? TextField(
-                          controller: _detailController,
-                          maxLines: null,
-                          minLines: 8,
-                          decoration: InputDecoration(
-                            hintText: '상세 내용을 입력하세요...',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextField(
+                              controller: _detailController,
+                              maxLines: null,
+                              minLines: 8,
+                              decoration: InputDecoration(
+                                hintText: '상세 내용을 입력하세요...',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                filled: true,
+                                fillColor: Colors.white.withOpacity(0.5),
+                                contentPadding: const EdgeInsets.all(12),
+                              ),
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: colorScheme.onSurface,
+                                height: 1.5,
+                              ),
                             ),
-                            filled: true,
-                            fillColor: Colors.white.withOpacity(0.5),
-                            contentPadding: const EdgeInsets.all(12),
-                          ),
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: colorScheme.onSurface,
-                            height: 1.5,
-                          ),
+                            // 선택된 이미지 미리보기
+                            if (_selectedDetailImages.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                height: 100,
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: _selectedDetailImages.length,
+                                  itemBuilder: (context, index) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: Stack(
+                                        children: [
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Image.file(
+                                              _selectedDetailImages[index],
+                                              width: 100,
+                                              height: 100,
+                                              fit: BoxFit.cover,
+                                            ),
+                                          ),
+                                          Positioned(
+                                            top: 4,
+                                            right: 4,
+                                            child: GestureDetector(
+                                              onTap: () {
+                                                setState(() {
+                                                  _selectedDetailImages.removeAt(index);
+                                                });
+                                              },
+                                              child: Container(
+                                                padding: const EdgeInsets.all(4),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.black.withOpacity(0.6),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(
+                                                  Icons.close,
+                                                  size: 16,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 8),
+                            IconButton(
+                              icon: Icon(
+                                Icons.image,
+                                color: colorScheme.primary,
+                              ),
+                              onPressed: _pickDetailImages,
+                              tooltip: '이미지 추가',
+                            ),
+                          ],
                         )
-                      : Text(
-                          task.detail.isEmpty
-                              ? '상세 내용이 없습니다. 편집 버튼을 눌러 추가하세요.'
-                              : task.detail,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: task.detail.isEmpty
-                                ? colorScheme.onSurface.withOpacity(0.5)
-                                : colorScheme.onSurface.withOpacity(0.8),
-                            height: 1.5,
-                          ),
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (task.detail.isNotEmpty)
+                              MarkdownBody(
+                                data: task.detail,
+                                selectable: true,
+                                styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                                  p: TextStyle(
+                                    fontSize: 14,
+                                    color: colorScheme.onSurface.withOpacity(0.85),
+                                    height: 1.6,
+                                  ),
+                                ),
+                              )
+                            else
+                              Text(
+                                '상세 내용이 없습니다. 편집 버튼을 눌러 추가하세요.',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: colorScheme.onSurface.withOpacity(0.5),
+                                  height: 1.5,
+                                ),
+                              ),
+                            // 이미지 표시
+                            if (task.detailImageUrls.isNotEmpty) ...[
+                              if (task.detail.isNotEmpty) const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: task.detailImageUrls.map((imageUrl) {
+                                  return GestureDetector(
+                                    onTap: () => _showImageDialog(context, imageUrl, task.detailImageUrls),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        imageUrl,
+                                        width: 200,
+                                        height: 200,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Container(
+                                            width: 200,
+                                            height: 200,
+                                            color: colorScheme.surface.withOpacity(0.3),
+                                            child: Icon(
+                                              Icons.broken_image,
+                                              color: colorScheme.onSurface.withOpacity(0.5),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ],
                         ),
                 ),
                 // 연필 아이콘 (오른쪽 상단 고정)
@@ -1636,16 +2079,43 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     ],
                     const Spacer(),
                     if (isMyComment)
-                      IconButton(
+                      PopupMenuButton<String>(
                         icon: Icon(
                           Icons.more_vert,
                           size: 16,
                           color: colorScheme.onSurface.withOpacity(0.5),
                         ),
-                        onPressed: () => _deleteComment(comment.id),
-                        tooltip: '삭제',
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
+                        onSelected: (value) {
+                          if (value == 'edit') {
+                            _startEditComment(comment);
+                          } else if (value == 'delete') {
+                            _deleteComment(comment.id);
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit, size: 16),
+                                SizedBox(width: 8),
+                                Text('편집'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, size: 16, color: Colors.red),
+                                SizedBox(width: 8),
+                                Text('삭제', style: TextStyle(color: Colors.red)),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                   ],
                 ),
@@ -1658,14 +2128,103 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     colorScheme.surface.withOpacity(0.3),
                     colorScheme.surface.withOpacity(0.2),
                   ],
-                  child: Text(
-                    comment.content,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: colorScheme.onSurface.withOpacity(0.8),
-                      height: 1.5,
-                    ),
-                  ),
+                  child: _editingCommentId == comment.id
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextField(
+                              controller: _editCommentController,
+                              maxLines: null,
+                              minLines: 3,
+                              decoration: InputDecoration(
+                                hintText: '댓글을 수정하세요...',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                filled: true,
+                                fillColor: Colors.white.withOpacity(0.5),
+                                contentPadding: const EdgeInsets.all(12),
+                              ),
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: colorScheme.onSurface,
+                                height: 1.5,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: _cancelEditComment,
+                                  child: Text(
+                                    '취소',
+                                    style: TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                FilledButton(
+                                  onPressed: () => _updateComment(comment.id),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: colorScheme.primary,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: const Text('저장'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (comment.content.isNotEmpty)
+                              MarkdownBody(
+                                data: comment.content,
+                                selectable: true,
+                                styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                                  p: TextStyle(
+                                    fontSize: 14,
+                                    color: colorScheme.onSurface.withOpacity(0.85),
+                                    height: 1.6,
+                                  ),
+                                ),
+                              ),
+                            // 이미지 표시
+                            if (comment.imageUrls.isNotEmpty) ...[
+                              if (comment.content.isNotEmpty) const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: comment.imageUrls.map((imageUrl) {
+                                  return GestureDetector(
+                                    onTap: () => _showImageDialog(context, imageUrl, comment.imageUrls),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        imageUrl,
+                                        width: 200,
+                                        height: 200,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Container(
+                                            width: 200,
+                                            height: 200,
+                                            color: colorScheme.surface.withOpacity(0.3),
+                                            child: Icon(
+                                              Icons.broken_image,
+                                              color: colorScheme.onSurface.withOpacity(0.5),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ],
+                        ),
                 ),
               ],
             ),
@@ -1700,58 +2259,291 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              GlassContainer(
-                padding: const EdgeInsets.all(12),
-                borderRadius: 12.0,
-                blur: 20.0,
-                gradientColors: [
-                  colorScheme.surface.withOpacity(0.4),
-                  colorScheme.surface.withOpacity(0.3),
-                ],
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: _commentController,
-                      maxLines: null,
-                      minLines: 3,
-                      decoration: InputDecoration(
-                        hintText: 'Add a comment...',
-                        border: InputBorder.none,
-                        hintStyle: TextStyle(
-                          color: colorScheme.onSurface.withOpacity(0.5),
+              DropTarget(
+                onDragEntered: (_) {
+                  setState(() => _isCommentDropHover = true);
+                },
+                onDragExited: (_) {
+                  setState(() => _isCommentDropHover = false);
+                },
+                onDragDone: (details) {
+                  setState(() => _isCommentDropHover = false);
+                  final dropped = details.files
+                      .where((file) => file.path.isNotEmpty && _isSupportedImageFile(file.path))
+                      .map((file) => File(file.path))
+                      .toList();
+                  if (dropped.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('이미지 파일만 드롭할 수 있습니다. (png, jpg, jpeg, gif, webp)'),
+                        backgroundColor: Theme.of(context).colorScheme.error,
+                      ),
+                    );
+                    return;
+                  }
+                  setState(() {
+                    _selectedCommentImages.addAll(dropped);
+                  });
+                },
+                child: Shortcuts(
+                    shortcuts: {
+                      LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyV): const _PasteIntent(),
+                      LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.enter): const _SubmitCommentIntent(),
+                    },
+                    child: Actions(
+                      actions: {
+                        _PasteIntent: CallbackAction<_PasteIntent>(
+                          onInvoke: (intent) => _handlePaste(),
                         ),
-                      ),
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: colorScheme.onSurface,
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: _addComment,
-                          child: Text(
-                            'Comment',
-                            style: TextStyle(
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        _SubmitCommentIntent: CallbackAction<_SubmitCommentIntent>(
+                          onInvoke: (intent) {
+                            if (_commentController.text.trim().isNotEmpty || _selectedCommentImages.isNotEmpty) {
+                              _addComment();
+                            }
+                            return null;
+                          },
+                        ),
+                      },
+                      child: KeyboardListener(
+                        focusNode: FocusNode(),
+                        onKeyEvent: (event) {
+                          // Shift+Enter는 줄바꿈, Enter만 누르면 전송
+                          if (event is KeyDownEvent &&
+                              event.logicalKey == LogicalKeyboardKey.enter &&
+                              !HardwareKeyboard.instance.isShiftPressed &&
+                              _commentFocusNode.hasFocus) {
+                            if (_commentController.text.trim().isNotEmpty || _selectedCommentImages.isNotEmpty) {
+                              _addComment();
+                            }
+                          }
+                        },
+                        child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: _isCommentDropHover
+                                ? colorScheme.primary.withOpacity(0.8)
+                                : Colors.transparent,
+                            width: 2,
                           ),
                         ),
-                      ],
+                        child: GlassContainer(
+                          padding: const EdgeInsets.all(12),
+                          borderRadius: 12.0,
+                          blur: 20.0,
+                          gradientColors: [
+                            colorScheme.surface.withOpacity(0.4),
+                            colorScheme.surface.withOpacity(0.3),
+                          ],
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TextField(
+                                controller: _commentController,
+                                focusNode: _commentFocusNode,
+                                maxLines: null,
+                                minLines: 3,
+                                textInputAction: TextInputAction.send,
+                                keyboardType: TextInputType.multiline,
+                                decoration: InputDecoration(
+                                  hintText: 'Add a comment... (Enter로 전송, Shift+Enter로 줄바꿈, 이미지를 드래그하거나 Ctrl+V로 붙여넣기)',
+                                  border: InputBorder.none,
+                                  hintStyle: TextStyle(
+                                    color: colorScheme.onSurface.withOpacity(0.5),
+                                  ),
+                                ),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: colorScheme.onSurface,
+                                  height: 1.5,
+                                ),
+                                // onSubmitted 제거 - KeyboardListener가 Enter 키를 처리함
+                              ),
+                              // 선택된 이미지 미리보기
+                              if (_selectedCommentImages.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  height: 100,
+                                  child: ListView.builder(
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: _selectedCommentImages.length,
+                                    itemBuilder: (context, index) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(right: 8),
+                                        child: Stack(
+                                          children: [
+                                            ClipRRect(
+                                              borderRadius: BorderRadius.circular(8),
+                                              child: Image.file(
+                                                _selectedCommentImages[index],
+                                                width: 100,
+                                                height: 100,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            ),
+                                            Positioned(
+                                              top: 4,
+                                              right: 4,
+                                              child: GestureDetector(
+                                                onTap: () {
+                                                  setState(() {
+                                                    _selectedCommentImages.removeAt(index);
+                                                  });
+                                                },
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(4),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.black.withOpacity(0.6),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.close,
+                                                    size: 16,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.image,
+                                      color: colorScheme.primary,
+                                    ),
+                                    onPressed: _pickCommentImages,
+                                    tooltip: '이미지 추가',
+                                  ),
+                                  TextButton(
+                                    onPressed: _addComment,
+                                    child: Text(
+                                      'Comment',
+                                      style: TextStyle(
+                                        color: colorScheme.primary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                        ),
                     ),
-                  ],
-                ),
+                  ),
               ),
             ],
           ),
         ),
       ],
     );
+  }
+
+  bool _isSupportedImageFile(String path) {
+    final lower = path.toLowerCase();
+    return lower.endsWith('.png') ||
+        lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.gif') ||
+        lower.endsWith('.webp');
+  }
+
+  /// 붙여넣기 처리
+  Future<void> _handlePaste() async {
+    if (!_commentFocusNode.hasFocus) return;
+    
+    try {
+      // Windows에서 클립보드 이미지 가져오기 (플랫폼 채널 사용)
+      if (Platform.isWindows) {
+        const platform = MethodChannel('com.dora/clipboard');
+        try {
+          final result = await platform.invokeMethod('getClipboardImage');
+          if (result != null) {
+            if (result is Map) {
+              final type = result['type'];
+              if (type == 'base64') {
+                final data = result['data'];
+                if (data is String && data.isNotEmpty) {
+                  final imageBytes = base64Decode(data);
+                  final tempDir = Directory.systemTemp;
+                  final tempFile = File('${tempDir.path}/pasted_image_${DateTime.now().millisecondsSinceEpoch}.png');
+                  await tempFile.writeAsBytes(imageBytes);
+
+                  setState(() {
+                    _selectedCommentImages.add(tempFile);
+                  });
+                  return;
+                }
+              } else if (type == 'paths') {
+                final List<dynamic>? rawPaths = result['data'] as List<dynamic>?;
+                if (rawPaths != null && rawPaths.isNotEmpty) {
+                  final dropped = rawPaths
+                      .whereType<String>()
+                      .where((path) => _isSupportedImageFile(path))
+                      .map((path) => File(path))
+                      .toList();
+
+                  if (dropped.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('이미지 파일만 붙여넣을 수 있습니다. (png, jpg, jpeg, gif, webp)'),
+                        backgroundColor: Theme.of(context).colorScheme.error,
+                      ),
+                    );
+                    return;
+                  }
+
+                  setState(() {
+                    _selectedCommentImages.addAll(dropped);
+                  });
+                  return;
+                }
+              } else if (type == 'none') {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('클립보드에 이미지가 없습니다. (이미지 복사 후 다시 시도하세요)'),
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                );
+                return;
+              }
+            } else if (result is String && result.isNotEmpty) {
+              final imageBytes = base64Decode(result);
+              final tempDir = Directory.systemTemp;
+              final tempFile = File('${tempDir.path}/pasted_image_${DateTime.now().millisecondsSinceEpoch}.png');
+              await tempFile.writeAsBytes(imageBytes);
+
+              setState(() {
+                _selectedCommentImages.add(tempFile);
+              });
+              return;
+            }
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('클립보드에 이미지가 없습니다. (이미지 복사 후 다시 시도하세요)'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        } catch (e) {
+          // 플랫폼 채널이 없거나 실패한 경우 무시
+        }
+      }
+    } catch (e) {
+    }
   }
 
   /// 날짜 포맷팅
@@ -1773,6 +2565,168 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       return '${months[date.month - 1]} ${date.day}';
     }
+  }
+
+  /// 이미지 확대 다이얼로그 표시
+  void _showImageDialog(BuildContext context, String imageUrl, List<String> allImageUrls) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final currentIndex = allImageUrls.indexOf(imageUrl);
+    final screenSize = MediaQuery.of(context).size;
+    final maxWidth = screenSize.width * 0.85;
+    final maxHeight = screenSize.height * 0.75;
+    
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.7),
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: maxWidth,
+              maxHeight: maxHeight,
+            ),
+            child: Stack(
+              children: [
+                // 이미지 뷰어
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.8),
+                    child: InteractiveViewer(
+                      minScale: 0.5,
+                      maxScale: 4.0,
+                      child: Center(
+                        child: Image.network(
+                          imageUrl,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 400,
+                              height: 400,
+                              color: colorScheme.surface.withOpacity(0.3),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.broken_image,
+                                    size: 64,
+                                    color: colorScheme.onSurface.withOpacity(0.5),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    '이미지를 불러올 수 없습니다',
+                                    style: TextStyle(
+                                      color: colorScheme.onSurface.withOpacity(0.7),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // 닫기 버튼
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.black.withOpacity(0.6),
+                      padding: const EdgeInsets.all(6),
+                    ),
+                  ),
+                ),
+                // 여러 이미지가 있을 경우 네비게이션 버튼
+                if (allImageUrls.length > 1) ...[
+                  // 이전 이미지
+                  if (currentIndex > 0)
+                    Positioned(
+                      left: 8,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.chevron_left,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _showImageDialog(context, allImageUrls[currentIndex - 1], allImageUrls);
+                          },
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.black.withOpacity(0.6),
+                            padding: const EdgeInsets.all(10),
+                          ),
+                        ),
+                      ),
+                    ),
+                  // 다음 이미지
+                  if (currentIndex < allImageUrls.length - 1)
+                    Positioned(
+                      right: 8,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.chevron_right,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _showImageDialog(context, allImageUrls[currentIndex + 1], allImageUrls);
+                          },
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.black.withOpacity(0.6),
+                            padding: const EdgeInsets.all(10),
+                          ),
+                        ),
+                      ),
+                    ),
+                  // 이미지 인덱스 표시
+                  Positioned(
+                    bottom: 12,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${currentIndex + 1} / ${allImageUrls.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 

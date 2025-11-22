@@ -5,6 +5,7 @@ class Comment {
   final String userId;
   final String username;
   final String content;
+  final List<String> imageUrls;  // 이미지 URL 배열
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -14,6 +15,7 @@ class Comment {
     required this.userId,
     required this.username,
     required this.content,
+    this.imageUrls = const [],
     required this.createdAt,
     this.updatedAt,
   });
@@ -26,6 +28,7 @@ class Comment {
       'userId': userId,
       'username': username,
       'content': content,
+      'image_urls': imageUrls,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -38,6 +41,7 @@ class Comment {
     final userIdKey = json.containsKey('user_id') ? 'user_id' : 'userId';
     final createdAtKey = json.containsKey('created_at') ? 'created_at' : 'createdAt';
     final updatedAtKey = json.containsKey('updated_at') ? 'updated_at' : 'updatedAt';
+    final imageUrlsKey = json.containsKey('image_urls') ? 'image_urls' : 'imageUrls';
     
     return Comment(
       id: json['id'],
@@ -45,6 +49,9 @@ class Comment {
       userId: json[userIdKey],
       username: json['username'],
       content: json['content'],
+      imageUrls: json[imageUrlsKey] != null 
+          ? List<String>.from(json[imageUrlsKey])
+          : [],
       createdAt: DateTime.parse(json[createdAtKey]),
       updatedAt: json[updatedAtKey] != null ? DateTime.parse(json[updatedAtKey]) : null,
     );
@@ -57,6 +64,7 @@ class Comment {
     String? userId,
     String? username,
     String? content,
+    List<String>? imageUrls,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -66,6 +74,7 @@ class Comment {
       userId: userId ?? this.userId,
       username: username ?? this.username,
       content: content ?? this.content,
+      imageUrls: imageUrls ?? this.imageUrls,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

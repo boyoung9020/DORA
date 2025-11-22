@@ -7,6 +7,7 @@ import '../providers/project_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/date_range_picker_dialog.dart';
 import '../utils/avatar_color.dart';
 import 'task_detail_screen.dart';
 
@@ -724,6 +725,22 @@ class _KanbanScreenState extends State<KanbanScreen> {
         final colorScheme = Theme.of(context).colorScheme;
         return StatefulBuilder(
           builder: (context, setState) {
+            Future<void> pickDateRange() async {
+              final result = await showTaskDateRangePickerDialog(
+                context: context,
+                initialStartDate: startDate,
+                initialEndDate: endDate,
+                minDate: DateTime(2020),
+                maxDate: DateTime(2030),
+              );
+
+              if (result != null) {
+                setState(() {
+                  startDate = result['startDate'];
+                  endDate = result['endDate'];
+                });
+              }
+            }
             return Dialog(
               backgroundColor: Colors.transparent,
               insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -864,19 +881,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     ),
                     const SizedBox(height: 8),
                     InkWell(
-                      onTap: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: startDate ?? DateTime.now(),
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2030),
-                        );
-                        if (date != null) {
-                          setState(() {
-                            startDate = date;
-                          });
-                        }
-                      },
+                      onTap: pickDateRange,
                       child: GlassContainer(
                         padding: const EdgeInsets.all(16),
                         borderRadius: 12.0,
@@ -916,19 +921,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     ),
                     const SizedBox(height: 8),
                     InkWell(
-                      onTap: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: endDate ?? startDate ?? DateTime.now(),
-                          firstDate: startDate ?? DateTime(2020),
-                          lastDate: DateTime(2030),
-                        );
-                        if (date != null) {
-                          setState(() {
-                            endDate = date;
-                          });
-                        }
-                      },
+                      onTap: pickDateRange,
                       child: GlassContainer(
                         padding: const EdgeInsets.all(16),
                         borderRadius: 12.0,

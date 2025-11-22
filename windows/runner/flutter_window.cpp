@@ -3,6 +3,7 @@
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "clipboard_handler.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -25,7 +26,12 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
+  
+  // Register clipboard handler
+  auto messenger = flutter_controller_->engine()->messenger();
+  clipboard_handler_ = std::make_unique<ClipboardHandler>(messenger);
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();

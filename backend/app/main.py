@@ -4,7 +4,7 @@ FastAPI 메인 애플리케이션
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
-from app.routers import auth, users, projects, tasks, comments
+from app.routers import auth, users, projects, tasks, comments, uploads
 
 # 데이터베이스 테이블 생성
 Base.metadata.create_all(bind=engine)
@@ -31,6 +31,7 @@ app.include_router(users.router, prefix="/api/users", tags=["사용자"])
 app.include_router(projects.router, prefix="/api/projects", tags=["프로젝트"])
 app.include_router(tasks.router, prefix="/api/tasks", tags=["태스크"])
 app.include_router(comments.router, prefix="/api/comments", tags=["댓글"])
+app.include_router(uploads.router, prefix="/api/uploads", tags=["업로드"])
 
 
 @app.get("/")
