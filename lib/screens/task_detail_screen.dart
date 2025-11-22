@@ -102,6 +102,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   List<File> _selectedDetailImages = [];    // 상세 내용용 선택된 이미지
   List<String> _uploadedCommentImageUrls = [];  // 업로드된 댓글 이미지 URL
   List<String> _uploadedDetailImageUrls = [];   // 업로드된 상세 내용 이미지 URL
+  List<User>? _assignedMembers;  // 할당된 팀원 캐시
+  bool _isInitialLoad = true;  // 초기 로드 여부
 
   @override
   void initState() {
@@ -115,7 +117,23 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _selectedPriority = widget.task.priority;
     _startDate = widget.task.startDate;
     _endDate = widget.task.endDate;
+    
+    // 초기 로드 시 스크롤이 맨 아래로 가지 않도록 리스너 추가
+    _timelineScrollController.addListener(() {
+      if (_isInitialLoad && _timelineScrollController.hasClients) {
+        // 초기 로드 중에 스크롤이 맨 아래로 가려고 하면 맨 위로 되돌림
+        if (_timelineScrollController.offset > 10) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_isInitialLoad && _timelineScrollController.hasClients) {
+              _timelineScrollController.jumpTo(0.0);
+            }
+          });
+        }
+      }
+    });
+    
     _loadComments();
+    _loadAssignedMembers();
   }
 
   @override
@@ -160,9 +178,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       orElse: () => widget.task,
     );
     
-    // setState 전에 스크롤 위치 저장 (맨 아래로 이동하지 않는 경우에만)
+    // 초기 로드 시에는 스크롤을 맨 위로 유지해야 하므로 저장하지 않음
     double? savedScrollPosition;
-    if (!scrollToBottom && _timelineScrollController.hasClients) {
+    final bool hadClients = _timelineScrollController.hasClients;
+    if (!scrollToBottom && hadClients && !_isInitialLoad) {
       savedScrollPosition = _timelineScrollController.offset;
     }
     
@@ -170,7 +189,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     
     if (mounted) {
       // setState를 호출하기 전에 스크롤 위치를 미리 저장
-      final maxScrollBefore = _timelineScrollController.hasClients 
+      final maxScrollBefore = hadClients 
           ? _timelineScrollController.position.maxScrollExtent 
           : 0.0;
       
@@ -182,12 +201,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (scrollToBottom) {
         // 코멘트 추가 시 맨 아래로 이동 - 여러 번 시도하여 확실하게
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _scrollToBottom();
+          if (!_isInitialLoad) {
+            _scrollToBottom();
+          }
         });
-      } else if (savedScrollPosition != null) {
-        // 저장된 위치로 복원
+      } else if (savedScrollPosition != null && !_isInitialLoad) {
+        // 저장된 위치로 복원 (초기 로드가 아닐 때만)
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || !_timelineScrollController.hasClients) return;
+          if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
           final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
           final scrollDelta = maxScrollAfter - maxScrollBefore;
           final adjustedPosition = savedScrollPosition! + scrollDelta;
@@ -196,13 +217,47 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             adjustedPosition.clamp(0.0, maxScrollAfter),
           );
         });
+      } else if (_isInitialLoad) {
+        // 초기 로드 시 스크롤을 맨 위로 유지 (작업 카드 진입 시)
+        // 여러 번 시도하여 확실하게 맨 위로 유지
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_timelineScrollController.hasClients) return;
+          // 강제로 맨 위로 이동
+          _timelineScrollController.jumpTo(0.0);
+        });
+        // 추가 시도: 레이아웃 완료 후 다시 확인
+        Future.delayed(const Duration(milliseconds: 50), () {
+          if (!mounted || !_timelineScrollController.hasClients || !_isInitialLoad) return;
+          _timelineScrollController.jumpTo(0.0);
+        });
+        Future.delayed(const Duration(milliseconds: 150), () {
+          if (!mounted || !_timelineScrollController.hasClients || !_isInitialLoad) return;
+          if (_timelineScrollController.offset > 0) {
+            _timelineScrollController.jumpTo(0.0);
+          }
+        });
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (!mounted || !_timelineScrollController.hasClients || !_isInitialLoad) return;
+          if (_timelineScrollController.offset > 0) {
+            _timelineScrollController.jumpTo(0.0);
+          }
+        });
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (!mounted || !_timelineScrollController.hasClients || !_isInitialLoad) return;
+          if (_timelineScrollController.offset > 0) {
+            _timelineScrollController.jumpTo(0.0);
+          }
+          // 초기 로드 완료 표시 (모든 스크롤 시도가 끝난 후)
+          _isInitialLoad = false;
+        });
       }
+      // 초기 로드가 아니고 저장된 위치도 없는 경우 스크롤 위치를 변경하지 않음
     }
   }
 
   /// 맨 아래로 스크롤 (여러 번 시도하여 확실하게)
   void _scrollToBottom() {
-    if (!mounted || !_timelineScrollController.hasClients) return;
+    if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
     
     // 즉시 시도
     final maxScroll = _timelineScrollController.position.maxScrollExtent;
@@ -210,7 +265,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     
     // 약간의 지연 후 다시 시도 (레이아웃이 완전히 완료된 후)
     Future.delayed(const Duration(milliseconds: 100), () {
-      if (!mounted || !_timelineScrollController.hasClients) return;
+      if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
       final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
       _timelineScrollController.animateTo(
         maxScrollAfter,
@@ -221,7 +276,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     
     // 추가 지연 후 한 번 더 시도 (이미지 로딩 등으로 높이가 변경될 수 있음)
     Future.delayed(const Duration(milliseconds: 300), () {
-      if (!mounted || !_timelineScrollController.hasClients) return;
+      if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
       final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
       _timelineScrollController.jumpTo(maxScrollAfter);
     });
@@ -229,7 +284,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   /// 부드럽게 맨 아래로 스크롤 (카카오톡 스타일)
   void _scrollToBottomSmooth() {
-    if (!mounted || !_timelineScrollController.hasClients) return;
+    if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
     
     // 즉시 시도 (레이아웃이 이미 완료된 경우)
     final maxScroll = _timelineScrollController.position.maxScrollExtent;
@@ -243,7 +298,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     
     // 레이아웃 완료 후 다시 시도
     Future.delayed(const Duration(milliseconds: 100), () {
-      if (!mounted || !_timelineScrollController.hasClients) return;
+      if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
       final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
       if (maxScrollAfter > 0) {
         _timelineScrollController.animateTo(
@@ -256,7 +311,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     
     // 이미지 로딩 등으로 높이가 변경될 수 있으므로 한 번 더 시도
     Future.delayed(const Duration(milliseconds: 400), () {
-      if (!mounted || !_timelineScrollController.hasClients) return;
+      if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
       final maxScrollFinal = _timelineScrollController.position.maxScrollExtent;
       if (maxScrollFinal > 0) {
         _timelineScrollController.jumpTo(maxScrollFinal);
@@ -495,8 +550,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final taskProvider = context.watch<TaskProvider>();
-    final projectProvider = context.watch<ProjectProvider>();
+    // context.read를 사용하여 불필요한 리빌드 방지
+    final taskProvider = context.read<TaskProvider>();
+    final projectProvider = context.read<ProjectProvider>();
     final currentProject = projectProvider.currentProject;
     
     // 최신 태스크 정보 가져오기
@@ -1076,19 +1132,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                         color: colorScheme.onSurface.withOpacity(0.5),
                                       ),
                                     )
+                                  else if (_assignedMembers == null)
+                                    const SizedBox.shrink()
                                   else
-                                    FutureBuilder<List<User>>(
-                                      future: _loadAssignedMembers(currentTask.assignedMemberIds),
-                                      builder: (context, snapshot) {
-                                        if (!snapshot.hasData) {
-                                          return const SizedBox.shrink();
-                                        }
-                                        final members = snapshot.data!;
-                                        return Wrap(
+                                    Wrap(
                                           spacing: 8,
                                           runSpacing: 8,
-                                          children: members.map((member) {
-                                            return GlassContainer(
+                                          children: _assignedMembers!.map((member) {
+                                            return RepaintBoundary(
+                                              child: GlassContainer(
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                               borderRadius: 8.0,
                                               blur: 15.0,
@@ -1132,10 +1184,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                                   ),
                                                 ],
                                               ),
+                                            ),
                                             );
                                           }).toList(),
-                                        );
-                                      },
                                     ),
                                 ],
                               ),
@@ -1226,13 +1277,35 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   /// 할당된 팀원 목록 로드
-  Future<List<User>> _loadAssignedMembers(List<String> memberIds) async {
+  Future<void> _loadAssignedMembers() async {
+    final taskProvider = context.read<TaskProvider>();
+    final currentTask = taskProvider.tasks.firstWhere(
+      (t) => t.id == widget.task.id,
+      orElse: () => widget.task,
+    );
+    
+    if (currentTask.assignedMemberIds.isEmpty) {
+      setState(() {
+        _assignedMembers = [];
+      });
+      return;
+    }
+    
     try {
       final authService = AuthService();
       final allUsers = await authService.getAllUsers();
-      return allUsers.where((user) => memberIds.contains(user.id)).toList();
+      final members = allUsers.where((user) => currentTask.assignedMemberIds.contains(user.id)).toList();
+      if (mounted) {
+        setState(() {
+          _assignedMembers = members;
+        });
+      }
     } catch (e) {
-      return [];
+      if (mounted) {
+        setState(() {
+          _assignedMembers = [];
+        });
+      }
     }
   }
 
