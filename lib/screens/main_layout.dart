@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:bitsdojo_window/bitsdojo_window.dart';
 import '../providers/auth_provider.dart';
 import '../providers/project_provider.dart';
 import '../providers/task_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/auth_service.dart';
 import '../models/project.dart';
+import '../widgets/app_title_bar.dart';
 import '../widgets/glass_container.dart';
 import '../utils/avatar_color.dart';
 import 'login_screen.dart';
@@ -32,8 +32,8 @@ class _MainLayoutState extends State<MainLayout> {
   // 메뉴 항목 정의 (상태로 관리하여 드래그로 순서 변경 가능)
   List<MenuItem> _menuItems = [
     MenuItem(
-      icon: Icons.dashboard_outlined,
-      selectedIcon: Icons.dashboard,
+      icon: Icons.home_outlined,
+      selectedIcon: Icons.home,
       label: '홈',
       index: 0,
     ),
@@ -105,8 +105,8 @@ class _MainLayoutState extends State<MainLayout> {
   Future<void> _loadMenuItems() async {
     final defaultItems = [
       MenuItem(
-        icon: Icons.dashboard_outlined,
-        selectedIcon: Icons.dashboard,
+        icon: Icons.home_outlined,
+        selectedIcon: Icons.home,
         label: '홈',
         index: 0,
       ),
@@ -197,85 +197,111 @@ class _MainLayoutState extends State<MainLayout> {
     final menuItems = List<MenuItem>.from(_menuItems);
 
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final shellColor = isDarkMode
+        ? const Color(0xFF1B1E23)
+        : const Color(0xFFF4F6FA);
     
     return Scaffold(
+      backgroundColor: shellColor,
       body: Column(
         children: [
           // 커스텀 타이틀바
-          WindowTitleBarBox(
+          AppTitleBar(
+            backgroundColor: shellColor,
+            leadingWidth: 75,
+            extraHeight: 8,
+          ),
+          // 메인 컨텐츠
+          Expanded(
             child: Container(
-              height: 40,
-              color: isDarkMode ? const Color(0xFF0F0F0F) : const Color(0xFFF8F9FA),
+              color: shellColor,
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 왼쪽 사이드바 영역 (80px, 색상 동일)
-                  Container(
-                    width: 80,
+                  // 왼쪽 사이드바 (L자 형태로 타이틀바와 이어짐)
+                  _buildSidebar(
+                    context,
+                    menuItems,
+                    colorScheme,
+                    authProvider,
+                    isDarkMode,
+                    shellColor,
                   ),
-                  // 나머지 타이틀바 영역
+                  // 오른쪽 영역 (팀원 + 메인 - 같은 영역)
                   Expanded(
-                    child: MoveWindow(
-                      child: Row(
-                        children: [
-                          const Spacer(),
-                          // 윈도우 컨트롤 버튼
-                          MinimizeWindowButton(
-                            colors: WindowButtonColors(
-                              iconNormal: colorScheme.onSurface.withOpacity(0.7),
-                              iconMouseOver: colorScheme.primary,
-                              mouseOver: colorScheme.primary.withOpacity(0.1),
-                              mouseDown: colorScheme.primary.withOpacity(0.2),
-                            ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(0, 0, 8, 8),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: isDarkMode
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.25),
+                                    blurRadius: 30,
+                                    offset: const Offset(0, 18),
+                                  ),
+                                ]
+                              : [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.06),
+                                    blurRadius: 30,
+                                    offset: const Offset(0, 24),
+                                  ),
+                                ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(28),
+                          child: Column(
+                            children: [
+                              // 프로젝트 선택 바 (최상단)
+                              _buildProjectInfoBar(context),
+                              // 하단 영역
+                              Expanded(
+                                child: _isDashboardSelected()
+                                    ? Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          // 팀원 사이드바 (왼쪽)
+                                          _buildTeamMemberSidebar(context, colorScheme, isDarkMode),
+                                          // 구분선 (그림자 효과 포함 - 왼쪽으로만)
+                                          Container(
+                                            width: 1,
+                                            decoration: BoxDecoration(
+                                              color: colorScheme.outline.withOpacity(0.1),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withOpacity(isDarkMode ? 0.45 : 0.14),
+                                                  blurRadius: 8,
+                                                  offset: const Offset(-1, 0),
+                                                  spreadRadius: 0,
+                                                ),
+                                                BoxShadow(
+                                                  color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.08),
+                                                  blurRadius: 4,
+                                                  offset: const Offset(-2, 0),
+                                                  spreadRadius: 0,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          // 메인 컨텐츠 (오른쪽)
+                                          Expanded(
+                                            child: _buildContent(context),
+                                          ),
+                                        ],
+                                      )
+                                    : _buildContent(context),
+                              ),
+                            ],
                           ),
-                          MaximizeWindowButton(
-                            colors: WindowButtonColors(
-                              iconNormal: colorScheme.onSurface.withOpacity(0.7),
-                              iconMouseOver: colorScheme.primary,
-                              mouseOver: colorScheme.primary.withOpacity(0.1),
-                              mouseDown: colorScheme.primary.withOpacity(0.2),
-                            ),
-                          ),
-                          CloseWindowButton(
-                            colors: WindowButtonColors(
-                              iconNormal: colorScheme.onSurface.withOpacity(0.7),
-                              iconMouseOver: Colors.white,
-                              mouseOver: Colors.red,
-                              mouseDown: Colors.red.shade700,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
-          // 메인 컨텐츠
-          Expanded(
-            child: Row(
-              children: [
-                // 왼쪽 사이드바 (L자 형태로 타이틀바와 이어짐)
-                _buildSidebar(context, menuItems, colorScheme, authProvider, isDarkMode),
-                // 중간: 팀원 관리 사이드바 (대시보드에서만 표시)
-                if (_isDashboardSelected()) _buildTeamMemberSidebar(context, colorScheme),
-                // 오른쪽 컨텐츠 영역
-                Expanded(
-                  child: Container(
-                    color: isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
-                    child: Column(
-                      children: [
-                        // 프로젝트 선택 영역 (최상단, 가로로 끝까지)
-                        _buildProjectInfoBar(context),
-                        // 실제 컨텐츠
-                        Expanded(
-                          child: _buildContent(context),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
             ),
           ),
         ],
@@ -290,21 +316,21 @@ class _MainLayoutState extends State<MainLayout> {
     ColorScheme colorScheme,
     AuthProvider authProvider,
     bool isDarkMode,
+    Color shellColor,
   ) {
     return Container(
-      width: 80,
-      color: isDarkMode ? const Color(0xFF0F0F0F) : const Color(0xFFF8F9FA),
+      width: 75,
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        border: Border.all(color: Colors.transparent),
+        boxShadow: const [],
+      ),
       child: Column(
           children: [
             // 유저 프로필 (상단)
             Padding(
               padding: const EdgeInsets.only(top: 16.0, bottom: 8.0, left: 8.0, right: 8.0),
               child: _buildUserProfile(context, colorScheme, authProvider),
-            ),
-            Divider(
-              height: 1,
-              thickness: 1,
-              color: colorScheme.outline.withOpacity(0.2),
             ),
             Expanded(
               child: ReorderableListView(
@@ -346,11 +372,6 @@ class _MainLayoutState extends State<MainLayout> {
                 }).toList(),
               ),
             ),
-            Divider(
-              height: 1,
-              thickness: 1,
-              color: colorScheme.outline.withOpacity(0.2),
-            ),
             // 설정 버튼 및 로그아웃
             Column(
               children: [
@@ -370,11 +391,24 @@ class _MainLayoutState extends State<MainLayout> {
                           borderRadius: BorderRadius.circular(12),
                           color: Colors.transparent,
                         ),
-                        alignment: Alignment.center, // 아이콘을 정확히 중앙에 배치
-                        child: Icon(
-                          Icons.settings,
-                          color: colorScheme.onSurface.withOpacity(0.7),
-                          size: 28,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.settings,
+                              color: colorScheme.onSurface.withOpacity(0.7),
+                              size: 24,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '설정',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: colorScheme.onSurface.withOpacity(0.7),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -485,11 +519,24 @@ class _MainLayoutState extends State<MainLayout> {
                           borderRadius: BorderRadius.circular(12),
                           color: Colors.transparent,
                         ),
-                        alignment: Alignment.center, // 아이콘을 정확히 중앙에 배치
-                        child: Icon(
-                          Icons.logout,
-                          color: colorScheme.onSurface.withOpacity(0.7),
-                          size: 28,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.logout,
+                              color: colorScheme.onSurface.withOpacity(0.7),
+                              size: 24,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '로그아웃',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: colorScheme.onSurface.withOpacity(0.7),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -530,6 +577,7 @@ class _MainLayoutState extends State<MainLayout> {
   /// 프로젝트 정보 바 (모든 화면 최상단)
   Widget _buildProjectInfoBar(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final projectProvider = Provider.of<ProjectProvider>(context);
     final currentProject = projectProvider.currentProject;
     final authProvider = Provider.of<AuthProvider>(context);
@@ -538,13 +586,27 @@ class _MainLayoutState extends State<MainLayout> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withOpacity(0.5),
+        color: isDarkMode
+            ? colorScheme.surface.withOpacity(0.7)
+            : Colors.white.withOpacity(0.9),
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(28),
+        ),
         border: Border(
           bottom: BorderSide(
             color: colorScheme.outline.withOpacity(0.2),
             width: 1,
           ),
         ),
+        boxShadow: isDarkMode
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
       ),
       child: Row(
         children: [
@@ -716,7 +778,6 @@ class _MainLayoutState extends State<MainLayout> {
     AuthProvider authProvider,
     Offset position,
   ) {
-    final colorScheme = Theme.of(context).colorScheme;
     final size = MediaQuery.of(context).size;
     
     // PM 또는 Admin만 삭제 가능
@@ -955,17 +1016,33 @@ class _MainLayoutState extends State<MainLayout> {
               height: 56, // 고정 높이로 정렬 일관성 확보
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                color: isSelected
-                    ? colorScheme.primary.withOpacity(0.15)
-                    : Colors.transparent,
+                color: Colors.transparent,
               ),
-              alignment: Alignment.center, // 아이콘을 정확히 중앙에 배치
-              child: Icon(
-                isSelected ? item.selectedIcon : item.icon,
-                color: isSelected
-                    ? colorScheme.primary
-                    : colorScheme.onSurface.withOpacity(0.7),
-                size: 28,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    isSelected ? item.selectedIcon : item.icon,
+                    color: isSelected
+                        ? colorScheme.primary
+                        : colorScheme.onSurface.withOpacity(0.7),
+                    size: 24,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    item.label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      color: isSelected
+                          ? colorScheme.primary
+                          : colorScheme.onSurface.withOpacity(0.7),
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             ),
           ),
@@ -976,7 +1053,11 @@ class _MainLayoutState extends State<MainLayout> {
 
 
   /// 팀원 관리 사이드바
-  Widget _buildTeamMemberSidebar(BuildContext context, ColorScheme colorScheme) {
+  Widget _buildTeamMemberSidebar(
+    BuildContext context,
+    ColorScheme colorScheme,
+    bool isDarkMode,
+  ) {
     final projectProvider = Provider.of<ProjectProvider>(context);
     final currentProject = projectProvider.currentProject;
 
@@ -985,16 +1066,9 @@ class _MainLayoutState extends State<MainLayout> {
     }
 
     return Container(
-      width: 280,
-      margin: const EdgeInsets.only(right: 16, top: 16, bottom: 16),
-      child: GlassContainer(
-        padding: const EdgeInsets.all(16),
-        borderRadius: 20.0,
-        blur: 25.0,
-        gradientColors: [
-          colorScheme.surface.withOpacity(0.4),
-          colorScheme.surface.withOpacity(0.3),
-        ],
+      width: 240,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

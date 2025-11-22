@@ -125,7 +125,7 @@ class AuthService {
   /// 모든 사용자 목록 가져오기 (관리자만)
   Future<List<User>> getAllUsers() async {
     try {
-      final response = await ApiClient.get('/api/users');
+      final response = await ApiClient.get('/api/users/');
       final usersData = ApiClient.handleListResponse(response);
       return usersData.map((json) => User.fromJson(json as Map<String, dynamic>)).toList();
     } catch (e) {
@@ -136,7 +136,7 @@ class AuthService {
   /// 승인 대기 중인 사용자 목록 가져오기
   Future<List<User>> getPendingUsers() async {
     try {
-      final response = await ApiClient.get('/api/users/pending');
+      final response = await ApiClient.get('/api/users/pending/');
       final usersData = ApiClient.handleListResponse(response);
       return usersData.map((json) => User.fromJson(json as Map<String, dynamic>)).toList();
     } catch (e) {
@@ -172,7 +172,7 @@ class AuthService {
   Future<List<User>> getApprovedUsers() async {
     try {
       // PM도 사용할 수 있도록 인증 포함
-      final response = await ApiClient.get('/api/users/approved');
+      final response = await ApiClient.get('/api/users/approved/');
       final usersData = ApiClient.handleListResponse(response);
       return usersData.map((json) => User.fromJson(json as Map<String, dynamic>)).toList();
     } catch (e) {

@@ -1,9 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:bitsdojo_window/bitsdojo_window.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/app_title_bar.dart';
 import 'register_screen.dart';
 import 'main_layout.dart';
 
@@ -84,44 +84,9 @@ class _LoginScreenState extends State<LoginScreen> {
       body: Column(
         children: [
           // 커스텀 타이틀바
-          WindowTitleBarBox(
-            child: Row(
-              children: [
-                Expanded(
-                  child: MoveWindow(
-                    child: Container(
-                      color: Colors.transparent,
-                      height: 40,
-                    ),
-                  ),
-                ),
-                // 윈도우 컨트롤 버튼
-                MinimizeWindowButton(
-                  colors: WindowButtonColors(
-                    iconNormal: colorScheme.onSurface,
-                    iconMouseOver: colorScheme.primary,
-                    mouseOver: colorScheme.primary.withOpacity(0.1),
-                    mouseDown: colorScheme.primary.withOpacity(0.2),
-                  ),
-                ),
-                MaximizeWindowButton(
-                  colors: WindowButtonColors(
-                    iconNormal: colorScheme.onSurface,
-                    iconMouseOver: colorScheme.primary,
-                    mouseOver: colorScheme.primary.withOpacity(0.1),
-                    mouseDown: colorScheme.primary.withOpacity(0.2),
-                  ),
-                ),
-                CloseWindowButton(
-                  colors: WindowButtonColors(
-                    iconNormal: colorScheme.onSurface,
-                    iconMouseOver: Colors.white,
-                    mouseOver: Colors.red,
-                    mouseDown: Colors.red.shade700,
-                  ),
-                ),
-              ],
-            ),
+          AppTitleBar(
+            backgroundColor: Colors.transparent,
+            extraHeight: 8,
           ),
           // 메인 컨텐츠
           Expanded(

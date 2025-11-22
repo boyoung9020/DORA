@@ -10,7 +10,7 @@ class ProjectService {
   /// 모든 프로젝트 가져오기
   Future<List<Project>> getAllProjects() async {
     try {
-      final response = await ApiClient.get('/api/projects');
+      final response = await ApiClient.get('/api/projects/');
       final projectsData = ApiClient.handleListResponse(response);
       return projectsData.map((json) => Project.fromJson(json as Map<String, dynamic>)).toList();
     } catch (e) {
@@ -26,7 +26,7 @@ class ProjectService {
   }) async {
     try {
       final response = await ApiClient.post(
-        '/api/projects',
+        '/api/projects/',
         body: {
           'name': name,
           'description': description,

@@ -23,7 +23,7 @@ class TaskService {
       }
       
       final response = await ApiClient.get(
-        '/api/tasks',
+        '/api/tasks/',
         queryParams: queryParams.isEmpty ? null : queryParams,
       );
       
@@ -48,7 +48,7 @@ class TaskService {
   }) async {
     try {
       final response = await ApiClient.post(
-        '/api/tasks',
+        '/api/tasks/',
         body: {
           'title': title,
           'description': description,
