@@ -132,8 +132,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       }
     });
     
-    _loadComments();
-    _loadAssignedMembers();
+    // 초기 데이터 로드 (한 번에 처리하여 setState 최소화)
+    _loadInitialData();
   }
 
   @override
@@ -146,6 +146,38 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _commentFocusNode.dispose();
     _timelineScrollController.dispose();
     super.dispose();
+  }
+
+  /// 초기 데이터 로드 (성능 최적화: 한 번에 처리)
+  Future<void> _loadInitialData() async {
+    setState(() {
+      _isLoadingComments = true;
+    });
+    
+    try {
+      // 댓글과 할당된 팀원을 동시에 로드
+      final results = await Future.wait([
+        _commentService.getCommentsByTaskId(widget.task.id),
+        _loadAssignedMembersData(),
+      ]);
+      
+      final comments = results[0] as List<Comment>;
+      final members = results[1] as List<User>?;
+      
+      // 한 번만 setState 호출
+      setState(() {
+        _comments = comments;
+        _assignedMembers = members;
+        _isLoadingComments = false;
+      });
+      
+      // 타임라인 아이템 업데이트 (setState는 _loadTimelineItems 내부에서 호출)
+      await _loadTimelineItems();
+    } catch (e) {
+      setState(() {
+        _isLoadingComments = false;
+      });
+    }
   }
 
   /// 댓글 로드
@@ -169,6 +201,27 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       });
     }
   }
+  
+  /// 할당된 팀원 데이터 로드 (반환값 있음)
+  Future<List<User>?> _loadAssignedMembersData() async {
+    final taskProvider = context.read<TaskProvider>();
+    final currentTask = taskProvider.tasks.firstWhere(
+      (t) => t.id == widget.task.id,
+      orElse: () => widget.task,
+    );
+    
+    if (currentTask.assignedMemberIds.isEmpty) {
+      return [];
+    }
+    
+    try {
+      final authService = AuthService();
+      final allUsers = await authService.getAllUsers();
+      return allUsers.where((user) => currentTask.assignedMemberIds.contains(user.id)).toList();
+    } catch (e) {
+      return [];
+    }
+  }
 
   /// 타임라인 아이템 로드 (스크롤 위치 유지)
   Future<void> _loadTimelineItems({bool scrollToBottom = false}) async {
@@ -185,7 +238,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       savedScrollPosition = _timelineScrollController.offset;
     }
     
-    final timelineItems = await _buildTimelineItems(currentTask);
+      final timelineItems = _buildTimelineItems(currentTask);
     
     if (mounted) {
       // setState를 호출하기 전에 스크롤 위치를 미리 저장
@@ -561,21 +614,26 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       orElse: () => widget.task,
     );
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: 1000,
-          maxHeight: 800,
-        ),
-        child: GlassContainer(
+    return GestureDetector(
+      onTap: () => Navigator.of(context).pop(),
+      behavior: HitTestBehavior.opaque,
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: GestureDetector(
+          onTap: () {}, // 내부 클릭 이벤트를 막아서 바깥 영역 클릭만 감지되도록
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 1200,
+              maxHeight: 800,
+            ),
+            child: GlassContainer(
           padding: const EdgeInsets.all(24.0),
           borderRadius: 20.0,
           blur: 25.0,
           gradientColors: [
-            colorScheme.surface.withOpacity(0.6),
-            colorScheme.surface.withOpacity(0.5),
+            Colors.white.withOpacity(0.9),
+            Colors.white.withOpacity(0.85),
           ],
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -745,7 +803,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       const SizedBox(width: 24),
                       // 오른쪽: 사이드바
                       SizedBox(
-                        width: 300,
+                        width: 280,
                         child: SingleChildScrollView(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -753,13 +811,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             // 프로젝트
                             if (currentProject != null)
                               GlassContainer(
-                                padding: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                                 borderRadius: 15.0,
                                 blur: 20.0,
                                 gradientColors: [
-                                  colorScheme.surface.withOpacity(0.4),
-                                  colorScheme.surface.withOpacity(0.3),
+                                  Colors.white.withOpacity(0.8),
+                                  Colors.white.withOpacity(0.7),
                                 ],
+                              shadowBlurRadius: 6,
+                              shadowOffset: const Offset(0, 2),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -807,13 +867,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             const SizedBox(height: 12),
                             // 상태
                             GlassContainer(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                               borderRadius: 15.0,
                               blur: 20.0,
                               gradientColors: [
-                                colorScheme.surface.withOpacity(0.4),
-                                colorScheme.surface.withOpacity(0.3),
+                                Colors.white.withOpacity(0.8),
+                                Colors.white.withOpacity(0.7),
                               ],
+                              shadowBlurRadius: 6,
+                              shadowOffset: const Offset(0, 2),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -878,13 +940,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             const SizedBox(height: 12),
                             // 중요도
                             GlassContainer(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                               borderRadius: 15.0,
                               blur: 20.0,
                               gradientColors: [
-                                colorScheme.surface.withOpacity(0.4),
-                                colorScheme.surface.withOpacity(0.3),
+                                Colors.white.withOpacity(0.8),
+                                Colors.white.withOpacity(0.7),
                               ],
+                              shadowBlurRadius: 6,
+                              shadowOffset: const Offset(0, 2),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -957,13 +1021,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             const SizedBox(height: 12),
                             // 기간 (시작일 ~ 종료일)
                             GlassContainer(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                               borderRadius: 15.0,
                               blur: 20.0,
                               gradientColors: [
-                                colorScheme.surface.withOpacity(0.4),
-                                colorScheme.surface.withOpacity(0.3),
+                                Colors.white.withOpacity(0.8),
+                                Colors.white.withOpacity(0.7),
                               ],
+                              shadowBlurRadius: 6,
+                              shadowOffset: const Offset(0, 2),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -995,7 +1061,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           child: Container(
                                             padding: const EdgeInsets.all(12),
                                             decoration: BoxDecoration(
-                                              color: colorScheme.surface.withOpacity(0.3),
+                                              color: Colors.white.withOpacity(0.7),
                                               borderRadius: BorderRadius.circular(8),
                                               border: Border.all(
                                                 color: colorScheme.onSurface.withOpacity(0.1),
@@ -1047,7 +1113,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           child: Container(
                                             padding: const EdgeInsets.all(12),
                                             decoration: BoxDecoration(
-                                              color: colorScheme.surface.withOpacity(0.3),
+                                              color: Colors.white.withOpacity(0.7),
                                               borderRadius: BorderRadius.circular(8),
                                               border: Border.all(
                                                 color: colorScheme.onSurface.withOpacity(0.1),
@@ -1089,13 +1155,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             const SizedBox(height: 12),
                             // 할당된 팀원
                             GlassContainer(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                               borderRadius: 15.0,
                               blur: 20.0,
                               gradientColors: [
-                                colorScheme.surface.withOpacity(0.4),
-                                colorScheme.surface.withOpacity(0.3),
+                                Colors.white.withOpacity(0.8),
+                                Colors.white.withOpacity(0.7),
                               ],
+                              shadowBlurRadius: 6,
+                              shadowOffset: const Offset(0, 2),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -1194,13 +1262,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             const SizedBox(height: 12),
                             // 생성일
                             GlassContainer(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                               borderRadius: 15.0,
                               blur: 20.0,
                               gradientColors: [
-                                colorScheme.surface.withOpacity(0.4),
-                                colorScheme.surface.withOpacity(0.3),
+                                Colors.white.withOpacity(0.8),
+                                Colors.white.withOpacity(0.7),
                               ],
+                              shadowBlurRadius: 6,
+                              shadowOffset: const Offset(0, 2),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -1232,6 +1302,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 ),
             ],
           ),
+        ),
+      ),
         ),
       ),
     );
@@ -1554,7 +1626,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   /// 타임라인 아이템들 빌드 (시간순 정렬)
-  Future<List<TimelineItem>> _buildTimelineItems(Task task) async {
+  List<TimelineItem> _buildTimelineItems(Task task) {
     final List<TimelineItem> items = [];
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -1870,8 +1942,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             borderRadius: 12.0,
             blur: 20.0,
             gradientColors: [
-              colorScheme.surface.withOpacity(0.4),
-              colorScheme.surface.withOpacity(0.3),
+              Colors.white.withOpacity(0.8),
+              Colors.white.withOpacity(0.7),
             ],
             child: Text(
               description,
@@ -1905,8 +1977,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             borderRadius: 12.0,
             blur: 20.0,
             gradientColors: [
-              colorScheme.surface.withOpacity(0.4),
-              colorScheme.surface.withOpacity(0.3),
+              Colors.white.withOpacity(0.8),
+              Colors.white.withOpacity(0.7),
             ],
             child: Stack(
               children: [
@@ -2043,7 +2115,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           return Container(
                                             width: 200,
                                             height: 200,
-                                            color: colorScheme.surface.withOpacity(0.3),
+                                            color: Colors.white.withOpacity(0.7),
                                             child: Icon(
                                               Icons.broken_image,
                                               color: colorScheme.onSurface.withOpacity(0.5),
@@ -2198,8 +2270,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   borderRadius: 8.0,
                   blur: 15.0,
                   gradientColors: [
-                    colorScheme.surface.withOpacity(0.3),
-                    colorScheme.surface.withOpacity(0.2),
+                    Colors.white.withOpacity(0.8),
+                    Colors.white.withOpacity(0.7),
                   ],
                   child: _editingCommentId == comment.id
                       ? Column(
@@ -2283,7 +2355,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           return Container(
                                             width: 200,
                                             height: 200,
-                                            color: colorScheme.surface.withOpacity(0.3),
+                                            color: Colors.white.withOpacity(0.7),
                                             child: Icon(
                                               Icons.broken_image,
                                               color: colorScheme.onSurface.withOpacity(0.5),
@@ -2406,8 +2478,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           borderRadius: 12.0,
                           blur: 20.0,
                           gradientColors: [
-                            colorScheme.surface.withOpacity(0.4),
-                            colorScheme.surface.withOpacity(0.3),
+                            Colors.white.withOpacity(0.8),
+                            Colors.white.withOpacity(0.7),
                           ],
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2678,7 +2750,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             return Container(
                               width: 400,
                               height: 400,
-                              color: colorScheme.surface.withOpacity(0.3),
+                              color: Colors.white.withOpacity(0.7),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [

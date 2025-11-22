@@ -391,9 +391,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         padding: const EdgeInsets.only(bottom: 12),
                                         child: InkWell(
                                           onTap: () {
-                                            showDialog(
+                                            showGeneralDialog(
                                               context: context,
-                                              builder: (context) => TaskDetailScreen(task: task),
+                                              transitionDuration: Duration.zero,
+                                              pageBuilder: (context, animation, secondaryAnimation) => TaskDetailScreen(task: task),
+                                              transitionBuilder: (context, animation, secondaryAnimation, child) => child,
                                             );
                                           },
                                           borderRadius: BorderRadius.circular(12.0),

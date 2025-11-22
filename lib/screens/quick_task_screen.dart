@@ -392,10 +392,12 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                         color: colorScheme.primary.withOpacity(0.7),
                                       ),
                                       onPressed: () {
-                                        showDialog(
+                                        showGeneralDialog(
                                           context: context,
                                           barrierColor: Colors.black.withOpacity(0.2),
-                                          builder: (context) => TaskDetailScreen(task: task),
+                                          transitionDuration: Duration.zero,
+                                          pageBuilder: (context, animation, secondaryAnimation) => TaskDetailScreen(task: task),
+                                          transitionBuilder: (context, animation, secondaryAnimation, child) => child,
                                         );
                                       },
                                       tooltip: '편집',
@@ -472,9 +474,11 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                             TextButton.icon(
                                               onPressed: () {
                                                 Navigator.of(context).push(
-                                                  MaterialPageRoute(
-                                                    builder: (context) =>
+                                                  PageRouteBuilder(
+                                                    pageBuilder: (context, animation, secondaryAnimation) =>
                                                         TaskDetailScreen(task: task),
+                                                    transitionDuration: Duration.zero,
+                                                    reverseTransitionDuration: Duration.zero,
                                                   ),
                                                 );
                                               },

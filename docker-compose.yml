@@ -51,8 +51,6 @@ services:
     volumes:
       # 코드 변경 시 자동 반영 (개발용)
       - ./backend:/app
-      # 업로드된 이미지를 영구 저장 (서버에 저장)
-      - ./backend/uploads:/app/uploads
     ports:
       # 호스트의 8000 포트를 컨테이너의 8000 포트로 매핑
       - "8000:8000"

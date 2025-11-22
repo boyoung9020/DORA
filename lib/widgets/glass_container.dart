@@ -21,6 +21,10 @@ class GlassContainer extends StatelessWidget {
   final List<Color>? gradientColors;
   final AlignmentGeometry? gradientBegin;
   final AlignmentGeometry? gradientEnd;
+  final double shadowBlurRadius;
+  final double shadowSpreadRadius;
+  final Offset shadowOffset;
+  final Color? shadowColor;
 
   const GlassContainer({
     super.key,
@@ -36,6 +40,10 @@ class GlassContainer extends StatelessWidget {
     this.gradientColors,
     this.gradientBegin,
     this.gradientEnd,
+    this.shadowBlurRadius = 30.0,
+    this.shadowSpreadRadius = 0.0,
+    this.shadowOffset = const Offset(0, 10),
+    this.shadowColor,
   });
 
   @override
@@ -58,10 +66,10 @@ class GlassContainer extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.1),  // Material shadow 색상
-            blurRadius: 30,
-            spreadRadius: 0,
-            offset: const Offset(0, 10),
+            color: (shadowColor ?? colorScheme.shadow.withOpacity(0.1)),
+            blurRadius: shadowBlurRadius,
+            spreadRadius: shadowSpreadRadius,
+            offset: shadowOffset,
           ),
         ],
       ),
