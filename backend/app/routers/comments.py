@@ -109,6 +109,17 @@ async def create_comment(
             # 작업 코멘트 추가 알림
             notify_task_comment_added(db, task, current_user, new_comment.id)
             
+            # 모든 클라이언트에게 댓글 생성 이벤트 브로드캐스트
+            import asyncio
+            from app.routers.websocket import manager
+            asyncio.create_task(manager.broadcast({
+                "type": "comment_created",
+                "data": {
+                    "comment_id": new_comment.id,
+                    "task_id": new_comment.task_id,
+                }
+            }, exclude_user_id=current_user.id))
+            
             return new_comment
         except Exception as commit_error:
             db.rollback()

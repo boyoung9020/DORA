@@ -5,12 +5,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 import uuid
+import asyncio
 from app.database import get_db
 from app.models.project import Project
 from app.models.user import User
 from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectResponse
 from app.utils.dependencies import get_current_user, get_current_admin_or_pm_user
 from app.utils.notifications import notify_project_member_added
+from app.routers.websocket import manager
 
 router = APIRouter()
 
@@ -59,6 +61,16 @@ async def create_project(
     db.add(new_project)
     db.commit()
     db.refresh(new_project)
+    
+    # 모든 클라이언트에게 프로젝트 생성 이벤트 브로드캐스트
+    asyncio.create_task(manager.broadcast({
+        "type": "project_created",
+        "data": {
+            "project_id": new_project.id,
+            "project_name": new_project.name,
+        }
+    }, exclude_user_id=current_user.id))
+    
     return new_project
 
 
@@ -96,6 +108,15 @@ async def update_project(
     
     db.commit()
     db.refresh(project)
+    
+    # 모든 클라이언트에게 프로젝트 업데이트 이벤트 브로드캐스트
+    asyncio.create_task(manager.broadcast({
+        "type": "project_updated",
+        "data": {
+            "project_id": project.id,
+        }
+    }, exclude_user_id=current_user.id))
+    
     return project
 
 
@@ -140,6 +161,15 @@ async def add_team_member(
         
         # 알림 생성
         notify_project_member_added(db, project, user_id, current_user)
+        
+        # 모든 클라이언트에게 팀원 추가 이벤트 브로드캐스트
+        asyncio.create_task(manager.broadcast({
+            "type": "team_member_added",
+            "data": {
+                "project_id": project.id,
+                "user_id": user_id,
+            }
+        }, exclude_user_id=current_user.id))
     
     return project
 

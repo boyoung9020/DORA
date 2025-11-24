@@ -4,6 +4,7 @@
 
 #include "flutter/generated_plugin_registrant.h"
 #include "clipboard_handler.h"
+#include "notification_handler.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -32,6 +33,9 @@ bool FlutterWindow::OnCreate() {
   // Register clipboard handler
   auto messenger = flutter_controller_->engine()->messenger();
   clipboard_handler_ = std::make_unique<ClipboardHandler>(messenger);
+  
+  // Register notification handler
+  notification_handler_ = std::make_unique<NotificationHandler>(messenger);
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();

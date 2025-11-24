@@ -1548,6 +1548,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   userId: currentUser.id,
                                   username: currentUser.username,
                                 );
+                                // 메인화면 업데이트를 위해 태스크 목록 다시 로드
+                                await taskProvider.loadTasks();
                               }
                               Navigator.of(context).pop();
                               // 할당된 팀원 목록 다시 로드

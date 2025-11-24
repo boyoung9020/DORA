@@ -9,6 +9,7 @@
 #include "win32_window.h"
 
 class ClipboardHandler;
+class NotificationHandler;
 
 // A window that does nothing but host a Flutter view.
 class FlutterWindow : public Win32Window {
@@ -33,6 +34,9 @@ class FlutterWindow : public Win32Window {
   
   // Clipboard handler
   std::unique_ptr<ClipboardHandler> clipboard_handler_;
+  
+  // Notification handler
+  std::unique_ptr<NotificationHandler> notification_handler_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

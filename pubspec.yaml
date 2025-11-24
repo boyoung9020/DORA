@@ -47,6 +47,9 @@ dependencies:
 
   # HTTP 클라이언트 (API 호출)
   http: ^1.1.0
+  
+  # WebSocket 클라이언트 (실시간 통신)
+  web_socket_channel: ^2.4.0
 
   # 커스텀 윈도우 타이틀바
   bitsdojo_window: ^0.1.6

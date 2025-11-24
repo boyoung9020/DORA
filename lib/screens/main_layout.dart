@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,6 +7,10 @@ import '../providers/project_provider.dart';
 import '../providers/task_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/auth_service.dart';
+import '../services/websocket_service.dart';
+import '../services/notification_service.dart';
+import '../providers/notification_provider.dart';
+import '../models/notification.dart';
 import '../models/project.dart';
 import '../widgets/app_title_bar.dart';
 import '../widgets/glass_container.dart';
@@ -18,6 +23,7 @@ import 'gantt_chart_screen.dart';
 import 'quick_task_screen.dart';
 import 'admin_approval_screen.dart';
 import 'notification_screen.dart';
+import 'catch_up_screen.dart';
 
 /// 메인 레이아웃 - Slack 스타일 (왼쪽 사이드바 + 오른쪽 컨텐츠)
 class MainLayout extends StatefulWidget {
@@ -27,8 +33,9 @@ class MainLayout extends StatefulWidget {
   State<MainLayout> createState() => _MainLayoutState();
 }
 
-class _MainLayoutState extends State<MainLayout> {
+class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   int _selectedIndex = 0; // 선택된 메뉴 인덱스
+  WebSocketService? _webSocketService; // WebSocket 서비스
 
   // 메뉴 항목 정의 (상태로 관리하여 드래그로 순서 변경 가능)
   List<MenuItem> _menuItems = [
@@ -73,12 +80,189 @@ class _MainLayoutState extends State<MainLayout> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // 생명주기 관찰자 등록
     _loadMenuItems();
     // 로그인 시 사용자 정보를 ProjectProvider에 전달
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateProjectProviderUserInfo();
+      _initializeNotificationService(); // 알림 서비스 초기화
+      _connectWebSocket(); // WebSocket 연결
     });
   }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // 생명주기 관찰자 제거
+    _webSocketService?.disconnect(); // WebSocket 연결 해제
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // 앱이 포그라운드로 돌아올 때 WebSocket 재연결만 (이벤트 기반으로 자동 업데이트됨)
+    if (state == AppLifecycleState.resumed) {
+      _connectWebSocket();
+    }
+  }
+
+  /// WebSocket 연결
+  Future<void> _connectWebSocket() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isAuthenticated) {
+      return;
+    }
+    
+    _webSocketService = WebSocketService();
+    
+    // 이벤트 핸들러 설정
+    _webSocketService!.onEvent = (eventType, data) {
+      print('[WebSocket] 이벤트 수신: $eventType');
+      _handleWebSocketEvent(eventType, data);
+    };
+    
+    await _webSocketService!.connect();
+  }
+  
+  /// 알림 서비스 초기화
+  Future<void> _initializeNotificationService() async {
+    await NotificationService().initialize();
+  }
+
+  /// WebSocket 이벤트 처리
+  Future<void> _handleWebSocketEvent(String eventType, Map<String, dynamic> data) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
+    final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+    final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+    
+    if (!authProvider.isAuthenticated || authProvider.currentUser == null) {
+      return;
+    }
+    
+    final user = authProvider.currentUser!;
+    
+    switch (eventType) {
+      case 'project_created':
+      case 'project_updated':
+      case 'team_member_added':
+        // 프로젝트 목록 새로고침
+        await projectProvider.loadProjects(
+          userId: user.id,
+          isAdmin: authProvider.isAdmin,
+          isPM: authProvider.isPM,
+        );
+        
+        // 팀원 추가 알림 (현재 사용자가 추가된 경우)
+        if (eventType == 'team_member_added' && data['user_id'] == user.id) {
+          final projectId = data['project_id'] as String?;
+          try {
+            final project = projectProvider.projects.firstWhere((p) => p.id == projectId);
+            _createNotification(
+              notificationProvider: notificationProvider,
+              type: NotificationType.teamMemberAdded,
+              title: '팀원으로 추가되었습니다',
+              message: '${project.name} 프로젝트에 팀원으로 추가되었습니다',
+              data: {'project_id': projectId},
+            );
+          } catch (e) {
+            print('[Notification] 프로젝트를 찾을 수 없음: $projectId');
+          }
+        }
+        break;
+        
+      case 'task_created':
+      case 'task_updated':
+        // 태스크 목록 새로고침
+        await taskProvider.loadTasks();
+        
+        // 태스크 관련 알림 처리
+        final taskId = data['task_id'] as String?;
+        if (taskId != null) {
+          try {
+            final task = taskProvider.tasks.firstWhere((t) => t.id == taskId);
+            
+            // 할당된 태스크인지 확인
+            final isAssigned = task.assignedMemberIds.contains(user.id);
+            
+            if (eventType == 'task_created' && isAssigned) {
+              // 작업 할당 알림
+              _createNotification(
+                notificationProvider: notificationProvider,
+                type: NotificationType.taskAssigned,
+                title: '새 작업이 할당되었습니다',
+                message: '${task.title} 작업이 할당되었습니다',
+                data: {'task_id': taskId, 'project_id': task.projectId},
+              );
+            } else if (eventType == 'task_updated' && isAssigned) {
+              // 상태 변경 알림
+              _createNotification(
+                notificationProvider: notificationProvider,
+                type: NotificationType.taskStatusChanged,
+                title: '작업 상태가 변경되었습니다',
+                message: '${task.title} 작업의 상태가 변경되었습니다',
+                data: {'task_id': taskId, 'project_id': task.projectId},
+              );
+            }
+          } catch (e) {
+            // 태스크를 찾을 수 없는 경우 무시
+            print('[Notification] 태스크를 찾을 수 없음: $taskId');
+          }
+        }
+        break;
+        
+      case 'comment_created':
+        // 댓글이 추가되었으므로 태스크 목록 새로고침 (댓글 수 업데이트)
+        await taskProvider.loadTasks();
+        
+        // 할당된 태스크에 댓글이 추가된 경우 알림
+        final taskId = data['task_id'] as String?;
+        if (taskId != null) {
+          try {
+            final task = taskProvider.tasks.firstWhere((t) => t.id == taskId);
+            if (task.assignedMemberIds.contains(user.id)) {
+              _createNotification(
+                notificationProvider: notificationProvider,
+                type: NotificationType.commentAdded,
+                title: '댓글이 추가되었습니다',
+                message: '${task.title} 작업에 댓글이 추가되었습니다',
+                data: {'task_id': taskId, 'project_id': task.projectId},
+              );
+            }
+          } catch (e) {
+            // 태스크를 찾을 수 없는 경우 무시
+            print('[Notification] 태스크를 찾을 수 없음: $taskId');
+          }
+        }
+        break;
+    }
+  }
+
+  /// 알림 생성 및 표시
+  void _createNotification({
+    required NotificationProvider notificationProvider,
+    required NotificationType type,
+    required String title,
+    required String message,
+    Map<String, dynamic>? data,
+  }) {
+    final notification = AppNotification(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      type: type,
+      title: title,
+      message: message,
+      createdAt: DateTime.now(),
+      isRead: false,
+      data: data,
+    );
+    
+    // Provider에 알림 추가
+    notificationProvider.addNotification(notification);
+    
+    // Windows 알림 표시
+    NotificationService().showNotification(notification);
+  }
+
 
   /// ProjectProvider에 사용자 정보 업데이트
   void _updateProjectProviderUserInfo() async {
@@ -1020,6 +1204,7 @@ class _MainLayoutState extends State<MainLayout> {
             setState(() {
               _selectedIndex = item.index;
             });
+            // 화면 전환 시에는 WebSocket 이벤트만 사용 (자동 새로고침 제거)
           },
           borderRadius: BorderRadius.circular(12),
           child: ReorderableDragStartListener(
@@ -1468,21 +1653,12 @@ class _MainLayoutState extends State<MainLayout> {
                                 ),
                                 onPressed: () async {
                                   try {
-                                    // 팀원 추가 API 사용
+                                    // 팀원 추가 API 사용 (내부에서 이미 loadProjects 호출함)
                                     await projectProvider.addTeamMember(
                                       currentProject.id,
                                       user.id,
                                     );
                                     Navigator.of(context).pop();
-                                    // 프로젝트 목록 다시 로드 (필터링 적용)
-                                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                                    if (authProvider.currentUser != null) {
-                                      await projectProvider.loadProjects(
-                                        userId: authProvider.currentUser!.id,
-                                        isAdmin: authProvider.isAdmin,
-                                        isPM: authProvider.isPM,
-                                      );
-                                    }
                                     if (context.mounted) {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
