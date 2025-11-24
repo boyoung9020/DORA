@@ -3,11 +3,43 @@ FastAPI 메인 애플리케이션
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from app.database import engine, Base
 from app.routers import auth, users, projects, tasks, comments, uploads
 
 # 데이터베이스 테이블 생성
 Base.metadata.create_all(bind=engine)
+
+# comments 테이블에 image_urls 컬럼이 없으면 추가
+def ensure_image_urls_column():
+    """comments 테이블에 image_urls 컬럼이 있는지 확인하고 없으면 추가"""
+    try:
+        conn = engine.connect()
+        try:
+            # 컬럼이 이미 존재하는지 확인
+            result = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name='comments' AND column_name='image_urls'
+            """))
+            
+            if result.fetchone() is None:
+                # image_urls 컬럼 추가
+                conn.execute(text("""
+                    ALTER TABLE comments 
+                    ADD COLUMN image_urls VARCHAR[] DEFAULT '{}' NOT NULL
+                """))
+                conn.commit()
+                print("✅ comments 테이블에 image_urls 컬럼이 추가되었습니다.")
+            else:
+                print("✅ comments 테이블에 image_urls 컬럼이 이미 존재합니다.")
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"⚠️ image_urls 컬럼 확인 중 오류 (무시됨): {e}")
+
+# 서버 시작 시 컬럼 확인
+ensure_image_urls_column()
 
 # FastAPI 앱 생성
 app = FastAPI(
