@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
@@ -104,6 +105,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   List<String> _uploadedDetailImageUrls = [];   // 업로드된 상세 내용 이미지 URL
   List<User>? _assignedMembers;  // 할당된 팀원 캐시
   bool _isInitialLoad = true;  // 초기 로드 여부
+  List<String>? _lastAssignedMemberIds;  // 이전 할당된 팀원 ID (동기화 확인용)
 
   @override
   void initState() {
@@ -173,6 +175,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       
       // 타임라인 아이템 업데이트 (setState는 _loadTimelineItems 내부에서 호출)
       await _loadTimelineItems();
+      
+      // 할당된 팀원 목록이 비어있지만 태스크에 할당된 팀원이 있다면 다시 로드
+      if ((members == null || members.isEmpty) && widget.task.assignedMemberIds.isNotEmpty) {
+        await _loadAssignedMembers();
+      }
     } catch (e) {
       setState(() {
         _isLoadingComments = false;
@@ -205,11 +212,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   /// 할당된 팀원 데이터 로드 (반환값 있음)
   Future<List<User>?> _loadAssignedMembersData() async {
     final taskProvider = context.read<TaskProvider>();
+    // 최신 태스크 정보 가져오기 (taskProvider에서 먼저 찾고, 없으면 widget.task 사용)
     final currentTask = taskProvider.tasks.firstWhere(
       (t) => t.id == widget.task.id,
       orElse: () => widget.task,
     );
     
+    // 할당된 팀원이 없으면 빈 리스트 반환
     if (currentTask.assignedMemberIds.isEmpty) {
       return [];
     }
@@ -217,8 +226,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     try {
       final authService = AuthService();
       final allUsers = await authService.getAllUsers();
-      return allUsers.where((user) => currentTask.assignedMemberIds.contains(user.id)).toList();
+      final members = allUsers.where((user) => currentTask.assignedMemberIds.contains(user.id)).toList();
+      
+      // 할당된 팀원 ID가 있지만 사용자를 찾지 못한 경우도 빈 리스트 반환하지 않고 로그 출력
+      if (members.isEmpty && currentTask.assignedMemberIds.isNotEmpty) {
+        print('[TaskDetailScreen] 할당된 팀원 ID: ${currentTask.assignedMemberIds}, 찾은 사용자: ${members.length}명');
+      }
+      
+      return members;
     } catch (e) {
+      print('[TaskDetailScreen] 할당된 팀원 로드 실패: $e');
       return [];
     }
   }
@@ -613,6 +630,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       (t) => t.id == widget.task.id,
       orElse: () => widget.task,
     );
+    
+    // 할당된 팀원 ID가 변경되었는지 확인하고 동기화
+    final currentAssignedIds = currentTask.assignedMemberIds;
+    if (_lastAssignedMemberIds == null || 
+        !listEquals(_lastAssignedMemberIds!, currentAssignedIds)) {
+      _lastAssignedMemberIds = List.from(currentAssignedIds);
+      // 다음 프레임에서 할당된 팀원 목록 다시 로드
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _loadAssignedMembers();
+        }
+      });
+    }
 
     return GestureDetector(
       onTap: () => Navigator.of(context).pop(),
@@ -1521,7 +1551,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 );
                               }
                               Navigator.of(context).pop();
-                              setState(() {});
+                              // 할당된 팀원 목록 다시 로드
+                              await _loadAssignedMembers();
                             },
                           );
                         },
@@ -1571,7 +1602,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         updatedAt: DateTime.now(),
       ),
     );
-    setState(() {});
+    // 할당된 팀원 목록 다시 로드
+    await _loadAssignedMembers();
   }
 
   /// 생성자 이름 가져오기
