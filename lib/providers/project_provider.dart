@@ -166,6 +166,7 @@ class ProjectProvider extends ChangeNotifier {
       
       await loadProjects(userId: _currentUserId, isAdmin: _isAdmin, isPM: _isPM);
       await setCurrentProject(project.id);
+      notifyListeners(); // 메인화면 즉시 업데이트
       return true;
     } catch (e) {
       _errorMessage = '프로젝트 생성 중 오류가 발생했습니다: $e';

@@ -5,12 +5,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
+import asyncio
 from datetime import datetime
 from app.database import get_db
 from app.models.task import Task, TaskStatus, TaskPriority
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskUpdate, TaskResponse
 from app.utils.dependencies import get_current_user
+from app.routers.websocket import manager
 
 router = APIRouter()
 
@@ -78,6 +80,16 @@ async def create_task(
     db.add(new_task)
     db.commit()
     db.refresh(new_task)
+    
+    # 모든 클라이언트에게 태스크 생성 이벤트 브로드캐스트
+    asyncio.create_task(manager.broadcast({
+        "type": "task_created",
+        "data": {
+            "task_id": new_task.id,
+            "project_id": new_task.project_id,
+        }
+    }, exclude_user_id=current_user.id))
+    
     return new_task
 
 
@@ -161,6 +173,16 @@ async def update_task(
     
     db.commit()
     db.refresh(task)
+    
+    # 모든 클라이언트에게 태스크 업데이트 이벤트 브로드캐스트
+    asyncio.create_task(manager.broadcast({
+        "type": "task_updated",
+        "data": {
+            "task_id": task.id,
+            "project_id": task.project_id,
+        }
+    }, exclude_user_id=current_user.id))
+    
     return task
 
 
