@@ -65,3 +65,13 @@ def get_current_admin_user(current_user: User = Depends(get_current_user)) -> Us
         )
     return current_user
 
+
+def get_current_admin_or_pm_user(current_user: User = Depends(get_current_user)) -> User:
+    """관리자 또는 PM 권한 확인"""
+    if not current_user.is_admin and not current_user.is_pm:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="관리자 또는 PM 권한이 필요합니다"
+        )
+    return current_user
+

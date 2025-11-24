@@ -1141,7 +1141,9 @@ class _MainLayoutState extends State<MainLayout> {
     ColorScheme colorScheme,
     ProjectProvider projectProvider,
   ) {
+    // currentProject.teamMemberIds를 키로 사용하여 변경 감지
     return FutureBuilder<List<dynamic>>(
+      key: ValueKey('team_members_${currentProject?.id}_${currentProject?.teamMemberIds?.length ?? 0}'),
       future: _loadTeamMembers(currentProject),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {

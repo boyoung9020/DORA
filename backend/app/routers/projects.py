@@ -9,7 +9,7 @@ from app.database import get_db
 from app.models.project import Project
 from app.models.user import User
 from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectResponse
-from app.utils.dependencies import get_current_user
+from app.utils.dependencies import get_current_user, get_current_admin_or_pm_user
 
 router = APIRouter()
 
@@ -76,6 +76,15 @@ async def update_project(
             detail="프로젝트를 찾을 수 없습니다"
         )
     
+    # team_member_ids 업데이트는 관리자 또는 PM 권한 필요
+    if project_data.team_member_ids is not None:
+        if not current_user.is_admin and not current_user.is_pm:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="팀원 할당은 관리자 또는 PM 권한이 필요합니다"
+            )
+        project.team_member_ids = project_data.team_member_ids
+    
     # 업데이트할 필드만 변경
     if project_data.name is not None:
         project.name = project_data.name
@@ -83,8 +92,6 @@ async def update_project(
         project.description = project_data.description
     if project_data.color is not None:
         project.color = project_data.color
-    if project_data.team_member_ids is not None:
-        project.team_member_ids = project_data.team_member_ids
     
     db.commit()
     db.refresh(project)
@@ -115,9 +122,9 @@ async def add_team_member(
     project_id: str,
     user_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin_or_pm_user)
 ):
-    """프로젝트에 팀원 추가"""
+    """프로젝트에 팀원 추가 (관리자 또는 PM 권한 필요)"""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(
@@ -138,9 +145,9 @@ async def remove_team_member(
     project_id: str,
     user_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin_or_pm_user)
 ):
-    """프로젝트에서 팀원 제거"""
+    """프로젝트에서 팀원 제거 (관리자 또는 PM 권한 필요)"""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(

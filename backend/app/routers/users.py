@@ -7,7 +7,7 @@ from typing import List
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user import UserResponse, UserUpdate
-from app.utils.dependencies import get_current_user, get_current_admin_user
+from app.utils.dependencies import get_current_user, get_current_admin_user, get_current_admin_or_pm_user
 
 router = APIRouter()
 
@@ -15,9 +15,9 @@ router = APIRouter()
 @router.get("/", response_model=List[UserResponse])
 async def get_all_users(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)
+    current_user: User = Depends(get_current_admin_or_pm_user)
 ):
-    """모든 사용자 목록 가져오기 (관리자만)"""
+    """모든 사용자 목록 가져오기 (관리자 또는 PM 권한 필요)"""
     users = db.query(User).all()
     return users
 
