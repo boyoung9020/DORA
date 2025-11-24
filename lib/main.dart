@@ -114,13 +114,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, _) {
         print('[AuthWrapper] 빌드 중 - isLoading: ${authProvider.isLoading}, isAuthenticated: ${authProvider.isAuthenticated}');
-        // 로딩 중이면 로딩 화면 표시
+        // 로딩 중이면 빈 화면 표시
         if (authProvider.isLoading) {
-          print('[AuthWrapper] 로딩 화면 표시');
+          print('[AuthWrapper] 로딩 중');
           return const Scaffold(
-      body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: SizedBox.shrink(),
           );
         }
 

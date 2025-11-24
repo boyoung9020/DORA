@@ -393,13 +393,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
               controller: _tabController,
               children: [
                 // 승인 대기 탭
-                _isLoading
-                    ? Center(
-                        child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-                        ),
-                      )
-                    : _pendingUsers.isEmpty
+                _pendingUsers.isEmpty
                         ? Center(
                             child: GlassContainer(
                               padding: const EdgeInsets.all(40),
@@ -505,13 +499,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                             ),
                           ),
                 // 승인된 사용자 탭
-                _isLoading
-                    ? Center(
-                        child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-                        ),
-                      )
-                    : _approvedUsers.isEmpty
+                _approvedUsers.isEmpty
                         ? Center(
                             child: GlassContainer(
                               padding: const EdgeInsets.all(40),

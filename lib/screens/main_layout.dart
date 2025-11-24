@@ -1146,15 +1146,7 @@ class _MainLayoutState extends State<MainLayout> {
       key: ValueKey('team_members_${currentProject?.id}_${currentProject?.teamMemberIds?.length ?? 0}'),
       future: _loadTeamMembers(currentProject),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-            ),
-          );
-        }
-
-        final teamMembers = snapshot.data!;
+        final teamMembers = snapshot.data ?? [];
 
         if (teamMembers.isEmpty) {
           return Center(

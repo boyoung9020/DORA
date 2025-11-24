@@ -49,32 +49,77 @@ async def create_comment(
     current_user: User = Depends(get_current_user)
 ):
     """새 댓글 생성"""
-    # 태스크 존재 확인
-    task = db.query(Task).filter(Task.id == comment_data.task_id).first()
-    if not task:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="태스크를 찾을 수 없습니다"
+    try:
+        # 내용 검증 (content가 None이거나 빈 문자열인 경우 처리)
+        content = comment_data.content or ""
+        image_urls = comment_data.image_urls or []
+        
+        if not content.strip() and not image_urls:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="댓글 내용 또는 이미지가 필요합니다"
+            )
+        
+        # 태스크 존재 확인
+        task = db.query(Task).filter(Task.id == comment_data.task_id).first()
+        if not task:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="태스크를 찾을 수 없습니다"
+            )
+        
+        new_comment = Comment(
+            id=str(uuid.uuid4()),
+            task_id=comment_data.task_id,
+            user_id=current_user.id,
+            username=current_user.username,
+            content=content,
+            image_urls=image_urls
         )
-    
-    new_comment = Comment(
-        id=str(uuid.uuid4()),
-        task_id=comment_data.task_id,
-        user_id=current_user.id,
-        username=current_user.username,
-        content=comment_data.content,
-        image_urls=comment_data.image_urls or []
-    )
-    
-    db.add(new_comment)
-    
-    # 태스크의 comment_ids에 추가
-    if new_comment.id not in task.comment_ids:
-        task.comment_ids = list(task.comment_ids) + [new_comment.id]
-    
-    db.commit()
-    db.refresh(new_comment)
-    return new_comment
+        
+        db.add(new_comment)
+        
+        # 태스크의 comment_ids에 추가 (안전하게 처리)
+        try:
+            # comment_ids를 리스트로 변환 (None이거나 다른 타입인 경우 처리)
+            if task.comment_ids is None:
+                comment_ids_list = []
+            elif isinstance(task.comment_ids, list):
+                comment_ids_list = list(task.comment_ids)
+            else:
+                # 다른 타입인 경우 리스트로 변환 시도
+                comment_ids_list = list(task.comment_ids) if hasattr(task.comment_ids, '__iter__') else []
+            
+            # 중복 체크 후 추가
+            if new_comment.id not in comment_ids_list:
+                comment_ids_list.append(new_comment.id)
+            
+            task.comment_ids = comment_ids_list
+        except Exception as e:
+            print(f"[ERROR] comment_ids 업데이트 실패: {str(e)}")
+            print(f"[ERROR] task.comment_ids 타입: {type(task.comment_ids)}, 값: {task.comment_ids}")
+            # comment_ids 업데이트 실패해도 댓글은 저장
+            task.comment_ids = [new_comment.id]
+        
+        try:
+            db.commit()
+            db.refresh(new_comment)
+            return new_comment
+        except Exception as commit_error:
+            db.rollback()
+            print(f"[ERROR] DB 커밋 실패: {str(commit_error)}")
+            raise
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"[ERROR] 댓글 생성 실패: {str(e)}")
+        print(f"[ERROR] task_id: {comment_data.task_id}, user_id: {current_user.id}")
+        print(f"[ERROR] content: {comment_data.content}, image_urls: {comment_data.image_urls}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"댓글 생성 중 오류가 발생했습니다: {str(e)}"
+        )
 
 
 @router.patch("/{comment_id}", response_model=CommentResponse)
@@ -130,8 +175,23 @@ async def delete_comment(
     
     # 태스크의 comment_ids에서 제거
     task = db.query(Task).filter(Task.id == comment.task_id).first()
-    if task and comment_id in task.comment_ids:
-        task.comment_ids = [id for id in task.comment_ids if id != comment_id]
+    if task:
+        try:
+            # comment_ids를 리스트로 변환 (안전하게 처리)
+            if task.comment_ids is None:
+                comment_ids_list = []
+            elif isinstance(task.comment_ids, list):
+                comment_ids_list = list(task.comment_ids)
+            else:
+                comment_ids_list = list(task.comment_ids) if hasattr(task.comment_ids, '__iter__') else []
+            
+            # comment_id 제거
+            if comment_id in comment_ids_list:
+                comment_ids_list = [id for id in comment_ids_list if id != comment_id]
+                task.comment_ids = comment_ids_list
+        except Exception as e:
+            print(f"[ERROR] comment_ids 업데이트 실패 (삭제): {str(e)}")
+            # 에러가 발생해도 댓글 삭제는 계속 진행
     
     db.delete(comment)
     db.commit()

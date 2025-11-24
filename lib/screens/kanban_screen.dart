@@ -121,13 +121,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
           const SizedBox(height: 24),
           // 칸반 보드
           Expanded(
-            child: taskProvider.isLoading
-                ? Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-                    ),
-                  )
-                : _buildKanbanBoard(context, taskProvider, currentProjectId),
+            child: _buildKanbanBoard(context, taskProvider, currentProjectId),
           ),
         ],
       ),

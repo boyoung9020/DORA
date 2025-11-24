@@ -167,13 +167,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
           const SizedBox(height: 24),
           // 간트 차트
           Expanded(
-            child: taskProvider.isLoading
-                ? Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-                    ),
-                  )
-                : _buildGanttChart(context, projectTasks, colorScheme),
+            child: _buildGanttChart(context, projectTasks, colorScheme),
           ),
         ],
       ),
@@ -398,16 +392,6 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                     FutureBuilder<List<User>>(
                       future: _loadAssignedMembers(assignedMembers),
                       builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Padding(
-                            padding: EdgeInsets.only(left: 8),
-                            child: SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          );
-                        }
                         final members = snapshot.data;
                         if (members == null || members.isEmpty) {
                           return const SizedBox.shrink();

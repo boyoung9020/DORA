@@ -500,6 +500,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       });
     } catch (e) {
       if (mounted) {
+        print('[ERROR] 댓글 추가 실패: $e');
+        print('[ERROR] task_id: ${widget.task.id}');
+        print('[ERROR] content: ${_commentController.text}');
+        print('[ERROR] imageUrls: ${_selectedCommentImages.length}개');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('댓글 추가 중 오류가 발생했습니다: $e'),
@@ -775,12 +779,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             ),
                             const SizedBox(height: 16),
                             // 타임라인 아이템들 (시간순 정렬)
-                                  if (_isLoadingComments)
-                              const Padding(
-                                        padding: EdgeInsets.all(16.0),
-                                child: Center(child: CircularProgressIndicator()),
-                                    )
-                                  else if (_timelineItems == null)
+                                  if (_timelineItems == null)
                               const SizedBox.shrink()
                                   else
                               Column(
@@ -2642,7 +2641,36 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     if (!_commentFocusNode.hasFocus) return;
     
     try {
-      // Windows에서 클립보드 이미지 가져오기 (플랫폼 채널 사용)
+      // 먼저 텍스트 클립보드 확인
+      final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+      if (clipboardData != null && clipboardData.text != null && clipboardData.text!.isNotEmpty) {
+        // 텍스트가 있으면 TextField에 붙여넣기
+        final text = clipboardData.text!;
+        final currentText = _commentController.text;
+        final selection = _commentController.selection;
+        
+        if (selection.isValid) {
+          // 선택된 텍스트가 있으면 교체, 없으면 커서 위치에 삽입
+          final newText = currentText.replaceRange(
+            selection.start,
+            selection.end,
+            text,
+          );
+          _commentController.value = TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: selection.start + text.length),
+          );
+        } else {
+          // 커서가 없으면 끝에 추가
+          _commentController.text = currentText + text;
+          _commentController.selection = TextSelection.collapsed(
+            offset: _commentController.text.length,
+          );
+        }
+        return;
+      }
+      
+      // 텍스트가 없으면 이미지 확인 (Windows에서만)
       if (Platform.isWindows) {
         const platform = MethodChannel('com.dora/clipboard');
         try {
@@ -2687,14 +2715,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   });
                   return;
                 }
-              } else if (type == 'none') {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('클립보드에 이미지가 없습니다. (이미지 복사 후 다시 시도하세요)'),
-                    backgroundColor: Theme.of(context).colorScheme.error,
-                  ),
-                );
-                return;
               }
             } else if (result is String && result.isNotEmpty) {
               final imageBytes = base64Decode(result);
@@ -2708,18 +2728,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               return;
             }
           }
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('클립보드에 이미지가 없습니다. (이미지 복사 후 다시 시도하세요)'),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-          );
         } catch (e) {
           // 플랫폼 채널이 없거나 실패한 경우 무시
         }
       }
+      
+      // 텍스트도 이미지도 없으면 아무것도 하지 않음 (에러 메시지 제거)
     } catch (e) {
+      // 에러 발생 시 무시
     }
   }
 
