@@ -17,6 +17,7 @@ import 'calendar_screen.dart';
 import 'gantt_chart_screen.dart';
 import 'quick_task_screen.dart';
 import 'admin_approval_screen.dart';
+import 'notification_screen.dart';
 
 /// 메인 레이아웃 - Slack 스타일 (왼쪽 사이드바 + 오른쪽 컨텐츠)
 class MainLayout extends StatefulWidget {
@@ -60,6 +61,12 @@ class _MainLayoutState extends State<MainLayout> {
       selectedIcon: Icons.add_task,
       label: '빠른 추가',
       index: 4,
+    ),
+    MenuItem(
+      icon: Icons.notifications_outlined,
+      selectedIcon: Icons.notifications,
+      label: '알림',
+      index: 5,
     ),
   ];
 
@@ -133,6 +140,12 @@ class _MainLayoutState extends State<MainLayout> {
         selectedIcon: Icons.add_task,
         label: '빠른 추가',
         index: 4,
+      ),
+      MenuItem(
+        icon: Icons.notifications_outlined,
+        selectedIcon: Icons.notifications,
+        label: '알림',
+        index: 5,
       ),
     ];
 
@@ -1680,6 +1693,8 @@ class _MainLayoutState extends State<MainLayout> {
         return const GanttChartScreen();
       case '빠른 추가':
         return const QuickTaskScreen();
+      case '알림':
+        return const NotificationScreen();
       case '관리자 승인':
         return const AdminApprovalScreen();
       default:

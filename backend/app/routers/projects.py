@@ -10,6 +10,7 @@ from app.models.project import Project
 from app.models.user import User
 from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectResponse
 from app.utils.dependencies import get_current_user, get_current_admin_or_pm_user
+from app.utils.notifications import notify_project_member_added
 
 router = APIRouter()
 
@@ -136,6 +137,9 @@ async def add_team_member(
         project.team_member_ids = list(project.team_member_ids) + [user_id]
         db.commit()
         db.refresh(project)
+        
+        # 알림 생성
+        notify_project_member_added(db, project, user_id, current_user)
     
     return project
 

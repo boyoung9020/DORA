@@ -55,6 +55,9 @@ dependencies:
   image_picker: ^1.0.7
   desktop_drop: ^0.4.4
   flutter_markdown: ^0.6.18
+  
+  # Windows 시스템 알림
+  flutter_local_notifications: ^17.2.3
 
 dev_dependencies:
   flutter_test:

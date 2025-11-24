@@ -11,6 +11,7 @@ from app.models.task import Task
 from app.models.user import User
 from app.schemas.comment import CommentCreate, CommentUpdate, CommentResponse
 from app.utils.dependencies import get_current_user
+from app.utils.notifications import notify_task_comment_added
 
 router = APIRouter()
 
@@ -104,6 +105,10 @@ async def create_comment(
         try:
             db.commit()
             db.refresh(new_comment)
+            
+            # 작업 코멘트 추가 알림
+            notify_task_comment_added(db, task, current_user, new_comment.id)
+            
             return new_comment
         except Exception as commit_error:
             db.rollback()

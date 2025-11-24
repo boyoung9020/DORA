@@ -11,6 +11,7 @@ from app.models.task import Task, TaskStatus, TaskPriority
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskUpdate, TaskResponse
 from app.utils.dependencies import get_current_user
+from app.utils.notifications import notify_task_assigned, notify_task_option_changed
 
 router = APIRouter()
 
@@ -96,6 +97,9 @@ async def update_task(
             detail="태스크를 찾을 수 없습니다"
         )
     
+    # 변경된 필드 추적
+    changed_fields = []
+    
     # 업데이트할 필드만 변경
     if task_data.title is not None:
         task.title = task_data.title
@@ -105,6 +109,7 @@ async def update_task(
         # 상태 변경 히스토리 추가
         old_status = task.status
         if old_status != task_data.status:
+            changed_fields.append('status')
             history_entry = {
                 "fromStatus": old_status.value,
                 "toStatus": task_data.status.value,
@@ -115,8 +120,12 @@ async def update_task(
             task.status_history = list(task.status_history) + [history_entry]
         task.status = task_data.status
     if task_data.start_date is not None:
+        if task.start_date != task_data.start_date:
+            changed_fields.append('start_date')
         task.start_date = task_data.start_date
     if task_data.end_date is not None:
+        if task.end_date != task_data.end_date:
+            changed_fields.append('end_date')
         task.end_date = task_data.end_date
     if task_data.detail is not None:
         task.detail = task_data.detail
@@ -126,6 +135,7 @@ async def update_task(
         # 중요도 변경 히스토리 추가
         old_priority = task.priority
         if old_priority != task_data.priority:
+            changed_fields.append('priority')
             history_entry = {
                 "fromPriority": old_priority.value,
                 "toPriority": task_data.priority.value,
@@ -140,7 +150,7 @@ async def update_task(
         old_member_ids = set(task.assigned_member_ids or [])
         new_member_ids = set(task_data.assigned_member_ids or [])
         
-        # 새로 할당된 팀원들에 대해 히스토리 추가
+        # 새로 할당된 팀원들에 대해 히스토리 추가 및 알림
         added_members = new_member_ids - old_member_ids
         if added_members:
             for member_id in added_members:
@@ -156,8 +166,15 @@ async def update_task(
                     "assignedAt": datetime.utcnow().isoformat()
                 }
                 task.assignment_history = list(task.assignment_history) + [history_entry]
+                
+                # 작업 할당 알림
+                notify_task_assigned(db, task, member_id, current_user)
         
         task.assigned_member_ids = task_data.assigned_member_ids
+    
+    # 작업 옵션 변경 알림 (중요도, 상태, 날짜 변경 시)
+    if changed_fields:
+        notify_task_option_changed(db, task, current_user, changed_fields)
     
     db.commit()
     db.refresh(task)
@@ -209,6 +226,10 @@ async def change_task_status(
         }
         task.status_history = list(task.status_history) + [history_entry]
         task.status = new_status
+        
+        # 작업 옵션 변경 알림
+        notify_task_option_changed(db, task, current_user, ['status'])
+        
         db.commit()
         db.refresh(task)
     

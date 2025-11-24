@@ -5,10 +5,17 @@ import 'providers/auth_provider.dart';
 import 'providers/task_provider.dart';
 import 'providers/project_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/notification_provider.dart';
+import 'services/windows_notification_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_layout.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Windows 알림 서비스 초기화
+  await WindowsNotificationService.initialize();
+  
   runApp(const MyApp());
   
   // Windows 타이틀바 커스터마이징
@@ -37,6 +44,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ProjectProvider()),
         // TaskProvider를 전역적으로 사용할 수 있도록 설정
         ChangeNotifierProvider(create: (_) => TaskProvider()),
+        // NotificationProvider를 전역적으로 사용할 수 있도록 설정
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
