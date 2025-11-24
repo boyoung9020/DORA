@@ -102,21 +102,21 @@ async def create_comment(
             task.comment_ids = [new_comment.id]
         
         try:
-        db.commit()
-        db.refresh(new_comment)
-        
-        # 모든 클라이언트에게 댓글 생성 이벤트 브로드캐스트
-        import asyncio
-        from app.routers.websocket import manager
-        asyncio.create_task(manager.broadcast({
-            "type": "comment_created",
-            "data": {
-                "comment_id": new_comment.id,
-                "task_id": new_comment.task_id,
-            }
-        }, exclude_user_id=current_user.id))
-        
-        return new_comment
+            db.commit()
+            db.refresh(new_comment)
+            
+            # 모든 클라이언트에게 댓글 생성 이벤트 브로드캐스트
+            import asyncio
+            from app.routers.websocket import manager
+            asyncio.create_task(manager.broadcast({
+                "type": "comment_created",
+                "data": {
+                    "comment_id": new_comment.id,
+                    "task_id": new_comment.task_id,
+                }
+            }, exclude_user_id=current_user.id))
+            
+            return new_comment
         except Exception as commit_error:
             db.rollback()
             print(f"[ERROR] DB 커밋 실패: {str(commit_error)}")
