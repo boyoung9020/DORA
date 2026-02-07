@@ -8,9 +8,8 @@ import '../providers/task_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/auth_service.dart';
 import '../services/websocket_service.dart';
-import '../services/notification_service.dart';
 import '../providers/notification_provider.dart';
-import '../models/notification.dart';
+import '../models/notification.dart' as models;
 import '../models/project.dart';
 import '../widgets/app_title_bar.dart';
 import '../widgets/glass_container.dart';
@@ -23,7 +22,6 @@ import 'gantt_chart_screen.dart';
 import 'quick_task_screen.dart';
 import 'admin_approval_screen.dart';
 import 'notification_screen.dart';
-import 'catch_up_screen.dart';
 
 /// 메인 레이아웃 - Slack 스타일 (왼쪽 사이드바 + 오른쪽 컨텐츠)
 class MainLayout extends StatefulWidget {
@@ -124,9 +122,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     await _webSocketService!.connect();
   }
   
-  /// 알림 서비스 초기화
+  /// 알림 서비스 초기화 및 알림 로드
   Future<void> _initializeNotificationService() async {
-    await NotificationService().initialize();
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+    if (authProvider.isAuthenticated && authProvider.currentUser != null) {
+      await notificationProvider.loadNotifications(userId: authProvider.currentUser!.id);
+    }
   }
 
   /// WebSocket 이벤트 처리
@@ -153,17 +155,15 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           isPM: authProvider.isPM,
         );
         
-        // 팀원 추가 알림 (현재 사용자가 추가된 경우)
+        // 팀원 추가 시 인앱 토스트 표시
         if (eventType == 'team_member_added' && data['user_id'] == user.id) {
           final projectId = data['project_id'] as String?;
           try {
             final project = projectProvider.projects.firstWhere((p) => p.id == projectId);
-            _createNotification(
-              notificationProvider: notificationProvider,
-              type: NotificationType.teamMemberAdded,
+            _showInAppToast(
               title: '팀원으로 추가되었습니다',
               message: '${project.name} 프로젝트에 팀원으로 추가되었습니다',
-              data: {'project_id': projectId},
+              type: models.NotificationType.projectMemberAdded,
             );
           } catch (e) {
             print('[Notification] 프로젝트를 찾을 수 없음: $projectId');
@@ -181,86 +181,154 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         if (taskId != null) {
           try {
             final task = taskProvider.tasks.firstWhere((t) => t.id == taskId);
-            
-            // 할당된 태스크인지 확인
             final isAssigned = task.assignedMemberIds.contains(user.id);
             
             if (eventType == 'task_created' && isAssigned) {
-              // 작업 할당 알림
-              _createNotification(
-                notificationProvider: notificationProvider,
-                type: NotificationType.taskAssigned,
+              _showInAppToast(
                 title: '새 작업이 할당되었습니다',
-                message: '${task.title} 작업이 할당되었습니다',
-                data: {'task_id': taskId, 'project_id': task.projectId},
+                message: '${task.title}',
+                type: models.NotificationType.taskAssigned,
+                taskId: taskId,
               );
             } else if (eventType == 'task_updated' && isAssigned) {
-              // 상태 변경 알림
-              _createNotification(
-                notificationProvider: notificationProvider,
-                type: NotificationType.taskStatusChanged,
-                title: '작업 상태가 변경되었습니다',
-                message: '${task.title} 작업의 상태가 변경되었습니다',
-                data: {'task_id': taskId, 'project_id': task.projectId},
+              _showInAppToast(
+                title: '작업이 변경되었습니다',
+                message: '${task.title}',
+                type: models.NotificationType.taskOptionChanged,
+                taskId: taskId,
               );
             }
           } catch (e) {
-            // 태스크를 찾을 수 없는 경우 무시
             print('[Notification] 태스크를 찾을 수 없음: $taskId');
           }
         }
         break;
         
       case 'comment_created':
-        // 댓글이 추가되었으므로 태스크 목록 새로고침 (댓글 수 업데이트)
+        // 댓글이 추가되었으므로 태스크 목록 새로고침
         await taskProvider.loadTasks();
         
-        // 할당된 태스크에 댓글이 추가된 경우 알림
         final taskId = data['task_id'] as String?;
         if (taskId != null) {
           try {
             final task = taskProvider.tasks.firstWhere((t) => t.id == taskId);
             if (task.assignedMemberIds.contains(user.id)) {
-              _createNotification(
-                notificationProvider: notificationProvider,
-                type: NotificationType.commentAdded,
-                title: '댓글이 추가되었습니다',
-                message: '${task.title} 작업에 댓글이 추가되었습니다',
-                data: {'task_id': taskId, 'project_id': task.projectId},
+              _showInAppToast(
+                title: '새 댓글이 추가되었습니다',
+                message: '${task.title}',
+                type: models.NotificationType.taskCommentAdded,
+                taskId: taskId,
               );
             }
           } catch (e) {
-            // 태스크를 찾을 수 없는 경우 무시
             print('[Notification] 태스크를 찾을 수 없음: $taskId');
           }
         }
         break;
     }
+    
+    // 백엔드에서 알림 목록 동기화 (중복 로컬 생성 대신 서버 데이터 기반)
+    await notificationProvider.loadNotifications(userId: user.id);
   }
 
-  /// 알림 생성 및 표시
-  void _createNotification({
-    required NotificationProvider notificationProvider,
-    required NotificationType type,
+  /// 인앱 토스트 알림 표시 (Slack/Notion 스타일)
+  void _showInAppToast({
     required String title,
     required String message,
-    Map<String, dynamic>? data,
+    required models.NotificationType type,
+    String? taskId,
   }) {
-    final notification = AppNotification(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      type: type,
-      title: title,
-      message: message,
-      createdAt: DateTime.now(),
-      isRead: false,
-      data: data,
+    if (!mounted) return;
+    
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    
+    // 알림 타입별 색상
+    Color accentColor;
+    IconData icon;
+    switch (type) {
+      case models.NotificationType.projectMemberAdded:
+        accentColor = const Color(0xFF4F46E5);
+        icon = Icons.group_add;
+        break;
+      case models.NotificationType.taskAssigned:
+        accentColor = const Color(0xFFF59E0B);
+        icon = Icons.assignment_ind;
+        break;
+      case models.NotificationType.taskOptionChanged:
+        accentColor = const Color(0xFF8B5CF6);
+        icon = Icons.settings;
+        break;
+      case models.NotificationType.taskCommentAdded:
+        accentColor = const Color(0xFF10B981);
+        icon = Icons.comment;
+        break;
+    }
+    
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: accentColor.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: accentColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: isDarkMode ? Colors.white : Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    message,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.8),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: isDarkMode
+            ? const Color(0xFF1E293B)
+            : const Color(0xFF334155),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: '보기',
+          textColor: accentColor,
+          onPressed: () {
+            // 알림 화면으로 이동
+            final notifIndex = _menuItems.indexWhere((m) => m.label == '알림');
+            if (notifIndex != -1) {
+              setState(() {
+                _selectedIndex = notifIndex;
+              });
+            }
+          },
+        ),
+      ),
     );
-    
-    // Provider에 알림 추가
-    notificationProvider.addNotification(notification);
-    
-    // Windows 알림 표시
-    NotificationService().showNotification(notification);
   }
 
 
@@ -395,8 +463,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final shellColor = isDarkMode
-        ? const Color(0xFF1B1E23)
-        : const Color(0xFFF4F6FA);
+        ? const Color(0xFF0B0E14)
+        : const Color(0xFFEEF2FF); // Indigo 50 — 은은한 인디고 톤
     
     return Scaffold(
       backgroundColor: shellColor,
@@ -430,7 +498,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                       padding: const EdgeInsets.fromLTRB(0, 0, 8, 8),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
+                          color: isDarkMode ? const Color(0xFF161B2E) : null,
+                          gradient: isDarkMode ? null : const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFFFAFAFF), // 아주 연한 인디고 화이트
+                              Color(0xFFF5F3FF), // Violet 50
+                              Color(0xFFEEF2FF), // Indigo 50
+                            ],
+                          ),
                           borderRadius: BorderRadius.circular(28),
                           boxShadow: isDarkMode
                               ? [
@@ -442,9 +519,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                 ]
                               : [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.06),
-                                    blurRadius: 30,
-                                    offset: const Offset(0, 24),
+                                    color: const Color(0xFF4F46E5).withOpacity(0.06),
+                                    blurRadius: 40,
+                                    offset: const Offset(0, 20),
+                                  ),
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.03),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 4),
                                   ),
                                 ],
                         ),
@@ -1193,6 +1275,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     Key? key,
   }) {
     final isSelected = _selectedIndex == item.index;
+    final notificationProvider = context.watch<NotificationProvider>();
+    final isNotificationItem = item.label == '알림';
+    final unreadCount = notificationProvider.unreadCount;
     
     return Padding(
       key: key,
@@ -1219,12 +1304,48 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    isSelected ? item.selectedIcon : item.icon,
-                    color: isSelected
-                        ? colorScheme.primary
-                        : colorScheme.onSurface.withOpacity(0.7),
-                    size: 24,
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(
+                        isSelected ? item.selectedIcon : item.icon,
+                        color: isSelected
+                            ? colorScheme.primary
+                            : colorScheme.onSurface.withOpacity(0.7),
+                        size: 24,
+                      ),
+                      // 알림 뱃지 (읽지 않은 알림이 있을 때만)
+                      if (isNotificationItem && unreadCount > 0)
+                        Positioned(
+                          right: -8,
+                          top: -6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? const Color(0xFF0B0E14)
+                                    : const Color(0xFFEEF2FF),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                unreadCount > 99 ? '99+' : '$unreadCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.2,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(

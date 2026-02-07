@@ -109,16 +109,17 @@ async def create_comment(
             # 작업 코멘트 추가 알림
             notify_task_comment_added(db, task, current_user, new_comment.id)
             
-            # 모든 클라이언트에게 댓글 생성 이벤트 브로드캐스트
+            # 태스크 할당자에게만 댓글 생성 이벤트 전송 (타겟 전송)
             import asyncio
             from app.routers.websocket import manager
-            asyncio.create_task(manager.broadcast({
+            target_users = list(task.assigned_member_ids) if task.assigned_member_ids else []
+            asyncio.create_task(manager.send_to_users({
                 "type": "comment_created",
                 "data": {
                     "comment_id": new_comment.id,
                     "task_id": new_comment.task_id,
                 }
-            }, exclude_user_id=current_user.id))
+            }, target_users, exclude_user_id=current_user.id))
             
             return new_comment
         except Exception as commit_error:

@@ -41,6 +41,34 @@ class ConnectionManager:
         except Exception as e:
             print(f"[WebSocket] 개인 메시지 전송 실패: {e}")
 
+    async def send_to_user(self, message: dict, user_id: str):
+        """특정 사용자에게만 메시지 전송 (타겟 전송)"""
+        if user_id not in self.active_connections:
+            return
+        
+        disconnected = []
+        for websocket in self.active_connections[user_id][:]:
+            try:
+                await websocket.send_json(message)
+            except Exception as e:
+                print(f"[WebSocket] 사용자 {user_id} 전송 실패: {e}")
+                disconnected.append(websocket)
+        
+        # 끊어진 연결 정리
+        for ws in disconnected:
+            self.active_connections[user_id].remove(ws)
+            if ws in self.all_connections:
+                self.all_connections.remove(ws)
+            if not self.active_connections[user_id]:
+                del self.active_connections[user_id]
+
+    async def send_to_users(self, message: dict, user_ids: list, exclude_user_id: str = None):
+        """여러 사용자에게 메시지 전송 (타겟 전송)"""
+        for uid in user_ids:
+            if exclude_user_id and uid == exclude_user_id:
+                continue
+            await self.send_to_user(message, uid)
+
     async def broadcast(self, message: dict, exclude_user_id: str = None):
         """모든 연결된 클라이언트에게 메시지 브로드캐스트"""
         if not self.all_connections:
@@ -66,7 +94,8 @@ class ConnectionManager:
         
         # 끊어진 연결 정리
         for ws in disconnected:
-            self.all_connections.remove(ws)
+            if ws in self.all_connections:
+                self.all_connections.remove(ws)
             # active_connections에서도 제거
             for user_id, connections in list(self.active_connections.items()):
                 if ws in connections:
@@ -145,4 +174,22 @@ def broadcast_event(event_type: str, data: dict, exclude_user_id: str = None):
     }
     # 비동기 함수를 동기적으로 실행
     asyncio.create_task(manager.broadcast(message, exclude_user_id))
+
+
+def send_event_to_users(event_type: str, data: dict, user_ids: list, exclude_user_id: str = None):
+    """특정 사용자들에게만 이벤트 전송 (동기 함수에서 호출)"""
+    message = {
+        "type": event_type,
+        "data": data
+    }
+    asyncio.create_task(manager.send_to_users(message, user_ids, exclude_user_id))
+
+
+def send_event_to_user(event_type: str, data: dict, user_id: str):
+    """특정 사용자 1명에게 이벤트 전송 (동기 함수에서 호출)"""
+    message = {
+        "type": event_type,
+        "data": data
+    }
+    asyncio.create_task(manager.send_to_user(message, user_id))
 

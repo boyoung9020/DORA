@@ -547,7 +547,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Container(
                   width: 1,
                   margin: const EdgeInsets.symmetric(horizontal: 24),
-                  color: colorScheme.onSurface.withOpacity(0.2),
+                  color: const Color(0xFFE0E7FF),
                 ),
                 // 오른쪽: 프로젝트별 진행률
                 Expanded(
@@ -671,7 +671,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 child: LinearProgressIndicator(
                                   value: progress,
                                   minHeight: 12,
-                                  backgroundColor: colorScheme.surface.withOpacity(0.3),
+                                  backgroundColor: const Color(0xFFE0E7FF),
                                   valueColor: AlwaysStoppedAnimation<Color>(project.color),
                                 ),
                               ),

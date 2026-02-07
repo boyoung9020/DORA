@@ -1,13 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 
-/// Liquid Glass 스타일의 반투명 컨테이너 위젯
-/// 
-/// 특징:
-/// - 배경 블러 효과
-/// - 반투명 배경
-/// - 미묘한 테두리
-/// - 부드러운 그림자
+/// 카드 컨테이너 위젯
+///
+/// 라이트 모드: 순백 배경 + 미세 테두리 + 그림자 → 배경 대비 확실한 구분
+/// 다크 모드: 어두운 배경 + 블러 효과
 class GlassContainer extends StatelessWidget {
   final Widget child;
   final double? width;
@@ -34,9 +31,9 @@ class GlassContainer extends StatelessWidget {
     this.padding,
     this.margin,
     this.borderRadius = 20.0,
-    this.blur = 20.0,  // 더 강한 블러 효과
+    this.blur = 20.0,
     this.borderColor = Colors.white,
-    this.borderWidth = 1.0,  // 더 미묘한 테두리
+    this.borderWidth = 1.0,
     this.gradientColors,
     this.gradientBegin,
     this.gradientEnd,
@@ -49,52 +46,87 @@ class GlassContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final isDarkMode = theme.brightness == Brightness.dark;
-    
+
+    // 라이트 모드: 인디고 틴트 테두리 + 그림자로 카드 구분
+    final borderClr = isDarkMode
+        ? (gradientColors != null
+            ? gradientColors!.first
+            : Colors.white).withOpacity(0.1)
+        : const Color(0xFFE0E7FF); // Indigo 100 — 인디고 톤 테두리
+
+    final shadow = isDarkMode
+        ? BoxShadow(
+            color: shadowColor ?? Colors.black.withOpacity(0.25),
+            blurRadius: shadowBlurRadius,
+            spreadRadius: shadowSpreadRadius,
+            offset: shadowOffset,
+          )
+        : BoxShadow(
+            color: shadowColor ?? const Color(0x0F4F46E5), // Indigo tint shadow
+            blurRadius: 24,
+            spreadRadius: 0,
+            offset: const Offset(0, 8),
+          );
+
+    // 배경색 결정
+    // 라이트 모드: 밝은 색이면 아주 연한 인디고 화이트 적용
+    final Color bgColor;
+    if (isDarkMode) {
+      bgColor = gradientColors != null
+          ? const Color(0xFF161B2E)
+          : const Color(0xFF0F1219);
+    } else {
+      if (gradientColors != null) {
+        final baseColor = gradientColors!.first.withAlpha(255);
+        final lum = baseColor.computeLuminance();
+        bgColor = lum > 0.7 ? const Color(0xFFFCFCFF) : gradientColors!.first; // 인디고 틴트 화이트
+      } else {
+        bgColor = const Color(0xFFFCFCFF); // 순백 대신 아주 미세한 인디고 화이트
+      }
+    }
+
     return Container(
       width: width,
       height: height,
       margin: margin,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(borderRadius),
+        color: isDarkMode ? null : bgColor,
         border: Border.all(
-          color: (gradientColors != null 
-            ? gradientColors!.first 
-            : Colors.white).withOpacity(0.6),  // 밝은 배경에 맞게 테두리
+          color: borderClr,
           width: borderWidth,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: (shadowColor ?? colorScheme.shadow.withOpacity(0.1)),
-            blurRadius: shadowBlurRadius,
-            spreadRadius: shadowSpreadRadius,
-            offset: shadowOffset,
-          ),
-        ],
+        boxShadow: [shadow],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-          child: Container(
-            padding: padding,
-            decoration: BoxDecoration(
-              color: gradientColors != null
-                  ? (isDarkMode ? const Color.fromARGB(255, 34, 34, 34) : gradientColors!.first)
-                  : isDarkMode
-                      ? const Color(0xFF0F0F0F)
-                      : Colors.white.withOpacity(0.4),
+      child: isDarkMode
+          // 다크 모드: 블러 효과 유지
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(borderRadius),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                child: Container(
+                  padding: padding,
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                  ),
+                  child: child,
+                ),
+              ),
+            )
+          // 라이트 모드: 블러 제거, 깔끔한 솔리드 카드
+          : ClipRRect(
+              borderRadius: BorderRadius.circular(borderRadius),
+              child: Container(
+                padding: padding,
+                child: child,
+              ),
             ),
-            child: child,
-          ),
-        ),
-      ),
     );
   }
 }
 
-/// Liquid Glass 스타일의 입력 필드
+/// 입력 필드 위젯
 class GlassTextField extends StatelessWidget {
   final TextEditingController? controller;
   final String? labelText;
@@ -105,7 +137,7 @@ class GlassTextField extends StatelessWidget {
   final String? Function(String?)? validator;
   final void Function(String)? onChanged;
   final TextInputType? keyboardType;
-  final void Function(String)? onFieldSubmitted;  // 엔터 키 처리
+  final void Function(String)? onFieldSubmitted;
 
   const GlassTextField({
     super.key,
@@ -124,26 +156,26 @@ class GlassTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     return GlassContainer(
       padding: EdgeInsets.zero,
       borderRadius: 15.0,
-      blur: 20.0,  // 더 강한 블러
-      borderWidth: 0.8,  // 더 미묘한 테두리
+      blur: 20.0,
+      borderWidth: 1.0,
       gradientColors: [
         isDarkMode
-            ? const Color(0xFF0F0F0F)
-            : Colors.white.withOpacity(0.5),
+            ? const Color(0xFF0F1219)
+            : Colors.white,
       ],
       child: TextFormField(
         controller: controller,
         obscureText: obscureText,
         keyboardType: keyboardType,
         onChanged: onChanged,
-        onFieldSubmitted: onFieldSubmitted,  // 엔터 키 처리
+        onFieldSubmitted: onFieldSubmitted,
         validator: validator,
         style: TextStyle(
-          color: isDarkMode ? Colors.white : const Color(0xFF1F2937),  // 다크 테마: 흰색, 라이트 테마: 어두운 텍스트
+          color: isDarkMode ? Colors.white : const Color(0xFF0F172A),
           fontWeight: FontWeight.w500,
         ),
         decoration: InputDecoration(
@@ -152,7 +184,7 @@ class GlassTextField extends StatelessWidget {
           prefixIcon: prefixIcon != null
               ? IconTheme(
                   data: IconThemeData(
-                    color: isDarkMode ? Colors.white.withOpacity(0.7) : const Color(0xFF6B7280),  // 다크 테마: 흰색, 라이트 테마: 어두운 아이콘
+                    color: isDarkMode ? Colors.white.withOpacity(0.7) : const Color(0xFF64748B),
                   ),
                   child: prefixIcon!,
                 )
@@ -160,17 +192,17 @@ class GlassTextField extends StatelessWidget {
           suffixIcon: suffixIcon != null
               ? IconTheme(
                   data: IconThemeData(
-                    color: isDarkMode ? Colors.white.withOpacity(0.7) : const Color(0xFF6B7280),  // 다크 테마: 흰색, 라이트 테마: 어두운 아이콘
+                    color: isDarkMode ? Colors.white.withOpacity(0.7) : const Color(0xFF64748B),
                   ),
                   child: suffixIcon!,
                 )
               : null,
           labelStyle: TextStyle(
-            color: isDarkMode ? Colors.white.withOpacity(0.7) : const Color(0xFF4B5563).withOpacity(0.8),  // 다크 테마: 흰색, 라이트 테마: 어두운 텍스트
+            color: isDarkMode ? Colors.white.withOpacity(0.7) : const Color(0xFF475569).withOpacity(0.8),
             fontWeight: FontWeight.w400,
           ),
           hintStyle: TextStyle(
-            color: isDarkMode ? Colors.white.withOpacity(0.5) : const Color(0xFF9CA3AF),  // 다크 테마: 흰색, 라이트 테마: 회색 텍스트
+            color: isDarkMode ? Colors.white.withOpacity(0.5) : const Color(0xFF94A3B8),
           ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
@@ -183,7 +215,7 @@ class GlassTextField extends StatelessWidget {
   }
 }
 
-/// Liquid Glass 스타일의 버튼
+/// 버튼 위젯
 class GlassButton extends StatefulWidget {
   final String text;
   final VoidCallback? onPressed;
@@ -210,29 +242,27 @@ class _GlassButtonState extends State<GlassButton> {
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
-    // 기본 단색
-    final defaultColor = widget.gradientColors != null
-        ? (isDarkMode ? const Color(0xFF0F0F0F) : widget.gradientColors!.first)
-        : isDarkMode
-            ? const Color(0xFF0F0F0F)
-            : Colors.white.withOpacity(0.5);
 
-    // 호버 시 색상 (더 진하게)
+    final defaultColor = widget.gradientColors != null
+        ? (isDarkMode ? const Color(0xFF0F1219) : widget.gradientColors!.first)
+        : isDarkMode
+            ? const Color(0xFF0F1219)
+            : Colors.white;
+
     final hoverColor = widget.gradientColors != null
-        ? (isDarkMode ? const Color(0xFF000000) : widget.gradientColors!.first.withOpacity(
+        ? (isDarkMode ? const Color(0xFF0B0E14) : widget.gradientColors!.first.withOpacity(
             (widget.gradientColors!.first.opacity + 0.2).clamp(0.0, 1.0),
           ))
         : isDarkMode
-            ? const Color(0xFF000000)
-            : Colors.white.withOpacity(0.7);
+            ? const Color(0xFF0B0E14)
+            : const Color(0xFFEEF2FF); // Indigo 50 hover
 
     return GlassContainer(
       width: widget.width,
-      padding: EdgeInsets.zero,  // 패딩 제거 (내부 Container에서 처리)
+      padding: EdgeInsets.zero,
       borderRadius: 15.0,
-      blur: 20.0,  // 더 강한 블러
-      borderWidth: 1.0,  // 더 미묘한 테두리
+      blur: 20.0,
+      borderWidth: 1.0,
       gradientColors: [_isHovered ? hoverColor : defaultColor],
       child: Material(
         color: Colors.transparent,
@@ -253,15 +283,15 @@ class _GlassButtonState extends State<GlassButton> {
           child: InkWell(
             onTap: widget.isLoading ? null : widget.onPressed,
             borderRadius: BorderRadius.circular(15.0),
-            splashColor: widget.gradientColors != null 
-              ? Colors.white.withOpacity(0.3)  // 포인트 색상 버튼의 스플래시 효과
-              : Colors.black.withOpacity(0.1),  // 기본 버튼의 스플래시 효과
-            highlightColor: widget.gradientColors != null 
-              ? Colors.white.withOpacity(0.2)  // 포인트 색상 버튼의 하이라이트 효과
-              : Colors.black.withOpacity(0.05),  // 기본 버튼의 하이라이트 효과
+            splashColor: widget.gradientColors != null
+              ? Colors.white.withOpacity(0.3)
+              : Colors.black.withOpacity(0.1),
+            highlightColor: widget.gradientColors != null
+              ? Colors.white.withOpacity(0.2)
+              : Colors.black.withOpacity(0.05),
             child: Container(
-              width: widget.width ?? double.infinity,  // width가 지정되면 사용, 아니면 전체 너비
-              padding: const EdgeInsets.symmetric(vertical: 16),  // 버튼 내부 패딩
+              width: widget.width ?? double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16),
               alignment: Alignment.center,
               child: widget.isLoading
                   ? const SizedBox(
@@ -275,9 +305,9 @@ class _GlassButtonState extends State<GlassButton> {
                   : Text(
                       widget.text,
                       style: TextStyle(
-                        color: widget.gradientColors != null 
-                          ? Colors.white  // 포인트 색상 버튼은 흰색 텍스트
-                          : const Color(0xFF1F2937),  // 기본 버튼은 어두운 텍스트
+                        color: widget.gradientColors != null
+                          ? Colors.white
+                          : const Color(0xFF0F172A),
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.2,
@@ -290,4 +320,3 @@ class _GlassButtonState extends State<GlassButton> {
     );
   }
 }
-

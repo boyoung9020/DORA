@@ -244,7 +244,9 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                 decoration: BoxDecoration(
                   border: Border(
                     right: BorderSide(
-                      color: colorScheme.onSurface.withOpacity(0.2),
+                      color: colorScheme.brightness == Brightness.dark
+                          ? colorScheme.onSurface.withOpacity(0.2)
+                          : const Color(0xFFE0E7FF),
                       width: 1,
                     ),
                   ),
@@ -254,7 +256,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface.withOpacity(0.7),
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
@@ -282,7 +284,9 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                   decoration: BoxDecoration(
                     border: Border(
                       right: BorderSide(
-                        color: colorScheme.onSurface.withOpacity(0.2),
+                        color: colorScheme.brightness == Brightness.dark
+                            ? colorScheme.onSurface.withOpacity(0.2)
+                            : const Color(0xFFE0E7FF),
                         width: 1,
                       ),
                     ),
@@ -504,7 +508,9 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: colorScheme.onSurface.withOpacity(0.2),
+            color: colorScheme.brightness == Brightness.dark
+                ? colorScheme.onSurface.withOpacity(0.2)
+                : const Color(0xFFE0E7FF),
             width: 1,
           ),
         ),
@@ -650,12 +656,15 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
 
     final days = _endDate.difference(_startDate).inDays;
 
+    final isDarkMode = colorScheme.brightness == Brightness.dark;
     return Container(
       height: rowHeight,
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: colorScheme.onSurface.withOpacity(0.1),
+            color: isDarkMode
+                ? colorScheme.onSurface.withOpacity(0.1)
+                : const Color(0xFFE0E7FF),
             width: 1,
           ),
         ),
@@ -669,7 +678,9 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
               startDate: _startDate,
               endDate: _endDate,
               dayWidth: dayWidth,
-              lineColor: colorScheme.onSurface.withOpacity(0.1),
+              lineColor: isDarkMode
+                  ? colorScheme.onSurface.withOpacity(0.1)
+                  : const Color(0xFFE0E7FF).withOpacity(0.6),
             ),
           ),
           // 간트 바

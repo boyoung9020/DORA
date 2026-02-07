@@ -64,10 +64,14 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: colorScheme.onSurface.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(8.0),
+                    color: colorScheme.brightness == Brightness.dark
+                        ? colorScheme.surfaceContainerHighest
+                        : const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(12.0),
                     border: Border.all(
-                      color: colorScheme.onSurface.withOpacity(0.1),
+                      color: colorScheme.brightness == Brightness.dark
+                          ? colorScheme.onSurface.withOpacity(0.1)
+                          : const Color(0xFFE0E7FF),
                       width: 1,
                     ),
                   ),
@@ -75,7 +79,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     children: [
                       Icon(
                         Icons.search,
-                        color: colorScheme.onSurface.withOpacity(0.5),
+                        color: colorScheme.onSurfaceVariant,
                         size: 18,
                       ),
                       const SizedBox(width: 10),
@@ -83,12 +87,12 @@ class _KanbanScreenState extends State<KanbanScreen> {
                         child: TextField(
                           controller: _searchController,
                           decoration: InputDecoration(
-                            hintText: 'Filter by keyword or by field',
+                            hintText: '키워드로 검색...',
                             border: InputBorder.none,
                             isDense: true,
                             contentPadding: EdgeInsets.zero,
                             hintStyle: TextStyle(
-                              color: colorScheme.onSurface.withOpacity(0.5),
+                              color: colorScheme.onSurfaceVariant,
                               fontSize: 13,
                             ),
                           ),
@@ -358,12 +362,14 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 return Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: isDarkMode ? Colors.transparent : colorScheme.onSurface.withOpacity(0.02),
+                    color: isDarkMode ? Colors.transparent : const Color(0xFFFAFBFD),
                     borderRadius: BorderRadius.circular(15),
                     border: Border.all(
                       color: isDraggingOver
                           ? colorScheme.primary
-                          : colorScheme.onSurface.withOpacity(0.1),
+                          : isDarkMode
+                              ? colorScheme.onSurface.withOpacity(0.1)
+                              : const Color(0xFFE0E7FF),
                       width: isDraggingOver ? 2 : 1,
                     ),
                   ),
@@ -415,7 +421,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                 colorScheme.surface.withOpacity(0.6),
                                 colorScheme.surface.withOpacity(0.5),
                               ],
-                              borderColor: colorScheme.onSurface.withOpacity(0.2),
+                              borderColor: Theme.of(context).brightness == Brightness.dark
+                                  ? colorScheme.onSurface.withOpacity(0.2)
+                                  : const Color(0xFFE0E7FF),
                               borderWidth: 1.0,
                               child: Container(
                                 width: 36,
@@ -451,10 +459,12 @@ class _KanbanScreenState extends State<KanbanScreen> {
       width: double.infinity,
       height: double.infinity,
       decoration: BoxDecoration(
-        color: isDarkMode ? Colors.transparent : colorScheme.onSurface.withOpacity(0.02),
+        color: isDarkMode ? Colors.transparent : const Color(0xFFFAFBFD),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: colorScheme.onSurface.withOpacity(0.1),
+          color: isDarkMode
+              ? colorScheme.onSurface.withOpacity(0.1)
+              : const Color(0xFFE0E7FF),
           style: BorderStyle.solid,
         ),
       ),
@@ -539,7 +549,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
           colorScheme.surface.withOpacity(0.6),
           colorScheme.surface.withOpacity(0.5),
         ],
-        borderColor: colorScheme.onSurface.withOpacity(0.1),
+        borderColor: Theme.of(context).brightness == Brightness.dark
+            ? colorScheme.onSurface.withOpacity(0.1)
+            : const Color(0xFFE0E7FF),
         child: Stack(
           clipBehavior: Clip.none, // 경계 밖으로 나가는 것을 허용
           children: [

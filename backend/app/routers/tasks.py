@@ -12,6 +12,7 @@ from app.models.task import Task, TaskStatus, TaskPriority
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskUpdate, TaskResponse
 from app.utils.dependencies import get_current_user
+from app.models.project import Project
 from app.utils.notifications import notify_task_assigned, notify_task_option_changed
 from app.routers.websocket import manager
 
@@ -82,14 +83,16 @@ async def create_task(
     db.commit()
     db.refresh(new_task)
     
-    # 모든 클라이언트에게 태스크 생성 이벤트 브로드캐스트
-    asyncio.create_task(manager.broadcast({
+    # 프로젝트 팀원에게만 태스크 생성 이벤트 전송 (타겟 전송)
+    project = db.query(Project).filter(Project.id == new_task.project_id).first()
+    target_users = project.team_member_ids if project else []
+    asyncio.create_task(manager.send_to_users({
         "type": "task_created",
         "data": {
             "task_id": new_task.id,
             "project_id": new_task.project_id,
         }
-    }, exclude_user_id=current_user.id))
+    }, target_users, exclude_user_id=current_user.id))
     
     return new_task
 
@@ -191,14 +194,16 @@ async def update_task(
     db.commit()
     db.refresh(task)
     
-    # 모든 클라이언트에게 태스크 업데이트 이벤트 브로드캐스트
-    asyncio.create_task(manager.broadcast({
+    # 프로젝트 팀원에게만 태스크 업데이트 이벤트 전송 (타겟 전송)
+    project = db.query(Project).filter(Project.id == task.project_id).first()
+    target_users = project.team_member_ids if project else []
+    asyncio.create_task(manager.send_to_users({
         "type": "task_updated",
         "data": {
             "task_id": task.id,
             "project_id": task.project_id,
         }
-    }, exclude_user_id=current_user.id))
+    }, target_users, exclude_user_id=current_user.id))
     
     return task
 

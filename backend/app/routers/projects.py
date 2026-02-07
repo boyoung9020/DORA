@@ -162,14 +162,14 @@ async def add_team_member(
         # 알림 생성
         notify_project_member_added(db, project, user_id, current_user)
         
-        # 모든 클라이언트에게 팀원 추가 이벤트 브로드캐스트
-        asyncio.create_task(manager.broadcast({
+        # 프로젝트 팀원에게만 이벤트 전송 (타겟 전송)
+        asyncio.create_task(manager.send_to_users({
             "type": "team_member_added",
             "data": {
                 "project_id": project.id,
                 "user_id": user_id,
             }
-        }, exclude_user_id=current_user.id))
+        }, project.team_member_ids, exclude_user_id=current_user.id))
     
     return project
 

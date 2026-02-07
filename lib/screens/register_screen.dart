@@ -129,17 +129,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
         // 다크 테마일 때는 단색 배경, 라이트 테마일 때는 그라데이션
         decoration: BoxDecoration(
           color: colorScheme.brightness == Brightness.dark
-              ? colorScheme.background  // 다크 테마: 단색 배경
-              : null,  // 라이트 테마: 그라데이션 사용
+              ? colorScheme.surface
+              : null,
           gradient: colorScheme.brightness == Brightness.dark
-              ? null  // 다크 테마: 그라데이션 없음
+              ? null
               : LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Colors.white,                                    // 순수 흰색
-                    const Color(0xFFF8F9FA),                        // 매우 밝은 회색
-                    colorScheme.primaryContainer.withOpacity(0.3),  // 포인트 색상 (아주 약하게)
+                    Colors.white,
+                    const Color(0xFFF5F3FF), // Violet 50
+                    colorScheme.primaryContainer.withOpacity(0.3),
                   ],
                 ),
         ),
