@@ -32,10 +32,19 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      _currentUser = await _authService.getCurrentUser();
+      // 타임아웃 설정 (5초)
+      _currentUser = await _authService.getCurrentUser().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          print('[AuthProvider] 사용자 로드 타임아웃');
+          return null;
+        },
+      );
       _errorMessage = null;
     } catch (e) {
-      _errorMessage = e.toString();
+      print('[AuthProvider] 사용자 로드 실패: $e');
+      _errorMessage = null; // 에러 메시지는 표시하지 않음 (로그인 화면으로 이동)
+      _currentUser = null;
     } finally {
       _isLoading = false;
       notifyListeners();

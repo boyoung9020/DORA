@@ -8,7 +8,7 @@ class ApiClient {
   // API 베이스 URL
   // 로컬 개발: http://localhost
   // 프로덕션: 실제 서버 주소로 변경
-  static const String baseUrl = 'http://192.168.1.102:8000';
+  static const String baseUrl = 'http://localhost:8000';
   
   // JWT 토큰 저장 키
   static const String _tokenKey = 'auth_token';

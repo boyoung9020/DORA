@@ -49,13 +49,21 @@ void NotificationHandler::HandleMethodCall(
   } else if (method == "showNotification") {
     const auto* arguments = std::get_if<flutter::EncodableMap>(method_call.arguments());
     if (arguments) {
-      const auto* id_value = std::get_if<std::string>(&(*arguments)[flutter::EncodableValue("id")]);
-      const auto* title_value = std::get_if<std::string>(&(*arguments)[flutter::EncodableValue("title")]);
-      const auto* message_value = std::get_if<std::string>(&(*arguments)[flutter::EncodableValue("message")]);
+      auto id_it = arguments->find(flutter::EncodableValue("id"));
+      auto title_it = arguments->find(flutter::EncodableValue("title"));
+      auto message_it = arguments->find(flutter::EncodableValue("message"));
 
-      if (id_value && title_value && message_value) {
-        ShowNotification(*id_value, *title_value, *message_value);
-        result->Success(flutter::EncodableValue(true));
+      if (id_it != arguments->end() && title_it != arguments->end() && message_it != arguments->end()) {
+        const auto* id_value = std::get_if<std::string>(&id_it->second);
+        const auto* title_value = std::get_if<std::string>(&title_it->second);
+        const auto* message_value = std::get_if<std::string>(&message_it->second);
+
+        if (id_value && title_value && message_value) {
+          ShowNotification(*id_value, *title_value, *message_value);
+          result->Success(flutter::EncodableValue(true));
+        } else {
+          result->Error("INVALID_ARGUMENT", "Missing required arguments");
+        }
       } else {
         result->Error("INVALID_ARGUMENT", "Missing required arguments");
       }

@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/notification_provider.dart';
-import '../providers/auth_provider.dart';
-import '../models/notification.dart';
+import '../models/notification.dart' as models;
 
 /// 따라잡기 화면 - 내가 관련된 변경사항을 한눈에 보는 화면
 class CatchUpScreen extends StatelessWidget {
@@ -12,7 +11,6 @@ class CatchUpScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final notificationProvider = Provider.of<NotificationProvider>(context);
-    final authProvider = Provider.of<AuthProvider>(context);
     final notifications = notificationProvider.notifications;
     final unreadCount = notificationProvider.unreadCount;
 
@@ -68,8 +66,11 @@ class CatchUpScreen extends StatelessWidget {
                       child: const Text('취소'),
                     ),
                     TextButton(
-                      onPressed: () {
-                        notificationProvider.clearAll();
+                      onPressed: () async {
+                        // 모든 알림 삭제
+                        for (final notification in notificationProvider.notifications) {
+                          await notificationProvider.deleteNotification(notification.id);
+                        }
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('모든 알림이 삭제되었습니다')),
@@ -116,7 +117,7 @@ class CatchUpScreen extends StatelessWidget {
                     // 필요시 상세 화면으로 이동
                   },
                   onDelete: () {
-                    notificationProvider.removeNotification(notification.id);
+                    notificationProvider.deleteNotification(notification.id);
                   },
                 );
               },
@@ -127,7 +128,7 @@ class CatchUpScreen extends StatelessWidget {
 
 /// 알림 카드 위젯
 class _NotificationCard extends StatelessWidget {
-  final AppNotification notification;
+  final models.Notification notification;
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
@@ -165,7 +166,7 @@ class _NotificationCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  notification.type.icon,
+                  _getTypeIcon(notification.type),
                   color: _getTypeColor(notification.type, colorScheme),
                   size: 24,
                 ),
@@ -255,18 +256,29 @@ class _NotificationCard extends StatelessWidget {
     );
   }
 
-  Color _getTypeColor(NotificationType type, ColorScheme colorScheme) {
+  Color _getTypeColor(models.NotificationType type, ColorScheme colorScheme) {
     switch (type) {
-      case NotificationType.teamMemberAdded:
+      case models.NotificationType.projectMemberAdded:
         return Colors.blue;
-      case NotificationType.taskAssigned:
+      case models.NotificationType.taskAssigned:
         return Colors.orange;
-      case NotificationType.taskStatusChanged:
+      case models.NotificationType.taskOptionChanged:
         return Colors.purple;
-      case NotificationType.commentAdded:
+      case models.NotificationType.taskCommentAdded:
         return Colors.green;
-      case NotificationType.other:
-        return colorScheme.primary;
+    }
+  }
+
+  IconData _getTypeIcon(models.NotificationType type) {
+    switch (type) {
+      case models.NotificationType.projectMemberAdded:
+        return Icons.person_add;
+      case models.NotificationType.taskAssigned:
+        return Icons.assignment;
+      case models.NotificationType.taskOptionChanged:
+        return Icons.edit;
+      case models.NotificationType.taskCommentAdded:
+        return Icons.comment;
     }
   }
 

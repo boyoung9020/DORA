@@ -569,12 +569,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: colorScheme.surface.withOpacity(0.5),
+            color: colorScheme.brightness == Brightness.dark
+                ? const Color(0xFF161B2E)
+                : Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: statusColor.withOpacity(0.5),
               width: 2,
             ),
+            boxShadow: colorScheme.brightness == Brightness.dark
+                ? null
+                : [
+                    BoxShadow(
+                      color: const Color(0xFF4F46E5).withOpacity(0.05),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
