@@ -48,44 +48,63 @@ def is_allowed_file(filename: str) -> bool:
     return ext in ALLOWED_FILE_EXTENSIONS
 
 
+async def _stream_upload(file: UploadFile, dest: Path, max_size: int) -> int:
+    """파일을 스트리밍으로 저장하면서 크기 체크 (메모리 보호)"""
+    total = 0
+    chunk_size = 256 * 1024  # 256KB 청크
+    with open(dest, "wb") as f:
+        while True:
+            chunk = await file.read(chunk_size)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_size:
+                f.close()
+                dest.unlink(missing_ok=True)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"파일 크기는 {max_size // (1024*1024)}MB를 초과할 수 없습니다"
+                )
+            f.write(chunk)
+    return total
+
+
 @router.post("/image")
 async def upload_image(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
 ):
     """이미지 업로드"""
-    # 파일 확장자 확인
     if not is_allowed_image(file.filename):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="허용되지 않은 파일 형식입니다. (jpg, jpeg, png, gif, webp만 가능)"
         )
-    
-    # 파일 크기 확인 (10MB 제한)
-    contents = await file.read()
-    if len(contents) > 10 * 1024 * 1024:  # 10MB
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="파일 크기는 10MB를 초과할 수 없습니다"
-        )
-    
-    # 고유한 파일명 생성
+
     file_ext = Path(file.filename).suffix.lower()
     unique_filename = f"{uuid.uuid4()}{file_ext}"
     file_path = UPLOAD_DIR / unique_filename
-    
-    # 파일 저장
-    with open(file_path, "wb") as f:
-        f.write(contents)
-    
-    # URL 반환
+
+    await _stream_upload(file, file_path, max_size=10 * 1024 * 1024)  # 10MB
+
     image_url = f"/api/uploads/image/{unique_filename}"
     return {"url": image_url, "filename": unique_filename}
+
+
+def _safe_filename(filename: str):
+    """경로 탐색 공격 차단"""
+    if '..' in filename or '/' in filename or '\\' in filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="잘못된 파일명입니다"
+        )
+    return filename
 
 
 @router.get("/image/{filename}")
 async def get_image(filename: str):
     """이미지 파일 반환"""
+    _safe_filename(filename)
     file_path = UPLOAD_DIR / filename
 
     if not file_path.exists():
@@ -109,32 +128,25 @@ async def upload_file(
             detail="허용되지 않은 파일 형식입니다."
         )
 
-    contents = await file.read()
-    if len(contents) > 50 * 1024 * 1024:  # 50MB
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="파일 크기는 50MB를 초과할 수 없습니다"
-        )
-
     file_ext = Path(file.filename).suffix.lower()
     unique_filename = f"{uuid.uuid4()}{file_ext}"
     file_path = UPLOAD_DIR / unique_filename
 
-    with open(file_path, "wb") as f:
-        f.write(contents)
+    file_size = await _stream_upload(file, file_path, max_size=50 * 1024 * 1024)  # 50MB
 
     file_url = f"/api/uploads/file/{unique_filename}"
     return {
         "url": file_url,
         "filename": unique_filename,
         "original_name": file.filename,
-        "size": len(contents),
+        "size": file_size,
     }
 
 
 @router.get("/file/{filename}")
 async def get_file(filename: str):
     """일반 파일 다운로드"""
+    _safe_filename(filename)
     file_path = UPLOAD_DIR / filename
 
     if not file_path.exists():

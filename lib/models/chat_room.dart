@@ -1,3 +1,5 @@
+import '../utils/date_utils.dart';
+
 /// 채팅방 타입
 enum ChatRoomType { dm, group }
 
@@ -47,10 +49,10 @@ class ChatRoom {
       memberIds: (json[memberIdsKey] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       lastMessageContent: json[lastMsgContentKey],
       lastMessageSender: json[lastMsgSenderKey],
-      lastMessageAt: json[lastMsgAtKey] != null ? DateTime.parse(json[lastMsgAtKey]) : null,
+      lastMessageAt: parseUtcToLocalOrNull(json[lastMsgAtKey]),
       unreadCount: json[unreadCountKey] ?? 0,
-      createdAt: DateTime.parse(json[createdAtKey]),
-      updatedAt: DateTime.parse(json[updatedAtKey]),
+      createdAt: parseUtcToLocal(json[createdAtKey]),
+      updatedAt: parseUtcToLocal(json[updatedAtKey]),
     );
   }
 

@@ -1,3 +1,5 @@
+import '../utils/date_utils.dart';
+
 /// 채팅 메시지 모델
 class ChatMessage {
   final String id;
@@ -39,8 +41,8 @@ class ChatMessage {
       content: json['content'] ?? '',
       imageUrls: (json[imageUrlsKey] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       fileUrls: (json[fileUrlsKey] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-      createdAt: DateTime.parse(json[createdAtKey]),
-      updatedAt: json[updatedAtKey] != null ? DateTime.parse(json[updatedAtKey]) : null,
+      createdAt: parseUtcToLocal(json[createdAtKey]),
+      updatedAt: parseUtcToLocalOrNull(json[updatedAtKey]),
     );
   }
 

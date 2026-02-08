@@ -1,3 +1,5 @@
+import '../utils/date_utils.dart';
+
 /// 댓글 모델 클래스
 class Comment {
   final String id;
@@ -52,8 +54,8 @@ class Comment {
       imageUrls: json[imageUrlsKey] != null 
           ? List<String>.from(json[imageUrlsKey])
           : [],
-      createdAt: DateTime.parse(json[createdAtKey]),
-      updatedAt: json[updatedAtKey] != null ? DateTime.parse(json[updatedAtKey]) : null,
+      createdAt: parseUtcToLocal(json[createdAtKey]),
+      updatedAt: parseUtcToLocalOrNull(json[updatedAtKey]),
     );
   }
 

@@ -1,9 +1,9 @@
 """
 프로젝트 관리 API 라우터
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import uuid
 import asyncio
 from app.database import get_db
@@ -19,11 +19,19 @@ router = APIRouter()
 
 @router.get("/", response_model=List[ProjectResponse])
 async def get_all_projects(
+    skip: int = Query(0, ge=0, description="건너뛸 항목 수"),
+    limit: int = Query(100, ge=1, le=500, description="최대 항목 수"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """모든 프로젝트 목록 가져오기"""
-    projects = db.query(Project).all()
+    """프로젝트 목록 가져오기 (관리자/PM: 전체, 일반유저: 본인 소속만)"""
+    if current_user.is_admin or current_user.is_pm:
+        query = db.query(Project)
+    else:
+        query = db.query(Project).filter(
+            Project.team_member_ids.any(current_user.id)
+        )
+    projects = query.offset(skip).limit(limit).all()
     return projects
 
 
@@ -40,6 +48,13 @@ async def get_project(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="프로젝트를 찾을 수 없습니다"
         )
+    # 일반 유저는 소속 프로젝트만 조회 가능
+    if not current_user.is_admin and not current_user.is_pm:
+        if current_user.id not in (project.team_member_ids or []):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="이 프로젝트에 접근 권한이 없습니다"
+            )
     return project
 
 

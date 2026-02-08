@@ -1,12 +1,12 @@
 """
 태스크 관리 API 라우터
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from app.database import get_db
 from app.models.task import Task, TaskStatus, TaskPriority
 from app.models.user import User
@@ -14,6 +14,7 @@ from app.schemas.task import TaskCreate, TaskUpdate, TaskResponse
 from app.utils.dependencies import get_current_user
 from app.models.project import Project
 from app.utils.notifications import notify_task_assigned, notify_task_option_changed
+from sqlalchemy import or_
 from app.routers.websocket import manager
 
 router = APIRouter()
@@ -23,18 +24,27 @@ router = APIRouter()
 async def get_all_tasks(
     project_id: Optional[str] = None,
     status: Optional[TaskStatus] = None,
+    skip: int = Query(0, ge=0, description="건너뛸 항목 수"),
+    limit: int = Query(200, ge=1, le=1000, description="최대 항목 수"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """모든 태스크 가져오기 (필터링 옵션)"""
+    """태스크 가져오기 (일반 유저: 소속 프로젝트 태스크만)"""
     query = db.query(Task)
-    
+
     if project_id:
         query = query.filter(Task.project_id == project_id)
     if status:
         query = query.filter(Task.status == status)
-    
-    tasks = query.all()
+
+    # 일반 유저는 소속 프로젝트의 태스크만 조회
+    if not current_user.is_admin and not current_user.is_pm:
+        my_projects = db.query(Project.id).filter(
+            Project.team_member_ids.any(current_user.id)
+        ).subquery()
+        query = query.filter(Task.project_id.in_(my_projects))
+
+    tasks = query.offset(skip).limit(limit).all()
     return tasks
 
 
@@ -130,7 +140,7 @@ async def update_task(
                 "toStatus": task_data.status.value,
                 "userId": current_user.id,
                 "username": current_user.username,
-                "changedAt": datetime.utcnow().isoformat()
+                "changedAt": datetime.now(timezone.utc).isoformat()
             }
             task.status_history = list(task.status_history) + [history_entry]
         task.status = task_data.status
@@ -156,7 +166,7 @@ async def update_task(
                 "toPriority": task_data.priority.value,
                 "userId": current_user.id,
                 "username": current_user.username,
-                "changedAt": datetime.utcnow().isoformat()
+                "changedAt": datetime.now(timezone.utc).isoformat()
             }
             task.priority_history = list(task.priority_history) + [history_entry]
         task.priority = task_data.priority
@@ -178,7 +188,7 @@ async def update_task(
                     "assignedUsername": assigned_username,
                     "assignedBy": current_user.id,
                     "assignedByUsername": current_user.username,
-                    "assignedAt": datetime.utcnow().isoformat()
+                    "assignedAt": datetime.now(timezone.utc).isoformat()
                 }
                 task.assignment_history = list(task.assignment_history) + [history_entry]
                 
@@ -249,7 +259,7 @@ async def change_task_status(
             "toStatus": new_status.value,
             "userId": current_user.id,
             "username": current_user.username,
-            "changedAt": datetime.utcnow().isoformat()
+            "changedAt": datetime.now(timezone.utc).isoformat()
         }
         task.status_history = list(task.status_history) + [history_entry]
         task.status = new_status

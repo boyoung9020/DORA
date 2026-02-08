@@ -1,3 +1,5 @@
+import '../utils/date_utils.dart';
+
 /// 알림 타입 열거형
 enum NotificationType {
   projectMemberAdded,      // 프로젝트 팀원으로 추가됨
@@ -100,7 +102,7 @@ class Notification {
       title: json['title'],
       message: json['message'],
       isRead: json[isReadKey] ?? false,
-      createdAt: DateTime.parse(json[createdAtKey]),
+      createdAt: parseUtcToLocal(json[createdAtKey]),
     );
   }
 

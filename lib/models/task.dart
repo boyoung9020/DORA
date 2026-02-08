@@ -1,16 +1,5 @@
 import 'package:flutter/material.dart';
-
-/// UTC 날짜 시간 파싱 헬퍼 함수
-/// 백엔드에서 datetime.utcnow().isoformat()로 저장된 경우 'Z'가 없을 수 있으므로
-/// 명시적으로 UTC로 파싱
-DateTime _parseUtcDateTime(String dateString) {
-  // 'Z'가 있으면 이미 UTC로 표시됨
-  if (dateString.endsWith('Z')) {
-    return DateTime.parse(dateString);
-  }
-  // 'Z'가 없으면 UTC로 명시적으로 파싱
-  return DateTime.parse('${dateString}Z');
-}
+import '../utils/date_utils.dart';
 
 /// 상태 변경 히스토리
 class StatusChangeHistory {
@@ -50,7 +39,7 @@ class StatusChangeHistory {
       ),
       userId: json['userId'],
       username: json['username'],
-      changedAt: _parseUtcDateTime(json['changedAt']),
+      changedAt: parseUtcToLocal(json['changedAt']),
     );
   }
 }
@@ -87,7 +76,7 @@ class AssignmentHistory {
       assignedUsername: json['assignedUsername'],
       assignedBy: json['assignedBy'],
       assignedByUsername: json['assignedByUsername'],
-      assignedAt: _parseUtcDateTime(json['assignedAt']),
+      assignedAt: parseUtcToLocal(json['assignedAt']),
     );
   }
 }
@@ -130,7 +119,7 @@ class PriorityChangeHistory {
       ),
       userId: json['userId'],
       username: json['username'],
-      changedAt: _parseUtcDateTime(json['changedAt']),
+      changedAt: parseUtcToLocal(json['changedAt']),
     );
   }
 }
@@ -296,19 +285,19 @@ class Task {
     
     // start_date 또는 startDate 처리
     final startDateKey = getKey('startDate', 'start_date');
-    final startDate = json[startDateKey] != null ? DateTime.parse(json[startDateKey]) : null;
-    
+    final startDate = parseUtcToLocalOrNull(json[startDateKey]);
+
     // end_date 또는 endDate 처리
     final endDateKey = getKey('endDate', 'end_date');
-    final endDate = json[endDateKey] != null ? DateTime.parse(json[endDateKey]) : null;
-    
+    final endDate = parseUtcToLocalOrNull(json[endDateKey]);
+
     // created_at 또는 createdAt 처리
     final createdAtKey = getKey('createdAt', 'created_at');
-    final createdAt = DateTime.parse(json[createdAtKey]);
-    
+    final createdAt = parseUtcToLocal(json[createdAtKey]);
+
     // updated_at 또는 updatedAt 처리
     final updatedAtKey = getKey('updatedAt', 'updated_at');
-    final updatedAt = DateTime.parse(json[updatedAtKey]);
+    final updatedAt = parseUtcToLocal(json[updatedAtKey]);
     
     return Task(
       id: json['id'],

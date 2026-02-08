@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/date_utils.dart';
 
 /// 프로젝트 모델 클래스
 class Project {
@@ -58,16 +59,9 @@ class Project {
     
     // 날짜 파싱 (null 처리 포함)
     DateTime parseDate(dynamic dateValue) {
-      if (dateValue == null) {
-        return DateTime.now();
-      }
+      if (dateValue == null) return DateTime.now();
       if (dateValue is String) {
-        try {
-          return DateTime.parse(dateValue);
-        } catch (e) {
-          print('[Project.fromJson] 날짜 파싱 실패: $dateValue, 오류: $e');
-          return DateTime.now();
-        }
+        return parseUtcToLocalOrNull(dateValue) ?? DateTime.now();
       }
       return DateTime.now();
     }

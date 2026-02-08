@@ -1,3 +1,5 @@
+import '../utils/date_utils.dart';
+
 /// 사용자 모델 클래스
 /// 
 /// 이 클래스는 사용자 정보를 담는 데이터 모델입니다.
@@ -57,24 +59,11 @@ class User {
     final isPMKey = json.containsKey('is_pm') ? 'is_pm' : 'isPM';
     final profileImageUrlKey = json.containsKey('profile_image_url') ? 'profile_image_url' : 'profileImageUrl';
     
-    // 날짜 파싱 (ISO 8601 형식 또는 다른 형식 지원)
+    // 날짜 파싱 (UTC → 로컬 변환)
     DateTime parseDate(dynamic dateValue) {
-      if (dateValue == null) {
-        return DateTime.now();
-      }
+      if (dateValue == null) return DateTime.now();
       if (dateValue is String) {
-        try {
-          return DateTime.parse(dateValue);
-        } catch (e) {
-          // ISO 8601 형식이 아닌 경우 시도
-          try {
-            // "2025-11-20T04:30:00.123456+00:00" 형식 처리
-            return DateTime.parse(dateValue.replaceAll(' ', 'T'));
-          } catch (e2) {
-            print('[User.fromJson] 날짜 파싱 실패: $dateValue, 오류: $e2');
-            return DateTime.now();
-          }
-        }
+        return parseUtcToLocalOrNull(dateValue) ?? DateTime.now();
       }
       return DateTime.now();
     }

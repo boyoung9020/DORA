@@ -3,7 +3,8 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, and_
+from sqlalchemy.dialects.postgresql import array
 from typing import List, Optional
 import uuid
 import asyncio
@@ -79,31 +80,30 @@ async def create_room(
             )
 
         sorted_ids = sorted(member_ids)
-        # 기존 DM방 찾기
-        existing_rooms = db.query(ChatRoom).filter(
-            ChatRoom.type == ChatRoomType.DM
-        ).all()
+        # 기존 DM방 찾기 - PostgreSQL ARRAY contains 연산자로 직접 검색
+        existing_room = db.query(ChatRoom).filter(
+            ChatRoom.type == ChatRoomType.DM,
+            ChatRoom.member_ids.contains(sorted_ids),
+        ).first()
 
-        for room in existing_rooms:
-            if sorted(room.member_ids or []) == sorted_ids:
-                # 기존 DM방 반환
-                participant = db.query(ChatRoomParticipant).filter(
-                    ChatRoomParticipant.room_id == room.id,
-                    ChatRoomParticipant.user_id == current_user.id
-                ).first()
-                return ChatRoomResponse(
-                    id=room.id,
-                    type=room.type,
-                    name=room.name,
-                    project_id=room.project_id,
-                    member_ids=room.member_ids or [],
-                    last_message_content=room.last_message_content,
-                    last_message_sender=room.last_message_sender,
-                    last_message_at=room.last_message_at,
-                    unread_count=participant.unread_count if participant else 0,
-                    created_at=room.created_at,
-                    updated_at=room.updated_at,
-                )
+        if existing_room:
+            participant = db.query(ChatRoomParticipant).filter(
+                ChatRoomParticipant.room_id == existing_room.id,
+                ChatRoomParticipant.user_id == current_user.id
+            ).first()
+            return ChatRoomResponse(
+                id=existing_room.id,
+                type=existing_room.type,
+                name=existing_room.name,
+                project_id=existing_room.project_id,
+                member_ids=existing_room.member_ids or [],
+                last_message_content=existing_room.last_message_content,
+                last_message_sender=existing_room.last_message_sender,
+                last_message_at=existing_room.last_message_at,
+                unread_count=participant.unread_count if participant else 0,
+                created_at=existing_room.created_at,
+                updated_at=existing_room.updated_at,
+            )
 
         member_ids = sorted_ids
 
