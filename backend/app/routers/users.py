@@ -15,10 +15,14 @@ router = APIRouter()
 @router.get("/", response_model=List[UserResponse])
 async def get_all_users(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_or_pm_user)
+    current_user: User = Depends(get_current_user)
 ):
-    """모든 사용자 목록 가져오기 (관리자 또는 PM 권한 필요)"""
-    users = db.query(User).all()
+    """채팅 등에서 사용: 프로젝트 무관, DB의 전체 사용자 목록 (인증된 사용자)"""
+    # 채팅에서는 내가 속한 프로젝트와 관계없이 모든 유저와 대화 가능
+    if current_user.is_admin or current_user.is_pm:
+        users = db.query(User).all()
+    else:
+        users = db.query(User).filter(User.is_approved == True).all()
     return users
 
 
@@ -56,6 +60,20 @@ async def get_user(
             detail="사용자를 찾을 수 없습니다"
         )
     return user
+
+
+@router.patch("/me/profile-image", response_model=UserResponse)
+async def update_profile_image(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """현재 사용자 프로필 이미지 업데이트"""
+    profile_image_url = data.get("profile_image_url")
+    current_user.profile_image_url = profile_image_url
+    db.commit()
+    db.refresh(current_user)
+    return current_user
 
 
 @router.patch("/{user_id}/approve", response_model=UserResponse)

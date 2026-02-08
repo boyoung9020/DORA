@@ -5,8 +5,9 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import '../models/task.dart';
 import '../models/user.dart';
 import '../models/comment.dart';
@@ -99,8 +100,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   List<TimelineItem>? _timelineItems;  // 타임라인 아이템 캐시
   String? _editingCommentId;  // 편집 중인 코멘트 ID
   late TextEditingController _editCommentController;  // 편집용 컨트롤러
-  List<File> _selectedCommentImages = [];  // 댓글용 선택된 이미지
-  List<File> _selectedDetailImages = [];    // 상세 내용용 선택된 이미지
+  List<XFile> _selectedCommentImages = [];  // 댓글용 선택된 이미지 (웹/데스크톱 공통)
+  List<XFile> _selectedDetailImages = [];    // 상세 내용용 선택된 이미지
   List<String> _uploadedCommentImageUrls = [];  // 업로드된 댓글 이미지 URL
   List<String> _uploadedDetailImageUrls = [];   // 업로드된 상세 내용 이미지 URL
   List<User>? _assignedMembers;  // 할당된 팀원 캐시
@@ -395,7 +396,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       final List<XFile> images = await _imagePicker.pickMultiImage();
       if (images.isNotEmpty) {
         setState(() {
-          _selectedCommentImages = images.map((xFile) => File(xFile.path)).toList();
+          _selectedCommentImages = List<XFile>.from(images);
         });
       }
     } catch (e) {
@@ -416,7 +417,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       final List<XFile> images = await _imagePicker.pickMultiImage();
       if (images.isNotEmpty) {
         setState(() {
-          _selectedDetailImages = images.map((xFile) => File(xFile.path)).toList();
+          _selectedDetailImages = List<XFile>.from(images);
         });
       }
     } catch (e) {
@@ -445,7 +446,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       // 이미지 업로드
       List<String> imageUrls = [];
       if (_selectedCommentImages.isNotEmpty) {
-        imageUrls = await _uploadService.uploadImages(_selectedCommentImages);
+        imageUrls = await _uploadService.uploadImagesFromXFiles(_selectedCommentImages);
       }
       
       final comment = await _commentService.createComment(
@@ -1348,7 +1349,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       // 이미지 업로드
       List<String> imageUrls = List<String>.from(currentTask.detailImageUrls);
       if (_selectedDetailImages.isNotEmpty) {
-        final uploadedUrls = await _uploadService.uploadImages(_selectedDetailImages);
+        final uploadedUrls = await _uploadService.uploadImagesFromXFiles(_selectedDetailImages);
         imageUrls.addAll(uploadedUrls);
       }
 
@@ -2056,11 +2057,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                         children: [
                                           ClipRRect(
                                             borderRadius: BorderRadius.circular(8),
-                                            child: Image.file(
-                                              _selectedDetailImages[index],
+                                            child: _XFileImage(
+                                              xfile: _selectedDetailImages[index],
                                               width: 100,
                                               height: 100,
-                                              fit: BoxFit.cover,
                                             ),
                                           ),
                                           Positioned(
@@ -2448,7 +2448,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   setState(() => _isCommentDropHover = false);
                   final dropped = details.files
                       .where((file) => file.path.isNotEmpty && _isSupportedImageFile(file.path))
-                      .map((file) => File(file.path))
+                      .map((file) => XFile(file.path))
                       .toList();
                   if (dropped.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -2553,11 +2553,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           children: [
                                             ClipRRect(
                                               borderRadius: BorderRadius.circular(8),
-                                              child: Image.file(
-                                                _selectedCommentImages[index],
+                                              child: _XFileImage(
+                                                xfile: _selectedCommentImages[index],
                                                 width: 100,
                                                 height: 100,
-                                                fit: BoxFit.cover,
                                               ),
                                             ),
                                             Positioned(
@@ -2684,12 +2683,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 final data = result['data'];
                 if (data is String && data.isNotEmpty) {
                   final imageBytes = base64Decode(data);
-                  final tempDir = Directory.systemTemp;
-                  final tempFile = File('${tempDir.path}/pasted_image_${DateTime.now().millisecondsSinceEpoch}.png');
-                  await tempFile.writeAsBytes(imageBytes);
-
+                  final xfile = XFile.fromData(
+                    imageBytes,
+                    name: 'pasted_image_${DateTime.now().millisecondsSinceEpoch}.png',
+                  );
                   setState(() {
-                    _selectedCommentImages.add(tempFile);
+                    _selectedCommentImages.add(xfile);
                   });
                   return;
                 }
@@ -2699,7 +2698,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   final dropped = rawPaths
                       .whereType<String>()
                       .where((path) => _isSupportedImageFile(path))
-                      .map((path) => File(path))
+                      .map((path) => XFile(path))
                       .toList();
 
                   if (dropped.isEmpty) {
@@ -2720,12 +2719,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               }
             } else if (result is String && result.isNotEmpty) {
               final imageBytes = base64Decode(result);
-              final tempDir = Directory.systemTemp;
-              final tempFile = File('${tempDir.path}/pasted_image_${DateTime.now().millisecondsSinceEpoch}.png');
-              await tempFile.writeAsBytes(imageBytes);
-
+              final xfile = XFile.fromData(
+                imageBytes,
+                name: 'pasted_image_${DateTime.now().millisecondsSinceEpoch}.png',
+              );
               setState(() {
-                _selectedCommentImages.add(tempFile);
+                _selectedCommentImages.add(xfile);
               });
               return;
             }
@@ -2919,6 +2918,48 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+}
+
+/// XFile 미리보기 (웹/데스크톱 공통, Image.file 대체)
+class _XFileImage extends StatelessWidget {
+  const _XFileImage({
+    required this.xfile,
+    required this.width,
+    required this.height,
+  });
+
+  final XFile xfile;
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List>(
+      future: xfile.readAsBytes(),
+      builder: (context, snapshot) {
+        if (snapshot.hasData && snapshot.data != null) {
+          return Image.memory(
+            snapshot.data!,
+            width: width,
+            height: height,
+            fit: BoxFit.cover,
+          );
+        }
+        if (snapshot.hasError) {
+          return SizedBox(
+            width: width,
+            height: height,
+            child: Icon(Icons.broken_image, size: width * 0.5, color: Colors.grey),
+          );
+        }
+        return SizedBox(
+          width: width,
+          height: height,
+          child: const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))),
         );
       },
     );

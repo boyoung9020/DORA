@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/app_title_bar.dart';
@@ -26,6 +27,8 @@ class _LoginScreenState extends State<LoginScreen>
   late AnimationController _bgController;
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
+  late AnimationController _logoController;
+  late Animation<double> _logoAnimation;
 
   // 마우스 인터랙션
   Offset _mousePosition = Offset.zero;
@@ -39,6 +42,17 @@ class _LoginScreenState extends State<LoginScreen>
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat();
+
+    // logo.json: 192프레임 @ 48fps ≈ 4초 → 2초로 재생, easeInOut으로 보간 부드럽게
+    _logoController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat();
+    // 선형 보간으로 처음~끝 일정 속도 재생 (easeInOut은 시작/끝이 느려져 끊겨 보임)
+    _logoAnimation = CurvedAnimation(
+      parent: _logoController,
+      curve: Curves.linear,
+    );
 
     _fadeController = AnimationController(
       vsync: this,
@@ -69,6 +83,7 @@ class _LoginScreenState extends State<LoginScreen>
     _passwordController.dispose();
     _bgController.dispose();
     _fadeController.dispose();
+    _logoController.dispose();
     super.dispose();
   }
 
@@ -146,7 +161,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  /// 인디고/블루/시안 파스텔 그라데이션 배경
+  /// 인디고/블루/시안 파스텔 그라데이션 배경 (루프 시 끊김 없도록 주기 함수 사용)
   Widget _buildBackground(double t, Size size) {
     final nx = size.width > 0
         ? (_smoothMouse.dx / size.width) * 2 - 1
@@ -158,15 +173,20 @@ class _LoginScreenState extends State<LoginScreen>
     final gx = _isHovering ? nx * 0.15 : 0.0;
     final gy = _isHovering ? ny * 0.15 : 0.0;
 
+    // t=0과 t=1에서 같은 값이 되도록 sin(2πt) 사용 → 루프 끊김 제거
+    final tau = t * math.pi * 2;
+    final sx = math.sin(tau);
+    final cx = math.cos(tau);
+
     return Stack(
       children: [
-        // 메인 그라데이션
+        // 메인 그라데이션 (주기적: begin/end/stops가 한 주기 끝에서 처음과 동일)
         Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment(-1.0 + t * 0.4 + gx, -1.0 + t * 0.3 + gy),
-                end: Alignment(1.0 - t * 0.3 + gx, 1.0 - t * 0.4 + gy),
+                begin: Alignment(-1.0 + sx * 0.4 + gx, -1.0 + cx * 0.3 + gy),
+                end: Alignment(1.0 - cx * 0.3 + gx, 1.0 - sx * 0.4 + gy),
                 colors: const [
                   Color(0xFFDBEAFE), // Blue 100
                   Color(0xFFE0E7FF), // Indigo 100
@@ -175,8 +195,8 @@ class _LoginScreenState extends State<LoginScreen>
                 ],
                 stops: [
                   0.0,
-                  0.3 + t * 0.1,
-                  0.6 + t * 0.05,
+                  0.3 + sx * 0.05 + 0.05,
+                  0.6 + cx * 0.025 + 0.025,
                   1.0,
                 ],
               ),
@@ -184,26 +204,26 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ),
 
-        // 소프트 블롭 1 - 인디고
+        // 소프트 블롭 1 - 인디고 (sin/cos는 이미 주기적)
         _buildSoftBlob(
-          centerX: size.width * 0.2 + math.sin(t * math.pi * 2) * 40 + nx * 20,
-          centerY: size.height * 0.3 + math.cos(t * math.pi * 2 * 0.7) * 30 + ny * 15,
+          centerX: size.width * 0.2 + sx * 40 + nx * 20,
+          centerY: size.height * 0.3 + math.cos(tau * 0.7) * 30 + ny * 15,
           radius: 250,
           color: const Color(0xFF818CF8).withValues(alpha: 0.3),
         ),
 
         // 소프트 블롭 2 - 시안
         _buildSoftBlob(
-          centerX: size.width * 0.75 + math.cos(t * math.pi * 2 * 0.8) * 35 + nx * 25,
-          centerY: size.height * 0.6 + math.sin(t * math.pi * 2 * 0.6) * 40 + ny * 20,
+          centerX: size.width * 0.75 + math.cos(tau * 0.8) * 35 + nx * 25,
+          centerY: size.height * 0.6 + math.sin(tau * 0.6) * 40 + ny * 20,
           radius: 280,
           color: const Color(0xFF22D3EE).withValues(alpha: 0.25),
         ),
 
         // 소프트 블롭 3 - 블루
         _buildSoftBlob(
-          centerX: size.width * 0.5 + math.sin(t * math.pi * 2 * 1.2) * 30 + nx * 15,
-          centerY: size.height * 0.15 + math.cos(t * math.pi * 2 * 0.5) * 25 + ny * 10,
+          centerX: size.width * 0.5 + math.sin(tau * 1.2) * 30 + nx * 15,
+          centerY: size.height * 0.15 + math.cos(tau * 0.5) * 25 + ny * 10,
           radius: 200,
           color: const Color(0xFF6366F1).withValues(alpha: 0.2),
         ),
@@ -273,8 +293,8 @@ class _LoginScreenState extends State<LoginScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 홀로그래픽 오브
-              _buildHolographicOrb(),
+              // 앱 로고 (Lottie)
+              _buildLogo(),
               const SizedBox(height: 24),
 
               // Sign In
@@ -396,154 +416,22 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  /// 홀로그래픽 오브 - 인디고/시안 색 흐름
-  Widget _buildHolographicOrb() {
-    final t = _bgController.value;
-    const double orbSize = 88;
-
-    final slow = t * math.pi * 2;
-    final mid = t * math.pi * 2 * 1.7;
-    final fast = t * math.pi * 2 * 2.5;
+  /// 앱 로고 (logo.json Lottie) - 테마 색상 적용, 2배속 재생
+  Widget _buildLogo() {
+    const double logoHeight = 100;
+    const double logoWidth = 64; // 470/744 비율
+    final themeColor = Theme.of(context).colorScheme.primary;
 
     return SizedBox(
-      width: orbSize,
-      height: orbSize,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // 외부 글로우
-          Container(
-            width: orbSize + 16 + math.sin(fast) * 8,
-            height: orbSize + 16 + math.sin(fast) * 8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  Color.lerp(
-                    const Color(0xFF818CF8),
-                    const Color(0xFF22D3EE),
-                    (math.sin(mid) + 1) / 2,
-                  )!.withValues(alpha: 0.3),
-                  Colors.transparent,
-                ],
-              ),
-            ),
-          ),
-
-          // 레이어 1 - 베이스 회전
-          ClipOval(
-            child: Container(
-              width: orbSize,
-              height: orbSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: SweepGradient(
-                  startAngle: slow,
-                  colors: const [
-                    Color(0xFFC7D2FE), // Indigo 200
-                    Color(0xFFA5B4FC), // Indigo 300
-                    Color(0xFFBAE6FD), // Sky 200
-                    Color(0xFFA7F3D0), // Emerald 200
-                    Color(0xFFDBEAFE), // Blue 100
-                    Color(0xFFC7D2FE), // Indigo 200
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // 레이어 2 - 역방향 빠른 회전
-          ClipOval(
-            child: Container(
-              width: orbSize,
-              height: orbSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: SweepGradient(
-                  startAngle: -mid + math.pi * 0.7,
-                  colors: [
-                    const Color(0xFF6366F1).withValues(alpha: 0.55),
-                    const Color(0xFF06B6D4).withValues(alpha: 0.5),
-                    const Color(0xFF818CF8).withValues(alpha: 0.5),
-                    const Color(0xFF34D399).withValues(alpha: 0.35),
-                    const Color(0xFF6366F1).withValues(alpha: 0.55),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // 레이어 3 - 빠르게 돌아다니는 하이라이트
-          ClipOval(
-            child: Container(
-              width: orbSize,
-              height: orbSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  center: Alignment(
-                    math.sin(fast) * 0.5,
-                    math.cos(fast * 0.8) * 0.5,
-                  ),
-                  radius: 0.6,
-                  colors: [
-                    Colors.white.withValues(alpha: 0.5),
-                    Colors.white.withValues(alpha: 0.1),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.35, 1.0],
-                ),
-              ),
-            ),
-          ),
-
-          // 레이어 4 - 두 번째 하이라이트 (다른 궤도)
-          ClipOval(
-            child: Container(
-              width: orbSize,
-              height: orbSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  center: Alignment(
-                    math.cos(mid + 2) * 0.55,
-                    math.sin(fast * 0.6 + 1) * 0.55,
-                  ),
-                  radius: 0.45,
-                  colors: [
-                    Color.lerp(
-                      const Color(0xFFC7D2FE),
-                      const Color(0xFFBAE6FD),
-                      (math.sin(fast) + 1) / 2,
-                    )!.withValues(alpha: 0.45),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // 글래스 반사광 (상단 좌측)
-          Positioned(
-            top: 10,
-            left: 14,
-            child: Container(
-              width: 28,
-              height: 18,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.white.withValues(alpha: 0.55),
-                    Colors.white.withValues(alpha: 0.0),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+      width: logoWidth,
+      height: logoHeight,
+      child: ColorFiltered(
+        colorFilter: ColorFilter.mode(themeColor, BlendMode.srcIn),
+        child: Lottie.asset(
+          'logo.json',
+          fit: BoxFit.contain,
+          controller: _logoAnimation,
+        ),
       ),
     );
   }

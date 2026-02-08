@@ -6,12 +6,34 @@ import 'providers/task_provider.dart';
 import 'providers/project_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/notification_provider.dart';
+import 'providers/chat_provider.dart';
 import 'services/windows_notification_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_layout.dart';
 
 // 웹이 아닐 때만 bitsdojo_window import
 import 'package:bitsdojo_window/bitsdojo_window.dart' if (dart.library.html) 'bitsdojo_window_stub.dart' as bitsdojo;
+
+/// 앱 전체 텍스트 가독성: 기본보다 한 단계씩 진하게 적용
+TextTheme _buildAppTextTheme(TextTheme base) {
+  return TextTheme(
+    displayLarge: base.displayLarge?.copyWith(fontWeight: FontWeight.w600),
+    displayMedium: base.displayMedium?.copyWith(fontWeight: FontWeight.w600),
+    displaySmall: base.displaySmall?.copyWith(fontWeight: FontWeight.w600),
+    headlineLarge: base.headlineLarge?.copyWith(fontWeight: FontWeight.w600),
+    headlineMedium: base.headlineMedium?.copyWith(fontWeight: FontWeight.w600),
+    headlineSmall: base.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+    titleLarge: base.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+    titleMedium: base.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+    titleSmall: base.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+    bodyLarge: base.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
+    bodyMedium: base.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+    bodySmall: base.bodySmall?.copyWith(fontWeight: FontWeight.w500),
+    labelLarge: base.labelLarge?.copyWith(fontWeight: FontWeight.w500),
+    labelMedium: base.labelMedium?.copyWith(fontWeight: FontWeight.w500),
+    labelSmall: base.labelSmall?.copyWith(fontWeight: FontWeight.w500),
+  );
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,6 +73,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => TaskProvider()),
         // NotificationProvider를 전역적으로 사용할 수 있도록 설정
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        // ChatProvider를 전역적으로 사용할 수 있도록 설정
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
@@ -61,6 +85,7 @@ class MyApp extends StatelessWidget {
             // ── Light Theme: Clean Indigo ──
             theme: ThemeData(
               fontFamily: 'NanumSquareRound',
+              textTheme: _buildAppTextTheme(Typography.material2021().black),
               scaffoldBackgroundColor: const Color(0xFFF5F3FF), // Violet 50 — 인디고 톤
               colorScheme: ColorScheme.fromSeed(
                 seedColor: const Color(0xFF4F46E5),
@@ -83,6 +108,7 @@ class MyApp extends StatelessWidget {
             // ── Dark Theme: Deep Indigo ──
             darkTheme: ThemeData(
               fontFamily: 'NanumSquareRound',
+              textTheme: _buildAppTextTheme(Typography.material2021().white),
               scaffoldBackgroundColor: const Color(0xFF0B0E14),
               colorScheme: ColorScheme.fromSeed(
                 seedColor: const Color(0xFF4F46E5),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
@@ -8,9 +9,12 @@ import '../providers/task_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/auth_service.dart';
 import '../services/websocket_service.dart';
+import '../services/upload_service.dart';
 import '../providers/notification_provider.dart';
+import '../providers/chat_provider.dart';
 import '../models/notification.dart' as models;
 import '../models/project.dart';
+import '../models/user.dart';
 import '../widgets/app_title_bar.dart';
 import '../widgets/glass_container.dart';
 import '../utils/avatar_color.dart';
@@ -22,6 +26,7 @@ import 'gantt_chart_screen.dart';
 import 'quick_task_screen.dart';
 import 'admin_approval_screen.dart';
 import 'notification_screen.dart';
+import 'chat_screen.dart';
 
 /// 메인 레이아웃 - Slack 스타일 (왼쪽 사이드바 + 오른쪽 컨텐츠)
 class MainLayout extends StatefulWidget {
@@ -68,10 +73,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       index: 4,
     ),
     MenuItem(
+      icon: Icons.chat_bubble_outline,
+      selectedIcon: Icons.chat_bubble,
+      label: '채팅',
+      index: 5,
+    ),
+    MenuItem(
       icon: Icons.notifications_outlined,
       selectedIcon: Icons.notifications,
       label: '알림',
-      index: 5,
+      index: 6,
     ),
   ];
 
@@ -225,8 +236,28 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           }
         }
         break;
+
+      case 'chat_message_sent':
+        final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+        chatProvider.handleIncomingMessage(data);
+
+        final senderUsername = data['sender_username'] as String?;
+        final content = data['content'] as String?;
+        if (senderUsername != null && content != null) {
+          _showInAppToast(
+            title: '$senderUsername님의 메시지',
+            message: content.length > 50 ? '${content.substring(0, 50)}...' : content,
+            type: models.NotificationType.taskCommentAdded,
+          );
+        }
+        break;
+
+      case 'chat_room_created':
+        final chatProvider2 = Provider.of<ChatProvider>(context, listen: false);
+        chatProvider2.handleRoomCreated(data);
+        break;
     }
-    
+
     // 백엔드에서 알림 목록 동기화 (중복 로컬 생성 대신 서버 데이터 기반)
     await notificationProvider.loadNotifications(userId: user.id);
   }
@@ -394,10 +425,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         index: 4,
       ),
       MenuItem(
+        icon: Icons.chat_bubble_outline,
+        selectedIcon: Icons.chat_bubble,
+        label: '채팅',
+        index: 5,
+      ),
+      MenuItem(
         icon: Icons.notifications_outlined,
         selectedIcon: Icons.notifications,
         label: '알림',
-        index: 5,
+        index: 6,
       ),
     ];
 
@@ -837,18 +874,56 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   ) {
     final user = authProvider.currentUser;
     
+    if (user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty) {
+      final url = user.profileImageUrl!.startsWith('/')
+          ? 'http://localhost:8000${user.profileImageUrl!}'
+          : user.profileImageUrl!;
+      return Center(
+        child: CircleAvatar(
+          radius: 18,
+          backgroundImage: NetworkImage(url),
+          onBackgroundImageError: (_, __) {},
+        ),
+      );
+    }
     return Center(
       child: CircleAvatar(
         radius: 18,
         backgroundColor: AvatarColor.getColorForUser(user?.id ?? user?.username ?? 'U'),
-      child: Text(
-        AvatarColor.getInitial(user?.username ?? 'U'),
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-          fontSize: 16,
+        child: Text(
+          AvatarColor.getInitial(user?.username ?? 'U'),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
         ),
       ),
+    );
+  }
+
+  /// 멤버 아바타 (프로필 이미지 지원)
+  Widget _buildMemberAvatar(User member, {double radius = 18}) {
+    if (member.profileImageUrl != null && member.profileImageUrl!.isNotEmpty) {
+      final url = member.profileImageUrl!.startsWith('/')
+          ? 'http://localhost:8000${member.profileImageUrl!}'
+          : member.profileImageUrl!;
+      return CircleAvatar(
+        radius: radius,
+        backgroundImage: NetworkImage(url),
+        onBackgroundImageError: (_, __) {},
+      );
+    }
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: AvatarColor.getColorForUser(member.id),
+      child: Text(
+        AvatarColor.getInitial(member.username),
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: radius * 0.78,
+        ),
       ),
     );
   }
@@ -1276,8 +1351,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }) {
     final isSelected = _selectedIndex == item.index;
     final notificationProvider = context.watch<NotificationProvider>();
+    final chatProvider = context.watch<ChatProvider>();
     final isNotificationItem = item.label == '알림';
-    final unreadCount = notificationProvider.unreadCount;
+    final isChatItem = item.label == '채팅';
+    final unreadCount = isNotificationItem
+        ? notificationProvider.unreadCount
+        : isChatItem
+            ? chatProvider.totalUnreadCount
+            : 0;
     
     return Padding(
       key: key,
@@ -1314,8 +1395,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                             : colorScheme.onSurface.withOpacity(0.7),
                         size: 24,
                       ),
-                      // 알림 뱃지 (읽지 않은 알림이 있을 때만)
-                      if (isNotificationItem && unreadCount > 0)
+                      // 알림/채팅 뱃지 (읽지 않은 항목이 있을 때만)
+                      if ((isNotificationItem || isChatItem) && unreadCount > 0)
                         Positioned(
                           right: -8,
                           top: -6,
@@ -1530,18 +1611,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     ),
                     child: Row(
                       children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor: AvatarColor.getColorForUser(member.id),
-                          child: Text(
-                            AvatarColor.getInitial(member.username),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
+                        _buildMemberAvatar(member, radius: 18),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -1744,16 +1814,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                           itemBuilder: (context, index) {
                             final user = availableUsers[index];
                             return ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: AvatarColor.getColorForUser(user.id),
-                                child: Text(
-                                  AvatarColor.getInitial(user.username),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
+                              leading: _buildMemberAvatar(user),
                               title: Text(
                                 user.username,
                                 style: TextStyle(
@@ -1992,10 +2053,34 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         return const QuickTaskScreen();
       case '알림':
         return const NotificationScreen();
+      case '채팅':
+        return const ChatScreen();
       case '관리자 승인':
         return const AdminApprovalScreen();
       default:
         return const DashboardScreen();
+    }
+  }
+
+  /// 프로필 이미지 선택 및 업로드
+  Future<void> _pickAndUploadProfileImage(AuthProvider authProvider) async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile == null) return;
+
+    try {
+      // XFile에서 직접 바이트 읽기 (Windows namespace 경로 문제 회피)
+      final bytes = await pickedFile.readAsBytes();
+      final fileName = pickedFile.name;
+      print('[ProfileImage] 파일 선택됨: $fileName (${bytes.length} bytes)');
+
+      final uploadService = UploadService();
+      final imageUrl = await uploadService.uploadImageBytes(bytes, fileName);
+      print('[ProfileImage] 업로드 성공: $imageUrl');
+      await authProvider.updateProfileImage(imageUrl);
+      print('[ProfileImage] 프로필 업데이트 완료');
+    } catch (e) {
+      print('[ProfileImage] 에러: $e');
     }
   }
 
@@ -2055,17 +2140,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                         if (authProvider.currentUser != null) ...[
                       Row(
                         children: [
-                          CircleAvatar(
-                            radius: 30,
-                            backgroundColor: AvatarColor.getColorForUser(authProvider.currentUser!.id),
-                            child: Text(
-                              AvatarColor.getInitial(authProvider.currentUser!.username),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 24,
-                              ),
-                            ),
+                          _ProfileImageButton(
+                            colorScheme: colorScheme,
+                            currentUser: authProvider.currentUser!,
+                            onTap: () => _pickAndUploadProfileImage(authProvider),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -2382,6 +2460,110 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           ),
         );
       },
+    );
+  }
+}
+
+/// 프로필 이미지 + 카메라 버튼 (눌림 스케일 효과)
+class _ProfileImageButton extends StatefulWidget {
+  const _ProfileImageButton({
+    required this.colorScheme,
+    required this.currentUser,
+    required this.onTap,
+  });
+
+  final ColorScheme colorScheme;
+  final User currentUser;
+  final VoidCallback onTap;
+
+  @override
+  State<_ProfileImageButton> createState() => _ProfileImageButtonState();
+}
+
+class _ProfileImageButtonState extends State<_ProfileImageButton> {
+  bool _pressed = false;
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _pressed ? 0.92 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeInOut,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              widget.currentUser.profileImageUrl != null
+                  ? CircleAvatar(
+                      radius: 30,
+                      backgroundImage: NetworkImage(
+                        widget.currentUser.profileImageUrl!.startsWith('/')
+                            ? 'http://localhost:8000${widget.currentUser.profileImageUrl!}'
+                            : widget.currentUser.profileImageUrl!,
+                      ),
+                    )
+                  : CircleAvatar(
+                      radius: 30,
+                      backgroundColor: AvatarColor.getColorForUser(widget.currentUser.id),
+                      child: Text(
+                        AvatarColor.getInitial(widget.currentUser.username),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 24,
+                        ),
+                      ),
+                    ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  curve: Curves.easeInOut,
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: widget.colorScheme.primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: _hovered
+                          ? Colors.white
+                          : widget.colorScheme.surface,
+                      width: _hovered ? 2.5 : 2,
+                    ),
+                    boxShadow: _pressed
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ]
+                        : _hovered
+                            ? [
+                                BoxShadow(
+                                  color: widget.colorScheme.primary.withOpacity(0.5),
+                                  blurRadius: 6,
+                                  spreadRadius: 0.5,
+                                ),
+                              ]
+                            : null,
+                  ),
+                  child: const Icon(Icons.camera_alt, size: 12, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -3,6 +3,11 @@ from app.models.project import Project
 from app.models.task import Task, TaskStatus, TaskPriority
 from app.models.comment import Comment
 from app.models.notification import Notification, NotificationType
+from app.models.chat import ChatRoom, ChatMessage, ChatRoomParticipant, ChatRoomType
 
-__all__ = ["User", "Project", "Task", "TaskStatus", "TaskPriority", "Comment", "Notification", "NotificationType"]
+__all__ = [
+    "User", "Project", "Task", "TaskStatus", "TaskPriority",
+    "Comment", "Notification", "NotificationType",
+    "ChatRoom", "ChatMessage", "ChatRoomParticipant", "ChatRoomType",
+]
 

@@ -122,7 +122,7 @@ class AuthService {
     print('[AuthService] 로그아웃 완료');
   }
 
-  /// 모든 사용자 목록 가져오기 (관리자만)
+  /// 채팅용: 프로젝트 무관, DB의 모든 사용자 목록 (일반: 승인된 사용자, 관리자/PM: 전체)
   Future<List<User>> getAllUsers() async {
     try {
       final response = await ApiClient.get('/api/users/');
@@ -177,6 +177,26 @@ class AuthService {
       return usersData.map((json) => User.fromJson(json as Map<String, dynamic>)).toList();
     } catch (e) {
       throw Exception('승인된 사용자 목록 가져오기 실패: $e');
+    }
+  }
+
+  /// 프로필 이미지 업데이트
+  Future<User> updateProfileImage(String imageUrl) async {
+    try {
+      final response = await ApiClient.patch(
+        '/api/users/me/profile-image',
+        body: {'profile_image_url': imageUrl},
+      );
+      final userData = ApiClient.handleResponse(response);
+      final user = User.fromJson(userData);
+
+      // 로컬 저장소 업데이트
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_currentUserKey, jsonEncode(user.toJson()));
+
+      return user;
+    } catch (e) {
+      throw Exception('프로필 이미지 업데이트 실패: $e');
     }
   }
 

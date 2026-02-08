@@ -142,14 +142,19 @@ Navigator.of(context).pushReplacement(
 );
 ```
 
-## 🔄 다음 단계
+## 📚 문서
 
-- [ ] 프로젝트 관리 기능 구현
-- [ ] 작업(Task) 관리 기능
-- [ ] 데이터베이스 연동 (SQLite)
-- [ ] 클라우드 동기화
-- [ ] 다크 모드
-- [ ] 다국어 지원
+| 문서 | 설명 |
+|------|------|
+| [BACKEND_SETUP.md](BACKEND_SETUP.md) | 백엔드(Nginx + FastAPI + PostgreSQL) 설정 및 Docker 실행 |
+| [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) | PostgreSQL 테이블 구조 및 스키마 |
+| [DOCKER_REBUILD_GUIDE.md](DOCKER_REBUILD_GUIDE.md) | Docker 이미지 재빌드 방법 |
+| [FLUTTER_SETUP_GUIDE.md](FLUTTER_SETUP_GUIDE.md) | Flutter SDK 설치 (Windows/VSCode) |
+| [JWT_SECRET_KEY_GUIDE.md](JWT_SECRET_KEY_GUIDE.md) | JWT 시크릿 키 설정 가이드 |
+| [MACOS_DEPLOYMENT_COMPLETE.md](MACOS_DEPLOYMENT_COMPLETE.md) | macOS 앱 빌드·배포 가이드 |
+| [TESTING_GUIDE.md](TESTING_GUIDE.md) | API·데이터 공유 테스트 방법 |
+| [WEB_DEPLOYMENT_GUIDE.md](WEB_DEPLOYMENT_GUIDE.md) | Flutter 웹 빌드 및 배포 |
+| [WINDOWS_DEPLOYMENT_GUIDE.md](WINDOWS_DEPLOYMENT_GUIDE.md) | Windows EXE 빌드 및 배포 |
 
 ## 📝 라이선스
 

@@ -17,6 +17,7 @@ class User {
   final bool isAdmin;
   final bool isApproved;
   final bool isPM;
+  final String? profileImageUrl;
   final DateTime createdAt;
 
   User({
@@ -27,6 +28,7 @@ class User {
     this.isAdmin = false,
     this.isApproved = false,
     this.isPM = false,
+    this.profileImageUrl,
     required this.createdAt,
   });
 
@@ -40,6 +42,7 @@ class User {
       'isAdmin': isAdmin,
       'isApproved': isApproved,
       'isPM': isPM,
+      'profileImageUrl': profileImageUrl,
       'createdAt': createdAt.toIso8601String(),
     };
   }
@@ -52,6 +55,7 @@ class User {
     final isAdminKey = json.containsKey('is_admin') ? 'is_admin' : 'isAdmin';
     final isApprovedKey = json.containsKey('is_approved') ? 'is_approved' : 'isApproved';
     final isPMKey = json.containsKey('is_pm') ? 'is_pm' : 'isPM';
+    final profileImageUrlKey = json.containsKey('profile_image_url') ? 'profile_image_url' : 'profileImageUrl';
     
     // 날짜 파싱 (ISO 8601 형식 또는 다른 형식 지원)
     DateTime parseDate(dynamic dateValue) {
@@ -83,6 +87,7 @@ class User {
       isAdmin: json[isAdminKey] ?? false,
       isApproved: json[isApprovedKey] ?? false,
       isPM: json[isPMKey] ?? false,
+      profileImageUrl: json[profileImageUrlKey] as String?,
       createdAt: parseDate(json[createdAtKey]),
     );
   }
@@ -96,6 +101,7 @@ class User {
     bool? isAdmin,
     bool? isApproved,
     bool? isPM,
+    String? profileImageUrl,
     DateTime? createdAt,
   }) {
     return User(
@@ -106,6 +112,7 @@ class User {
       isAdmin: isAdmin ?? this.isAdmin,
       isApproved: isApproved ?? this.isApproved,
       isPM: isPM ?? this.isPM,
+      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       createdAt: createdAt ?? this.createdAt,
     );
   }

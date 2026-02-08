@@ -158,6 +158,17 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  /// 프로필 이미지 업데이트
+  Future<bool> updateProfileImage(String imageUrl) async {
+    try {
+      _currentUser = await _authService.updateProfileImage(imageUrl);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   /// 에러 메시지 초기화
   void clearError() {
     _errorMessage = null;

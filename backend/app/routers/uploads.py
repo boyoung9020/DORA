@@ -23,13 +23,29 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # 허용된 이미지 확장자
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+
+# 허용된 일반 파일 확장자
+ALLOWED_FILE_EXTENSIONS = {
+    ".jpg", ".jpeg", ".png", ".gif", ".webp",
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".txt", ".csv", ".json", ".xml", ".yaml", ".yml",
+    ".zip", ".rar", ".7z", ".tar", ".gz",
+    ".mp4", ".mp3", ".wav",
+    ".py", ".js", ".ts", ".dart", ".html", ".css",
+}
+
+
+def is_allowed_image(filename: str) -> bool:
+    """이미지 확장자 확인"""
+    ext = Path(filename).suffix.lower()
+    return ext in ALLOWED_IMAGE_EXTENSIONS
 
 
 def is_allowed_file(filename: str) -> bool:
-    """파일 확장자가 허용된 형식인지 확인"""
+    """일반 파일 확장자 확인"""
     ext = Path(filename).suffix.lower()
-    return ext in ALLOWED_EXTENSIONS
+    return ext in ALLOWED_FILE_EXTENSIONS
 
 
 @router.post("/image")
@@ -39,7 +55,7 @@ async def upload_image(
 ):
     """이미지 업로드"""
     # 파일 확장자 확인
-    if not is_allowed_file(file.filename):
+    if not is_allowed_image(file.filename):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="허용되지 않은 파일 형식입니다. (jpg, jpeg, png, gif, webp만 가능)"
@@ -71,12 +87,61 @@ async def upload_image(
 async def get_image(filename: str):
     """이미지 파일 반환"""
     file_path = UPLOAD_DIR / filename
-    
+
     if not file_path.exists():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="이미지를 찾을 수 없습니다"
         )
-    
+
     return FileResponse(file_path)
+
+
+@router.post("/file")
+async def upload_file(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """일반 파일 업로드"""
+    if not is_allowed_file(file.filename):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="허용되지 않은 파일 형식입니다."
+        )
+
+    contents = await file.read()
+    if len(contents) > 50 * 1024 * 1024:  # 50MB
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="파일 크기는 50MB를 초과할 수 없습니다"
+        )
+
+    file_ext = Path(file.filename).suffix.lower()
+    unique_filename = f"{uuid.uuid4()}{file_ext}"
+    file_path = UPLOAD_DIR / unique_filename
+
+    with open(file_path, "wb") as f:
+        f.write(contents)
+
+    file_url = f"/api/uploads/file/{unique_filename}"
+    return {
+        "url": file_url,
+        "filename": unique_filename,
+        "original_name": file.filename,
+        "size": len(contents),
+    }
+
+
+@router.get("/file/{filename}")
+async def get_file(filename: str):
+    """일반 파일 다운로드"""
+    file_path = UPLOAD_DIR / filename
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="파일을 찾을 수 없습니다"
+        )
+
+    return FileResponse(file_path, filename=filename)
 

@@ -17,6 +17,7 @@ class User(Base):
     is_admin = Column(Boolean, default=False, nullable=False)
     is_approved = Column(Boolean, default=False, nullable=False)
     is_pm = Column(Boolean, default=False, nullable=False)
+    profile_image_url = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
     def __repr__(self):

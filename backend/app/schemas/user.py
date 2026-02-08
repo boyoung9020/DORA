@@ -30,6 +30,7 @@ class UserResponse(UserBase):
     is_admin: bool
     is_approved: bool
     is_pm: bool
+    profile_image_url: Optional[str] = None
     created_at: datetime
     
     class Config:
@@ -41,4 +42,5 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     is_approved: Optional[bool] = None
     is_pm: Optional[bool] = None
+    profile_image_url: Optional[str] = None
 
