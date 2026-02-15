@@ -39,16 +39,22 @@ class TaskUpdate(BaseModel):
     assigned_member_ids: Optional[List[str]] = None
 
 
+class TaskReorderRequest(BaseModel):
+    """태스크 순서 변경 요청 스키마"""
+    task_ids: List[str]
+
+
 class TaskResponse(TaskBase):
     """태스크 응답 스키마"""
     id: str
     comment_ids: List[str]
+    display_order: int = 0
     status_history: List[Dict[str, Any]] = []
     assignment_history: List[Dict[str, Any]] = []
     priority_history: List[Dict[str, Any]] = []
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 

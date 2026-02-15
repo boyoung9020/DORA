@@ -120,7 +120,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _selectedPriority = widget.task.priority;
     _startDate = widget.task.startDate;
     _endDate = widget.task.endDate;
-    
+
     // 초기 로드 시 스크롤이 맨 아래로 가지 않도록 리스너 추가
     _timelineScrollController.addListener(() {
       if (_isInitialLoad && _timelineScrollController.hasClients) {
@@ -134,13 +134,30 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         }
       }
     });
-    
+
+    // 실시간 댓글 갱신 리스너 등록
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final taskProvider = context.read<TaskProvider>();
+      taskProvider.addCommentListener(widget.task.id, _onCommentCreated);
+    });
+
     // 초기 데이터 로드 (한 번에 처리하여 setState 최소화)
     _loadInitialData();
   }
 
+  /// WebSocket으로 댓글 생성 이벤트 수신 시 호출
+  void _onCommentCreated() {
+    if (mounted) {
+      _loadComments();
+    }
+  }
+
   @override
   void dispose() {
+    // 실시간 댓글 갱신 리스너 해제
+    final taskProvider = context.read<TaskProvider>();
+    taskProvider.removeCommentListener(widget.task.id, _onCommentCreated);
+
     _titleController.dispose();
     _descriptionController.dispose();
     _detailController.dispose();

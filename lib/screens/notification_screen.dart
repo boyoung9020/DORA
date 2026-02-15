@@ -16,6 +16,8 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
+  app_notification.NotificationType? _selectedFilter;
+
   @override
   void initState() {
     super.initState();
@@ -74,6 +76,33 @@ class _NotificationScreenState extends State<NotificationScreen> {
     } else {
       return '이전';
     }
+  }
+
+  /// 필터 칩 빌더
+  Widget _buildFilterChip(app_notification.NotificationType? type, String label, IconData icon, ColorScheme colorScheme) {
+    final isSelected = _selectedFilter == type;
+    return FilterChip(
+      selected: isSelected,
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: isSelected ? Colors.white : colorScheme.onSurface.withOpacity(0.6)),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : colorScheme.onSurface.withOpacity(0.7))),
+        ],
+      ),
+      selectedColor: colorScheme.primary,
+      backgroundColor: colorScheme.surface,
+      side: BorderSide(color: isSelected ? colorScheme.primary : colorScheme.outline.withOpacity(0.3)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      showCheckmark: false,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      onSelected: (_) {
+        setState(() {
+          _selectedFilter = isSelected ? null : type;
+        });
+      },
+    );
   }
 
   /// 알림 타입별 아이콘
@@ -289,6 +318,24 @@ class _NotificationScreenState extends State<NotificationScreen> {
             ],
           ),
           const SizedBox(height: 8),
+          // 필터 칩
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildFilterChip(null, '전체', Icons.notifications_none, colorScheme),
+                const SizedBox(width: 8),
+                _buildFilterChip(app_notification.NotificationType.taskAssigned, '태스크 배정', Icons.assignment_ind, colorScheme),
+                const SizedBox(width: 8),
+                _buildFilterChip(app_notification.NotificationType.taskCommentAdded, '댓글', Icons.comment, colorScheme),
+                const SizedBox(width: 8),
+                _buildFilterChip(app_notification.NotificationType.taskOptionChanged, '옵션 변경', Icons.settings, colorScheme),
+                const SizedBox(width: 8),
+                _buildFilterChip(app_notification.NotificationType.projectMemberAdded, '멤버 추가', Icons.group_add, colorScheme),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
           // 알림 목록
           Expanded(
             child: notificationProvider.isLoading
@@ -344,14 +391,32 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           }
                         },
                         color: colorScheme.primary,
-                        child: ListView(
-                          children: _buildGroupedNotificationList(
-                            notificationProvider.notifications,
-                            colorScheme,
-                            notificationProvider,
-                            authProvider,
-                          ),
-                        ),
+                        child: Builder(builder: (context) {
+                          final filtered = _selectedFilter == null
+                              ? notificationProvider.notifications
+                              : notificationProvider.notifications
+                                  .where((n) => n.type == _selectedFilter)
+                                  .toList();
+                          if (filtered.isEmpty) {
+                            return Center(
+                              child: Text(
+                                '해당 유형의 알림이 없습니다',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                                ),
+                              ),
+                            );
+                          }
+                          return ListView(
+                            children: _buildGroupedNotificationList(
+                              filtered,
+                              colorScheme,
+                              notificationProvider,
+                              authProvider,
+                            ),
+                          );
+                        }),
                       ),
           ),
         ],

@@ -17,21 +17,21 @@ import 'package:bitsdojo_window/bitsdojo_window.dart' if (dart.library.html) 'bi
 /// 앱 전체 텍스트 가독성: 기본보다 한 단계씩 진하게 적용
 TextTheme _buildAppTextTheme(TextTheme base) {
   return TextTheme(
-    displayLarge: base.displayLarge?.copyWith(fontWeight: FontWeight.w600),
-    displayMedium: base.displayMedium?.copyWith(fontWeight: FontWeight.w600),
-    displaySmall: base.displaySmall?.copyWith(fontWeight: FontWeight.w600),
-    headlineLarge: base.headlineLarge?.copyWith(fontWeight: FontWeight.w600),
-    headlineMedium: base.headlineMedium?.copyWith(fontWeight: FontWeight.w600),
-    headlineSmall: base.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
-    titleLarge: base.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-    titleMedium: base.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-    titleSmall: base.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-    bodyLarge: base.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
-    bodyMedium: base.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-    bodySmall: base.bodySmall?.copyWith(fontWeight: FontWeight.w500),
-    labelLarge: base.labelLarge?.copyWith(fontWeight: FontWeight.w500),
-    labelMedium: base.labelMedium?.copyWith(fontWeight: FontWeight.w500),
-    labelSmall: base.labelSmall?.copyWith(fontWeight: FontWeight.w500),
+    displayLarge: base.displayLarge?.copyWith(fontWeight: FontWeight.w700),
+    displayMedium: base.displayMedium?.copyWith(fontWeight: FontWeight.w700),
+    displaySmall: base.displaySmall?.copyWith(fontWeight: FontWeight.w700),
+    headlineLarge: base.headlineLarge?.copyWith(fontWeight: FontWeight.w700),
+    headlineMedium: base.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+    headlineSmall: base.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+    titleLarge: base.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+    titleMedium: base.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+    titleSmall: base.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+    bodyLarge: base.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
+    bodyMedium: base.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+    bodySmall: base.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+    labelLarge: base.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+    labelMedium: base.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+    labelSmall: base.labelSmall?.copyWith(fontWeight: FontWeight.w700),
   );
 }
 

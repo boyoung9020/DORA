@@ -218,9 +218,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       case 'comment_created':
         // 댓글이 추가되었으므로 태스크 목록 새로고침
         await taskProvider.loadTasks();
-        
+
         final taskId = data['task_id'] as String?;
         if (taskId != null) {
+          // 열린 태스크 다이얼로그에 실시간 댓글 갱신 알림
+          taskProvider.notifyCommentCreated(taskId);
+
           try {
             final task = taskProvider.tasks.firstWhere((t) => t.id == taskId);
             if (task.assignedMemberIds.contains(user.id)) {

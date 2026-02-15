@@ -3,6 +3,7 @@
 초기 관리자 계정 생성
 """
 from sqlalchemy.orm import Session
+from sqlalchemy import text, inspect
 from app.database import SessionLocal, engine, Base
 from app.models.user import User
 from app.utils.security import get_password_hash
@@ -10,6 +11,23 @@ import uuid
 
 # 테이블 생성
 Base.metadata.create_all(bind=engine)
+
+
+def run_migrations():
+    """기존 테이블에 누락된 컬럼 추가"""
+    inspector = inspect(engine)
+    with engine.connect() as conn:
+        # tasks 테이블에 display_order 컬럼 추가
+        if 'tasks' in inspector.get_table_names():
+            columns = [col['name'] for col in inspector.get_columns('tasks')]
+            if 'display_order' not in columns:
+                conn.execute(text("ALTER TABLE tasks ADD COLUMN display_order INTEGER DEFAULT 0 NOT NULL"))
+                conn.commit()
+                print("✅ tasks 테이블에 display_order 컬럼이 추가되었습니다.")
+
+
+run_migrations()
+
 
 def init_db():
     """초기 데이터베이스 설정"""

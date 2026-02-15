@@ -24,8 +24,8 @@ async def get_all_projects(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """프로젝트 목록 가져오기 (관리자/PM: 전체, 일반유저: 본인 소속만)"""
-    if current_user.is_admin or current_user.is_pm:
+    """프로젝트 목록 가져오기 (관리자: 전체, PM/일반유저: 본인 소속만)"""
+    if current_user.is_admin:
         query = db.query(Project)
     else:
         query = db.query(Project).filter(

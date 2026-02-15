@@ -150,6 +150,7 @@ class Task {
   final List<StatusChangeHistory> statusHistory; // 상태 변경 히스토리
   final List<AssignmentHistory> assignmentHistory; // 할당 히스토리
   final List<PriorityChangeHistory> priorityHistory; // 중요도 변경 히스토리
+  final int displayOrder; // 칸반 보드 내 표시 순서
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -169,6 +170,7 @@ class Task {
     List<StatusChangeHistory>? statusHistory,
     List<AssignmentHistory>? assignmentHistory,
     List<PriorityChangeHistory>? priorityHistory,
+    this.displayOrder = 0,
     required this.createdAt,
     required this.updatedAt,
   }) : detailImageUrls = detailImageUrls ?? [],
@@ -197,6 +199,7 @@ class Task {
       'statusHistory': statusHistory.map((h) => h.toJson()).toList(),
       'assignmentHistory': assignmentHistory.map((h) => h.toJson()).toList(),
       'priorityHistory': priorityHistory.map((h) => h.toJson()).toList(),
+      'display_order': displayOrder,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -325,6 +328,7 @@ class Task {
       statusHistory: statusHistory,
       assignmentHistory: assignmentHistory,
       priorityHistory: priorityHistory,
+      displayOrder: json['display_order'] ?? 0,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -347,6 +351,7 @@ class Task {
     List<StatusChangeHistory>? statusHistory,
     List<AssignmentHistory>? assignmentHistory,
     List<PriorityChangeHistory>? priorityHistory,
+    int? displayOrder,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -366,6 +371,7 @@ class Task {
       statusHistory: statusHistory ?? this.statusHistory,
       assignmentHistory: assignmentHistory ?? this.assignmentHistory,
       priorityHistory: priorityHistory ?? this.priorityHistory,
+      displayOrder: displayOrder ?? this.displayOrder,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

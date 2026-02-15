@@ -11,17 +11,50 @@ class TaskProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
+  // 실시간 댓글 갱신 콜백 (열린 태스크 다이얼로그에서 등록)
+  final Map<String, List<void Function()>> _commentListeners = {};
+
   List<Task> get tasks => _tasks;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  /// 상태별 태스크 가져오기
+  /// 댓글 갱신 리스너 등록 (태스크 상세 화면에서 호출)
+  void addCommentListener(String taskId, void Function() callback) {
+    _commentListeners.putIfAbsent(taskId, () => []);
+    _commentListeners[taskId]!.add(callback);
+  }
+
+  /// 댓글 갱신 리스너 해제
+  void removeCommentListener(String taskId, void Function() callback) {
+    _commentListeners[taskId]?.remove(callback);
+    if (_commentListeners[taskId]?.isEmpty ?? false) {
+      _commentListeners.remove(taskId);
+    }
+  }
+
+  /// 댓글 생성 이벤트 수신 시 호출 (WebSocket에서 호출)
+  void notifyCommentCreated(String taskId) {
+    final listeners = _commentListeners[taskId];
+    if (listeners != null) {
+      for (final listener in List.from(listeners)) {
+        listener();
+      }
+    }
+  }
+
+  /// 상태별 태스크 가져오기 (displayOrder로 정렬)
   List<Task> getTasksByStatus(TaskStatus status, {String? projectId}) {
     var filteredTasks = _tasks.where((task) => task.status == status);
     if (projectId != null) {
       filteredTasks = filteredTasks.where((task) => task.projectId == projectId);
     }
-    return filteredTasks.toList();
+    final result = filteredTasks.toList();
+    result.sort((a, b) {
+      final orderCompare = a.displayOrder.compareTo(b.displayOrder);
+      if (orderCompare != 0) return orderCompare;
+      return b.createdAt.compareTo(a.createdAt);
+    });
+    return result;
   }
 
   /// 초기화 및 태스크 로드
@@ -110,6 +143,26 @@ class TaskProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _errorMessage = '태스크 삭제 중 오류가 발생했습니다: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// 같은 컬럼 내 태스크 순서 변경
+  Future<bool> reorderTasks(List<String> taskIds) async {
+    try {
+      await _taskService.reorderTasks(taskIds);
+      // 로컬 리스트에서도 displayOrder 업데이트
+      for (int i = 0; i < taskIds.length; i++) {
+        final index = _tasks.indexWhere((t) => t.id == taskIds[i]);
+        if (index != -1) {
+          _tasks[index] = _tasks[index].copyWith(displayOrder: i);
+        }
+      }
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = '태스크 순서 변경 중 오류가 발생했습니다: $e';
       notifyListeners();
       return false;
     }

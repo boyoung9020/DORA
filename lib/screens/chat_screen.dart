@@ -415,6 +415,104 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  /// 새 대화 시작 다이얼로그 표시
+  void _showNewDMDialog(BuildContext context, ColorScheme colorScheme, bool isDarkMode) {
+    // 이미 대화 중인 유저 ID 수집
+    final usersWithMessages = <String>{};
+    for (final user in _allUsers) {
+      final room = _getRoomForUser(user.id);
+      if (room?.lastMessageAt != null) {
+        usersWithMessages.add(user.id);
+      }
+    }
+    // 대화 기록이 없는 유저만 필터링
+    final availableUsers = _allUsers.where((u) => !usersWithMessages.contains(u.id)).toList();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400, maxHeight: 480),
+            child: GlassContainer(
+              padding: const EdgeInsets.all(24),
+              borderRadius: 20.0,
+              blur: 25.0,
+              gradientColors: [
+                colorScheme.surface.withValues(alpha: 0.6),
+                colorScheme.surface.withValues(alpha: 0.5),
+              ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '새 대화 시작',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: availableUsers.isEmpty
+                        ? Center(
+                            child: Text(
+                              '모든 사용자와 대화 중입니다',
+                              style: TextStyle(
+                                color: colorScheme.onSurface.withValues(alpha: 0.5),
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: availableUsers.length,
+                            itemBuilder: (context, index) {
+                              final user = availableUsers[index];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () {
+                                      Navigator.of(dialogContext).pop();
+                                      _selectUser(user);
+                                    },
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      child: Row(
+                                        children: [
+                                          _buildUserAvatar(user, radius: 16),
+                                          const SizedBox(width: 10),
+                                          Text(
+                                            user.username,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w400,
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildUserListPanel(BuildContext context, ColorScheme colorScheme, bool isDarkMode) {
     context.watch<ChatProvider>();
 
@@ -438,6 +536,22 @@ class _ChatScreenState extends State<ChatScreen> {
               Material(
                 color: Colors.transparent,
                 child: InkWell(
+                  onTap: () => _showNewDMDialog(context, colorScheme, isDarkMode),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.edit_outlined,
+                      size: 18,
+                      color: colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
                   onTap: () => _showGroupChatDialog(context),
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
@@ -457,9 +571,17 @@ class _ChatScreenState extends State<ChatScreen> {
           child: _isLoadingUsers
               ? const Center(child: CircularProgressIndicator())
               : Builder(builder: (context) {
+                  // 메시지를 주고받은 사람만 표시 (대화 기록이 있는 유저)
+                  final usersWithMessages = _allUsers.where((user) {
+                    final room = _getRoomForUser(user.id);
+                    return room?.lastMessageAt != null;
+                  }).toList();
+                  // 현재 선택된 유저가 목록에 없으면 추가 (새 대화 시작 직후)
+                  if (_selectedUser != null && !usersWithMessages.any((u) => u.id == _selectedUser!.id)) {
+                    usersWithMessages.insert(0, _selectedUser!);
+                  }
                   // 최근 채팅한 사람이 위로 오도록 정렬
-                  final sorted = List<User>.from(_allUsers);
-                  sorted.sort((a, b) {
+                  usersWithMessages.sort((a, b) {
                     final roomA = _getRoomForUser(a.id);
                     final roomB = _getRoomForUser(b.id);
                     final timeA = roomA?.lastMessageAt;
@@ -469,10 +591,31 @@ class _ChatScreenState extends State<ChatScreen> {
                     if (timeB == null) return -1;
                     return timeB.compareTo(timeA); // 최신이 위로
                   });
+                  if (usersWithMessages.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.chat_bubble_outline, size: 48, color: colorScheme.onSurface.withValues(alpha: 0.15)),
+                          const SizedBox(height: 12),
+                          Text(
+                            '대화 기록이 없습니다',
+                            style: TextStyle(fontSize: 14, color: colorScheme.onSurface.withValues(alpha: 0.4)),
+                          ),
+                          const SizedBox(height: 8),
+                          TextButton.icon(
+                            onPressed: () => _showNewDMDialog(context, colorScheme, isDarkMode),
+                            icon: Icon(Icons.edit_outlined, size: 16, color: colorScheme.primary),
+                            label: Text('새 대화 시작', style: TextStyle(color: colorScheme.primary, fontSize: 13)),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
                   return ListView.builder(
-                    itemCount: sorted.length,
+                    itemCount: usersWithMessages.length,
                     itemBuilder: (context, index) {
-                      final user = sorted[index];
+                      final user = usersWithMessages[index];
                       final isSelected = _selectedUser?.id == user.id;
                       final room = _getRoomForUser(user.id);
                       final unreadCount = room?.unreadCount ?? 0;

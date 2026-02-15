@@ -40,7 +40,8 @@ class Task(Base):
     assigned_member_ids = Column(ARRAY(String), default=[], nullable=False)
     comment_ids = Column(ARRAY(String), default=[], nullable=False)
     priority = Column(SQLEnum(TaskPriority), nullable=False, default=TaskPriority.P2)
-    
+    display_order = Column(Integer, default=0, nullable=False)
+
     # 히스토리 데이터는 JSON으로 저장
     status_history = Column(JSON, default=[], nullable=False)
     assignment_history = Column(JSON, default=[], nullable=False)

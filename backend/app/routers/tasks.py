@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from app.database import get_db
 from app.models.task import Task, TaskStatus, TaskPriority
 from app.models.user import User
-from app.schemas.task import TaskCreate, TaskUpdate, TaskResponse
+from app.schemas.task import TaskCreate, TaskUpdate, TaskResponse, TaskReorderRequest
 from app.utils.dependencies import get_current_user
 from app.models.project import Project
 from app.utils.notifications import notify_task_assigned, notify_task_option_changed
@@ -44,7 +44,7 @@ async def get_all_tasks(
         ).subquery()
         query = query.filter(Task.project_id.in_(my_projects))
 
-    tasks = query.offset(skip).limit(limit).all()
+    tasks = query.order_by(Task.display_order.asc(), Task.created_at.desc()).offset(skip).limit(limit).all()
     return tasks
 
 
@@ -105,6 +105,23 @@ async def create_task(
     }, target_users, exclude_user_id=current_user.id))
     
     return new_task
+
+
+@router.patch("/reorder", response_model=List[TaskResponse])
+async def reorder_tasks(
+    request: TaskReorderRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """태스크 순서 변경 (task_ids 배열 순서대로 display_order 설정)"""
+    for index, task_id in enumerate(request.task_ids):
+        task = db.query(Task).filter(Task.id == task_id).first()
+        if task:
+            task.display_order = index
+    db.commit()
+
+    tasks = db.query(Task).filter(Task.id.in_(request.task_ids)).all()
+    return tasks
 
 
 @router.patch("/{task_id}", response_model=TaskResponse)
@@ -263,12 +280,12 @@ async def change_task_status(
         }
         task.status_history = list(task.status_history) + [history_entry]
         task.status = new_status
-        
+
         # 작업 옵션 변경 알림
         notify_task_option_changed(db, task, current_user, ['status'])
-        
+
         db.commit()
         db.refresh(task)
-    
+
     return task
 

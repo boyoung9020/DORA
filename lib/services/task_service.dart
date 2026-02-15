@@ -141,4 +141,16 @@ class TaskService {
       throw Exception('태스크 상태 변경 실패: $e');
     }
   }
+
+  /// 태스크 순서 변경
+  Future<void> reorderTasks(List<String> taskIds) async {
+    try {
+      final response = await ApiClient.patch('/api/tasks/reorder', body: {
+        'task_ids': taskIds,
+      });
+      ApiClient.handleResponse(response);
+    } catch (e) {
+      throw Exception('태스크 순서 변경 실패: $e');
+    }
+  }
 }

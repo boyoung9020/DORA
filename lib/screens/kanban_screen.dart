@@ -377,32 +377,51 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     children: [
                       tasks.isEmpty
                           ? _buildEmptyColumn(context, status)
-                          : SingleChildScrollView(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              child: Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    ...tasks.map((task) {
-                                      return Padding(
-                                        key: ValueKey(task.id),
-                                        padding: const EdgeInsets.only(bottom: 12),
-                                        child: _buildTaskCard(
-                                          context,
-                                          task,
-                                          taskProvider,
-                                        ),
-                                      );
-                                    }).toList(),
-                                    // 태스크 하단에 항상 드래그 가능한 영역 추가
-                                    Container(
-                                      height: 100,
-                                      margin: const EdgeInsets.only(top: 12),
+                          : ReorderableListView(
+                              buildDefaultDragHandles: false,
+                              proxyDecorator: (child, index, animation) {
+                                return Material(
+                                  color: Colors.transparent,
+                                  elevation: 4,
+                                  borderRadius: BorderRadius.circular(15),
+                                  child: child,
+                                );
+                              },
+                              onReorder: (oldIndex, newIndex) {
+                                // spacer 아이템 무시
+                                if (oldIndex >= tasks.length || newIndex > tasks.length) return;
+                                if (oldIndex < newIndex) {
+                                  newIndex -= 1;
+                                }
+                                if (newIndex >= tasks.length) newIndex = tasks.length - 1;
+                                if (oldIndex == newIndex) return;
+                                final taskIds = tasks.map((t) => t.id).toList();
+                                final movedId = taskIds.removeAt(oldIndex);
+                                taskIds.insert(newIndex, movedId);
+                                taskProvider.reorderTasks(taskIds);
+                              },
+                              padding: const EdgeInsets.all(6.0),
+                              children: [
+                                ...tasks.asMap().entries.map((entry) {
+                                  final index = entry.key;
+                                  final task = entry.value;
+                                  return Padding(
+                                    key: ValueKey(task.id),
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: _buildReorderableTaskCard(
+                                      context,
+                                      task,
+                                      taskProvider,
+                                      index,
                                     ),
-                                  ],
+                                  );
+                                }),
+                                // 하단 여백
+                                SizedBox(
+                                  key: const ValueKey('_spacer'),
+                                  height: 100,
                                 ),
-                              ),
+                              ],
                             ),
                       // 하단 오른쪽 구석에 + 버튼
                       Positioned(
@@ -528,17 +547,34 @@ class _KanbanScreenState extends State<KanbanScreen> {
     );
   }
 
+  /// 리오더 가능한 태스크 카드 (카드 자체를 드래그)
+  Widget _buildReorderableTaskCard(
+    BuildContext context,
+    Task task,
+    TaskProvider taskProvider,
+    int index,
+  ) {
+    final statusColor = task.status.color;
+
+    return ReorderableDragStartListener(
+      index: index,
+      child: _buildTaskCardContainer(context, task, statusColor, taskProvider, reorderable: true),
+    );
+  }
+
   /// 태스크 카드 컨테이너
   Widget _buildTaskCardContainer(
     BuildContext context,
     Task task,
     Color statusColor,
-    TaskProvider taskProvider,
-  ) {
+    TaskProvider taskProvider, {
+    bool reorderable = false,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => _showTaskDetailScreen(context, task, taskProvider),
-      onLongPressStart: (details) => _showTaskContextMenu(context, task, taskProvider, details.globalPosition),
+      // reorderable 모드: 롱프레스는 드래그 리오더용이므로 컨텍스트 메뉴는 우클릭만
+      onLongPressStart: reorderable ? null : (details) => _showTaskContextMenu(context, task, taskProvider, details.globalPosition),
       onSecondaryTapDown: (details) => _showTaskContextMenu(context, task, taskProvider, details.globalPosition),
       child: GlassContainer(
         padding: const EdgeInsets.all(16),
@@ -1212,8 +1248,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
   ) {
     showDialog(
       context: context,
-      builder: (context) {
-        final dialogColorScheme = Theme.of(context).colorScheme;
+      builder: (dialogContext) {
+        final dialogColorScheme = Theme.of(dialogContext).colorScheme;
         return Dialog(
           backgroundColor: Colors.transparent,
           child: ConstrainedBox(
@@ -1251,7 +1287,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () => Navigator.of(dialogContext).pop(),
                         child: Text(
                           '취소',
                           style: TextStyle(
@@ -1262,9 +1298,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
                       ),
                       const SizedBox(width: 8),
                       TextButton(
-                        onPressed: () {
-                          taskProvider.deleteTask(task.id);
-                          Navigator.of(context).pop();
+                        onPressed: () async {
+                          Navigator.of(dialogContext).pop();
+                          await taskProvider.deleteTask(task.id);
                         },
                         style: TextButton.styleFrom(
                           backgroundColor: Colors.red.withOpacity(0.2),

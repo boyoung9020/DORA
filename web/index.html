@@ -33,6 +33,12 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <script>
+    // Flutter 앱 영역에서 브라우저 기본 컨텍스트 메뉴 비활성화
+    document.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
