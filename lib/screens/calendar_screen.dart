@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -7,7 +7,7 @@ import '../providers/project_provider.dart';
 import '../models/task.dart';
 import '../widgets/glass_container.dart';
 
-/// 달력 화면
+/// ?щ젰 ?붾㈃
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
 
@@ -65,7 +65,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 헤더
+          // ?ㅻ뜑
           Row(
             children: [
               Text(
@@ -79,7 +79,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
               ),
               const Spacer(),
-              // 이전 달 버튼
+              // ?댁쟾 ??踰꾪듉
               GlassContainer(
                 padding: EdgeInsets.zero,
                 borderRadius: 12.0,
@@ -101,7 +101,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              // 현재 월 표시
+              // ?꾩옱 ???쒖떆
               Text(
                 '${_currentMonth.year}년 ${_currentMonth.month}월',
                 style: TextStyle(
@@ -111,7 +111,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              // 다음 달 버튼
+              // ?ㅼ쓬 ??踰꾪듉
               GlassContainer(
                 padding: EdgeInsets.zero,
                 borderRadius: 12.0,
@@ -135,12 +135,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          // 달력
+          // ?щ젰
           Expanded(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 달력 위젯
+                // ?щ젰 ?꾩젽
                 Expanded(
                   flex: 2,
                   child: GlassContainer(
@@ -155,7 +155,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ),
                 ),
                 const SizedBox(width: 24),
-                // 선택된 날짜의 태스크 목록
+                // ?좏깮???좎쭨???쒖뒪??紐⑸줉
                 Expanded(
                   flex: 1,
                   child: GlassContainer(
@@ -197,7 +197,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  /// 특정 날짜의 태스크 가져오기
+  /// ?뱀젙 ?좎쭨???쒖뒪??媛?몄삤湲?
   List<Task> _getTasksForDate(DateTime date, List<Task> tasks) {
     return tasks.where((task) {
       final startDate = task.startDate ?? task.createdAt;
@@ -211,7 +211,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }).toList();
   }
 
-  /// 달력 위젯 (주 단위 타임라인 방식)
+  /// ?щ젰 ?꾩젽 (二??⑥쐞 ??꾨씪??諛⑹떇)
   Widget _buildCalendar(
     BuildContext context,
     List<Task> tasks,
@@ -220,11 +220,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final firstDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
     final firstDayWeekday = firstDayOfMonth.weekday;
     
-    // 달력 시작일 (월요일부터 시작)
+    // ?щ젰 ?쒖옉??(?붿슂?쇰????쒖옉)
     final startOffset = (firstDayWeekday == 7) ? 0 : firstDayWeekday;
     final calendarStartDate = firstDayOfMonth.subtract(Duration(days: startOffset));
     
-    // 6주치 날짜 생성
+    // 6二쇱튂 ?좎쭨 ?앹꽦
     final weeks = <List<DateTime>>[];
     for (int week = 0; week < 6; week++) {
       final weekDates = <DateTime>[];
@@ -236,9 +236,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     return Column(
       children: [
-        // 요일 헤더
+        // ?붿씪 ?ㅻ뜑
         Row(
-          children: ['월', '화', '수', '목', '금', '토', '일'].map((day) {
+          children: ['일', '월', '화', '수', '목', '금', '토'].map((day) {
             return Expanded(
               child: Center(
                 child: Text(
@@ -254,7 +254,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           }).toList(),
         ),
         const SizedBox(height: 16),
-        // 주 단위 행들 (스크롤 가능)
+        // 二??⑥쐞 ?됰뱾 (?ㅽ겕濡?媛??
         Expanded(
           child: SingleChildScrollView(
             child: Column(
@@ -268,13 +268,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  /// 한 주 행 빌드 (태스크 바를 Positioned로 배치)
+  /// ??二???鍮뚮뱶 (?쒖뒪??諛붾? Positioned濡?諛곗튂)
   Widget _buildWeekRow(
     List<DateTime> weekDates,
     List<Task> tasks,
     ColorScheme colorScheme,
   ) {
-    // 이 주에 걸리는 태스크들 필터링 및 행 배정
+    // ??二쇱뿉 嫄몃━???쒖뒪?щ뱾 ?꾪꽣留?諛???諛곗젙
     final weekTasks = tasks.where((task) {
       final startDate = task.startDate ?? task.createdAt;
       final endDate = task.endDate ?? task.updatedAt;
@@ -288,10 +288,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
       });
     }).toList();
 
-    // 태스크 행 할당 (충돌 방지, 무제한)
+    // ?쒖뒪?????좊떦 (異⑸룎 諛⑹?, 臾댁젣??
     final taskRows = _assignTaskRows(weekTasks, weekDates);
     
-    // 필요한 행 수 계산
+    // ?꾩슂??????怨꾩궛
     final maxRow = taskRows.values.isEmpty ? 0 : taskRows.values.reduce((a, b) => a > b ? a : b);
     final taskBarHeight = 12.0;
     final taskBarSpacing = 4.0;
@@ -308,7 +308,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           height: weekHeight,
           child: Stack(
             children: [
-              // 날짜 셀들
+              // ?좎쭨 ???
               Row(
               children: weekDates.map((date) {
                 final isCurrentMonth = date.month == _currentMonth.month;
@@ -379,7 +379,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 );
               }).toList(),
             ),
-              // 태스크 바들 (Positioned)
+              // ?쒖뒪??諛붾뱾 (Positioned)
               ...taskRows.entries.map((entry) {
                 final task = entry.key;
                 final row = entry.value;
@@ -392,12 +392,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  /// 태스크에 행 번호 할당 (간단한 충돌 방지)
+  /// ?쒖뒪?ъ뿉 ??踰덊샇 ?좊떦 (媛꾨떒??異⑸룎 諛⑹?)
   Map<Task, int> _assignTaskRows(List<Task> tasks, List<DateTime> weekDates) {
     final Map<Task, int> taskRows = {};
     final List<List<DateTime>> occupiedRanges = [];
 
-    // 시작일 기준 정렬
+    // ?쒖옉??湲곗? ?뺣젹
     final sortedTasks = List<Task>.from(tasks);
     sortedTasks.sort((a, b) {
       final aStart = a.startDate ?? a.createdAt;
@@ -409,7 +409,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       final startDate = task.startDate ?? task.createdAt;
       final endDate = task.endDate ?? task.updatedAt;
       
-      // 이 주에서 태스크가 차지하는 날짜 범위
+      // ??二쇱뿉???쒖뒪?ш? 李⑥??섎뒗 ?좎쭨 踰붿쐞
       final taskDates = weekDates.where((date) {
         final dateOnly = DateTime(date.year, date.month, date.day);
         final startOnly = DateTime(startDate.year, startDate.month, startDate.day);
@@ -421,7 +421,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
       if (taskDates.isEmpty) continue;
 
-      // 빈 행 찾기
+      // 鍮???李얘린
       int assignedRow = 0;
       for (int row = 0; row < occupiedRanges.length; row++) {
         final occupied = occupiedRanges[row];
@@ -438,14 +438,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
         occupiedRanges.add(taskDates);
       }
 
-      // 모든 태스크 표시 (제한 없음)
+      // 紐⑤뱺 ?쒖뒪???쒖떆 (?쒗븳 ?놁쓬)
       taskRows[task] = assignedRow;
     }
 
     return taskRows;
   }
 
-  /// 태스크 바 위젯 (Positioned로 주 전체에 걸쳐 배치)
+  /// ?쒖뒪??諛??꾩젽 (Positioned濡?二??꾩껜??嫄몄퀜 諛곗튂)
   Widget _buildTaskBar(
     Task task,
     List<DateTime> weekDates,
@@ -457,7 +457,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final endDate = task.endDate ?? task.updatedAt;
     final statusColor = task.status.color;
 
-    // 이 주에서 태스크 시작·종료 컬럼 찾기
+    // ??二쇱뿉???쒖뒪???쒖옉쨌醫낅즺 而щ읆 李얘린
     int? startCol;
     int? endCol;
 
@@ -485,9 +485,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final width = (endCol - startCol + 1) * dayWidth;
     final taskBarHeight = 12.0;
     final taskBarSpacing = 4.0;
-    final top = 32.0 + row * (taskBarHeight + taskBarSpacing); // 날짜 숫자 아래부터 시작
+    final top = 32.0 + row * (taskBarHeight + taskBarSpacing); // ?좎쭨 ?レ옄 ?꾨옒遺???쒖옉
 
-    // 시작/끝 모서리 둥글게
+    // ?쒖옉/??紐⑥꽌由??κ?寃?
     final dateOnly = DateTime(weekDates[startCol].year, weekDates[startCol].month, weekDates[startCol].day);
     final startOnly = DateTime(startDate.year, startDate.month, startDate.day);
     final endOnly = DateTime(endDate.year, endDate.month, endDate.day);
@@ -541,7 +541,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  /// 태스크 목록 위젯
+  /// ?쒖뒪??紐⑸줉 ?꾩젽
   Widget _buildTaskList(
     BuildContext context,
     List<Task> tasks,
@@ -550,7 +550,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (tasks.isEmpty) {
       return Center(
         child: Text(
-          '이 날짜에 태스크가 없습니다',
+          '???좎쭨???쒖뒪?ш? ?놁뒿?덈떎',
           style: TextStyle(
             fontSize: 14,
             color: colorScheme.onSurface.withOpacity(0.5),
@@ -581,7 +581,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ? null
                 : [
                     BoxShadow(
-                      color: const Color(0xFF4F46E5).withOpacity(0.05),
+                      color: const Color(0xFFD86B27).withOpacity(0.05),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -650,3 +650,4 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 }
+

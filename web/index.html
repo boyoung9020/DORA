@@ -23,20 +23,61 @@
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="dora_project_manager">
+  <meta name="apple-mobile-web-app-title" content="Sync">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>dora_project_manager</title>
+  <title>Sync</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    body { margin: 0; background-color: #FFF8F2; }
+    #flutter-loading {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-color: #FFF8F2;
+      z-index: 2147483647;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #flutter-loading-track {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 3px;
+      background: #FFDFC0;
+      overflow: hidden;
+    }
+    #flutter-loading-bar {
+      height: 100%;
+      background: linear-gradient(to right, #E3833D, #D86B27);
+      animation: flutter-slide 1.4s ease-in-out infinite;
+      width: 40%;
+    }
+    @keyframes flutter-slide {
+      0%   { transform: translateX(-150%); }
+      100% { transform: translateX(350%); }
+    }
+  </style>
 </head>
 <body>
+  <div id="flutter-loading">
+    <div id="flutter-loading-track">
+      <div id="flutter-loading-bar"></div>
+    </div>
+  </div>
   <script>
     // Flutter 앱 영역에서 브라우저 기본 컨텍스트 메뉴 비활성화
     document.addEventListener('contextmenu', function(e) {
       e.preventDefault();
+    });
+    // Flutter 첫 프레임 렌더링 후 로딩 오버레이 제거
+    window.addEventListener('flutter-first-frame', function() {
+      var el = document.getElementById('flutter-loading');
+      if (el) el.remove();
     });
   </script>
   <script src="flutter_bootstrap.js" async></script>

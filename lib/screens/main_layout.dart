@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -504,7 +504,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final shellColor = isDarkMode
         ? const Color(0xFF0B0E14)
-        : const Color(0xFFEEF2FF); // Indigo 50 — 은은한 인디고 톤
+        : Colors.white;
     
     return Scaffold(
       backgroundColor: shellColor,
@@ -538,16 +538,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                       padding: const EdgeInsets.fromLTRB(0, 0, 8, 8),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: isDarkMode ? const Color(0xFF161B2E) : null,
-                          gradient: isDarkMode ? null : const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFFFAFAFF), // 아주 연한 인디고 화이트
-                              Color(0xFFF5F3FF), // Violet 50
-                              Color(0xFFEEF2FF), // Indigo 50
-                            ],
-                          ),
+                          color: isDarkMode ? const Color(0xFF161B2E) : Colors.white,
+                          gradient: null,
                           borderRadius: BorderRadius.circular(28),
                           boxShadow: isDarkMode
                               ? [
@@ -559,9 +551,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                 ]
                               : [
                                   BoxShadow(
-                                    color: const Color(0xFF4F46E5).withOpacity(0.06),
-                                    blurRadius: 40,
-                                    offset: const Offset(0, 20),
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 28,
+                                    offset: const Offset(0, 12),
                                   ),
                                   BoxShadow(
                                     color: Colors.black.withOpacity(0.03),
@@ -637,10 +629,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     bool isDarkMode,
     Color shellColor,
   ) {
+    const sidebarColor = Color(0xFFEFA66F);
+    final sidebarTextColor = Colors.white.withOpacity(0.86);
+
     return Container(
       width: 75,
       decoration: BoxDecoration(
-        color: Colors.transparent,
+        color: sidebarColor,
         border: Border.all(color: Colors.transparent),
         boxShadow: const [],
       ),
@@ -715,7 +710,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                           children: [
                             Icon(
                               Icons.settings,
-                              color: colorScheme.onSurface.withOpacity(0.7),
+                              color: sidebarTextColor,
                               size: 24,
                             ),
                             const SizedBox(height: 4),
@@ -723,7 +718,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                               '설정',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: colorScheme.onSurface.withOpacity(0.7),
+                                color: sidebarTextColor,
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -843,7 +838,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                           children: [
                             Icon(
                               Icons.logout,
-                              color: colorScheme.onSurface.withOpacity(0.7),
+                              color: sidebarTextColor,
                               size: 24,
                             ),
                             const SizedBox(height: 4),
@@ -851,7 +846,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                               '로그아웃',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: colorScheme.onSurface.withOpacity(0.7),
+                                color: sidebarTextColor,
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -1362,6 +1357,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         : isChatItem
             ? chatProvider.totalUnreadCount
             : 0;
+    const sidebarColor = Color(0xFFEFA66F);
     
     return Padding(
       key: key,
@@ -1383,7 +1379,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               height: 56, // 고정 높이로 정렬 일관성 확보
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                color: Colors.transparent,
+                color: isSelected
+                    ? Colors.white.withOpacity(0.16)
+                    : Colors.transparent,
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1394,8 +1392,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                       Icon(
                         isSelected ? item.selectedIcon : item.icon,
                         color: isSelected
-                            ? colorScheme.primary
-                            : colorScheme.onSurface.withOpacity(0.7),
+                            ? Colors.white
+                            : Colors.white.withOpacity(0.82),
                         size: 24,
                       ),
                       // 알림/채팅 뱃지 (읽지 않은 항목이 있을 때만)
@@ -1411,8 +1409,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
                                 color: Theme.of(context).brightness == Brightness.dark
-                                    ? const Color(0xFF0B0E14)
-                                    : const Color(0xFFEEF2FF),
+                                    ? sidebarColor
+                                    : sidebarColor,
                                 width: 1.5,
                               ),
                             ),
@@ -1438,8 +1436,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                       fontSize: 11,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       color: isSelected
-                          ? colorScheme.primary
-                          : colorScheme.onSurface.withOpacity(0.7),
+                          ? Colors.white
+                          : Colors.white.withOpacity(0.82),
                     ),
                     textAlign: TextAlign.center,
                     maxLines: 1,

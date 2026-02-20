@@ -314,7 +314,7 @@ class _ChatScreenState extends State<ChatScreen> {
           SnackBar(content: Text('$fileName 저장 완료')),
         );
       }
-      // 사용자 취소 시에는 메시지 없음
+      // 사용자가 저장을 취소한 경우 메시지를 노출하지 않음
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -405,7 +405,7 @@ class _ChatScreenState extends State<ChatScreen> {
             width: 1,
             color: isDarkMode
                 ? colorScheme.onSurface.withValues(alpha: 0.1)
-                : const Color(0xFFE2E8F0),
+                : const Color(0xFFE7D3BF),
           ),
           Expanded(
             child: _buildMessagePanel(context, colorScheme, isDarkMode),
@@ -417,7 +417,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   /// 새 대화 시작 다이얼로그 표시
   void _showNewDMDialog(BuildContext context, ColorScheme colorScheme, bool isDarkMode) {
-    // 이미 대화 중인 유저 ID 수집
+    // 이미 대화 중인 사용자 ID 수집
     final usersWithMessages = <String>{};
     for (final user in _allUsers) {
       final room = _getRoomForUser(user.id);
@@ -425,7 +425,7 @@ class _ChatScreenState extends State<ChatScreen> {
         usersWithMessages.add(user.id);
       }
     }
-    // 대화 기록이 없는 유저만 필터링
+    // 대화 기록이 없는 사용자만 필터링
     final availableUsers = _allUsers.where((u) => !usersWithMessages.contains(u.id)).toList();
 
     showDialog(
@@ -461,7 +461,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     child: availableUsers.isEmpty
                         ? Center(
                             child: Text(
-                              '모든 사용자와 대화 중입니다',
+                              '모든 사용자와 이미 대화를 시작했습니다',
                               style: TextStyle(
                                 color: colorScheme.onSurface.withValues(alpha: 0.5),
                               ),
@@ -571,16 +571,16 @@ class _ChatScreenState extends State<ChatScreen> {
           child: _isLoadingUsers
               ? const Center(child: CircularProgressIndicator())
               : Builder(builder: (context) {
-                  // 메시지를 주고받은 사람만 표시 (대화 기록이 있는 유저)
+                  // 메시지를 주고받은 사용자만 표시 (대화 기록이 있는 사용자)
                   final usersWithMessages = _allUsers.where((user) {
                     final room = _getRoomForUser(user.id);
                     return room?.lastMessageAt != null;
                   }).toList();
-                  // 현재 선택된 유저가 목록에 없으면 추가 (새 대화 시작 직후)
+                  // 현재 선택된 사용자가 목록에 없으면 추가 (새 대화 시작 직후)
                   if (_selectedUser != null && !usersWithMessages.any((u) => u.id == _selectedUser!.id)) {
                     usersWithMessages.insert(0, _selectedUser!);
                   }
-                  // 최근 채팅한 사람이 위로 오도록 정렬
+                  // 최근 채팅한 사용자 순으로 정렬
                   usersWithMessages.sort((a, b) {
                     final roomA = _getRoomForUser(a.id);
                     final roomB = _getRoomForUser(b.id);
@@ -589,7 +589,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     if (timeA == null && timeB == null) return 0;
                     if (timeA == null) return 1;
                     if (timeB == null) return -1;
-                    return timeB.compareTo(timeA); // 최신이 위로
+                    return timeB.compareTo(timeA); // 최신순
                   });
                   if (usersWithMessages.isEmpty) {
                     return Center(
@@ -640,7 +640,7 @@ class _ChatScreenState extends State<ChatScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: isSelected
-                  ? (isDarkMode ? colorScheme.primary.withValues(alpha: 0.15) : const Color(0xFFEEF2FF))
+                  ? (isDarkMode ? colorScheme.primary.withValues(alpha: 0.15) : const Color(0xFFFFF3E6))
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
             ),
@@ -710,7 +710,13 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             Icon(Icons.chat_outlined, size: 64, color: colorScheme.onSurface.withValues(alpha: 0.15)),
             const SizedBox(height: 16),
-            Text('대화할 사용자를 선택하세요', style: TextStyle(fontSize: 16, color: colorScheme.onSurface.withValues(alpha: 0.4))),
+            Text(
+              '대화할 사용자를 선택하세요',
+              style: TextStyle(
+                fontSize: 16,
+                color: colorScheme.onSurface.withValues(alpha: 0.4),
+              ),
+            ),
           ],
         ),
       );
@@ -742,7 +748,7 @@ class _ChatScreenState extends State<ChatScreen> {
       decoration: BoxDecoration(
         color: isDarkMode ? colorScheme.surface.withValues(alpha: 0.6) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDarkMode ? colorScheme.onSurface.withValues(alpha: 0.1) : const Color(0xFFE2E8F0)),
+        border: Border.all(color: isDarkMode ? colorScheme.onSurface.withValues(alpha: 0.1) : const Color(0xFFE7D3BF)),
       ),
       child: Row(
         children: [
@@ -764,7 +770,7 @@ class _ChatScreenState extends State<ChatScreen> {
           Text(user.username, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: colorScheme.onSurface)),
           const SizedBox(height: 8),
           Text(
-            '${user.username}님과의 개인 메시지가 시작되었습니다.\n여기에 게시된 메시지나 파일들은 외부에서 볼 수 없습니다.',
+            '${user.username}님과의 개인 메시지가 시작되었습니다.\n여기의 메시지와 파일은 다른 사용자에게 보이지 않습니다.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 14, color: colorScheme.onSurface.withValues(alpha: 0.5), height: 1.6),
           ),
@@ -788,12 +794,12 @@ class _ChatScreenState extends State<ChatScreen> {
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: Row(
               children: [
-                Expanded(child: Divider(color: isDarkMode ? colorScheme.onSurface.withValues(alpha: 0.1) : const Color(0xFFE2E8F0))),
+                Expanded(child: Divider(color: isDarkMode ? colorScheme.onSurface.withValues(alpha: 0.1) : const Color(0xFFE7D3BF))),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text(_getDateLabel(message.createdAt), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: colorScheme.onSurface.withValues(alpha: 0.4))),
                 ),
-                Expanded(child: Divider(color: isDarkMode ? colorScheme.onSurface.withValues(alpha: 0.1) : const Color(0xFFE2E8F0))),
+                Expanded(child: Divider(color: isDarkMode ? colorScheme.onSurface.withValues(alpha: 0.1) : const Color(0xFFE7D3BF))),
               ],
             ),
           );
@@ -813,7 +819,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  /// 메시지 아이템 - Mattermost 스타일 (왼쪽 정렬, 배경 없음)
+  /// 메시지 아이템 - Mattermost 스타일 (좌측 정렬, 배경 없음)
   Widget _buildMessageItem(ChatMessage message, bool showHeader, ColorScheme colorScheme, bool isDarkMode) {
     final hasContent = message.content.trim().isNotEmpty && message.content.trim() != ' ';
 
@@ -855,13 +861,13 @@ class _ChatScreenState extends State<ChatScreen> {
                       code: TextStyle(
                         fontSize: 13,
                         color: colorScheme.primary,
-                        backgroundColor: isDarkMode ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFF1F5F9),
+                        backgroundColor: isDarkMode ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFFFF5EA),
                         fontFamily: 'monospace',
                       ),
                       codeblockDecoration: BoxDecoration(
-                        color: isDarkMode ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFF1F5F9),
+                        color: isDarkMode ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFFFF5EA),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: isDarkMode ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE2E8F0)),
+                        border: Border.all(color: isDarkMode ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE7D3BF)),
                       ),
                       blockquoteDecoration: BoxDecoration(
                         border: Border(left: BorderSide(color: colorScheme.primary.withValues(alpha: 0.5), width: 3)),
@@ -904,7 +910,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     }).toList(),
                   ),
                 ],
-                // 파일
+                // ?뚯씪
                 if (message.fileUrls.isNotEmpty) ...[
                   if (hasContent || message.imageUrls.isNotEmpty) const SizedBox(height: 6),
                   ...message.fileUrls.map((fileUrl) {
@@ -922,7 +928,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           decoration: BoxDecoration(
                             color: isDarkMode ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF8FAFC),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: isDarkMode ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE2E8F0)),
+                            border: Border.all(color: isDarkMode ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE7D3BF)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -1011,7 +1017,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           decoration: BoxDecoration(
                             color: isDarkMode ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF8FAFC),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: isDarkMode ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE2E8F0)),
+                            border: Border.all(color: isDarkMode ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE7D3BF)),
                           ),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -1058,7 +1064,7 @@ class _ChatScreenState extends State<ChatScreen> {
           decoration: BoxDecoration(
             color: isDarkMode ? colorScheme.surface.withValues(alpha: 0.6) : Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isDarkMode ? colorScheme.onSurface.withValues(alpha: 0.1) : const Color(0xFFE2E8F0)),
+            border: Border.all(color: isDarkMode ? colorScheme.onSurface.withValues(alpha: 0.1) : const Color(0xFFE7D3BF)),
           ),
           child: Row(
             children: [
@@ -1091,7 +1097,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     controller: _messageController,
                     focusNode: _messageFocusNode,
                     decoration: InputDecoration(
-                      hintText: '${user.username}님에게 글쓰기',
+                      hintText: '${user.username}님에게 메시지 보내기',
                       border: InputBorder.none,
                       hintStyle: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 14),
                     ),
@@ -1182,7 +1188,14 @@ class _GroupChatDialogContentState extends State<_GroupChatDialogContent> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('그룹 채팅 만들기', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: colorScheme.onSurface)),
+        Text(
+          '그룹 채팅 만들기',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: colorScheme.onSurface,
+          ),
+        ),
         const SizedBox(height: 16),
         GlassTextField(controller: _groupNameController, labelText: '그룹 이름', prefixIcon: const Icon(Icons.group)),
         const SizedBox(height: 12),
@@ -1204,7 +1217,7 @@ class _GroupChatDialogContentState extends State<_GroupChatDialogContent> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        color: isSelected ? (isDarkMode ? colorScheme.primary.withValues(alpha: 0.15) : const Color(0xFFEEF2FF)) : Colors.transparent,
+                        color: isSelected ? (isDarkMode ? colorScheme.primary.withValues(alpha: 0.15) : const Color(0xFFFFF3E6)) : Colors.transparent,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
@@ -1259,3 +1272,4 @@ class _FileInfo {
   final int size;
   const _FileInfo({required this.originalName, required this.url, required this.size});
 }
+

@@ -259,13 +259,13 @@ class _NotificationCard extends StatelessWidget {
   Color _getTypeColor(models.NotificationType type, ColorScheme colorScheme) {
     switch (type) {
       case models.NotificationType.projectMemberAdded:
-        return Colors.blue;
+        return colorScheme.primary;
       case models.NotificationType.taskAssigned:
-        return Colors.orange;
+        return const Color(0xFFE3833D);
       case models.NotificationType.taskOptionChanged:
-        return Colors.purple;
+        return const Color(0xFFC17E4A);
       case models.NotificationType.taskCommentAdded:
-        return Colors.green;
+        return colorScheme.secondary;
     }
   }
 

@@ -40,9 +40,9 @@ class HomeScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    // DORA 텍스트 로고
+                    // Sync 텍스트 로고
                     Text(
-                      'DORA',
+                      'Sync',
                       style: TextStyle(
                         fontSize: 42,
                         fontWeight: FontWeight.w800,

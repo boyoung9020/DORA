@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/project_provider.dart';
@@ -11,7 +11,7 @@ import '../utils/avatar_color.dart';
 import 'admin_approval_screen.dart';
 import 'task_detail_screen.dart';
 
-/// 대시보드 화면 - 홈 화면
+/// ??쒕낫???붾㈃ - ???붾㈃
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -23,33 +23,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // 화면 로드 시 태스크 불러오기
+    // ?붾㈃ 濡쒕뱶 ???쒖뒪??遺덈윭?ㅺ린
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TaskProvider>().loadTasks();
     });
   }
 
-  /// 오늘 할 일 필터링 (모든 프로젝트) - In review와 In progress만, 현재 사용자에게 할당된 것만
+  /// ?ㅻ뒛 ?????꾪꽣留?(紐⑤뱺 ?꾨줈?앺듃) - In review? In progress留? ?꾩옱 ?ъ슜?먯뿉寃??좊떦??寃껊쭔
   List<Task> _getTodayTasks(List<Task> allTasks, String? currentUserId) {
     final today = DateTime.now();
     final todayStart = DateTime(today.year, today.month, today.day);
 
     return allTasks.where((task) {
-      // 현재 사용자에게 할당된 태스크만 필터링
+      // ?꾩옱 ?ъ슜?먯뿉寃??좊떦???쒖뒪?щ쭔 ?꾪꽣留?
       if (currentUserId == null || !task.assignedMemberIds.contains(currentUserId)) {
         return false;
       }
       
-      // In review 또는 In progress 상태만 필터링
+      // In review ?먮뒗 In progress ?곹깭留??꾪꽣留?
       if (task.status != TaskStatus.inReview && task.status != TaskStatus.inProgress) {
         return false;
       }
       
-      // 시작일이 있으면 시작일 기준, 없으면 생성일 기준
+      // ?쒖옉?쇱씠 ?덉쑝硫??쒖옉??湲곗?, ?놁쑝硫??앹꽦??湲곗?
       final startDate = task.startDate;
       final endDate = task.endDate;
       
-      // 비교할 날짜 결정: 시작일이 있으면 시작일, 없으면 생성일
+      // 鍮꾧탳???좎쭨 寃곗젙: ?쒖옉?쇱씠 ?덉쑝硫??쒖옉?? ?놁쑝硫??앹꽦??
       DateTime dateToCheck;
       if (startDate != null) {
         dateToCheck = DateTime(startDate.year, startDate.month, startDate.day);
@@ -57,12 +57,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         dateToCheck = DateTime(task.createdAt.year, task.createdAt.month, task.createdAt.day);
       }
       
-      // 날짜가 오늘인 경우
+      // ?좎쭨媛 ?ㅻ뒛??寃쎌슦
       if (dateToCheck.isAtSameMomentAs(todayStart)) {
         return true;
       }
       
-      // 시작일과 종료일이 모두 있고, 오늘이 그 사이에 있는 경우
+      // ?쒖옉?쇨낵 醫낅즺?쇱씠 紐⑤몢 ?덇퀬, ?ㅻ뒛??洹??ъ씠???덈뒗 寃쎌슦
       if (startDate != null && endDate != null) {
         final startDateOnly = DateTime(startDate.year, startDate.month, startDate.day);
         final endDateOnly = DateTime(endDate.year, endDate.month, endDate.day);
@@ -74,14 +74,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }).toList();
   }
 
-  /// 날짜 포맷팅
+  /// ?좎쭨 ?щ㎎??
   String _formatDate(DateTime date) {
-    final months = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+    final months = [
+      '1월',
+      '2월',
+      '3월',
+      '4월',
+      '5월',
+      '6월',
+      '7월',
+      '8월',
+      '9월',
+      '10월',
+      '11월',
+      '12월',
+    ];
     final weekdays = ['월', '화', '수', '목', '금', '토', '일'];
     return '${date.year}년 ${months[date.month - 1]} ${date.day}일 (${weekdays[date.weekday - 1]})';
   }
 
-  /// 프로젝트별 오늘 할 일 그룹화
+  /// ?꾨줈?앺듃蹂??ㅻ뒛 ????洹몃９??
   Map<String, List<Task>> _getTodayTasksByProject(List<Task> allTasks, List<Project> projects, String? currentUserId) {
     final todayTasks = _getTodayTasks(allTasks, currentUserId);
     final Map<String, List<Task>> tasksByProject = {};
@@ -93,7 +106,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return tasksByProject;
   }
 
-  /// 프로젝트별 진행률 계산
+  /// ?꾨줈?앺듃蹂?吏꾪뻾瑜?怨꾩궛
   double _calculateProgress(Project project, List<Task> allTasks) {
     final projectTasks = allTasks.where((task) => task.projectId == project.id).toList();
     if (projectTasks.isEmpty) return 0.0;
@@ -102,7 +115,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return doneTasks / projectTasks.length;
   }
 
-  /// 프로젝트별 태스크 개수
+  /// ?꾨줈?앺듃蹂??쒖뒪??媛쒖닔
   Map<String, int> _getTaskCountsByProject(List<Task> allTasks) {
     final Map<String, int> counts = {};
     for (final task in allTasks) {
@@ -111,7 +124,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return counts;
   }
 
-  /// 시간대별 인사 메시지 반환
+  /// ?쒓컙?蹂??몄궗 硫붿떆吏 諛섑솚
   String _getGreetingMessage() {
     final hour = DateTime.now().hour;
     if (hour >= 5 && hour < 12) {
@@ -135,9 +148,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final allProjects = projectProvider.projects;
     final allTasks = taskProvider.tasks;
 
-    // 모든 프로젝트의 오늘 할 일 필터링
+    // 紐⑤뱺 ?꾨줈?앺듃???ㅻ뒛 ?????꾪꽣留?
     final todayTasks = _getTodayTasks(allTasks, user?.id);
-    // 프로젝트별 오늘 할 일 그룹화
+    // ?꾨줈?앺듃蹂??ㅻ뒛 ????洹몃９??
     final todayTasksByProject = _getTodayTasksByProject(allTasks, allProjects, user?.id);
 
     return Container(
@@ -145,10 +158,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 헤더 (날짜 + 환영 메시지 + 관리자 버튼)
+          // ?ㅻ뜑 (?좎쭨 + ?섏쁺 硫붿떆吏 + 愿由ъ옄 踰꾪듉)
           Stack(
             children: [
-              // 인삿말 (진짜 중앙)
+              // ?몄궭留?(吏꾩쭨 以묒븰)
               Center(
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -161,7 +174,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                     Text(
-                      '${user?.username ?? '사용자'}님!',
+                      "${user?.username ?? '사용자'}님",
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -203,7 +216,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ],
                 ),
               ),
-              // 오늘 날짜 (가장 왼쪽)
+              // ?ㅻ뒛 ?좎쭨 (媛???쇱そ)
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -214,7 +227,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
               ),
-              // 관리자 페이지 버튼 (오른쪽)
+              // 愿由ъ옄 ?섏씠吏 踰꾪듉 (?ㅻⅨ履?
               if (authProvider.isAdmin)
                 Align(
                   alignment: Alignment.centerRight,
@@ -233,7 +246,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         size: 24,
                       ),
                       onPressed: () {
-                        // 관리자 페이지를 다이얼로그로 표시
+                        // 愿由ъ옄 ?섏씠吏瑜??ㅼ씠?쇰줈洹몃줈 ?쒖떆
                         showDialog(
                           context: context,
                           builder: (context) => const AdminApprovalScreen(),
@@ -246,19 +259,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          // 메인 컨텐츠 (2단 레이아웃)
+          // 硫붿씤 而⑦뀗痢?(2???덉씠?꾩썐)
           Expanded(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 왼쪽: 오늘 할 일 (모든 프로젝트 종합)
+                // ?쇱そ: ?ㅻ뒛 ????(紐⑤뱺 ?꾨줈?앺듃 醫낇빀)
                 Expanded(
                   flex: 1,
                   child: SingleChildScrollView(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                  // 헤더
+                  // ?ㅻ뜑
                   Row(
                     children: [
                       Icon(
@@ -294,7 +307,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  // 오늘 할 일 목록 (프로젝트별로 그룹화)
+                  // ?ㅻ뒛 ????紐⑸줉 (?꾨줈?앺듃蹂꾨줈 洹몃９??
                   todayTasks.isEmpty
                       ? Center(
                           child: Padding(
@@ -341,7 +354,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // 프로젝트 헤더
+                                    // ?꾨줈?앺듃 ?ㅻ뜑
                                     Row(
                                       children: [
                                         Container(
@@ -383,7 +396,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       ],
                                     ),
                                     const SizedBox(height: 16),
-                                    // 프로젝트별 태스크 목록
+                                    // ?꾨줈?앺듃蹂??쒖뒪??紐⑸줉
                                     ...projectTasks.map((task) {
                                       final statusColor = task.status.color;
                                       
@@ -411,7 +424,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             borderColor: statusColor.withOpacity(0.3),
                                             child: Row(
                                             children: [
-                                              // 상태 색상 인디케이터
+                                              // ?곹깭 ?됱긽 ?몃뵒耳?댄꽣
                                               Container(
                                                 width: 4,
                                                 height: 40,
@@ -421,7 +434,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 ),
                                               ),
                                               const SizedBox(width: 12),
-                                              // 태스크 내용
+                                              // ?쒖뒪???댁슜
                                               Expanded(
                                                 child: Column(
                                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -446,7 +459,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                         overflow: TextOverflow.ellipsis,
                                                       ),
                                                     ],
-                                                    // 할당된 팀원 태그
+                                                    // ?좊떦??????쒓렇
                                                     if (task.assignedMemberIds.isNotEmpty) ...[
                                                       const SizedBox(height: 8),
                                                       FutureBuilder<List<dynamic>>(
@@ -505,7 +518,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 ),
                                               ),
                                               const SizedBox(width: 12),
-                                              // 상태 배지
+                                              // ?곹깭 諛곗?
                                               GlassContainer(
                                                 padding: const EdgeInsets.symmetric(
                                                   horizontal: 12,
@@ -543,20 +556,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                 ),
-                // 세로 구분선
+                // ?몃줈 援щ텇??
                 Container(
                   width: 1,
                   margin: const EdgeInsets.symmetric(horizontal: 24),
-                  color: const Color(0xFFE0E7FF),
+                  color: const Color(0xFFF3DECA),
                 ),
-                // 오른쪽: 프로젝트별 진행률
+                // ?ㅻⅨ履? ?꾨줈?앺듃蹂?吏꾪뻾瑜?
                 Expanded(
                   flex: 1,
                   child: SingleChildScrollView(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                  // 헤더
+                  // ?ㅻ뜑
                   Row(
                     children: [
                       Icon(
@@ -576,7 +589,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  // 프로젝트별 진행률 카드
+                  // ?꾨줈?앺듃蹂?吏꾪뻾瑜?移대뱶
                   if (allProjects.isEmpty)
                     GlassContainer(
                       padding: const EdgeInsets.all(40),
@@ -632,7 +645,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // 프로젝트 헤더
+                              // ?꾨줈?앺듃 ?ㅻ뜑
                               Row(
                                 children: [
                                   Container(
@@ -665,18 +678,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ],
                               ),
                               const SizedBox(height: 16),
-                              // 진행률 바
+                              // 吏꾪뻾瑜?諛?
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
                                 child: LinearProgressIndicator(
                                   value: progress,
                                   minHeight: 12,
-                                  backgroundColor: const Color(0xFFE0E7FF),
+                                  backgroundColor: const Color(0xFFF3DECA),
                                   valueColor: AlwaysStoppedAnimation<Color>(project.color),
                                 ),
                               ),
                               const SizedBox(height: 12),
-                              // 태스크 통계
+                              // ?쒖뒪???듦퀎
                               Row(
                                 children: [
                                   Icon(
@@ -725,7 +738,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// 할당된 팀원 목록 로드
+  /// ?좊떦?????紐⑸줉 濡쒕뱶
   Future<List<dynamic>> _loadAssignedMembers(List<String> memberIds) async {
     try {
       final authService = AuthService();
@@ -736,3 +749,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 }
+

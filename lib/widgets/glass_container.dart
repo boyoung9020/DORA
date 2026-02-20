@@ -1,10 +1,10 @@
-import 'dart:ui';
+﻿import 'dart:ui';
 import 'package:flutter/material.dart';
 
-/// 카드 컨테이너 위젯
+/// 移대뱶 而⑦뀒?대꼫 ?꾩젽
 ///
-/// 라이트 모드: 순백 배경 + 미세 테두리 + 그림자 → 배경 대비 확실한 구분
-/// 다크 모드: 어두운 배경 + 블러 효과
+/// ?쇱씠??紐⑤뱶: ?쒕갚 諛곌꼍 + 誘몄꽭 ?뚮몢由?+ 洹몃┝????諛곌꼍 ?鍮??뺤떎??援щ텇
+/// ?ㅽ겕 紐⑤뱶: ?대몢??諛곌꼍 + 釉붾윭 ?④낵
 class GlassContainer extends StatelessWidget {
   final Widget child;
   final double? width;
@@ -48,12 +48,12 @@ class GlassContainer extends StatelessWidget {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    // 라이트 모드: 인디고 틴트 테두리 + 그림자로 카드 구분
+    // ?쇱씠??紐⑤뱶: ?몃뵒怨??댄듃 ?뚮몢由?+ 洹몃┝?먮줈 移대뱶 援щ텇
     final borderClr = isDarkMode
         ? (gradientColors != null
             ? gradientColors!.first
             : Colors.white).withOpacity(0.1)
-        : const Color(0xFFE0E7FF); // Indigo 100 — 인디고 톤 테두리
+        : const Color(0xFFF3DECA); // Indigo 100 ???몃뵒怨????뚮몢由?
 
     final shadow = isDarkMode
         ? BoxShadow(
@@ -63,14 +63,14 @@ class GlassContainer extends StatelessWidget {
             offset: shadowOffset,
           )
         : BoxShadow(
-            color: shadowColor ?? const Color(0x0F4F46E5), // Indigo tint shadow
+            color: shadowColor ?? const Color(0x0FD86B27), // Warm tint shadow
             blurRadius: 24,
             spreadRadius: 0,
             offset: const Offset(0, 8),
           );
 
-    // 배경색 결정
-    // 라이트 모드: 밝은 색이면 아주 연한 인디고 화이트 적용
+    // 諛곌꼍??寃곗젙
+    // ?쇱씠??紐⑤뱶: 諛앹? ?됱씠硫??꾩＜ ?고븳 ?몃뵒怨??붿씠???곸슜
     final Color bgColor;
     if (isDarkMode) {
       bgColor = gradientColors != null
@@ -80,9 +80,9 @@ class GlassContainer extends StatelessWidget {
       if (gradientColors != null) {
         final baseColor = gradientColors!.first.withAlpha(255);
         final lum = baseColor.computeLuminance();
-        bgColor = lum > 0.7 ? const Color(0xFFFCFCFF) : gradientColors!.first; // 인디고 틴트 화이트
+        bgColor = lum > 0.7 ? const Color(0xFFFCFCFF) : gradientColors!.first; // ?몃뵒怨??댄듃 ?붿씠??
       } else {
-        bgColor = const Color(0xFFFCFCFF); // 순백 대신 아주 미세한 인디고 화이트
+        bgColor = const Color(0xFFFCFCFF); // ?쒕갚 ????꾩＜ 誘몄꽭???몃뵒怨??붿씠??
       }
     }
 
@@ -100,7 +100,7 @@ class GlassContainer extends StatelessWidget {
         boxShadow: [shadow],
       ),
       child: isDarkMode
-          // 다크 모드: 블러 효과 유지
+          // ?ㅽ겕 紐⑤뱶: 釉붾윭 ?④낵 ?좎?
           ? ClipRRect(
               borderRadius: BorderRadius.circular(borderRadius),
               child: BackdropFilter(
@@ -114,7 +114,7 @@ class GlassContainer extends StatelessWidget {
                 ),
               ),
             )
-          // 라이트 모드: 블러 제거, 깔끔한 솔리드 카드
+          // ?쇱씠??紐⑤뱶: 釉붾윭 ?쒓굅, 源붾걫???붾━??移대뱶
           : ClipRRect(
               borderRadius: BorderRadius.circular(borderRadius),
               child: Container(
@@ -126,7 +126,7 @@ class GlassContainer extends StatelessWidget {
   }
 }
 
-/// 입력 필드 위젯
+/// ?낅젰 ?꾨뱶 ?꾩젽
 class GlassTextField extends StatelessWidget {
   final TextEditingController? controller;
   final String? labelText;
@@ -215,7 +215,7 @@ class GlassTextField extends StatelessWidget {
   }
 }
 
-/// 버튼 위젯
+/// 踰꾪듉 ?꾩젽
 class GlassButton extends StatefulWidget {
   final String text;
   final VoidCallback? onPressed;
@@ -255,7 +255,7 @@ class _GlassButtonState extends State<GlassButton> {
           ))
         : isDarkMode
             ? const Color(0xFF0B0E14)
-            : const Color(0xFFEEF2FF); // Indigo 50 hover
+            : const Color(0xFFFFF3E6); // Indigo 50 hover
 
     return GlassContainer(
       width: widget.width,
@@ -320,3 +320,4 @@ class _GlassButtonState extends State<GlassButton> {
     );
   }
 }
+

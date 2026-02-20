@@ -14,7 +14,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  static const String _heroImageAsset = 'main_logo2.png';
+  static const String _heroImageAsset = 'assets/main_logo2.png';
+  static const String _brandLogoAsset = 'assets/app_logo_resize.png';
 
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
@@ -183,7 +184,7 @@ class _LoginScreenState extends State<LoginScreen> {
               color: const Color(0xFFF3DECA),
               alignment: Alignment.center,
               child: const Text(
-                'main_logo2.png',
+                'assets/app_logo.png',
                 style: TextStyle(
                   color: Color(0xFF7C5A3B),
                   fontWeight: FontWeight.w700,
@@ -200,23 +201,52 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildFormPanel(AuthProvider authProvider) {
     return Container(
       color: const Color(0xFFFFFAF2),
-      padding: const EdgeInsets.fromLTRB(34, 34, 34, 30),
+      padding: const EdgeInsets.fromLTRB(34, 6, 34, 30),
       child: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'DORA',
-              style: TextStyle(
-                color: Color(0xFFD86B27),
-                fontSize: 36,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.8,
-              ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 148,
+                  height: 73,
+                  child: Image.asset(
+                    _brandLogoAsset,
+                    fit: BoxFit.contain,
+                    alignment: Alignment.center,
+                    filterQuality: FilterQuality.high,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Image.asset(
+                        'assets/app_logo.png',
+                        fit: BoxFit.contain,
+                        alignment: Alignment.center,
+                        filterQuality: FilterQuality.high,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Align(
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Sync',
+                              style: TextStyle(
+                                color: Color(0xFFD86B27),
+                                fontSize: 30,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 64),
             const Text(
               '워크스페이스에 로그인하세요',
               style: TextStyle(
