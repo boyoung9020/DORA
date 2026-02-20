@@ -1,12 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(flutter doctor:*)",
-      "Bash(flutter pub get:*)",
-      "Bash(flutter run:*)",
-      "Bash(powershell:*)",
-      "Bash(flutter build:*)",
-      "Bash(flutter clean:*)"
+      "Bash(*)",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "Glob(*)",
+      "Grep(*)"
     ]
   }
 }
