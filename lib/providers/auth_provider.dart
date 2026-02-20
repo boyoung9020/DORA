@@ -85,7 +85,8 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       return false;
     } catch (e, stackTrace) {
-      _errorMessage = e.toString();
+      // "Exception: " 접두사 제거하여 사용자에게 깔끔한 메시지 표시
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
       _isLoading = false;
       print('[AuthProvider] 로그인 에러: $e');
       print('[AuthProvider] 스택 트레이스: $stackTrace');

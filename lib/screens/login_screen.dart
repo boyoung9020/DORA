@@ -257,7 +257,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 26),
             const Text(
-              'USERNAME',
+              'EMAIL',
               style: TextStyle(
                 color: Color(0xFF8A6647),
                 fontSize: 11.5,
@@ -268,11 +268,12 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 8),
             _buildInputField(
               controller: _usernameController,
-              hint: '아이디 입력',
-              icon: Icons.person_outline_rounded,
+              hint: '이메일 입력',
+              icon: Icons.email_outlined,
+              keyboardType: TextInputType.emailAddress,
               onSubmitted: (_) => FocusScope.of(context).nextFocus(),
               validator: (v) =>
-                  v == null || v.isEmpty ? '사용자 이름을 입력하세요.' : null,
+                  v == null || v.isEmpty ? '이메일을 입력하세요.' : null,
             ),
             const SizedBox(height: 16),
             const Text(
@@ -363,12 +364,17 @@ class _LoginScreenState extends State<LoginScreen> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                GestureDetector(
-                  onTap: () {
+                TextButton(
+                  onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const RegisterScreen()),
                     );
                   },
+                  style: TextButton.styleFrom(
+                    minimumSize: Size.zero,
+                    padding: EdgeInsets.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                   child: const Text(
                     '회원가입',
                     style: TextStyle(
@@ -391,6 +397,7 @@ class _LoginScreenState extends State<LoginScreen> {
     required String hint,
     required IconData icon,
     bool obscureText = false,
+    TextInputType? keyboardType,
     Widget? suffix,
     String? Function(String?)? validator,
     void Function(String)? onSubmitted,
@@ -398,6 +405,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
+      keyboardType: keyboardType,
       onFieldSubmitted: onSubmitted,
       validator: validator,
       style: const TextStyle(

@@ -60,27 +60,40 @@ class AuthService {
         includeAuth: false,
       );
 
-      final data = ApiClient.handleResponse(response);
-      
-      // JWT 토큰 저장
-      final token = data['access_token'] as String;
-      await ApiClient.saveToken(token);
+      // 로그인 엔드포인트는 직접 응답을 파싱 (handleResponse의 401 처리 우회)
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
 
-      // 현재 사용자 정보 가져오기
-      final userResponse = await ApiClient.get('/api/auth/me');
-      final userData = ApiClient.handleResponse(userResponse);
-      
-      final user = User.fromJson(userData);
-      
-      // 현재 사용자 정보 로컬 저장 (오프라인 지원)
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_currentUserKey, jsonEncode(user.toJson()));
-      
-      print('[AuthService] 로그인 완료: ${user.username}');
-      return user;
+        // JWT 토큰 저장
+        final token = data['access_token'] as String;
+        await ApiClient.saveToken(token);
+
+        // 현재 사용자 정보 가져오기
+        final userResponse = await ApiClient.get('/api/auth/me');
+        final userData = ApiClient.handleResponse(userResponse);
+
+        final user = User.fromJson(userData);
+
+        // 현재 사용자 정보 로컬 저장 (오프라인 지원)
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_currentUserKey, jsonEncode(user.toJson()));
+
+        print('[AuthService] 로그인 완료: ${user.username}');
+        return user;
+      } else {
+        // 백엔드 에러 메시지를 그대로 전달
+        try {
+          final errorBody = jsonDecode(response.body) as Map<String, dynamic>;
+          final detail = errorBody['detail'] ?? '로그인에 실패했습니다.';
+          throw Exception(detail);
+        } catch (e) {
+          if (e is Exception) rethrow;
+          throw Exception('로그인에 실패했습니다.');
+        }
+      }
     } catch (e) {
       print('[AuthService] 로그인 에러: $e');
-      throw Exception('로그인 실패: $e');
+      rethrow; // 이미 적절한 메시지가 있으므로 그대로 전달
     }
   }
 

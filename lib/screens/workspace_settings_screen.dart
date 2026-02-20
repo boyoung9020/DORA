@@ -107,12 +107,18 @@ class _WorkspaceSettingsScreenState extends State<WorkspaceSettingsScreen> {
           padding: const EdgeInsets.fromLTRB(20, 16, 8, 16),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: colorScheme.primaryContainer,
-                child: Text(
-                  ws.name.isNotEmpty ? ws.name[0].toUpperCase() : 'W',
-                  style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w800, fontSize: 16),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(8), // 워크스페이스 = 네모
+                ),
+                child: Center(
+                  child: Text(
+                    ws.name.isNotEmpty ? ws.name[0].toUpperCase() : 'W',
+                    style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
                 ),
               ),
               const SizedBox(width: 10),

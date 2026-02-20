@@ -61,24 +61,24 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
 async def login(user_data: UserLogin, db: Session = Depends(get_db)):
     """
     로그인
-    사용자 이름과 비밀번호로 로그인하고 JWT 토큰을 반환합니다.
+    이메일 또는 사용자 이름과 비밀번호로 로그인하고 JWT 토큰을 반환합니다.
     """
-    # 사용자 찾기
-    user = db.query(User).filter(User.username == user_data.username).first()
-    
+    # 사용자 찾기 (이메일 또는 아이디 모두 허용)
+    user = db.query(User).filter(
+        (User.email == user_data.username) | (User.username == user_data.username)
+    ).first()
+
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="사용자 이름 또는 비밀번호가 잘못되었습니다",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이메일 또는 비밀번호가 올바르지 않습니다",
         )
     
     # 비밀번호 확인
     if not verify_password(user_data.password, user.password_hash):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="사용자 이름 또는 비밀번호가 잘못되었습니다",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이메일 또는 비밀번호가 올바르지 않습니다",
         )
     
     # 승인 여부 확인 (디버깅 로그 추가)

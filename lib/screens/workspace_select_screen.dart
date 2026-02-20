@@ -184,13 +184,20 @@ class _WorkspaceSelectScreenState extends State<WorkspaceSelectScreen> {
                           padding: const EdgeInsets.only(bottom: 8),
                           child: GlassContainer(
                             child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: colorScheme.primaryContainer,
-                                child: Text(
-                                  ws.name.isNotEmpty ? ws.name[0].toUpperCase() : 'W',
-                                  style: TextStyle(
-                                    color: colorScheme.primary,
-                                    fontWeight: FontWeight.w800,
+                              leading: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primaryContainer,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    ws.name.isNotEmpty ? ws.name[0].toUpperCase() : 'W',
+                                    style: TextStyle(
+                                      color: colorScheme.primary,
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
                                 ),
                               ),

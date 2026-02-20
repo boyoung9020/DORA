@@ -91,13 +91,14 @@ class WorkspaceProvider extends ChangeNotifier {
   Future<bool> joinByToken(String token) async {
     try {
       final ws = await _service.joinByToken(token);
-      // 이미 목록에 있으면 갱신, 없으면 추가
-      final idx = _workspaces.indexWhere((w) => w.id == ws.id);
-      if (idx >= 0) {
-        _workspaces[idx] = ws;
-      } else {
-        _workspaces.add(ws);
+      // 이미 참여한 워크스페이스 중복 차단
+      final alreadyMember = _workspaces.any((w) => w.id == ws.id);
+      if (alreadyMember) {
+        _errorMessage = '이미 참여한 워크스페이스입니다';
+        notifyListeners();
+        return false;
       }
+      _workspaces.add(ws);
       _currentWorkspace = ws;
       await _loadCurrentMembers();
       notifyListeners();

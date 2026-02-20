@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import '../utils/file_download.dart';
 import '../providers/chat_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/workspace_provider.dart';
 import '../models/chat_room.dart';
 import '../models/chat_message.dart';
 import '../models/user.dart';
@@ -36,15 +37,31 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isConnecting = false;
   List<_PendingAttachment> _pendingAttachments = [];
   bool _isUploading = false;
+  String? _workspaceScopeId;
+  bool _workspaceScopeInitialized = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadAllUsers();
       context.read<ChatProvider>().loadRooms();
     });
     _messageScrollController.addListener(_onScroll);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final workspaceId = Provider.of<WorkspaceProvider>(context).currentWorkspaceId;
+    if (!_workspaceScopeInitialized || _workspaceScopeId != workspaceId) {
+      _workspaceScopeInitialized = true;
+      _workspaceScopeId = workspaceId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _loadAllUsers(workspaceIdOverride: workspaceId);
+        }
+      });
+    }
   }
 
   @override
@@ -55,18 +72,49 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-  Future<void> _loadAllUsers() async {
+  Future<void> _loadAllUsers({String? workspaceIdOverride}) async {
+    if (mounted) {
+      setState(() => _isLoadingUsers = true);
+    }
+
     try {
       final authService = AuthService();
-      final users = await authService.getAllUsers();
+      final wsProvider = Provider.of<WorkspaceProvider>(context, listen: false);
       final currentUserId =
           Provider.of<AuthProvider>(context, listen: false).currentUser?.id;
-      setState(() {
-        _allUsers = users.where((u) => u.id != currentUserId).toList();
-        _isLoadingUsers = false;
-      });
+      String? workspaceId = workspaceIdOverride ?? wsProvider.currentWorkspaceId;
+
+      // 워크스페이스가 아직 로드되지 않았다면 먼저 로드 시도
+      if (workspaceId == null && wsProvider.workspaces.isEmpty && !wsProvider.isLoading) {
+        await wsProvider.loadWorkspaces();
+        workspaceId = wsProvider.currentWorkspaceId;
+      }
+
+      // 현재 워크스페이스가 없으면 새 대화 대상도 없음
+      if (workspaceId == null) {
+        if (mounted) {
+          setState(() {
+            _allUsers = [];
+            _isLoadingUsers = false;
+          });
+        }
+        return;
+      }
+
+      final users = await authService.getUsersByWorkspace(workspaceId);
+      if (mounted) {
+        setState(() {
+          _allUsers = users.where((u) => u.id != currentUserId).toList();
+          _isLoadingUsers = false;
+        });
+      }
     } catch (e) {
-      setState(() => _isLoadingUsers = false);
+      if (mounted) {
+        setState(() {
+          _allUsers = [];
+          _isLoadingUsers = false;
+        });
+      }
     }
   }
 
@@ -515,6 +563,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildUserListPanel(BuildContext context, ColorScheme colorScheme, bool isDarkMode) {
     context.watch<ChatProvider>();
+    final hasWorkspace = context.watch<WorkspaceProvider>().currentWorkspaceId != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -536,7 +585,9 @@ class _ChatScreenState extends State<ChatScreen> {
               Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: () => _showNewDMDialog(context, colorScheme, isDarkMode),
+                  onTap: hasWorkspace
+                      ? () => _showNewDMDialog(context, colorScheme, isDarkMode)
+                      : null,
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
                     padding: const EdgeInsets.all(4),
@@ -552,7 +603,7 @@ class _ChatScreenState extends State<ChatScreen> {
               Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: () => _showGroupChatDialog(context),
+                  onTap: hasWorkspace ? () => _showGroupChatDialog(context) : null,
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
                     padding: const EdgeInsets.all(4),

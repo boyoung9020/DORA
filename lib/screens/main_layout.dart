@@ -1,5 +1,6 @@
 ﻿import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -748,9 +749,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 height: 36,
                 decoration: BoxDecoration(
                   color: isSelected ? color : color.withOpacity(0.65),
-                  borderRadius: isSelected
-                      ? BorderRadius.circular(10)
-                      : BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(10), // 워크스페이스는 항상 네모
                 ),
                 child: Center(
                   child: Text(
@@ -866,134 +865,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                             const SizedBox(height: 4),
                             Text(
                               '설정',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: sidebarTextColor,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                // 로그아웃 버튼 - 메뉴 아이템과 동일한 구조
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () async {
-                        final confirmed = await showDialog<bool>(
-                          context: context,
-                          barrierColor: Colors.black.withOpacity(0.2),
-                          builder: (context) {
-                            final dialogColorScheme = Theme.of(context).colorScheme;
-                            return Dialog(
-                              backgroundColor: Colors.transparent,
-                              elevation: 0,
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 320),
-                                child: GlassContainer(
-                                  padding: const EdgeInsets.all(0),
-                                  borderRadius: 24.0,
-                                  blur: 25.0,
-                                  gradientColors: [
-                                    dialogColorScheme.surface.withOpacity(0.6),
-                                    dialogColorScheme.surface.withOpacity(0.5),
-                                  ],
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(24.0),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '로그아웃',
-                                          style: TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                            color: dialogColorScheme.onSurface,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        Text(
-                                          '로그아웃하시겠습니까?',
-                                          style: TextStyle(
-                                            fontSize: 15,
-                                            color: dialogColorScheme.onSurface.withOpacity(0.8),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 20),
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.end,
-                                          children: [
-                                            TextButton(
-                                              onPressed: () => Navigator.of(context).pop(false),
-                                              child: Text(
-                                                '취소',
-                                                style: TextStyle(
-                                                  color: dialogColorScheme.onSurface.withOpacity(0.7),
-                                                  fontSize: 14,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            TextButton(
-                                              onPressed: () => Navigator.of(context).pop(true),
-                                              style: TextButton.styleFrom(
-                                                backgroundColor: dialogColorScheme.primary.withOpacity(0.2),
-                                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                              ),
-                                              child: Text(
-                                                '로그아웃',
-                                                style: TextStyle(
-                                                  color: dialogColorScheme.primary,
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        );
-
-                        if (confirmed == true && context.mounted) {
-                          await authProvider.logout();
-                          if (context.mounted) {
-                            Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(builder: (_) => const LoginScreen()),
-                            );
-                          }
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        width: double.infinity,
-                        height: 56, // 고정 높이로 정렬 일관성 확보
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: Colors.transparent,
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.logout,
-                              color: sidebarTextColor,
-                              size: 24,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '로그아웃',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: sidebarTextColor,
@@ -2225,377 +2096,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     showDialog(
       context: context,
       barrierColor: Colors.black.withOpacity(0.2),
-      builder: (dialogContext) {
-        final colorScheme = Theme.of(dialogContext).colorScheme;
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          child: Consumer2<AuthProvider, ThemeProvider>(
-            builder: (context, authProvider, themeProvider, _) {
-              return GlassContainer(
-                padding: const EdgeInsets.all(0),
-                borderRadius: 24.0,
-                blur: 25.0,
-                gradientColors: [
-                  colorScheme.surface.withOpacity(0.6),
-                  colorScheme.surface.withOpacity(0.5),
-                ],
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: 500,
-                    maxHeight: 600,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              '설정',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                            const Spacer(),
-                            IconButton(
-                              icon: Icon(
-                                Icons.close,
-                                color: colorScheme.onSurface.withOpacity(0.7),
-                              ),
-                              onPressed: () => Navigator.of(dialogContext).pop(),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        // 사용자 정보
-                        if (authProvider.currentUser != null) ...[
-                      Row(
-                        children: [
-                          _ProfileImageButton(
-                            colorScheme: colorScheme,
-                            currentUser: authProvider.currentUser!,
-                            onTap: () => _pickAndUploadProfileImage(authProvider),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  authProvider.currentUser!.username,
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: colorScheme.onSurface,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  authProvider.currentUser!.email,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: colorScheme.onSurface.withOpacity(0.7),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  children: [
-                                    if (authProvider.currentUser!.isAdmin)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: colorScheme.primary.withOpacity(0.2),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          '관리자',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                            color: colorScheme.primary,
-                                          ),
-                                        ),
-                                      ),
-                                    if (authProvider.currentUser!.isPM)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: colorScheme.secondary.withOpacity(0.2),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          'PM',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                            color: colorScheme.secondary,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 32),
-                    ],
-                    // 테마 설정
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surface.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: colorScheme.onSurface.withOpacity(0.1),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.palette_outlined,
-                                size: 20,
-                                color: colorScheme.onSurface.withOpacity(0.7),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '테마 설정',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.onSurface,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () => themeProvider.setLightMode(),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    decoration: BoxDecoration(
-                                      color: !themeProvider.isDarkMode
-                                          ? colorScheme.primary.withOpacity(0.2)
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: !themeProvider.isDarkMode
-                                            ? colorScheme.primary
-                                            : colorScheme.onSurface.withOpacity(0.2),
-                                        width: 2,
-                                      ),
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        Icon(
-                                          Icons.light_mode,
-                                          color: !themeProvider.isDarkMode
-                                              ? colorScheme.primary
-                                              : colorScheme.onSurface.withOpacity(0.5),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '라이트',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: !themeProvider.isDarkMode
-                                                ? FontWeight.bold
-                                                : FontWeight.normal,
-                                            color: !themeProvider.isDarkMode
-                                                ? colorScheme.primary
-                                                : colorScheme.onSurface.withOpacity(0.7),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () => themeProvider.setDarkMode(),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    decoration: BoxDecoration(
-                                      color: themeProvider.isDarkMode
-                                          ? colorScheme.primary.withOpacity(0.2)
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: themeProvider.isDarkMode
-                                            ? colorScheme.primary
-                                            : colorScheme.onSurface.withOpacity(0.2),
-                                        width: 2,
-                                      ),
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        Icon(
-                                          Icons.dark_mode,
-                                          color: themeProvider.isDarkMode
-                                              ? colorScheme.primary
-                                              : colorScheme.onSurface.withOpacity(0.5),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '다크',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: themeProvider.isDarkMode
-                                                ? FontWeight.bold
-                                                : FontWeight.normal,
-                                            color: themeProvider.isDarkMode
-                                                ? colorScheme.primary
-                                                : colorScheme.onSurface.withOpacity(0.7),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    // 로그아웃 버튼
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          Navigator.of(dialogContext).pop(); // 설정 다이얼로그 닫기
-                          final confirmed = await showDialog<bool>(
-                            context: dialogContext,
-                            barrierColor: Colors.black.withOpacity(0.2),
-                            builder: (logoutDialogContext) {
-                              final dialogColorScheme = Theme.of(logoutDialogContext).colorScheme;
-                              return Dialog(
-                                backgroundColor: Colors.transparent,
-                                elevation: 0,
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 320),
-                                  child: GlassContainer(
-                                    padding: const EdgeInsets.all(0),
-                                    borderRadius: 24.0,
-                                    blur: 25.0,
-                                    gradientColors: [
-                                      dialogColorScheme.surface.withOpacity(0.6),
-                                      dialogColorScheme.surface.withOpacity(0.5),
-                                    ],
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(24.0),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '로그아웃',
-                                            style: TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.bold,
-                                              color: dialogColorScheme.onSurface,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 12),
-                                          Text(
-                                            '로그아웃하시겠습니까?',
-                                            style: TextStyle(
-                                              fontSize: 15,
-                                              color: dialogColorScheme.onSurface.withOpacity(0.8),
-                                            ),
-                                          ),
-                                          const SizedBox(height: 20),
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.end,
-                                            children: [
-                                              TextButton(
-                                                onPressed: () => Navigator.of(logoutDialogContext).pop(false),
-                                                child: Text(
-                                                  '취소',
-                                                  style: TextStyle(
-                                                    color: dialogColorScheme.onSurface.withOpacity(0.7),
-                                                    fontSize: 14,
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              TextButton(
-                                                onPressed: () => Navigator.of(logoutDialogContext).pop(true),
-                                                style: TextButton.styleFrom(
-                                                  backgroundColor: dialogColorScheme.primary.withOpacity(0.2),
-                                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                                ),
-                                                child: Text(
-                                                  '로그아웃',
-                                                  style: TextStyle(
-                                                    color: dialogColorScheme.primary,
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-
-                          if (confirmed == true && dialogContext.mounted) {
-                            await authProvider.logout();
-                            if (dialogContext.mounted) {
-                              Navigator.of(dialogContext).pushReplacement(
-                                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                              );
-                            }
-                          }
-                        },
-                        icon: Icon(Icons.logout, color: Colors.white),
-                        label: const Text(
-                          '로그아웃',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: colorScheme.error,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-            },
-          ),
-        );
-      },
+      builder: (_) => _SettingsDialogContent(
+        onPickProfileImage: _pickAndUploadProfileImage,
+      ),
     );
   }
 }
@@ -2717,6 +2220,906 @@ class MenuItem {
     required this.label,
     required this.index,
   });
+}
+
+/// 설정 다이얼로그 (좌측 네비게이션 + 우측 컨텐츠 패널)
+class _SettingsDialogContent extends StatefulWidget {
+  const _SettingsDialogContent({required this.onPickProfileImage});
+
+  final Future<void> Function(AuthProvider) onPickProfileImage;
+
+  @override
+  State<_SettingsDialogContent> createState() => _SettingsDialogContentState();
+}
+
+class _SettingsDialogContentState extends State<_SettingsDialogContent> {
+  int _selectedSection = 0; // 0=프로필, 1=워크스페이스, 2=테마
+
+  static const _sectionLabels = ['프로필', '워크스페이스', '테마'];
+  static const _sectionIcons = [
+    Icons.person_outline,
+    Icons.group_outlined,
+    Icons.palette_outlined,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    return Consumer2<AuthProvider, ThemeProvider>(
+      builder: (context, authProvider, themeProvider, _) {
+        final user = authProvider.currentUser;
+        final isAdmin = authProvider.isAdmin;
+
+        // 섹션 목록 (관리자는 승인 관리 추가)
+        final sections = List<String>.from(_sectionLabels);
+        final icons = List<IconData>.from(_sectionIcons);
+        if (isAdmin) {
+          sections.add('승인 관리');
+          icons.add(Icons.admin_panel_settings_outlined);
+        }
+
+        final safeSection = _selectedSection.clamp(0, sections.length - 1);
+
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760, maxHeight: 520),
+            child: GlassContainer(
+              padding: const EdgeInsets.all(0),
+              borderRadius: 20.0,
+              blur: 25.0,
+              gradientColors: [
+                colorScheme.surface.withOpacity(isDarkMode ? 0.88 : 0.95),
+                colorScheme.surface.withOpacity(isDarkMode ? 0.82 : 0.90),
+              ],
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ── 좌측 네비게이션 패널 ──
+                  Container(
+                    width: 200,
+                    decoration: BoxDecoration(
+                      color: isDarkMode
+                          ? Colors.white.withOpacity(0.04)
+                          : Colors.black.withOpacity(0.03),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        bottomLeft: Radius.circular(20),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // 유저 요약 (아바타 + 이름)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 20, 16, 14),
+                          child: Row(
+                            children: [
+                              user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty
+                                  ? CircleAvatar(
+                                      radius: 18,
+                                      backgroundImage: NetworkImage(
+                                        user.profileImageUrl!.startsWith('/')
+                                            ? 'http://localhost:8000${user.profileImageUrl!}'
+                                            : user.profileImageUrl!,
+                                      ),
+                                    )
+                                  : CircleAvatar(
+                                      radius: 18,
+                                      backgroundColor: AvatarColor.getColorForUser(user?.id ?? ''),
+                                      child: Text(
+                                        AvatarColor.getInitial(user?.username ?? 'U'),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      user?.username ?? '',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      user?.email ?? '',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: colorScheme.onSurface.withOpacity(0.55),
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Divider(height: 1, color: colorScheme.outline.withOpacity(0.15)),
+                        const SizedBox(height: 8),
+                        // 네비게이션 아이템
+                        for (int i = 0; i < sections.length; i++)
+                          _buildNavItem(
+                            context,
+                            colorScheme,
+                            sections[i],
+                            icons[i],
+                            i == safeSection,
+                            onTap: () {
+                              if (sections[i] == '승인 관리') {
+                                // 다이얼로그 닫고 AdminApprovalScreen으로 이동
+                                Navigator.of(context).pop();
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const AdminApprovalScreen(),
+                                  ),
+                                );
+                              } else {
+                                setState(() => _selectedSection = i);
+                              }
+                            },
+                          ),
+                        const Spacer(),
+                        Divider(height: 1, color: colorScheme.outline.withOpacity(0.15)),
+                        // 로그아웃 버튼
+                        Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: TextButton.icon(
+                            onPressed: () => _handleLogout(context, authProvider),
+                            icon: Icon(Icons.logout, color: colorScheme.error, size: 18),
+                            label: Text(
+                              '로그아웃',
+                              style: TextStyle(color: colorScheme.error, fontSize: 14),
+                            ),
+                            style: TextButton.styleFrom(
+                              alignment: Alignment.centerLeft,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // 구분선
+                  VerticalDivider(
+                    width: 1,
+                    color: colorScheme.outline.withOpacity(0.15),
+                  ),
+                  // ── 우측 컨텐츠 패널 ──
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // 헤더: 섹션 제목 + 닫기
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 12, 8, 12),
+                          child: Row(
+                            children: [
+                              Text(
+                                sections[safeSection],
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                              const Spacer(),
+                              IconButton(
+                                icon: Icon(
+                                  Icons.close,
+                                  color: colorScheme.onSurface.withOpacity(0.6),
+                                ),
+                                onPressed: () => Navigator.of(context).pop(),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Divider(height: 1, color: colorScheme.outline.withOpacity(0.15)),
+                        // 섹션 컨텐츠
+                        Expanded(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(24),
+                            child: _buildSectionContent(
+                              context,
+                              colorScheme,
+                              isDarkMode,
+                              authProvider,
+                              themeProvider,
+                              safeSection,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 좌측 네비게이션 아이템
+  Widget _buildNavItem(
+    BuildContext context,
+    ColorScheme colorScheme,
+    String label,
+    IconData icon,
+    bool isSelected, {
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected ? colorScheme.primary.withOpacity(0.12) : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: isSelected
+                      ? colorScheme.primary
+                      : colorScheme.onSurface.withOpacity(0.65),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    color: isSelected
+                        ? colorScheme.primary
+                        : colorScheme.onSurface.withOpacity(0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 섹션 컨텐츠 라우팅
+  Widget _buildSectionContent(
+    BuildContext context,
+    ColorScheme colorScheme,
+    bool isDarkMode,
+    AuthProvider authProvider,
+    ThemeProvider themeProvider,
+    int section,
+  ) {
+    switch (section) {
+      case 0:
+        return _buildProfileSection(context, colorScheme, authProvider);
+      case 1:
+        return _buildWorkspaceSection(context, colorScheme);
+      case 2:
+        return _buildThemeSection(colorScheme, themeProvider);
+      default:
+        return _buildProfileSection(context, colorScheme, authProvider);
+    }
+  }
+
+  // ── 섹션: 프로필 ──────────────────────────────
+  Widget _buildProfileSection(
+    BuildContext context,
+    ColorScheme colorScheme,
+    AuthProvider authProvider,
+  ) {
+    final user = authProvider.currentUser;
+    if (user == null) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 프로필 이미지 변경
+        Center(
+          child: _ProfileImageButton(
+            colorScheme: colorScheme,
+            currentUser: user,
+            onTap: () => widget.onPickProfileImage(authProvider),
+          ),
+        ),
+        const SizedBox(height: 24),
+        _infoField(colorScheme, '사용자명', user.username),
+        const SizedBox(height: 12),
+        _infoField(colorScheme, '이메일', user.email),
+        const SizedBox(height: 20),
+        // 역할 뱃지
+        if (user.isAdmin || user.isPM)
+          Wrap(
+            spacing: 8,
+            children: [
+              if (user.isAdmin)
+                _roleBadge(colorScheme, '관리자', colorScheme.primary),
+              if (user.isPM)
+                _roleBadge(colorScheme, 'PM', colorScheme.secondary),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _infoField(ColorScheme colorScheme, String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: colorScheme.onSurface.withOpacity(0.55),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withOpacity(0.4),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: colorScheme.outline.withOpacity(0.25)),
+          ),
+          child: Text(value, style: TextStyle(fontSize: 14, color: colorScheme.onSurface)),
+        ),
+      ],
+    );
+  }
+
+  Widget _roleBadge(ColorScheme colorScheme, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
+      ),
+    );
+  }
+
+  // ── 섹션: 워크스페이스 ──────────────────────────
+  Widget _buildWorkspaceSection(BuildContext context, ColorScheme colorScheme) {
+    return Consumer<WorkspaceProvider>(
+      builder: (context, wsProvider, _) {
+        final ws = wsProvider.currentWorkspace;
+        if (ws == null) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Column(
+                children: [
+                  Icon(Icons.group_outlined, size: 48, color: colorScheme.onSurface.withOpacity(0.35)),
+                  const SizedBox(height: 12),
+                  Text(
+                    '선택된 워크스페이스가 없습니다',
+                    style: TextStyle(color: colorScheme.onSurface.withOpacity(0.55)),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final authProvider = context.read<AuthProvider>();
+        final isOwner =
+            ws.ownerId == (authProvider.currentUser?.id ?? '') || authProvider.isAdmin;
+        final inviteLink = wsProvider.buildInviteLink(ws.inviteToken);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 워크스페이스 정보
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(10), // 워크스페이스 = 네모
+                  ),
+                  child: Center(
+                    child: Text(
+                      ws.name.isNotEmpty ? ws.name[0].toUpperCase() : 'W',
+                      style: TextStyle(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ws.name,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                      ),
+                      if (ws.description != null && ws.description!.isNotEmpty)
+                        Text(
+                          ws.description!,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // 초대 링크
+            Text(
+              '초대 링크',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.onSurface.withOpacity(0.55),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: colorScheme.outline.withOpacity(0.25)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.link, size: 16, color: colorScheme.onSurface.withOpacity(0.5)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      inviteLink,
+                      style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy, size: 18),
+                    tooltip: '링크 복사',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: inviteLink));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('초대 링크가 복사되었습니다'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: ws.inviteToken));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('초대 코드가 복사되었습니다'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.key, size: 16),
+                  label: const Text('코드만 복사'),
+                ),
+                if (isOwner) ...[
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => _handleRegenerateToken(context, wsProvider),
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text('코드 재발급'),
+                    style: OutlinedButton.styleFrom(foregroundColor: Colors.orange),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // 멤버 목록
+            Text(
+              '멤버 (${wsProvider.currentMembers.length}명)',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.onSurface.withOpacity(0.55),
+              ),
+            ),
+            const SizedBox(height: 6),
+            if (wsProvider.isLoading)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else
+              ...wsProvider.currentMembers.map((member) {
+                final isMe = member.userId == (authProvider.currentUser?.id ?? '');
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  leading: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: AvatarColor.getColorForUser(member.username),
+                    child: Text(
+                      member.username.isNotEmpty ? member.username[0].toUpperCase() : '?',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  title: Row(
+                    children: [
+                      Text(
+                        member.username,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                      if (isMe) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '나',
+                            style: TextStyle(fontSize: 10, color: colorScheme.primary),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  subtitle: Text(
+                    member.isOwner ? '오너' : '멤버',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: member.isOwner
+                          ? colorScheme.primary
+                          : colorScheme.onSurface.withOpacity(0.5),
+                    ),
+                  ),
+                  trailing: isOwner && !isMe && !member.isOwner
+                      ? IconButton(
+                          icon: const Icon(Icons.person_remove_outlined,
+                              color: Colors.red, size: 18),
+                          tooltip: '강퇴',
+                          onPressed: () => _handleRemoveMember(context, wsProvider, member),
+                        )
+                      : null,
+                );
+              }),
+
+            // 탈퇴 버튼 (오너가 아닌 멤버만)
+            if (!isOwner) ...[
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _handleLeaveWorkspace(context, wsProvider),
+                  icon: const Icon(Icons.exit_to_app, color: Colors.red, size: 18),
+                  label: const Text('워크스페이스 탈퇴',
+                      style: TextStyle(color: Colors.red)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  // ── 섹션: 테마 ──────────────────────────────
+  Widget _buildThemeSection(ColorScheme colorScheme, ThemeProvider themeProvider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '앱 테마를 선택하세요',
+          style: TextStyle(
+            fontSize: 14,
+            color: colorScheme.onSurface.withOpacity(0.65),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () => themeProvider.setLightMode(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  decoration: BoxDecoration(
+                    color: !themeProvider.isDarkMode
+                        ? colorScheme.primary.withOpacity(0.12)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: !themeProvider.isDarkMode
+                          ? colorScheme.primary
+                          : colorScheme.outline.withOpacity(0.3),
+                      width: !themeProvider.isDarkMode ? 2 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.light_mode,
+                        size: 36,
+                        color: !themeProvider.isDarkMode
+                            ? colorScheme.primary
+                            : colorScheme.onSurface.withOpacity(0.45),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '라이트',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: !themeProvider.isDarkMode
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: !themeProvider.isDarkMode
+                              ? colorScheme.primary
+                              : colorScheme.onSurface.withOpacity(0.65),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => themeProvider.setDarkMode(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  decoration: BoxDecoration(
+                    color: themeProvider.isDarkMode
+                        ? colorScheme.primary.withOpacity(0.12)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: themeProvider.isDarkMode
+                          ? colorScheme.primary
+                          : colorScheme.outline.withOpacity(0.3),
+                      width: themeProvider.isDarkMode ? 2 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.dark_mode,
+                        size: 36,
+                        color: themeProvider.isDarkMode
+                            ? colorScheme.primary
+                            : colorScheme.onSurface.withOpacity(0.45),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '다크',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: themeProvider.isDarkMode
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: themeProvider.isDarkMode
+                              ? colorScheme.primary
+                              : colorScheme.onSurface.withOpacity(0.65),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ── 액션 핸들러 ──────────────────────────────
+
+  Future<void> _handleLogout(BuildContext context, AuthProvider authProvider) async {
+    // root navigator를 미리 캡처 (pop 이전에 반드시 호출해야 함)
+    final nav = Navigator.of(context, rootNavigator: true);
+
+    // 설정 다이얼로그가 열린 상태에서 확인창을 띄움 (context 유효성 유지)
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.2),
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320),
+            child: GlassContainer(
+              padding: const EdgeInsets.all(0),
+              borderRadius: 24.0,
+              blur: 25.0,
+              gradientColors: [
+                cs.surface.withOpacity(0.6),
+                cs.surface.withOpacity(0.5),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '로그아웃',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '로그아웃하시겠습니까?',
+                      style: TextStyle(fontSize: 15, color: cs.onSurface.withOpacity(0.8)),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          child: Text(
+                            '취소',
+                            style: TextStyle(color: cs.onSurface.withOpacity(0.7)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(true),
+                          style: TextButton.styleFrom(
+                            backgroundColor: cs.primary.withOpacity(0.15),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                          ),
+                          child: Text(
+                            '로그아웃',
+                            style: TextStyle(
+                              color: cs.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    await authProvider.logout();
+    // 캡처한 root navigator로 모든 라우트 제거 후 로그인 화면으로 이동
+    nav.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
+  Future<void> _handleRegenerateToken(
+      BuildContext context, WorkspaceProvider wsProvider) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('초대 코드 재발급'),
+        content: const Text('기존 초대 링크는 더 이상 사용할 수 없게 됩니다. 계속할까요?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('재발급')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    await wsProvider.regenerateInviteToken();
+  }
+
+  Future<void> _handleRemoveMember(
+      BuildContext context, WorkspaceProvider wsProvider, WorkspaceMember member) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('멤버 강퇴'),
+        content: Text('${member.username}님을 워크스페이스에서 강퇴하시겠습니까?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('강퇴'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    await wsProvider.removeMember(member.userId);
+  }
+
+  Future<void> _handleLeaveWorkspace(
+      BuildContext context, WorkspaceProvider wsProvider) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('워크스페이스 탈퇴'),
+        content: const Text('워크스페이스에서 탈퇴하시겠습니까?\n이 작업은 되돌릴 수 없습니다.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('탈퇴'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    await wsProvider.leaveWorkspace();
+    if (context.mounted) Navigator.of(context).pop();
+  }
 }
 
 

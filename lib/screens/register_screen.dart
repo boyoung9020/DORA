@@ -280,18 +280,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 24),
             _buildInputField(
-              controller: _usernameController,
-              label: '사용자 이름',
-              hint: '이름 또는 아이디 입력',
-              icon: Icons.person_outline,
-              validator: (value) {
-                if (value == null || value.isEmpty) return '사용자 이름을 입력하세요';
-                if (value.length < 3) return '사용자 이름은 3자 이상이어야 합니다';
-                return null;
-              },
-            ),
-            const SizedBox(height: 14),
-            _buildInputField(
               controller: _emailController,
               label: '이메일',
               hint: '이메일 입력',
@@ -300,6 +288,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
               validator: (value) {
                 if (value == null || value.isEmpty) return '이메일을 입력하세요';
                 if (!value.contains('@')) return '올바른 이메일 형식이 아닙니다';
+                return null;
+              },
+            ),
+            const SizedBox(height: 14),
+            _buildInputField(
+              controller: _usernameController,
+              label: '사용자 이름',
+              hint: '이름 또는 아이디 입력',
+              icon: Icons.person_outline,
+              validator: (value) {
+                if (value == null || value.isEmpty) return '사용자 이름을 입력하세요';
+                if (value.length < 3) return '사용자 이름은 3자 이상이어야 합니다';
                 return null;
               },
             ),
@@ -347,32 +347,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 if (value != _passwordController.text) return '비밀번호가 일치하지 않습니다';
                 return null;
               },
-            ),
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF3E6),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFE8CDB2)),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.info_outline, size: 18, color: Color(0xFF8A6647)),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '회원가입 후 관리자 승인이 필요합니다.',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: Color(0xFF7B5C42),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ),
             const SizedBox(height: 18),
             SizedBox(
