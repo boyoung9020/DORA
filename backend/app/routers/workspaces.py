@@ -1,0 +1,218 @@
+"""
+워크스페이스 관리 API 라우터
+"""
+import secrets
+import uuid
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import List
+
+from app.database import get_db
+from app.models.workspace import Workspace, WorkspaceMember
+from app.models.user import User
+from app.schemas.workspace import WorkspaceCreate, WorkspaceResponse, WorkspaceMemberResponse, JoinByTokenRequest
+from app.utils.dependencies import get_current_user
+
+router = APIRouter()
+
+
+def _is_workspace_member(db: Session, workspace_id: str, user_id: str) -> bool:
+    return db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == workspace_id,
+        WorkspaceMember.user_id == user_id
+    ).first() is not None
+
+
+def _get_workspace_or_404(db: Session, workspace_id: str) -> Workspace:
+    ws = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+    if not ws:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="워크스페이스를 찾을 수 없습니다")
+    return ws
+
+
+def _workspace_to_response(ws: Workspace, db: Session) -> WorkspaceResponse:
+    member_count = db.query(WorkspaceMember).filter(WorkspaceMember.workspace_id == ws.id).count()
+    return WorkspaceResponse(
+        id=ws.id,
+        name=ws.name,
+        description=ws.description,
+        owner_id=ws.owner_id,
+        invite_token=ws.invite_token,
+        member_count=member_count,
+        created_at=ws.created_at,
+    )
+
+
+@router.get("/", response_model=List[WorkspaceResponse])
+async def get_my_workspaces(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """내가 속한 워크스페이스 목록"""
+    memberships = db.query(WorkspaceMember).filter(
+        WorkspaceMember.user_id == current_user.id
+    ).all()
+    ws_ids = [m.workspace_id for m in memberships]
+    workspaces = db.query(Workspace).filter(Workspace.id.in_(ws_ids)).all()
+    return [_workspace_to_response(ws, db) for ws in workspaces]
+
+
+@router.post("/", response_model=WorkspaceResponse, status_code=status.HTTP_201_CREATED)
+async def create_workspace(
+    ws_data: WorkspaceCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """워크스페이스 생성 - 생성자가 owner가 됨"""
+    new_ws = Workspace(
+        id=str(uuid.uuid4()),
+        name=ws_data.name,
+        description=ws_data.description,
+        owner_id=current_user.id,
+        invite_token=secrets.token_urlsafe(16),
+    )
+    db.add(new_ws)
+    db.flush()
+
+    # 생성자를 owner로 멤버에 추가
+    db.add(WorkspaceMember(
+        id=str(uuid.uuid4()),
+        workspace_id=new_ws.id,
+        user_id=current_user.id,
+        role="owner",
+    ))
+    db.commit()
+    db.refresh(new_ws)
+    return _workspace_to_response(new_ws, db)
+
+
+@router.get("/{workspace_id}", response_model=WorkspaceResponse)
+async def get_workspace(
+    workspace_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """워크스페이스 상세 조회 (멤버만)"""
+    ws = _get_workspace_or_404(db, workspace_id)
+    if not _is_workspace_member(db, workspace_id, current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="워크스페이스 멤버가 아닙니다")
+    return _workspace_to_response(ws, db)
+
+
+@router.get("/{workspace_id}/members", response_model=List[WorkspaceMemberResponse])
+async def get_workspace_members(
+    workspace_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """워크스페이스 멤버 목록 (멤버만)"""
+    _get_workspace_or_404(db, workspace_id)
+    if not _is_workspace_member(db, workspace_id, current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="워크스페이스 멤버가 아닙니다")
+
+    memberships = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == workspace_id
+    ).all()
+
+    result = []
+    for m in memberships:
+        user = db.query(User).filter(User.id == m.user_id).first()
+        if user:
+            result.append(WorkspaceMemberResponse(
+                user_id=user.id,
+                username=user.username,
+                profile_image_url=user.profile_image_url,
+                role=m.role,
+                joined_at=m.joined_at,
+            ))
+    return result
+
+
+@router.post("/join", response_model=WorkspaceResponse)
+async def join_workspace_by_token(
+    body: JoinByTokenRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """초대 토큰으로 워크스페이스 참여"""
+    ws = db.query(Workspace).filter(Workspace.invite_token == body.invite_token).first()
+    if not ws:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="유효하지 않은 초대 코드입니다")
+
+    # 이미 멤버이면 그냥 반환
+    if not _is_workspace_member(db, ws.id, current_user.id):
+        db.add(WorkspaceMember(
+            id=str(uuid.uuid4()),
+            workspace_id=ws.id,
+            user_id=current_user.id,
+            role="member",
+        ))
+        db.commit()
+        db.refresh(ws)
+
+    return _workspace_to_response(ws, db)
+
+
+@router.post("/{workspace_id}/invite/regenerate", response_model=WorkspaceResponse)
+async def regenerate_invite_token(
+    workspace_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """초대 토큰 재발급 (owner만)"""
+    ws = _get_workspace_or_404(db, workspace_id)
+    if ws.owner_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="워크스페이스 오너만 초대 코드를 재발급할 수 있습니다")
+
+    ws.invite_token = secrets.token_urlsafe(16)
+    db.commit()
+    db.refresh(ws)
+    return _workspace_to_response(ws, db)
+
+
+@router.delete("/{workspace_id}/members/{user_id}")
+async def remove_workspace_member(
+    workspace_id: str,
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """멤버 강퇴 (owner 또는 admin만)"""
+    ws = _get_workspace_or_404(db, workspace_id)
+    if ws.owner_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="워크스페이스 오너만 멤버를 강퇴할 수 있습니다")
+    if user_id == ws.owner_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="오너는 강퇴할 수 없습니다")
+
+    member = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == workspace_id,
+        WorkspaceMember.user_id == user_id
+    ).first()
+    if member:
+        db.delete(member)
+        db.commit()
+    return {"message": "멤버가 강퇴되었습니다"}
+
+
+@router.delete("/{workspace_id}/leave")
+async def leave_workspace(
+    workspace_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """워크스페이스 탈퇴 (owner는 불가)"""
+    ws = _get_workspace_or_404(db, workspace_id)
+    if ws.owner_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="오너는 워크스페이스를 탈퇴할 수 없습니다. 다른 멤버에게 오너를 양도하거나 워크스페이스를 삭제하세요"
+        )
+
+    member = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == workspace_id,
+        WorkspaceMember.user_id == current_user.id
+    ).first()
+    if member:
+        db.delete(member)
+        db.commit()
+    return {"message": "워크스페이스를 탈퇴했습니다"}

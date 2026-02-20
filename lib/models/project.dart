@@ -8,6 +8,8 @@ class Project {
   final String? description;
   final Color color;
   final List<String> teamMemberIds; // 팀원 사용자 ID 목록
+  final String? workspaceId;        // 소속 워크스페이스 ID
+  final String? creatorId;          // 프로젝트 생성자 (= 프로젝트 PM)
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -17,6 +19,8 @@ class Project {
     this.description,
     this.color = const Color(0xFF2196F3),
     List<String>? teamMemberIds,
+    this.workspaceId,
+    this.creatorId,
     required this.createdAt,
     required this.updatedAt,
   }) : teamMemberIds = teamMemberIds ?? [];
@@ -29,6 +33,8 @@ class Project {
       'description': description,
       'color': color.value,
       'teamMemberIds': teamMemberIds,
+      'workspaceId': workspaceId,
+      'creatorId': creatorId,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -74,12 +80,17 @@ class Project {
       throw Exception('프로젝트 데이터에 필수 필드(id, name)가 없습니다: $json');
     }
     
+    final workspaceIdKey = json.containsKey('workspace_id') ? 'workspace_id' : 'workspaceId';
+    final creatorIdKey = json.containsKey('creator_id') ? 'creator_id' : 'creatorId';
+
     return Project(
       id: id,
       name: name,
       description: json['description'] as String?,
       color: Color(json['color'] is int ? json['color'] as int : (json['color'] is String ? int.parse(json['color'] as String) : 0xFF2196F3)),
       teamMemberIds: teamMemberIds,
+      workspaceId: json[workspaceIdKey] as String?,
+      creatorId: json[creatorIdKey] as String?,
       createdAt: parseDate(json[createdAtKey]),
       updatedAt: parseDate(json[updatedAtKey]),
     );
@@ -92,6 +103,8 @@ class Project {
     String? description,
     Color? color,
     List<String>? teamMemberIds,
+    String? workspaceId,
+    String? creatorId,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -101,6 +114,8 @@ class Project {
       description: description ?? this.description,
       color: color ?? this.color,
       teamMemberIds: teamMemberIds ?? this.teamMemberIds,
+      workspaceId: workspaceId ?? this.workspaceId,
+      creatorId: creatorId ?? this.creatorId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

@@ -25,6 +25,28 @@ def run_migrations():
                 conn.commit()
                 print("✅ tasks 테이블에 display_order 컬럼이 추가되었습니다.")
 
+        # projects 테이블에 workspace_id, creator_id 컬럼 추가
+        if 'projects' in inspector.get_table_names():
+            columns = [col['name'] for col in inspector.get_columns('projects')]
+            if 'workspace_id' not in columns:
+                conn.execute(text("ALTER TABLE projects ADD COLUMN workspace_id VARCHAR"))
+                conn.commit()
+                print("✅ projects 테이블에 workspace_id 컬럼이 추가되었습니다.")
+            if 'creator_id' not in columns:
+                conn.execute(text("ALTER TABLE projects ADD COLUMN creator_id VARCHAR"))
+                conn.commit()
+                print("✅ projects 테이블에 creator_id 컬럼이 추가되었습니다.")
+
+        # 기존 users 중 is_approved=False인 일반 사용자(비관리자) 자동 승인
+        # (기존 미승인 사용자 구제 - 최초 1회)
+        try:
+            conn.execute(text(
+                "UPDATE users SET is_approved = TRUE WHERE is_approved = FALSE AND is_admin = FALSE"
+            ))
+            conn.commit()
+        except Exception:
+            pass
+
 
 run_migrations()
 

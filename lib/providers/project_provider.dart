@@ -136,37 +136,28 @@ class ProjectProvider extends ChangeNotifier {
   }
 
   /// 새 프로젝트 생성
-  /// 
-  /// PM 권한이 있는 사용자만 프로젝트를 생성할 수 있습니다.
-  /// 프로젝트 생성 시 생성자를 자동으로 팀원에 추가합니다.
+  ///
+  /// 워크스페이스 멤버 누구나 생성 가능. 생성자가 자동으로 PM이 됨.
   Future<bool> createProject({
     required String name,
     String? description,
     Color? color,
-    required bool isPM,
-    String? creatorUserId, // 프로젝트 생성자 ID
+    String? workspaceId,
+    // 하위 호환 파라미터 (무시됨)
+    bool isPM = true,
+    String? creatorUserId,
   }) async {
-    if (!isPM) {
-      _errorMessage = '프로젝트 생성 권한이 없습니다. PM 권한이 필요합니다.';
-      notifyListeners();
-      return false;
-    }
-    
     try {
       final project = await _projectService.createProject(
         name: name,
         description: description,
         color: color,
+        workspaceId: workspaceId,
       );
-      
-      // 프로젝트 생성자를 자동으로 팀원에 추가
-      if (creatorUserId != null) {
-        await _projectService.addTeamMember(project.id, creatorUserId);
-      }
-      
+
       await loadProjects(userId: _currentUserId, isAdmin: _isAdmin, isPM: _isPM);
       await setCurrentProject(project.id);
-      notifyListeners(); // 메인화면 즉시 업데이트
+      notifyListeners();
       return true;
     } catch (e) {
       _errorMessage = '프로젝트 생성 중 오류가 발생했습니다: $e';

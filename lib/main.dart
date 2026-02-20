@@ -7,9 +7,11 @@ import 'providers/project_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/chat_provider.dart';
+import 'providers/workspace_provider.dart';
 import 'services/windows_notification_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_layout.dart';
+import 'screens/workspace_select_screen.dart';
 
 // ?뱀씠 ?꾨땺 ?뚮쭔 bitsdojo_window import
 import 'package:bitsdojo_window/bitsdojo_window.dart' if (dart.library.html) 'bitsdojo_window_stub.dart' as bitsdojo;
@@ -75,6 +77,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         // ChatProvider瑜??꾩뿭?곸쑝濡??ъ슜?????덈룄濡??ㅼ젙
         ChangeNotifierProvider(create: (_) => ChatProvider()),
+        // WorkspaceProvider
+        ChangeNotifierProvider(create: (_) => WorkspaceProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
@@ -161,11 +165,19 @@ class _AuthWrapperState extends State<AuthWrapper> {
           );
         }
 
-        // 로그인되어 있으면 메인 레이아웃, 아니면 로그인 화면
+        // 로그인되어 있으면 워크스페이스 선택 화면, 아니면 로그인 화면
         final isAuthenticated = authProvider.isAuthenticated;
-        print('[AuthWrapper] 인증 상태: $isAuthenticated, 화면 전환: ${isAuthenticated ? "MainLayout" : "LoginScreen"}');
+        print('[AuthWrapper] 인증 상태: $isAuthenticated, 화면 전환: ${isAuthenticated ? "WorkspaceSelectScreen" : "LoginScreen"}');
         return isAuthenticated
-            ? const MainLayout()
+            ? Consumer<WorkspaceProvider>(
+                builder: (context, wsProvider, _) {
+                  // 워크스페이스가 선택된 경우 메인 레이아웃으로 이동
+                  if (wsProvider.currentWorkspace != null) {
+                    return const MainLayout();
+                  }
+                  return const WorkspaceSelectScreen();
+                },
+              )
             : const LoginScreen();
       },
     );

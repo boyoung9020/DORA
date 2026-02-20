@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from app.database import engine, Base
-from app.routers import auth, users, projects, tasks, comments, uploads, notifications, websocket, chat
+from app.routers import auth, users, projects, tasks, comments, uploads, notifications, websocket, chat, workspaces
 
 # 데이터베이스 테이블 생성
 Base.metadata.create_all(bind=engine)
@@ -66,6 +66,7 @@ app.include_router(comments.router, prefix="/api/comments", tags=["댓글"])
 app.include_router(uploads.router, prefix="/api/uploads", tags=["업로드"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["알림"])
 app.include_router(chat.router, prefix="/api/chat", tags=["채팅"])
+app.include_router(workspaces.router, prefix="/api/workspaces", tags=["워크스페이스"])
 app.include_router(websocket.router, prefix="/api", tags=["WebSocket"])
 
 

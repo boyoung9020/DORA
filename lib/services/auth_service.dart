@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import '../utils/api_client.dart';
-import 'package:http/http.dart' as http;
 
 /// 인증 서비스 클래스
 /// 
@@ -197,6 +196,17 @@ class AuthService {
       return user;
     } catch (e) {
       throw Exception('프로필 이미지 업데이트 실패: $e');
+    }
+  }
+
+  /// 워크스페이스 멤버 사용자 목록 가져오기
+  Future<List<User>> getUsersByWorkspace(String workspaceId) async {
+    try {
+      final response = await ApiClient.get('/api/users/?workspace_id=$workspaceId');
+      final usersData = ApiClient.handleListResponse(response);
+      return usersData.map((json) => User.fromJson(json as Map<String, dynamic>)).toList();
+    } catch (e) {
+      throw Exception('워크스페이스 사용자 목록 가져오기 실패: $e');
     }
   }
 

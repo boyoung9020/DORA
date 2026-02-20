@@ -20,8 +20,7 @@ router = APIRouter()
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     """
-    회원가입
-    관리자 승인이 필요하므로 is_approved는 false로 시작합니다.
+    회원가입 - 가입 즉시 로그인 가능 (자동 승인)
     """
     # 중복 체크
     existing_user = db.query(User).filter(
@@ -47,7 +46,7 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
         email=user_data.email,
         password_hash=get_password_hash(user_data.password),
         is_admin=False,
-        is_approved=False,  # 관리자 승인 대기
+        is_approved=True,   # 자동 승인: 가입 즉시 로그인 가능
         is_pm=False
     )
     

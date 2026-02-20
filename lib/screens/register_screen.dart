@@ -50,7 +50,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           final colorScheme = Theme.of(context).colorScheme;
           return AlertDialog(
             title: const Text('회원가입 완료'),
-            content: const Text('회원가입이 완료되었습니다.\n관리자 승인 후 로그인할 수 있습니다.'),
+            content: const Text('회원가입이 완료되었습니다.\n바로 로그인하세요!'),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             actions: [
               TextButton(

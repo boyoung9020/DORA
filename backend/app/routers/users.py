@@ -1,11 +1,12 @@
 """
 사용자 관리 API 라우터
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from app.database import get_db
 from app.models.user import User
+from app.models.workspace import WorkspaceMember
 from app.schemas.user import UserResponse, UserUpdate
 from app.utils.dependencies import get_current_user, get_current_admin_user, get_current_admin_or_pm_user
 
@@ -14,12 +15,19 @@ router = APIRouter()
 
 @router.get("/", response_model=List[UserResponse])
 async def get_all_users(
+    workspace_id: Optional[str] = Query(None, description="워크스페이스 ID: 해당 멤버만 반환"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """채팅 등에서 사용: 프로젝트 무관, DB의 전체 사용자 목록 (인증된 사용자)"""
-    # 채팅에서는 내가 속한 프로젝트와 관계없이 모든 유저와 대화 가능
-    if current_user.is_admin or current_user.is_pm:
+    """사용자 목록. workspace_id 제공 시 해당 워크스페이스 멤버만 반환"""
+    if workspace_id:
+        member_user_ids = [
+            m.user_id for m in db.query(WorkspaceMember).filter(
+                WorkspaceMember.workspace_id == workspace_id
+            ).all()
+        ]
+        users = db.query(User).filter(User.id.in_(member_user_ids)).all()
+    elif current_user.is_admin:
         users = db.query(User).all()
     else:
         users = db.query(User).filter(User.is_approved == True).all()

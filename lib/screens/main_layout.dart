@@ -12,13 +12,17 @@ import '../services/websocket_service.dart';
 import '../services/upload_service.dart';
 import '../providers/notification_provider.dart';
 import '../providers/chat_provider.dart';
+import '../providers/workspace_provider.dart';
 import '../models/notification.dart' as models;
 import '../models/project.dart';
 import '../models/user.dart';
+import '../models/workspace.dart';
 import '../widgets/app_title_bar.dart';
 import '../widgets/glass_container.dart';
 import '../utils/avatar_color.dart';
 import 'login_screen.dart';
+import 'workspace_select_screen.dart';
+import 'workspace_settings_screen.dart';
 import 'dashboard_screen.dart';
 import 'kanban_screen.dart';
 import 'calendar_screen.dart';
@@ -513,7 +517,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           // 커스텀 타이틀바
           AppTitleBar(
             backgroundColor: shellColor,
-            leadingWidth: 75,
+            leadingWidth: 127, // workspace rail(52) + sidebar(75)
             extraHeight: 8,
           ),
           // 메인 컨텐츠
@@ -523,7 +527,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 왼쪽 사이드바 (L자 형태로 타이틀바와 이어짐)
+                  // 워크스페이스 레일 (Slack 스타일, 가장 왼쪽)
+                  _buildWorkspaceRail(context),
+                  // 왼쪽 사이드바
                   _buildSidebar(
                     context,
                     menuItems,
@@ -612,6 +618,150 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Slack 스타일 워크스페이스 레일 (가장 왼쪽 좁은 열)
+  Widget _buildWorkspaceRail(BuildContext context) {
+    // 진한 주황 (앱 primary) → 옅은 주황 사이드바와 자연스러운 계층 대비
+    const railColor = Color(0xFFD86B27);
+
+    return Consumer<WorkspaceProvider>(
+      builder: (context, wsProvider, _) {
+        return Container(
+          width: 52,
+          color: railColor,
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              // ① 새 워크스페이스 추가 버튼 (최상단)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Tooltip(
+                  message: '워크스페이스 추가 / 참여',
+                  preferBelow: false,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => WorkspaceSelectScreen.showAsDialog(context),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: const Icon(Icons.add, color: Colors.white70, size: 20),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // 구분선
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                child: Divider(height: 1, thickness: 1, color: Colors.white.withOpacity(0.15)),
+              ),
+              // ② 워크스페이스 아이콘 목록
+              ...wsProvider.workspaces.map((ws) {
+                final isSelected = ws.id == wsProvider.currentWorkspaceId;
+                return _buildWorkspaceIcon(context, ws, isSelected, wsProvider);
+              }),
+              const Spacer(),
+              // ③ 워크스페이스 설정 버튼 (하단)
+              if (wsProvider.currentWorkspace != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Tooltip(
+                    message: '워크스페이스 설정 (초대 링크)',
+                    preferBelow: false,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => WorkspaceSettingsScreen.showAsDialog(context),
+                        child: const Padding(
+                          padding: EdgeInsets.all(6),
+                          child: Icon(Icons.settings_outlined, color: Colors.white54, size: 20),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 워크스페이스 아이콘 (레일 내 각 워크스페이스)
+  Widget _buildWorkspaceIcon(
+    BuildContext context,
+    Workspace ws,
+    bool isSelected,
+    WorkspaceProvider wsProvider,
+  ) {
+    const avatarColors = [
+      Color(0xFF5C6BC0), Color(0xFF26A69A), Color(0xFF42A5F5),
+      Color(0xFFEC407A), Color(0xFF66BB6A), Color(0xFFAB47BC),
+      Color(0xFF26C6DA), Color(0xFF8D6E63),
+    ];
+    final color = avatarColors[ws.name.hashCode.abs() % avatarColors.length];
+    final initial = ws.name.isNotEmpty ? ws.name[0].toUpperCase() : '?';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          // Slack 스타일 선택 표시자 (왼쪽 흰색 막대)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 3,
+            height: isSelected ? 28 : 0,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topRight: Radius.circular(3),
+                bottomRight: Radius.circular(3),
+              ),
+            ),
+          ),
+          const SizedBox(width: 5),
+          Tooltip(
+            message: ws.name,
+            preferBelow: false,
+            child: GestureDetector(
+              onTap: () => wsProvider.selectWorkspace(ws),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: isSelected ? color : color.withOpacity(0.65),
+                  borderRadius: isSelected
+                      ? BorderRadius.circular(10)
+                      : BorderRadius.circular(18),
+                ),
+                child: Center(
+                  child: Text(
+                    initial,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -1079,8 +1229,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 );
               }
               
-              // 구분선과 새 프로젝트 버튼 (PM/Admin만)
-              if (authProvider.isPM || authProvider.isAdmin) {
+              // 구분선과 새 프로젝트 버튼 (모든 워크스페이스 멤버)
+              if (true) {
                 items.add(const PopupMenuDivider());
                 items.add(
                   PopupMenuItem<String>(
@@ -1131,9 +1281,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     Offset position,
   ) {
     final size = MediaQuery.of(context).size;
-    
-    // PM 또는 Admin만 삭제 가능
-    if (!authProvider.isPM && !authProvider.isAdmin) {
+
+    // 프로젝트 PM(creator) 또는 Admin만 삭제 가능
+    final isProjectPM = project.creatorId == authProvider.currentUser?.id || authProvider.isAdmin;
+    if (!isProjectPM) {
       return;
     }
     
@@ -1243,19 +1394,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   void _showCreateProjectDialog(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final nameController = TextEditingController();
-    
-    // PM 권한 체크
-    if (!authProvider.isPM && !authProvider.isAdmin) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('프로젝트 생성 권한이 없습니다. PM 권한이 필요합니다.'),
-          backgroundColor: colorScheme.error,
-        ),
-      );
-      return;
-    }
 
     showDialog(
       context: context,
@@ -1307,12 +1446,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     ElevatedButton(
                       onPressed: () async {
                         if (nameController.text.trim().isNotEmpty) {
-                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                          final user = authProvider.currentUser;
+                          final wsProvider = Provider.of<WorkspaceProvider>(context, listen: false);
                           final success = await projectProvider.createProject(
                             name: nameController.text.trim(),
-                            isPM: authProvider.isPM || authProvider.isAdmin,
-                            creatorUserId: user?.id, // 프로젝트 생성자 ID 전달
+                            workspaceId: wsProvider.currentWorkspaceId,
                           );
                           if (context.mounted) {
                             if (success) {
@@ -1492,9 +1629,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     ),
                   ),
                 ),
-                    Consumer<AuthProvider>(
-                      builder: (context, authProvider, _) {
-                        if (authProvider.isPM || authProvider.isAdmin) {
+                    Consumer2<AuthProvider, ProjectProvider>(
+                      builder: (context, authProvider, projProvider, _) {
+                        final proj = projProvider.currentProject;
+                        final isProjectPM = proj?.creatorId == authProvider.currentUser?.id || authProvider.isAdmin;
+                        if (isProjectPM) {
                           return IconButton(
                             icon: Icon(
                               Icons.add_circle_outline,
@@ -1567,10 +1706,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     color: colorScheme.onSurface.withOpacity(0.7),
                   ),
                 ),
-                Consumer<AuthProvider>(
-                  builder: (context, authProvider, _) {
-                    // 관리자나 PM만 추가 안내 메시지 표시
-                    if (authProvider.isPM || authProvider.isAdmin) {
+                Consumer2<AuthProvider, ProjectProvider>(
+                  builder: (context, authProvider, projProvider, _) {
+                    final proj = projProvider.currentProject;
+                    final isProjectPM = proj?.creatorId == authProvider.currentUser?.id || authProvider.isAdmin;
+                    if (isProjectPM) {
                       return Column(
                         children: [
                           const SizedBox(height: 8),
@@ -1665,10 +1805,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                             ],
                           ),
                         ),
-                        Consumer<AuthProvider>(
-                          builder: (context, authProvider, _) {
-                            // 관리자나 PM만 제거 버튼 표시
-                            if (authProvider.isPM || authProvider.isAdmin) {
+                        Consumer2<AuthProvider, ProjectProvider>(
+                          builder: (context, authProvider, projProvider, _) {
+                            final proj = projProvider.currentProject;
+                            final isProjectPM = proj?.creatorId == authProvider.currentUser?.id || authProvider.isAdmin;
+                            if (isProjectPM) {
                               return IconButton(
                                 icon: Icon(
                                   Icons.close,
@@ -1733,19 +1874,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     ProjectProvider projectProvider,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
-    // PM 권한 체크
-    if (!authProvider.isPM && !authProvider.isAdmin) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('팀원 초대 권한이 없습니다. PM 권한이 필요합니다.'),
-          backgroundColor: colorScheme.error,
-        ),
-      );
-      return;
-    }
-    
+
     showDialog(
       context: context,
       builder: (context) {
@@ -1894,10 +2023,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   Future<List<dynamic>> _loadAvailableUsers(currentProject) async {
     try {
       final authService = AuthService();
-      // 승인된 사용자 목록 가져오기 (PM도 사용 가능)
-      final approvedUsers = await authService.getApprovedUsers();
+      // 워크스페이스 기반: 같은 워크스페이스 멤버만 초대 가능
+      final workspaceId = (currentProject as Project).workspaceId;
+      final List<dynamic> candidates;
+      if (workspaceId != null) {
+        candidates = await authService.getUsersByWorkspace(workspaceId);
+      } else {
+        candidates = await authService.getApprovedUsers();
+      }
       // 이미 팀원에 포함된 사용자는 제외
-      return approvedUsers
+      return candidates
           .where((u) => !currentProject.teamMemberIds.contains(u.id))
           .toList();
     } catch (e) {

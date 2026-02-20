@@ -23,17 +23,17 @@ class ProjectService {
     required String name,
     String? description,
     Color? color,
+    String? workspaceId,
   }) async {
     try {
-      final response = await ApiClient.post(
-        '/api/projects/',
-        body: {
-          'name': name,
-          'description': description,
-          'color': color?.value ?? 0xFF2196F3,
-        },
-      );
-      
+      final body = <String, dynamic>{
+        'name': name,
+        'description': description,
+        'color': color?.value ?? 0xFF2196F3,
+      };
+      if (workspaceId != null) body['workspace_id'] = workspaceId;
+
+      final response = await ApiClient.post('/api/projects/', body: body);
       final projectData = ApiClient.handleResponse(response);
       return Project.fromJson(projectData);
     } catch (e) {
