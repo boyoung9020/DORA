@@ -40,7 +40,8 @@ def _issue_access_token(user: User) -> Token:
 
 
 def _slugify_username(value: str) -> str:
-    slug = re.sub(r"[^a-zA-Z0-9_]", "_", value.strip())
+    # \w matches Unicode letters/digits/underscore (including Korean, etc.)
+    slug = re.sub(r"[^\w]", "_", value.strip(), flags=re.UNICODE)
     slug = re.sub(r"_+", "_", slug).strip("_")
     if len(slug) < 3:
         slug = f"user_{slug}" if slug else "user"
@@ -88,12 +89,13 @@ def _create_social_user(
     social_id: str,
     email: str | None,
     display_name: str | None,
+    username: str | None = None,
 ) -> User:
     """소셜 계정으로 새 유저를 생성합니다."""
     fallback_email = f"{provider}_{social_id}@social.local"
     resolved_email = (email or fallback_email).lower()
 
-    base_username = display_name or (email.split("@")[0] if email else f"{provider}_{social_id[:8]}")
+    base_username = username or display_name or (email.split("@")[0] if email else f"{provider}_{social_id[:8]}")
     username = _build_unique_username(db, base_username)
 
     new_user = User(
@@ -118,6 +120,7 @@ def _resolve_social_user_by_mode(
     email: str | None,
     display_name: str | None,
     mode: str,
+    username: str | None = None,
 ) -> User:
     user = _find_social_user(
         db,
@@ -141,6 +144,7 @@ def _resolve_social_user_by_mode(
             social_id=social_id,
             email=email,
             display_name=display_name,
+            username=username,
         )
     return user
 
@@ -223,6 +227,7 @@ async def social_google_login(
         email=profile.get("email"),
         display_name=profile.get("display_name"),
         mode=body.mode,
+        username=body.username,
     )
 
     if not user.is_approved:
@@ -259,6 +264,7 @@ async def social_google_login_with_code(
         email=profile.get("email"),
         display_name=profile.get("display_name"),
         mode=body.mode,
+        username=body.username,
     )
 
     if not user.is_approved:
@@ -290,6 +296,7 @@ async def social_kakao_login(
         email=profile.get("email"),
         display_name=profile.get("display_name"),
         mode=body.mode,
+        username=body.username,
     )
 
     if not user.is_approved:
@@ -324,6 +331,7 @@ async def social_kakao_login_with_code(
         email=profile.get("email"),
         display_name=profile.get("display_name"),
         mode=body.mode,
+        username=body.username,
     )
 
     if not user.is_approved:

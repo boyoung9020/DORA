@@ -14,6 +14,7 @@ import '../utils/api_client.dart';
 class AuthService {
   static const String _currentUserKey = 'current_user';
   static const String _pendingWebSocialAuthKey = 'pending_web_social_auth';
+  static const String _pendingSocialRegisterDataKey = 'pending_social_register_data';
 
   // ?? PKCE helpers (Google Desktop?? ??????????????????????????????????????
 
@@ -201,6 +202,21 @@ class AuthService {
 
     await _clearPendingWebSocialAuth();
 
+    // For register mode: save the OAuth data and wait for username input.
+    if (mode == 'register') {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _pendingSocialRegisterDataKey,
+        jsonEncode({
+          'provider': provider,
+          'code': code,
+          'redirect_uri': redirectUri,
+          'code_verifier': codeVerifier,
+        }),
+      );
+      return null;
+    }
+
     final endpoint = provider == 'google'
         ? '/api/auth/social/google/code'
         : '/api/auth/social/kakao/code';
@@ -212,6 +228,60 @@ class AuthService {
         'redirect_uri': redirectUri,
         'code_verifier': codeVerifier,
         'mode': mode,
+      },
+      includeAuth: false,
+    );
+    return _consumeLoginTokenResponse(response);
+  }
+
+  Future<bool> hasPendingSocialRegistration() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.containsKey(_pendingSocialRegisterDataKey);
+  }
+
+  Future<String?> getPendingSocialRegistrationProvider() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_pendingSocialRegisterDataKey);
+    if (raw == null) return null;
+    try {
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      return data['provider'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> clearPendingSocialRegistration() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_pendingSocialRegisterDataKey);
+  }
+
+  Future<User?> completeSocialRegistration(String username) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_pendingSocialRegisterDataKey);
+    if (raw == null) throw Exception('진행 중인 소셜 회원가입이 없습니다.');
+
+    final data = jsonDecode(raw) as Map<String, dynamic>;
+    final provider = data['provider'] as String;
+    final code = data['code'] as String;
+    final redirectUri = data['redirect_uri'] as String;
+    final codeVerifier = data['code_verifier'] as String;
+
+    // Clear before calling backend so expired codes don't loop.
+    await prefs.remove(_pendingSocialRegisterDataKey);
+
+    final endpoint = provider == 'google'
+        ? '/api/auth/social/google/code'
+        : '/api/auth/social/kakao/code';
+
+    final response = await ApiClient.post(
+      endpoint,
+      body: {
+        'code': code,
+        'redirect_uri': redirectUri,
+        'code_verifier': codeVerifier,
+        'mode': 'register',
+        'username': username,
       },
       includeAuth: false,
     );
@@ -244,7 +314,10 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
 
   // ?? Google Desktop OAuth (PKCE + authorization code flow) ????????????????
 
-  Future<User?> _loginWithGoogleDesktop({String mode = 'login'}) async {
+  Future<User?> _loginWithGoogleDesktop({
+    String mode = 'login',
+    Future<String?> Function()? usernameCallback,
+  }) async {
     const clientId = String.fromEnvironment('GOOGLE_DESKTOP_CLIENT_ID');
     const clientSecret = String.fromEnvironment('GOOGLE_DESKTOP_CLIENT_SECRET');
 
@@ -325,9 +398,18 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
       throw Exception('Google ID ?좏겙??諛쏆? 紐삵뻽?듬땲??');
     }
 
+    String? username;
+    if (mode == 'register' && usernameCallback != null) {
+      username = await usernameCallback();
+      if (username == null) return null; // user cancelled
+    }
+
+    final reqBody = <String, String>{'id_token': idToken, 'mode': mode};
+    if (username != null) reqBody['username'] = username;
+
     final response = await ApiClient.post(
       '/api/auth/social/google',
-      body: {'id_token': idToken, 'mode': mode},
+      body: reqBody,
       includeAuth: false,
     );
     return _consumeLoginTokenResponse(response);
@@ -335,7 +417,10 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
 
   // ?? Kakao Desktop OAuth (authorization code flow) ????????????????????????
 
-  Future<User?> _loginWithKakaoDesktop({String mode = 'login'}) async {
+  Future<User?> _loginWithKakaoDesktop({
+    String mode = 'login',
+    Future<String?> Function()? usernameCallback,
+  }) async {
     const restApiKey = String.fromEnvironment('KAKAO_REST_API_KEY');
 
     if (restApiKey.isEmpty) {
@@ -406,9 +491,18 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
       throw Exception('移댁뭅???≪꽭???좏겙??諛쏆? 紐삵뻽?듬땲??');
     }
 
+    String? username;
+    if (mode == 'register' && usernameCallback != null) {
+      username = await usernameCallback();
+      if (username == null) return null; // user cancelled
+    }
+
+    final reqBody = <String, String>{'access_token': accessToken, 'mode': mode};
+    if (username != null) reqBody['username'] = username;
+
     final response = await ApiClient.post(
       '/api/auth/social/kakao',
-      body: {'access_token': accessToken, 'mode': mode},
+      body: reqBody,
       includeAuth: false,
     );
     return _consumeLoginTokenResponse(response);
@@ -474,10 +568,16 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
     }
   }
 
-  Future<User?> loginWithGoogle({String mode = 'login'}) async {
+  Future<User?> loginWithGoogle({
+    String mode = 'login',
+    Future<String?> Function()? usernameCallback,
+  }) async {
     try {
       if (!kIsWeb) {
-        return await _loginWithGoogleDesktop(mode: mode);
+        return await _loginWithGoogleDesktop(
+          mode: mode,
+          usernameCallback: usernameCallback,
+        );
       }
 
       await _startGoogleWebRedirectFlow(mode: mode);
@@ -487,10 +587,16 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
     }
   }
 
-  Future<User?> loginWithKakao({String mode = 'login'}) async {
+  Future<User?> loginWithKakao({
+    String mode = 'login',
+    Future<String?> Function()? usernameCallback,
+  }) async {
     try {
       if (!kIsWeb) {
-        return await _loginWithKakaoDesktop(mode: mode);
+        return await _loginWithKakaoDesktop(
+          mode: mode,
+          usernameCallback: usernameCallback,
+        );
       }
 
       await _startKakaoWebRedirectFlow(mode: mode);

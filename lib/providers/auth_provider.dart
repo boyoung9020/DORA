@@ -9,6 +9,8 @@ class AuthProvider with ChangeNotifier {
   User? _currentUser;
   bool _isLoading = false;
   String? _errorMessage;
+  bool _hasPendingSocialRegistration = false;
+  String? _pendingSocialProvider;
 
   User? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
@@ -16,6 +18,8 @@ class AuthProvider with ChangeNotifier {
   bool get isPM => _currentUser?.isPM ?? false;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  bool get hasPendingSocialRegistration => _hasPendingSocialRegistration;
+  String? get pendingSocialProvider => _pendingSocialProvider;
 
   AuthProvider() {
     _loadCurrentUser();
@@ -36,13 +40,21 @@ class AuthProvider with ChangeNotifier {
         return;
       }
 
+      // Web register redirect: OAuth code saved, waiting for username input.
+      if (await _authService.hasPendingSocialRegistration()) {
+        _hasPendingSocialRegistration = true;
+        _pendingSocialProvider =
+            await _authService.getPendingSocialRegistrationProvider();
+        return;
+      }
+
       _currentUser = await _authService.getCurrentUser().timeout(
         const Duration(seconds: 5),
         onTimeout: () => null,
       );
       _errorMessage = null;
-    } catch (_) {
-      _errorMessage = null;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
       _currentUser = null;
     } finally {
       _isLoading = false;
@@ -81,7 +93,10 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> loginWithGoogle({bool isRegister = false}) async {
+  Future<bool> loginWithGoogle({
+    bool isRegister = false,
+    Future<String?> Function()? onNeedUsername,
+  }) async {
     // Do NOT set _isLoading/notifyListeners here — that would unmount LoginScreen
     // via AuthWrapper and make mounted=false before errors can be shown.
     // Login screen uses local loading state for button feedback instead.
@@ -90,9 +105,10 @@ class AuthProvider with ChangeNotifier {
     try {
       final user = await _authService.loginWithGoogle(
         mode: isRegister ? 'register' : 'login',
+        usernameCallback: onNeedUsername,
       );
       if (user == null) {
-        // User cancelled the OAuth popup
+        // User cancelled or web redirect triggered (no user yet).
         notifyListeners();
         return false;
       }
@@ -107,13 +123,17 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> loginWithKakao({bool isRegister = false}) async {
+  Future<bool> loginWithKakao({
+    bool isRegister = false,
+    Future<String?> Function()? onNeedUsername,
+  }) async {
     // Same reasoning as loginWithGoogle
     _errorMessage = null;
 
     try {
       final user = await _authService.loginWithKakao(
         mode: isRegister ? 'register' : 'login',
+        usernameCallback: onNeedUsername,
       );
       if (user == null) {
         notifyListeners();
@@ -128,6 +148,42 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  /// Finishes web social registration after the user has entered a username.
+  Future<bool> completeSocialRegistration(String username) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final user = await _authService.completeSocialRegistration(username);
+      if (user != null) {
+        _currentUser = user;
+        _hasPendingSocialRegistration = false;
+        _pendingSocialProvider = null;
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      _hasPendingSocialRegistration = false;
+      _pendingSocialProvider = null;
+      notifyListeners();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> cancelSocialRegistration() async {
+    await _authService.clearPendingSocialRegistration();
+    _hasPendingSocialRegistration = false;
+    _pendingSocialProvider = null;
+    _errorMessage = null;
+    notifyListeners();
   }
 
   Future<void> refreshCurrentUser() async {

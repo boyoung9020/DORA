@@ -23,6 +23,7 @@ class GoogleSocialLoginRequest(BaseModel):
 
     id_token: str
     mode: Literal["login", "register"] = "login"
+    username: Optional[str] = None
 
 
 class GoogleSocialCodeLoginRequest(BaseModel):
@@ -32,6 +33,7 @@ class GoogleSocialCodeLoginRequest(BaseModel):
     redirect_uri: str
     code_verifier: str
     mode: Literal["login", "register"] = "login"
+    username: Optional[str] = None
 
 
 class KakaoSocialLoginRequest(BaseModel):
@@ -39,6 +41,7 @@ class KakaoSocialLoginRequest(BaseModel):
 
     access_token: str
     mode: Literal["login", "register"] = "login"
+    username: Optional[str] = None
 
 
 class KakaoSocialCodeLoginRequest(BaseModel):
@@ -48,3 +51,4 @@ class KakaoSocialCodeLoginRequest(BaseModel):
     redirect_uri: str
     code_verifier: str
     mode: Literal["login", "register"] = "login"
+    username: Optional[str] = None

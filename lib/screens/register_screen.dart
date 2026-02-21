@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
 import '../widgets/app_title_bar.dart';
+import '../widgets/social_login_button.dart';
 import 'main_layout.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -83,11 +84,121 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  Future<String?> _showUsernameDialog() async {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFFFFFAF2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          '사용자 이름 설정',
+          style: TextStyle(
+            color: Color(0xFFD86B27),
+            fontWeight: FontWeight.w900,
+            fontSize: 20,
+          ),
+        ),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            style: const TextStyle(
+              color: Color(0xFF322212),
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+            decoration: InputDecoration(
+              hintText: '이름 또는 아이디 입력',
+              hintStyle: const TextStyle(color: Color(0xFFC1A58A)),
+              prefixIcon: const Icon(
+                Icons.person_outline,
+                color: Color(0xFFC09A78),
+                size: 18,
+              ),
+              filled: true,
+              fillColor: const Color(0xFFFFFDFC),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Color(0xFFE4C8AD)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Color(0xFFE4C8AD)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: Color(0xFFD86B27),
+                  width: 1.6,
+                ),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Color(0xFFDC2626)),
+              ),
+            ),
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return '사용자 이름을 입력하세요';
+              if (v.trim().length < 3) return '사용자 이름은 3자 이상이어야 합니다';
+              return null;
+            },
+            onFieldSubmitted: (_) {
+              if (formKey.currentState!.validate()) {
+                Navigator.of(ctx).pop(controller.text.trim());
+              }
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(null),
+            child: const Text(
+              '취소',
+              style: TextStyle(
+                color: Color(0xFF7B5C42),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.of(ctx).pop(controller.text.trim());
+              }
+            },
+            child: const Text(
+              '확인',
+              style: TextStyle(
+                color: Color(0xFFD86B27),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    controller.dispose();
+    return result;
+  }
+
   Future<void> _handleGoogleLogin() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     authProvider.clearError();
 
-    final success = await authProvider.loginWithGoogle(isRegister: true);
+    final success = await authProvider.loginWithGoogle(
+      isRegister: true,
+      onNeedUsername: _showUsernameDialog,
+    );
     if (success && mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainLayout()),
@@ -110,7 +221,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     authProvider.clearError();
 
-    final success = await authProvider.loginWithKakao(isRegister: true);
+    final success = await authProvider.loginWithKakao(
+      isRegister: true,
+      onNeedUsername: _showUsernameDialog,
+    );
     if (success && mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainLayout()),
@@ -187,10 +301,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Container(width: 1, color: const Color(0xFFEED7BF)),
                 Expanded(
                   flex: 9,
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 470),
-                      child: _buildFormCard(authProvider, isDesktop: true),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 470),
+                        child: _buildFormCard(authProvider, isDesktop: true),
+                      ),
                     ),
                   ),
                 ),
@@ -484,53 +601,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        _buildSocialButton(
+        SocialLoginButton(
+          provider: SocialProvider.google,
           label: 'Google로 시작하기',
-          background: Colors.white,
-          foreground: const Color(0xFF322212),
-          borderColor: const Color(0xFFE4C8AD),
           onPressed: authProvider.isLoading ? null : _handleGoogleLogin,
         ),
         const SizedBox(height: 8),
-        _buildSocialButton(
+        SocialLoginButton(
+          provider: SocialProvider.kakao,
           label: '카카오로 시작하기',
-          background: const Color(0xFFFEE500),
-          foreground: const Color(0xFF191919),
-          borderColor: const Color(0xFFE0CF4D),
           onPressed: authProvider.isLoading ? null : _handleKakaoLogin,
         ),
       ],
-    );
-  }
-
-  Widget _buildSocialButton({
-    required String label,
-    required Color background,
-    required Color foreground,
-    required Color borderColor,
-    required VoidCallback? onPressed,
-  }) {
-    return SizedBox(
-      width: double.infinity,
-      height: 42,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          backgroundColor: background,
-          foregroundColor: foreground,
-          side: BorderSide(color: borderColor, width: 1),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
     );
   }
 

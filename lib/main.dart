@@ -12,6 +12,7 @@ import 'providers/workspace_provider.dart';
 import 'services/windows_notification_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_layout.dart';
+import 'screens/social_register_username_screen.dart';
 import 'screens/workspace_select_screen.dart';
 
 // ?뱀씠 ?꾨땺 ?뚮쭔 bitsdojo_window import
@@ -164,24 +165,20 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, _) {
-        print('[AuthWrapper] 빌드 - isLoading: ${authProvider.isLoading}, isAuthenticated: ${authProvider.isAuthenticated}');
-        // 로딩 중이면 로딩 화면 표시
         if (authProvider.isLoading) {
-          print('[AuthWrapper] 로딩 중');
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        // 로그인되어 있으면 워크스페이스 선택 화면, 아니면 로그인 화면
-        final isAuthenticated = authProvider.isAuthenticated;
-        print('[AuthWrapper] 인증 상태: $isAuthenticated, 화면 전환: ${isAuthenticated ? "WorkspaceSelectScreen" : "LoginScreen"}');
-        return isAuthenticated
+        // Web social register: OAuth complete, need username input.
+        if (authProvider.hasPendingSocialRegistration) {
+          return const SocialRegisterUsernameScreen();
+        }
+
+        return authProvider.isAuthenticated
             ? Consumer<WorkspaceProvider>(
                 builder: (context, wsProvider, _) {
-                  // 워크스페이스가 선택된 경우 메인 레이아웃으로 이동
                   if (wsProvider.currentWorkspace != null) {
                     return const MainLayout();
                   }

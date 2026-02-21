@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
 import '../widgets/app_title_bar.dart';
+import '../widgets/social_login_button.dart';
 import 'main_layout.dart';
 import 'register_screen.dart';
 
@@ -24,6 +25,29 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _rememberMe = false;
   bool _isSocialLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Show any error left over from a web social redirect (e.g. user not found).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (authProvider.errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authProvider.errorMessage!),
+            backgroundColor: const Color(0xFFDC2626),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+        authProvider.clearError();
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -532,6 +556,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildSocialLoginButtons(AuthProvider authProvider) {
+    final disabled = _isSocialLoading || authProvider.isLoading;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -553,58 +578,18 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        _buildSocialButton(
-          label: _isSocialLoading
-              ? '\uB85C\uADF8\uC778 \uC911...'
-              : 'Google\uB85C \uACC4\uC18D\uD558\uAE30',
-          background: Colors.white,
-          foreground: const Color(0xFF322212),
-          borderColor: const Color(0xFFE4C8AD),
-          onPressed: (_isSocialLoading || authProvider.isLoading)
-              ? null
-              : _handleGoogleLogin,
+        SocialLoginButton(
+          provider: SocialProvider.google,
+          label: disabled ? '\uB85C\uADF8\uC778 \uC911...' : 'Google\uB85C \uACC4\uC18D\uD558\uAE30',
+          onPressed: disabled ? null : _handleGoogleLogin,
         ),
         const SizedBox(height: 8),
-        _buildSocialButton(
-          label: _isSocialLoading
-              ? '\uB85C\uADF8\uC778 \uC911...'
-              : '\uCE74\uCE74\uC624\uB85C \uACC4\uC18D\uD558\uAE30',
-          background: const Color(0xFFFEE500),
-          foreground: const Color(0xFF191919),
-          borderColor: const Color(0xFFE0CF4D),
-          onPressed: (_isSocialLoading || authProvider.isLoading)
-              ? null
-              : _handleKakaoLogin,
+        SocialLoginButton(
+          provider: SocialProvider.kakao,
+          label: disabled ? '\uB85C\uADF8\uC778 \uC911...' : '\uCE74\uCE74\uC624\uB85C \uACC4\uC18D\uD558\uAE30',
+          onPressed: disabled ? null : _handleKakaoLogin,
         ),
       ],
-    );
-  }
-
-  Widget _buildSocialButton({
-    required String label,
-    required Color background,
-    required Color foreground,
-    required Color borderColor,
-    required VoidCallback? onPressed,
-  }) {
-    return SizedBox(
-      width: double.infinity,
-      height: 42,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          backgroundColor: background,
-          foregroundColor: foreground,
-          side: BorderSide(color: borderColor, width: 1),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
-        ),
-      ),
     );
   }
 
