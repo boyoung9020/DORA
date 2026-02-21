@@ -508,8 +508,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final shellColor = isDarkMode
-        ? const Color(0xFF0B0E14)
-        : Colors.white;
+        ? const Color(0xFF1F2937)
+        : const Color(0xFFF7E9DC);
     
     return Scaffold(
       backgroundColor: shellColor,
@@ -519,7 +519,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           AppTitleBar(
             backgroundColor: shellColor,
             leadingWidth: 127, // workspace rail(52) + sidebar(75)
-            extraHeight: 8,
+            extraHeight: 0,
           ),
           // 메인 컨텐츠
           Expanded(
@@ -541,42 +541,49 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   ),
                   // 오른쪽 영역 (팀원 + 메인 - 같은 영역)
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(0, 0, 8, 8),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: isDarkMode ? const Color(0xFF161B2E) : Colors.white,
-                          gradient: null,
-                          borderRadius: BorderRadius.circular(28),
-                          boxShadow: isDarkMode
-                              ? [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.25),
-                                    blurRadius: 30,
-                                    offset: const Offset(0, 18),
-                                  ),
-                                ]
-                              : [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 28,
-                                    offset: const Offset(0, 12),
-                                  ),
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.03),
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // 프로젝트 선택 버튼 영역 (카드 외부, 상단 쉘 배경)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(0, 4, 8, 0),
+                          child: _buildProjectInfoBar(context),
                         ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(28),
-                          child: Column(
-                            children: [
-                              // 프로젝트 선택 바 (최상단)
-                              _buildProjectInfoBar(context),
-                              // 하단 영역
-                              Expanded(
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(0, 0, 0, 0),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: isDarkMode ? const Color(0xFF161B2E) : Colors.white,
+                                gradient: null,
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(28),
+                                ),
+                                boxShadow: isDarkMode
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.25),
+                                          blurRadius: 30,
+                                          offset: const Offset(0, 18),
+                                        ),
+                                      ]
+                                    : [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.05),
+                                          blurRadius: 28,
+                                          offset: const Offset(0, 12),
+                                        ),
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.03),
+                                          blurRadius: 16,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(28),
+                                ),
                                 child: _isDashboardSelected()
                                     ? Row(
                                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -612,10 +619,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                       )
                                     : _buildContent(context),
                               ),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ],
@@ -629,8 +636,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   /// Slack 스타일 워크스페이스 레일 (가장 왼쪽 좁은 열)
   Widget _buildWorkspaceRail(BuildContext context) {
-    // 진한 주황 (앱 primary) → 옅은 주황 사이드바와 자연스러운 계층 대비
-    const railColor = Color(0xFFD86B27);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final railColor = isDarkMode
+        ? const Color(0xFF111827)
+        : const Color(0xFFE2B993);
+    final railForeground = isDarkMode
+        ? const Color(0xFFD1D5DB)
+        : const Color(0xFF8A5731);
 
     return Consumer<WorkspaceProvider>(
       builder: (context, wsProvider, _) {
@@ -657,11 +669,15 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
+                            color: railForeground.withOpacity(0.3),
                             width: 1.5,
                           ),
                         ),
-                        child: const Icon(Icons.add, color: Colors.white70, size: 20),
+                        child: Icon(
+                          Icons.add,
+                          color: railForeground.withOpacity(0.85),
+                          size: 20,
+                        ),
                       ),
                     ),
                   ),
@@ -670,7 +686,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               // 구분선
               Padding(
                 padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                child: Divider(height: 1, thickness: 1, color: Colors.white.withOpacity(0.15)),
+                child: Divider(height: 1, thickness: 1, color: railForeground.withOpacity(0.15)),
               ),
               // ② 워크스페이스 아이콘 목록
               ...wsProvider.workspaces.map((ws) {
@@ -683,16 +699,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16),
                   child: Tooltip(
-                    message: '워크스페이스 설정 (초대 링크)',
+                    message: '워크스페이스 메뉴',
                     preferBelow: false,
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(8),
                         onTap: () => WorkspaceSettingsScreen.showAsDialog(context),
-                        child: const Padding(
-                          padding: EdgeInsets.all(6),
-                          child: Icon(Icons.settings_outlined, color: Colors.white54, size: 20),
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: Icon(Icons.more_horiz, color: railForeground.withOpacity(0.72), size: 20),
                         ),
                       ),
                     ),
@@ -712,6 +728,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     bool isSelected,
     WorkspaceProvider wsProvider,
   ) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final railAccent = isDarkMode ? Colors.white : const Color(0xFF8A5731);
+
     const avatarColors = [
       Color(0xFF5C6BC0), Color(0xFF26A69A), Color(0xFF42A5F5),
       Color(0xFFEC407A), Color(0xFF66BB6A), Color(0xFFAB47BC),
@@ -729,8 +748,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             duration: const Duration(milliseconds: 200),
             width: 3,
             height: isSelected ? 28 : 0,
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
+              color: railAccent,
               borderRadius: BorderRadius.only(
                 topRight: Radius.circular(3),
                 bottomRight: Radius.circular(3),
@@ -778,8 +797,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     bool isDarkMode,
     Color shellColor,
   ) {
-    const sidebarColor = Color(0xFFEFA66F);
-    final sidebarTextColor = Colors.white.withOpacity(0.86);
+    final sidebarColor = isDarkMode
+        ? const Color(0xFF1F2937)
+        : const Color(0xFFF7E9DC);
+    final sidebarTextColor = isDarkMode
+        ? const Color(0xFFE5E7EB)
+        : const Color(0xFF8A5731).withOpacity(0.9);
 
     return Container(
       width: 75,
@@ -957,29 +980,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
       decoration: BoxDecoration(
         color: isDarkMode
-            ? colorScheme.surface.withOpacity(0.7)
-            : Colors.white.withOpacity(0.9),
-        borderRadius: const BorderRadius.only(
-          topRight: Radius.circular(28),
-        ),
-        border: Border(
-          bottom: BorderSide(
-            color: colorScheme.outline.withOpacity(0.2),
-            width: 1,
-          ),
-        ),
-        boxShadow: isDarkMode
-            ? []
-            : [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+            ? const Color(0xFF1F2937)
+            : const Color(0xFFF7E9DC),
       ),
       child: Row(
         children: [
@@ -1010,28 +1015,34 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
+                            color: isDarkMode ? colorScheme.onSurface : const Color(0xFF8A5731),
                           ),
                         ),
                       ] else ...[
                         Icon(
                           Icons.folder_outlined,
                           size: 20,
-                          color: colorScheme.onSurface.withOpacity(0.7),
+                          color: isDarkMode
+                              ? colorScheme.onSurface.withOpacity(0.7)
+                              : const Color(0xFF8A5731).withOpacity(0.75),
                         ),
                         const SizedBox(width: 12),
                         Text(
                           '프로젝트를 선택하세요',
                           style: TextStyle(
                             fontSize: 16,
-                            color: colorScheme.onSurface.withOpacity(0.7),
+                            color: isDarkMode
+                                ? colorScheme.onSurface.withOpacity(0.7)
+                                : const Color(0xFF8A5731).withOpacity(0.75),
                           ),
                         ),
                       ],
                       const SizedBox(width: 8),
                       Icon(
                         Icons.arrow_drop_down,
-                        color: colorScheme.onSurface.withOpacity(0.7),
+                        color: isDarkMode
+                            ? colorScheme.onSurface.withOpacity(0.7)
+                            : const Color(0xFF8A5731).withOpacity(0.75),
                         size: 24,
                       ),
                     ],
@@ -1365,7 +1376,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         : isChatItem
             ? chatProvider.totalUnreadCount
             : 0;
-    const sidebarColor = Color(0xFFEFA66F);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final sidebarColor = isDarkMode
+        ? const Color(0xFF1F2937)
+        : const Color(0xFFF7E9DC);
+    final menuTextColor = isDarkMode ? const Color(0xFFE5E7EB) : const Color(0xFF8A5731);
     
     return Padding(
       key: key,
@@ -1388,7 +1403,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 color: isSelected
-                    ? Colors.white.withOpacity(0.16)
+                    ? (isDarkMode
+                        ? Colors.white.withOpacity(0.16)
+                        : const Color(0xFFDCBA9F).withOpacity(0.28))
                     : Colors.transparent,
               ),
               child: Column(
@@ -1400,8 +1417,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                       Icon(
                         isSelected ? item.selectedIcon : item.icon,
                         color: isSelected
-                            ? Colors.white
-                            : Colors.white.withOpacity(0.82),
+                            ? menuTextColor
+                            : menuTextColor.withOpacity(0.82),
                         size: 24,
                       ),
                       // 알림/채팅 뱃지 (읽지 않은 항목이 있을 때만)
@@ -1416,9 +1433,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                               color: const Color(0xFFEF4444),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: Theme.of(context).brightness == Brightness.dark
-                                    ? sidebarColor
-                                    : sidebarColor,
+                                color: sidebarColor,
                                 width: 1.5,
                               ),
                             ),
@@ -1444,8 +1459,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                       fontSize: 11,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       color: isSelected
-                          ? Colors.white
-                          : Colors.white.withOpacity(0.82),
+                          ? menuTextColor
+                          : menuTextColor.withOpacity(0.82),
                     ),
                     textAlign: TextAlign.center,
                     maxLines: 1,
