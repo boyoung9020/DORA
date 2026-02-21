@@ -27,6 +27,15 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      final socialUser = await _authService
+          .completePendingWebSocialLogin()
+          .timeout(const Duration(seconds: 15), onTimeout: () => null);
+      if (socialUser != null) {
+        _currentUser = socialUser;
+        _errorMessage = null;
+        return;
+      }
+
       _currentUser = await _authService.getCurrentUser().timeout(
         const Duration(seconds: 5),
         onTimeout: () => null,

@@ -53,7 +53,10 @@ class _LoginScreenState extends State<LoginScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authProvider.errorMessage ?? '\uB85C\uADF8\uC778\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.'),
+          content: Text(
+            authProvider.errorMessage ??
+                '\uB85C\uADF8\uC778\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.',
+          ),
           backgroundColor: const Color(0xFFDC2626),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -109,7 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  '\uD31D\uC5C5\uCC3D\uC5D0\uC11C \uC778\uC99D\uC744 \uC644\uB8CC\uD574\uC8FC\uC138\uC694',
+                  '\uC778\uC99D \uD398\uC774\uC9C0\uB85C \uC774\uB3D9\uD569\uB2C8\uB2E4',
                   style: TextStyle(fontSize: 13, color: Color(0xFF7B5C42)),
                   textAlign: TextAlign.center,
                 ),
@@ -401,8 +404,9 @@ class _LoginScreenState extends State<LoginScreen> {
               icon: Icons.email_outlined,
               keyboardType: TextInputType.emailAddress,
               onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-              validator: (v) =>
-                  v == null || v.isEmpty ? '\uC774\uBA54\uC77C\uC744 \uC785\uB825\uD558\uC138\uC694' : null,
+              validator: (v) => v == null || v.isEmpty
+                  ? '\uC774\uBA54\uC77C\uC744 \uC785\uB825\uD558\uC138\uC694'
+                  : null,
             ),
             const SizedBox(height: 16),
             const Text(
@@ -432,8 +436,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: () =>
                     setState(() => _obscurePassword = !_obscurePassword),
               ),
-              validator: (v) =>
-                  v == null || v.isEmpty ? '\uBE44\uBC00\uBC88\uD638\uB97C \uC785\uB825\uD558\uC138\uC694' : null,
+              validator: (v) => v == null || v.isEmpty
+                  ? '\uBE44\uBC00\uBC88\uD638\uB97C \uC785\uB825\uD558\uC138\uC694'
+                  : null,
             ),
             const SizedBox(height: 12),
             Row(
@@ -549,7 +554,9 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: 12),
         _buildSocialButton(
-          label: _isSocialLoading ? '\uB85C\uADF8\uC778 \uC911...' : 'Google\uB85C \uACC4\uC18D\uD558\uAE30',
+          label: _isSocialLoading
+              ? '\uB85C\uADF8\uC778 \uC911...'
+              : 'Google\uB85C \uACC4\uC18D\uD558\uAE30',
           background: Colors.white,
           foreground: const Color(0xFF322212),
           borderColor: const Color(0xFFE4C8AD),
@@ -559,7 +566,9 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: 8),
         _buildSocialButton(
-          label: _isSocialLoading ? '\uB85C\uADF8\uC778 \uC911...' : '\uCE74\uCE74\uC624\uB85C \uACC4\uC18D\uD558\uAE30',
+          label: _isSocialLoading
+              ? '\uB85C\uADF8\uC778 \uC911...'
+              : '\uCE74\uCE74\uC624\uB85C \uACC4\uC18D\uD558\uAE30',
           background: const Color(0xFFFEE500),
           foreground: const Color(0xFF191919),
           borderColor: const Color(0xFFE0CF4D),

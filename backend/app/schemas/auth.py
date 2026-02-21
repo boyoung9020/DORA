@@ -25,8 +25,26 @@ class GoogleSocialLoginRequest(BaseModel):
     mode: Literal["login", "register"] = "login"
 
 
+class GoogleSocialCodeLoginRequest(BaseModel):
+    """Google social login payload using OAuth authorization code."""
+
+    code: str
+    redirect_uri: str
+    code_verifier: str
+    mode: Literal["login", "register"] = "login"
+
+
 class KakaoSocialLoginRequest(BaseModel):
     """Kakao social login payload."""
 
     access_token: str
+    mode: Literal["login", "register"] = "login"
+
+
+class KakaoSocialCodeLoginRequest(BaseModel):
+    """Kakao social login payload using OAuth authorization code."""
+
+    code: str
+    redirect_uri: str
+    code_verifier: str
     mode: Literal["login", "register"] = "login"

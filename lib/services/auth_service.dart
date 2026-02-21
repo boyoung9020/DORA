@@ -4,9 +4,7 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
-import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart' hide User;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -15,22 +13,9 @@ import '../utils/api_client.dart';
 
 class AuthService {
   static const String _currentUserKey = 'current_user';
+  static const String _pendingWebSocialAuthKey = 'pending_web_social_auth';
 
-  GoogleSignIn _buildGoogleSignIn() {
-    const googleClientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
-    const googleServerClientId = String.fromEnvironment(
-      'GOOGLE_SERVER_CLIENT_ID',
-    );
-    return GoogleSignIn(
-      scopes: const ['email', 'profile'],
-      clientId: googleClientId.isNotEmpty ? googleClientId : null,
-      serverClientId: (!kIsWeb && googleServerClientId.isNotEmpty)
-          ? googleServerClientId
-          : null,
-    );
-  }
-
-  // ── PKCE helpers (Google Desktop용) ──────────────────────────────────────
+  // ?? PKCE helpers (Google Desktop?? ??????????????????????????????????????
 
   String _generateCodeVerifier() {
     const charset =
@@ -48,7 +33,192 @@ class AuthService {
     return base64Url.encode(digest.bytes).replaceAll('=', '');
   }
 
-  // ── loopback HTTP 서버 응답 헬퍼 ──────────────────────────────────────────
+  String _generateStateToken() {
+    final random = Random.secure();
+    const chars =
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    return List.generate(40, (_) => chars[random.nextInt(chars.length)]).join();
+  }
+
+  String _currentWebRedirectUri() {
+    const configuredRedirectUri = String.fromEnvironment(
+      'WEB_SOCIAL_REDIRECT_URI',
+    );
+    if (configuredRedirectUri.isNotEmpty) {
+      // Use the configured URI exactly as-is so it matches what is
+      // registered in Google Cloud Console / Kakao Developers.
+      return configuredRedirectUri;
+    }
+    final current = Uri.base;
+    return current.replace(path: '/', query: null, fragment: null).toString();
+  }
+
+  Future<void> _savePendingWebSocialAuth({
+    required String provider,
+    required String mode,
+    required String state,
+    required String codeVerifier,
+    required String redirectUri,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _pendingWebSocialAuthKey,
+      jsonEncode({
+        'provider': provider,
+        'mode': mode,
+        'state': state,
+        'code_verifier': codeVerifier,
+        'redirect_uri': redirectUri,
+      }),
+    );
+  }
+
+  Future<Map<String, dynamic>?> _loadPendingWebSocialAuth() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_pendingWebSocialAuthKey);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      await prefs.remove(_pendingWebSocialAuthKey);
+      return null;
+    }
+  }
+
+  Future<void> _clearPendingWebSocialAuth() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_pendingWebSocialAuthKey);
+  }
+
+  Future<void> _startGoogleWebRedirectFlow({required String mode}) async {
+    const googleClientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
+    if (googleClientId.isEmpty) {
+      throw Exception('Google OAuth client id is not configured for web.');
+    }
+    final redirectUri = _currentWebRedirectUri();
+
+    final state = _generateStateToken();
+    final codeVerifier = _generateCodeVerifier();
+    final codeChallenge = _generateCodeChallenge(codeVerifier);
+
+    await _savePendingWebSocialAuth(
+      provider: 'google',
+      mode: mode,
+      state: state,
+      codeVerifier: codeVerifier,
+      redirectUri: redirectUri,
+    );
+
+    final authUri = Uri.https('accounts.google.com', '/o/oauth2/v2/auth', {
+      'client_id': googleClientId,
+      'redirect_uri': redirectUri,
+      'response_type': 'code',
+      'scope': 'openid email profile',
+      'state': state,
+      'code_challenge': codeChallenge,
+      'code_challenge_method': 'S256',
+      'prompt': 'select_account',
+    });
+
+    final launched = await launchUrl(authUri, webOnlyWindowName: '_self');
+    if (!launched) {
+      await _clearPendingWebSocialAuth();
+      throw Exception('Failed to open Google authentication page.');
+    }
+  }
+
+  Future<void> _startKakaoWebRedirectFlow({required String mode}) async {
+    const restApiKey = String.fromEnvironment('KAKAO_REST_API_KEY');
+    if (restApiKey.isEmpty) {
+      throw Exception('Kakao REST API key is not configured for web.');
+    }
+    final redirectUri = _currentWebRedirectUri();
+
+    final state = _generateStateToken();
+    final codeVerifier = _generateCodeVerifier();
+
+    await _savePendingWebSocialAuth(
+      provider: 'kakao',
+      mode: mode,
+      state: state,
+      codeVerifier: codeVerifier,
+      redirectUri: redirectUri,
+    );
+
+    final authUri = Uri.https('kauth.kakao.com', '/oauth/authorize', {
+      'client_id': restApiKey,
+      'redirect_uri': redirectUri,
+      'response_type': 'code',
+      'state': state,
+    });
+
+    final launched = await launchUrl(authUri, webOnlyWindowName: '_self');
+    if (!launched) {
+      await _clearPendingWebSocialAuth();
+      throw Exception('Failed to open Kakao authentication page.');
+    }
+  }
+
+  Future<User?> completePendingWebSocialLogin() async {
+    if (!kIsWeb) return null;
+
+    final pending = await _loadPendingWebSocialAuth();
+    if (pending == null) return null;
+
+    final query = Uri.base.queryParameters;
+    final code = query['code'];
+    final state = query['state'];
+    final error = query['error'];
+    final errorDescription = query['error_description'];
+    if (code == null && error == null) {
+      return null;
+    }
+
+    if (error != null) {
+      await _clearPendingWebSocialAuth();
+      if (error == 'access_denied') return null;
+      throw Exception(errorDescription ?? 'Social login failed.');
+    }
+
+    final expectedState = pending['state'] as String?;
+    if (state == null || expectedState == null || state != expectedState) {
+      await _clearPendingWebSocialAuth();
+      throw Exception('Invalid social login state.');
+    }
+    if (code == null || code.isEmpty) {
+      await _clearPendingWebSocialAuth();
+      throw Exception('Missing social login authorization code.');
+    }
+
+    final provider = pending['provider'] as String?;
+    final mode = (pending['mode'] as String?) ?? 'login';
+    final codeVerifier = pending['code_verifier'] as String?;
+    final redirectUri = pending['redirect_uri'] as String?;
+    if (provider == null || codeVerifier == null || redirectUri == null) {
+      await _clearPendingWebSocialAuth();
+      throw Exception('Invalid pending social login state.');
+    }
+
+    await _clearPendingWebSocialAuth();
+
+    final endpoint = provider == 'google'
+        ? '/api/auth/social/google/code'
+        : '/api/auth/social/kakao/code';
+
+    final response = await ApiClient.post(
+      endpoint,
+      body: {
+        'code': code,
+        'redirect_uri': redirectUri,
+        'code_verifier': codeVerifier,
+        'mode': mode,
+      },
+      includeAuth: false,
+    );
+    return _consumeLoginTokenResponse(response);
+  }
+
+  // ?? loopback HTTP ?쒕쾭 ?묐떟 ?ы띁 ??????????????????????????????????????????
 
   void _respondToOAuthCallback(
     HttpRequest request, {
@@ -61,9 +231,9 @@ min-height:100vh;margin:0;background:#FFF8F0;color:#3C2A1A}
 box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
     final html =
         '<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">'
-        '<title>$provider 로그인</title><style>$style</style></head>'
-        '<body><div class="card"><h2>$provider 로그인 완료</h2>'
-        '<p>이 창을 닫고 앱으로 돌아가세요.</p>'
+        '<title>$provider Login</title><style>$style</style></head>'
+        '<body><div class="card"><h2>$provider Login Complete</h2>'
+        '<p>You can close this window and return to the app.</p>'
         '<script>window.close();</script></div></body></html>';
     request.response
       ..statusCode = 200
@@ -72,7 +242,7 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
     request.response.close();
   }
 
-  // ── Google Desktop OAuth (PKCE + authorization code flow) ────────────────
+  // ?? Google Desktop OAuth (PKCE + authorization code flow) ????????????????
 
   Future<User?> _loginWithGoogleDesktop({String mode = 'login'}) async {
     const clientId = String.fromEnvironment('GOOGLE_DESKTOP_CLIENT_ID');
@@ -80,9 +250,9 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
 
     if (clientId.isEmpty || clientSecret.isEmpty) {
       throw Exception(
-        'Google Desktop OAuth 설정이 없습니다.\n'
+        'Google Desktop OAuth ?ㅼ젙???놁뒿?덈떎.\n'
         '--dart-define=GOOGLE_DESKTOP_CLIENT_ID=...\n'
-        '--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=... 를 추가하세요.',
+        '--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=... 瑜?異붽??섏꽭??',
       );
     }
 
@@ -103,7 +273,7 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
 
     if (!await launchUrl(authUri, mode: LaunchMode.externalApplication)) {
       await server.close(force: true);
-      throw Exception('브라우저를 열 수 없습니다.');
+      throw Exception('釉뚮씪?곗?瑜??????놁뒿?덈떎.');
     }
 
     String? authCode;
@@ -111,7 +281,7 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
     try {
       final request = await server.first.timeout(
         const Duration(minutes: 5),
-        onTimeout: () => throw Exception('Google 로그인 시간이 초과되었습니다.'),
+        onTimeout: () => throw Exception('Google 濡쒓렇???쒓컙??珥덇낵?섏뿀?듬땲??'),
       );
       authCode = request.uri.queryParameters['code'];
       error = request.uri.queryParameters['error'];
@@ -122,10 +292,10 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
 
     if (error != null) {
       if (error == 'access_denied') return null;
-      throw Exception('Google 인증 오류: $error');
+      throw Exception('Google ?몄쬆 ?ㅻ쪟: $error');
     }
     if (authCode == null || authCode.isEmpty) {
-      throw Exception('Google 인증 코드를 받지 못했습니다.');
+      throw Exception('Google ?몄쬆 肄붾뱶瑜?諛쏆? 紐삵뻽?듬땲??');
     }
 
     final tokenResp = await http.post(
@@ -144,7 +314,7 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
     if (tokenResp.statusCode != 200) {
       final body = jsonDecode(tokenResp.body) as Map<String, dynamic>;
       throw Exception(
-        'Google 토큰 교환 실패: ${body['error_description'] ?? body['error']}',
+        'Google ?좏겙 援먰솚 ?ㅽ뙣: ${body['error_description'] ?? body['error']}',
       );
     }
 
@@ -152,7 +322,7 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
         (jsonDecode(tokenResp.body) as Map<String, dynamic>)['id_token']
             as String?;
     if (idToken == null || idToken.isEmpty) {
-      throw Exception('Google ID 토큰을 받지 못했습니다.');
+      throw Exception('Google ID ?좏겙??諛쏆? 紐삵뻽?듬땲??');
     }
 
     final response = await ApiClient.post(
@@ -163,15 +333,15 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
     return _consumeLoginTokenResponse(response);
   }
 
-  // ── Kakao Desktop OAuth (authorization code flow) ────────────────────────
+  // ?? Kakao Desktop OAuth (authorization code flow) ????????????????????????
 
   Future<User?> _loginWithKakaoDesktop({String mode = 'login'}) async {
     const restApiKey = String.fromEnvironment('KAKAO_REST_API_KEY');
 
     if (restApiKey.isEmpty) {
       throw Exception(
-        'Kakao REST API 키가 설정되지 않았습니다.\n'
-        '--dart-define=KAKAO_REST_API_KEY=... 를 추가하세요.',
+        'Kakao REST API ?ㅺ? ?ㅼ젙?섏? ?딆븯?듬땲??\n'
+        '--dart-define=KAKAO_REST_API_KEY=... 瑜?異붽??섏꽭??',
       );
     }
 
@@ -186,7 +356,7 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
 
     if (!await launchUrl(authUri, mode: LaunchMode.externalApplication)) {
       await server.close(force: true);
-      throw Exception('브라우저를 열 수 없습니다.');
+      throw Exception('釉뚮씪?곗?瑜??????놁뒿?덈떎.');
     }
 
     String? authCode;
@@ -194,21 +364,21 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
     try {
       final request = await server.first.timeout(
         const Duration(minutes: 5),
-        onTimeout: () => throw Exception('카카오 로그인 시간이 초과되었습니다.'),
+        onTimeout: () => throw Exception('移댁뭅??濡쒓렇???쒓컙??珥덇낵?섏뿀?듬땲??'),
       );
       authCode = request.uri.queryParameters['code'];
       error = request.uri.queryParameters['error'];
-      _respondToOAuthCallback(request, provider: '카카오');
+      _respondToOAuthCallback(request, provider: 'Kakao');
     } finally {
       await server.close(force: true);
     }
 
     if (error != null) {
       if (error == 'access_denied') return null;
-      throw Exception('카카오 인증 오류: $error');
+      throw Exception('移댁뭅???몄쬆 ?ㅻ쪟: $error');
     }
     if (authCode == null || authCode.isEmpty) {
-      throw Exception('카카오 인증 코드를 받지 못했습니다.');
+      throw Exception('移댁뭅???몄쬆 肄붾뱶瑜?諛쏆? 紐삵뻽?듬땲??');
     }
 
     final tokenResp = await http.post(
@@ -225,7 +395,7 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
     if (tokenResp.statusCode != 200) {
       final body = jsonDecode(tokenResp.body) as Map<String, dynamic>;
       throw Exception(
-        '카카오 토큰 교환 실패: ${body['error_description'] ?? body['error']}',
+        '移댁뭅???좏겙 援먰솚 ?ㅽ뙣: ${body['error_description'] ?? body['error']}',
       );
     }
 
@@ -233,7 +403,7 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
         (jsonDecode(tokenResp.body) as Map<String, dynamic>)['access_token']
             as String?;
     if (accessToken == null || accessToken.isEmpty) {
-      throw Exception('카카오 액세스 토큰을 받지 못했습니다.');
+      throw Exception('移댁뭅???≪꽭???좏겙??諛쏆? 紐삵뻽?듬땲??');
     }
 
     final response = await ApiClient.post(
@@ -248,11 +418,11 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
     if (response.statusCode < 200 || response.statusCode >= 300) {
       try {
         final errorBody = jsonDecode(response.body) as Map<String, dynamic>;
-        final detail = errorBody['detail'] ?? '로그인에 실패했습니다.';
+        final detail = errorBody['detail'] ?? '濡쒓렇?몄뿉 ?ㅽ뙣?덉뒿?덈떎.';
         throw Exception(detail);
       } catch (e) {
         if (e is Exception) rethrow;
-        throw Exception('로그인에 실패했습니다.');
+        throw Exception('濡쒓렇?몄뿉 ?ㅽ뙣?덉뒿?덈떎.');
       }
     }
 
@@ -284,7 +454,7 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
       ApiClient.handleResponse(response);
       return true;
     } catch (e) {
-      throw Exception('회원가입 실패: $e');
+      throw Exception('?뚯썝媛???ㅽ뙣: $e');
     }
   }
 
@@ -307,30 +477,11 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
   Future<User?> loginWithGoogle({String mode = 'login'}) async {
     try {
       if (!kIsWeb) {
-        // Windows Desktop: loopback HTTP 서버 + PKCE 방식
         return await _loginWithGoogleDesktop(mode: mode);
       }
 
-      // Web: google_sign_in 패키지 사용
-      // idToken이 없으면 accessToken으로 폴백 (웹 implicit flow 제한)
-      final googleSignIn = _buildGoogleSignIn();
-      final account = await googleSignIn.signIn();
-      if (account == null) return null;
-
-      final auth = await account.authentication;
-      final token = (auth.idToken?.isNotEmpty == true)
-          ? auth.idToken!
-          : (auth.accessToken ?? '');
-      if (token.isEmpty) {
-        throw Exception('구글 인증 토큰을 가져오지 못했습니다.');
-      }
-
-      final response = await ApiClient.post(
-        '/api/auth/social/google',
-        body: {'id_token': token, 'mode': mode},
-        includeAuth: false,
-      );
-      return _consumeLoginTokenResponse(response);
+      await _startGoogleWebRedirectFlow(mode: mode);
+      return null;
     } catch (e) {
       rethrow;
     }
@@ -339,32 +490,11 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
   Future<User?> loginWithKakao({String mode = 'login'}) async {
     try {
       if (!kIsWeb) {
-        // Windows Desktop: loopback HTTP 서버 방식
         return await _loginWithKakaoDesktop(mode: mode);
       }
 
-      // Web: kakao_flutter_sdk_user 패키지 사용 (기존 코드 유지)
-      OAuthToken token;
-      if (await isKakaoTalkInstalled()) {
-        try {
-          token = await UserApi.instance.loginWithKakaoTalk();
-        } catch (_) {
-          token = await UserApi.instance.loginWithKakaoAccount();
-        }
-      } else {
-        token = await UserApi.instance.loginWithKakaoAccount();
-      }
-
-      if (token.accessToken.isEmpty) {
-        throw Exception('카카오 인증 토큰을 가져오지 못했습니다.');
-      }
-
-      final response = await ApiClient.post(
-        '/api/auth/social/kakao',
-        body: {'access_token': token.accessToken, 'mode': mode},
-        includeAuth: false,
-      );
-      return _consumeLoginTokenResponse(response);
+      await _startKakaoWebRedirectFlow(mode: mode);
+      return null;
     } catch (e) {
       rethrow;
     }
@@ -407,7 +537,7 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
           .map((json) => User.fromJson(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      throw Exception('사용자 목록 가져오기 실패: $e');
+      throw Exception('?ъ슜??紐⑸줉 媛?몄삤湲??ㅽ뙣: $e');
     }
   }
 
@@ -419,7 +549,7 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
           .map((json) => User.fromJson(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      throw Exception('승인 대기 사용자 목록 가져오기 실패: $e');
+      throw Exception('?뱀씤 ?湲??ъ슜??紐⑸줉 媛?몄삤湲??ㅽ뙣: $e');
     }
   }
 
@@ -428,7 +558,7 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
       final response = await ApiClient.patch('/api/users/$userId/approve');
       ApiClient.handleResponse(response);
     } catch (e) {
-      throw Exception('사용자 승인 실패: $e');
+      throw Exception('?ъ슜???뱀씤 ?ㅽ뙣: $e');
     }
   }
 
@@ -437,7 +567,7 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
       final response = await ApiClient.delete('/api/users/$userId/reject');
       ApiClient.handleResponse(response);
     } catch (e) {
-      throw Exception('사용자 거절 실패: $e');
+      throw Exception('?ъ슜??嫄곗젅 ?ㅽ뙣: $e');
     }
   }
 
@@ -449,7 +579,7 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
           .map((json) => User.fromJson(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      throw Exception('승인된 사용자 목록 가져오기 실패: $e');
+      throw Exception('?뱀씤???ъ슜??紐⑸줉 媛?몄삤湲??ㅽ뙣: $e');
     }
   }
 
@@ -467,7 +597,7 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
 
       return user;
     } catch (e) {
-      throw Exception('프로필 이미지 업데이트 실패: $e');
+      throw Exception('?꾨줈???대?吏 ?낅뜲?댄듃 ?ㅽ뙣: $e');
     }
   }
 
@@ -481,7 +611,7 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
           .map((json) => User.fromJson(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      throw Exception('워크스페이스 사용자 목록 가져오기 실패: $e');
+      throw Exception('?뚰겕?ㅽ럹?댁뒪 ?ъ슜??紐⑸줉 媛?몄삤湲??ㅽ뙣: $e');
     }
   }
 
@@ -509,7 +639,7 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
         }
       }
     } catch (e) {
-      throw Exception('PM 권한 부여 실패: $e');
+      throw Exception('PM 沅뚰븳 遺???ㅽ뙣: $e');
     }
   }
 
@@ -527,7 +657,7 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
         }
       }
     } catch (e) {
-      throw Exception('PM 권한 제거 실패: $e');
+      throw Exception('PM 沅뚰븳 ?쒓굅 ?ㅽ뙣: $e');
     }
   }
 

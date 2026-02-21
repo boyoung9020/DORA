@@ -19,7 +19,9 @@ class Settings(BaseSettings):
 
     # Social auth
     GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
     KAKAO_REST_API_KEY: str = ""
+    KAKAO_CLIENT_SECRET: str = ""
 
     class Config:
         env_file = ".env"

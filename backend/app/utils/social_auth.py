@@ -12,6 +12,102 @@ class SocialAuthError(Exception):
     """Raised when social auth token verification fails."""
 
 
+async def exchange_google_auth_code(
+    code: str,
+    redirect_uri: str,
+    code_verifier: str,
+) -> Dict[str, Optional[str]]:
+    """Exchange Google OAuth authorization code for tokens."""
+    if not settings.GOOGLE_CLIENT_ID:
+        raise SocialAuthError("Google client id is not configured")
+
+    body = {
+        "code": code,
+        "client_id": settings.GOOGLE_CLIENT_ID,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code",
+        "code_verifier": code_verifier,
+    }
+    if settings.GOOGLE_CLIENT_SECRET:
+        body["client_secret"] = settings.GOOGLE_CLIENT_SECRET
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                "https://oauth2.googleapis.com/token",
+                data=body,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+    except Exception as exc:  # noqa: BLE001
+        raise SocialAuthError("Failed to exchange Google auth code") from exc
+
+    if response.status_code != 200:
+        detail = None
+        try:
+            detail = response.json().get("error_description") or response.json().get("error")
+        except Exception:  # noqa: BLE001
+            detail = response.text
+        raise SocialAuthError(f"Google auth code exchange failed: {detail}")
+
+    data: Dict[str, Any] = response.json()
+    id_token = data.get("id_token")
+    access_token = data.get("access_token")
+    if not id_token and not access_token:
+        raise SocialAuthError("Google token exchange response missing token")
+
+    return {
+        "id_token": id_token,
+        "access_token": access_token,
+    }
+
+
+async def exchange_kakao_auth_code(
+    code: str,
+    redirect_uri: str,
+    code_verifier: str,
+) -> str:
+    """Exchange Kakao OAuth authorization code for access token."""
+    if not settings.KAKAO_REST_API_KEY:
+        raise SocialAuthError("Kakao REST API key is not configured")
+
+    body = {
+        "grant_type": "authorization_code",
+        "client_id": settings.KAKAO_REST_API_KEY,
+        "redirect_uri": redirect_uri,
+        "code": code,
+    }
+    if settings.KAKAO_CLIENT_SECRET:
+        body["client_secret"] = settings.KAKAO_CLIENT_SECRET
+
+    import sys
+    print(f"[Kakao] token request body: {body}", flush=True, file=sys.stderr)
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                "https://kauth.kakao.com/oauth/token",
+                data=body,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+    except Exception as exc:  # noqa: BLE001
+        raise SocialAuthError("Failed to exchange Kakao auth code") from exc
+
+    print(f"[Kakao] token response status={response.status_code} body={response.text}", flush=True, file=sys.stderr)
+    if response.status_code != 200:
+        detail = None
+        try:
+            detail = response.json().get("error_description") or response.json().get("error")
+        except Exception:  # noqa: BLE001
+            detail = response.text
+        raise SocialAuthError(f"Kakao auth code exchange failed: {detail}")
+
+    data: Dict[str, Any] = response.json()
+    access_token = data.get("access_token")
+    if not access_token:
+        raise SocialAuthError("Kakao token exchange response missing access token")
+
+    return str(access_token)
+
+
 def verify_google_token(raw_id_token: str) -> Dict[str, Optional[str]]:
     """Verify a Google ID token and return normalized user info."""
     audience = settings.GOOGLE_CLIENT_ID or None
@@ -20,6 +116,7 @@ def verify_google_token(raw_id_token: str) -> Dict[str, Optional[str]]:
             raw_id_token,
             google_requests.Request(),
             audience=audience,
+            clock_skew_in_seconds=10,
         )
     except Exception as exc:  # noqa: BLE001
         raise SocialAuthError("Invalid Google ID token") from exc

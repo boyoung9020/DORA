@@ -10,7 +10,9 @@ from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.schemas.auth import (
+    GoogleSocialCodeLoginRequest,
     GoogleSocialLoginRequest,
+    KakaoSocialCodeLoginRequest,
     KakaoSocialLoginRequest,
     Token,
 )
@@ -19,6 +21,8 @@ from app.utils.dependencies import get_current_user
 from app.utils.security import create_access_token, get_password_hash, verify_password
 from app.utils.social_auth import (
     SocialAuthError,
+    exchange_google_auth_code,
+    exchange_kakao_auth_code,
     verify_google_token_or_access_token,
     verify_kakao_access_token,
 )
@@ -107,6 +111,40 @@ def _create_social_user(
     return new_user
 
 
+def _resolve_social_user_by_mode(
+    db: Session,
+    provider: str,
+    social_id: str,
+    email: str | None,
+    display_name: str | None,
+    mode: str,
+) -> User:
+    user = _find_social_user(
+        db,
+        provider=provider,
+        social_id=social_id,
+        email=email,
+    )
+
+    if mode == "login":
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="가입된 계정이 없습니다. 먼저 회원가입을 해주세요.",
+            )
+        return user
+
+    if user is None:
+        user = _create_social_user(
+            db,
+            provider=provider,
+            social_id=social_id,
+            email=email,
+            display_name=display_name,
+        )
+    return user
+
+
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     """Register a new user with email/password."""
@@ -178,28 +216,50 @@ async def social_google_login(
     except SocialAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
-    user = _find_social_user(
+    user = _resolve_social_user_by_mode(
         db,
         provider="google",
         social_id=profile["social_id"] or "",
         email=profile.get("email"),
+        display_name=profile.get("display_name"),
+        mode=body.mode,
     )
 
-    if body.mode == "login":
-        if user is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="가입된 계정이 없습니다. 먼저 회원가입을 해주세요.",
-            )
-    else:  # register
-        if user is None:
-            user = _create_social_user(
-                db,
-                provider="google",
-                social_id=profile["social_id"] or "",
-                email=profile.get("email"),
-                display_name=profile.get("display_name"),
-            )
+    if not user.is_approved:
+        user.is_approved = True
+        db.commit()
+        db.refresh(user)
+
+    return _issue_access_token(user)
+
+
+@router.post("/social/google/code", response_model=Token)
+async def social_google_login_with_code(
+    body: GoogleSocialCodeLoginRequest,
+    db: Session = Depends(get_db),
+):
+    """Login or register with Google OAuth authorization code."""
+    try:
+        exchanged = await exchange_google_auth_code(
+            code=body.code,
+            redirect_uri=body.redirect_uri,
+            code_verifier=body.code_verifier,
+        )
+        verify_token = exchanged.get("id_token") or exchanged.get("access_token")
+        if not verify_token:
+            raise SocialAuthError("Google token exchange response missing token")
+        profile = await verify_google_token_or_access_token(verify_token)
+    except SocialAuthError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+
+    user = _resolve_social_user_by_mode(
+        db,
+        provider="google",
+        social_id=profile["social_id"] or "",
+        email=profile.get("email"),
+        display_name=profile.get("display_name"),
+        mode=body.mode,
+    )
 
     if not user.is_approved:
         user.is_approved = True
@@ -223,28 +283,48 @@ async def social_kakao_login(
     except SocialAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
-    user = _find_social_user(
+    user = _resolve_social_user_by_mode(
         db,
         provider="kakao",
         social_id=profile["social_id"] or "",
         email=profile.get("email"),
+        display_name=profile.get("display_name"),
+        mode=body.mode,
     )
 
-    if body.mode == "login":
-        if user is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="가입된 계정이 없습니다. 먼저 회원가입을 해주세요.",
-            )
-    else:  # register
-        if user is None:
-            user = _create_social_user(
-                db,
-                provider="kakao",
-                social_id=profile["social_id"] or "",
-                email=profile.get("email"),
-                display_name=profile.get("display_name"),
-            )
+    if not user.is_approved:
+        user.is_approved = True
+        db.commit()
+        db.refresh(user)
+
+    return _issue_access_token(user)
+
+
+@router.post("/social/kakao/code", response_model=Token)
+async def social_kakao_login_with_code(
+    body: KakaoSocialCodeLoginRequest,
+    db: Session = Depends(get_db),
+):
+    """Login or register with Kakao OAuth authorization code."""
+    try:
+        access_token = await exchange_kakao_auth_code(
+            code=body.code,
+            redirect_uri=body.redirect_uri,
+            code_verifier=body.code_verifier,
+        )
+        profile = await verify_kakao_access_token(access_token)
+    except SocialAuthError as exc:
+        import traceback; traceback.print_exc()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+
+    user = _resolve_social_user_by_mode(
+        db,
+        provider="kakao",
+        social_id=profile["social_id"] or "",
+        email=profile.get("email"),
+        display_name=profile.get("display_name"),
+        mode=body.mode,
+    )
 
     if not user.is_approved:
         user.is_approved = True
