@@ -23,6 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _obscurePassword = true;
   bool _rememberMe = false;
+  bool _isSocialLoading = false;
 
   @override
   void dispose() {
@@ -43,19 +44,147 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (success && mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainLayout()),
-      );
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const MainLayout()));
       return;
     }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authProvider.errorMessage ?? '로그인에 실패했습니다.'),
+          content: Text(authProvider.errorMessage ?? '\uB85C\uADF8\uC778\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.'),
           backgroundColor: const Color(0xFFDC2626),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
+  }
+
+  void _showSocialAuthDialog(String provider) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 40),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFAF2),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.14),
+                  blurRadius: 40,
+                  offset: const Offset(0, 16),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: CircularProgressIndicator(
+                    color: Color(0xFFD86B27),
+                    strokeWidth: 3.5,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  '$provider \uB85C\uADF8\uC778 \uC911...',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF3C2A1A),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '\uD31D\uC5C5\uCC3D\uC5D0\uC11C \uC778\uC99D\uC744 \uC644\uB8CC\uD574\uC8FC\uC138\uC694',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF7B5C42)),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleGoogleLogin() async {
+    if (_isSocialLoading) return;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    authProvider.clearError();
+
+    setState(() => _isSocialLoading = true);
+    _showSocialAuthDialog('Google');
+
+    final success = await authProvider.loginWithGoogle();
+    if (!mounted) return;
+    Navigator.of(context).pop(); // ???繹먮굟瑗????Β??????????
+    setState(() => _isSocialLoading = false);
+
+    if (success) {
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const MainLayout()));
+      return;
+    }
+
+    // errorMessage == null means user cancelled the popup ??show nothing
+    if (authProvider.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.errorMessage!),
+          backgroundColor: const Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleKakaoLogin() async {
+    if (_isSocialLoading) return;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    authProvider.clearError();
+
+    setState(() => _isSocialLoading = true);
+    _showSocialAuthDialog('\uCE74\uCE74\uC624');
+
+    final success = await authProvider.loginWithKakao();
+    if (!mounted) return;
+    Navigator.of(context).pop(); // ???繹먮굟瑗????Β??????????
+    setState(() => _isSocialLoading = false);
+
+    if (success) {
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const MainLayout()));
+      return;
+    }
+
+    if (authProvider.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.errorMessage!),
+          backgroundColor: const Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
     }
@@ -213,8 +342,8 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 SizedBox(
-                  width: 148,
-                  height: 73,
+                  width: 124,
+                  height: 62,
                   child: Image.asset(
                     _brandLogoAsset,
                     fit: BoxFit.contain,
@@ -248,7 +377,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 64),
             const Text(
-              '워크스페이스에 로그인하세요',
+              '\uC6CC\uD06C\uC2A4\uD398\uC774\uC2A4\uC5D0 \uB85C\uADF8\uC778\uD558\uC138\uC694',
               style: TextStyle(
                 color: Color(0xFF7B5C42),
                 fontSize: 14,
@@ -268,12 +397,12 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 8),
             _buildInputField(
               controller: _usernameController,
-              hint: '이메일 입력',
+              hint: '\uC774\uBA54\uC77C \uC785\uB825',
               icon: Icons.email_outlined,
               keyboardType: TextInputType.emailAddress,
               onSubmitted: (_) => FocusScope.of(context).nextFocus(),
               validator: (v) =>
-                  v == null || v.isEmpty ? '이메일을 입력하세요.' : null,
+                  v == null || v.isEmpty ? '\uC774\uBA54\uC77C\uC744 \uC785\uB825\uD558\uC138\uC694' : null,
             ),
             const SizedBox(height: 16),
             const Text(
@@ -288,7 +417,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 8),
             _buildInputField(
               controller: _passwordController,
-              hint: '비밀번호 입력',
+              hint: '\uBE44\uBC00\uBC88\uD638 \uC785\uB825',
               icon: Icons.lock_outline_rounded,
               obscureText: _obscurePassword,
               onSubmitted: (_) => _handleLogin(),
@@ -304,7 +433,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     setState(() => _obscurePassword = !_obscurePassword),
               ),
               validator: (v) =>
-                  v == null || v.isEmpty ? '비밀번호를 입력하세요.' : null,
+                  v == null || v.isEmpty ? '\uBE44\uBC00\uBC88\uD638\uB97C \uC785\uB825\uD558\uC138\uC694' : null,
             ),
             const SizedBox(height: 12),
             Row(
@@ -315,7 +444,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Checkbox(
                     value: _rememberMe,
                     onChanged: (v) => setState(() => _rememberMe = v ?? false),
-                    side: const BorderSide(color: Color(0xFFD6B796), width: 1.3),
+                    side: const BorderSide(
+                      color: Color(0xFFD6B796),
+                      width: 1.3,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(4),
                     ),
@@ -324,7 +456,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(width: 8),
                 const Text(
-                  '로그인 상태 유지',
+                  '\uB85C\uADF8\uC778 \uC0C1\uD0DC \uC720\uC9C0',
                   style: TextStyle(
                     fontSize: 12.5,
                     color: Color(0xFF86654A),
@@ -340,7 +472,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: const Text(
-                    '비밀번호 찾기',
+                    '\uBE44\uBC00\uBC88\uD638 \uCC3E\uAE30',
                     style: TextStyle(
                       fontSize: 12.5,
                       color: Color(0xFF2C9271),
@@ -353,11 +485,13 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 18),
             _buildSignInButton(authProvider),
             const SizedBox(height: 18),
+            _buildSocialLoginButtons(authProvider),
+            const SizedBox(height: 14),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text(
-                  '계정이 없으신가요? ',
+                  '\uACC4\uC815\uC774 \uC5C6\uC73C\uC2E0\uAC00\uC694? ',
                   style: TextStyle(
                     fontSize: 13,
                     color: Color(0xFF6F5640),
@@ -376,7 +510,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: const Text(
-                    '회원가입',
+                    '\uD68C\uC6D0\uAC00\uC785',
                     style: TextStyle(
                       fontSize: 13,
                       color: Color(0xFF2C9271),
@@ -387,6 +521,79 @@ class _LoginScreenState extends State<LoginScreen> {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSocialLoginButtons(AuthProvider authProvider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: const [
+            Expanded(child: Divider(color: Color(0xFFE4C8AD))),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 10),
+              child: Text(
+                '\uB610\uB294',
+                style: TextStyle(
+                  color: Color(0xFF8A6647),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Expanded(child: Divider(color: Color(0xFFE4C8AD))),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildSocialButton(
+          label: _isSocialLoading ? '\uB85C\uADF8\uC778 \uC911...' : 'Google\uB85C \uACC4\uC18D\uD558\uAE30',
+          background: Colors.white,
+          foreground: const Color(0xFF322212),
+          borderColor: const Color(0xFFE4C8AD),
+          onPressed: (_isSocialLoading || authProvider.isLoading)
+              ? null
+              : _handleGoogleLogin,
+        ),
+        const SizedBox(height: 8),
+        _buildSocialButton(
+          label: _isSocialLoading ? '\uB85C\uADF8\uC778 \uC911...' : '\uCE74\uCE74\uC624\uB85C \uACC4\uC18D\uD558\uAE30',
+          background: const Color(0xFFFEE500),
+          foreground: const Color(0xFF191919),
+          borderColor: const Color(0xFFE0CF4D),
+          onPressed: (_isSocialLoading || authProvider.isLoading)
+              ? null
+              : _handleKakaoLogin,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSocialButton({
+    required String label,
+    required Color background,
+    required Color foreground,
+    required Color borderColor,
+    required VoidCallback? onPressed,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 42,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: background,
+          foregroundColor: foreground,
+          side: BorderSide(color: borderColor, width: 1),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
         ),
       ),
     );
@@ -428,7 +635,10 @@ class _LoginScreenState extends State<LoginScreen> {
         suffixIcon: suffix,
         filled: true,
         fillColor: const Color(0xFFFFFDFC),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 13,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: Color(0xFFE4C8AD), width: 1),

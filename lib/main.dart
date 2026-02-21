@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/task_provider.dart';
@@ -39,6 +40,15 @@ TextTheme _buildAppTextTheme(TextTheme base) {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  const kakaoNativeAppKey = String.fromEnvironment('KAKAO_NATIVE_APP_KEY');
+  const kakaoJavascriptAppKey = String.fromEnvironment('KAKAO_JAVASCRIPT_APP_KEY');
+  if (kakaoNativeAppKey.isNotEmpty || kakaoJavascriptAppKey.isNotEmpty) {
+    KakaoSdk.init(
+      nativeAppKey: kakaoNativeAppKey.isNotEmpty ? kakaoNativeAppKey : null,
+      javaScriptAppKey: kakaoJavascriptAppKey.isNotEmpty ? kakaoJavascriptAppKey : null,
+    );
+  }
   
   // Windows ?뚮┝ ?쒕퉬??珥덇린??(?뱀뿉?쒕뒗 ?먮룞?쇰줈 ?ㅽ궢??
   await WindowsNotificationService.initialize();
@@ -183,4 +193,5 @@ class _AuthWrapperState extends State<AuthWrapper> {
     );
   }
 }
+
 

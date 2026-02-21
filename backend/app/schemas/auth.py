@@ -1,18 +1,32 @@
-"""
-인증 관련 Pydantic 스키마
-"""
+﻿"""Authentication schemas."""
+from typing import Literal, Optional
+
 from pydantic import BaseModel
-from typing import Optional
 
 
 class Token(BaseModel):
-    """JWT 토큰 응답 스키마"""
+    """JWT token response."""
+
     access_token: str
     token_type: str = "bearer"
 
 
 class TokenData(BaseModel):
-    """토큰 데이터 스키마"""
+    """Decoded JWT payload."""
+
     user_id: Optional[str] = None
     username: Optional[str] = None
 
+
+class GoogleSocialLoginRequest(BaseModel):
+    """Google social login payload."""
+
+    id_token: str
+    mode: Literal["login", "register"] = "login"
+
+
+class KakaoSocialLoginRequest(BaseModel):
+    """Kakao social login payload."""
+
+    access_token: str
+    mode: Literal["login", "register"] = "login"

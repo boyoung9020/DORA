@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
 import '../widgets/app_title_bar.dart';
+import 'main_layout.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -75,6 +76,52 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(authProvider.errorMessage ?? '회원가입에 실패했습니다.'),
+          backgroundColor: const Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleGoogleLogin() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    authProvider.clearError();
+
+    final success = await authProvider.loginWithGoogle(isRegister: true);
+    if (success && mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainLayout()),
+      );
+      return;
+    }
+
+    if (mounted && authProvider.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.errorMessage!),
+          backgroundColor: const Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleKakaoLogin() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    authProvider.clearError();
+
+    final success = await authProvider.loginWithKakao(isRegister: true);
+    if (success && mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainLayout()),
+      );
+      return;
+    }
+
+    if (mounted && authProvider.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.errorMessage!),
           backgroundColor: const Color(0xFFDC2626),
           behavior: SnackBarBehavior.floating,
         ),
@@ -392,6 +439,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
             const SizedBox(height: 14),
+            _buildSocialSignUpButtons(authProvider),
+            const SizedBox(height: 12),
             Center(
               child: TextButton(
                 onPressed: () => Navigator.of(context).pop(),
@@ -408,6 +457,78 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSocialSignUpButtons(AuthProvider authProvider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: const [
+            Expanded(child: Divider(color: Color(0xFFE4C8AD))),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 10),
+              child: Text(
+                '소셜로 시작',
+                style: TextStyle(
+                  color: Color(0xFF8A6647),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Expanded(child: Divider(color: Color(0xFFE4C8AD))),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildSocialButton(
+          label: 'Google로 시작하기',
+          background: Colors.white,
+          foreground: const Color(0xFF322212),
+          borderColor: const Color(0xFFE4C8AD),
+          onPressed: authProvider.isLoading ? null : _handleGoogleLogin,
+        ),
+        const SizedBox(height: 8),
+        _buildSocialButton(
+          label: '카카오로 시작하기',
+          background: const Color(0xFFFEE500),
+          foreground: const Color(0xFF191919),
+          borderColor: const Color(0xFFE0CF4D),
+          onPressed: authProvider.isLoading ? null : _handleKakaoLogin,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSocialButton({
+    required String label,
+    required Color background,
+    required Color foreground,
+    required Color borderColor,
+    required VoidCallback? onPressed,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 42,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: background,
+          foregroundColor: foreground,
+          side: BorderSide(color: borderColor, width: 1),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );

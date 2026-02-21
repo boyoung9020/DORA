@@ -27,12 +27,13 @@ class UserLogin(BaseModel):
 class UserResponse(UserBase):
     """사용자 응답 스키마"""
     id: str
+    email: str  # 소셜 로그인 시 가짜 이메일(예: kakao_xxx@social.local)도 허용
     is_admin: bool
     is_approved: bool
     is_pm: bool
     profile_image_url: Optional[str] = None
     created_at: datetime
-    
+
     class Config:
         from_attributes = True  # SQLAlchemy 모델에서 자동 변환
 
