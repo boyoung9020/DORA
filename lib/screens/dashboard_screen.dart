@@ -41,7 +41,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-  Future<void> _loadAISummary() async {
+  Future<void> _loadAISummary({bool forceRefresh = false}) async {
     if (!mounted) return;
     setState(() {
       _aiLoading = true;
@@ -50,7 +50,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     try {
       final workspaceId = context.read<WorkspaceProvider>().currentWorkspaceId;
-      final result = await _aiService.getSummary(workspaceId: workspaceId);
+      final userId = context.read<AuthProvider>().currentUser?.id;
+      final result = await _aiService.getSummary(
+        workspaceId: workspaceId,
+        userId: userId,
+        forceRefresh: forceRefresh,
+      );
       if (!mounted) return;
       setState(() {
         _aiSummary = result.summary.isNotEmpty ? result.summary : null;
@@ -71,9 +76,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   String _formatAiGeneratedAt(DateTime dateTime) {
-    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final meridiem = dateTime.hour < 12 ? '오전' : '오후';
+    var hour = dateTime.hour % 12;
+    if (hour == 0) hour = 12;
     final minute = dateTime.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
+    return '$meridiem $hour:$minute';
   }
 
   Widget _buildAISummaryCard(
@@ -1549,22 +1556,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const Spacer(),
             if (_aiGeneratedAt != null)
               Text(
-                _formatAiGeneratedAt(_aiGeneratedAt!),
+                '요약 생성 ${_formatAiGeneratedAt(_aiGeneratedAt!)}',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   color: colorScheme.onSurface.withValues(alpha: 0.65),
                 ),
               ),
-            const SizedBox(width: 8),
-            IconButton(
-              tooltip: '새로고침',
-              icon: Icon(
-                Icons.refresh,
-                color: colorScheme.primary,
-                size: 20,
-              ),
-              onPressed: _aiLoading ? null : _loadAISummary,
-            ),
           ],
         ),
         const SizedBox(height: 12),
