@@ -26,7 +26,7 @@ NotificationHandler::NotificationHandler(flutter::BinaryMessenger* messenger)
     : messenger_(messenger) {
   auto channel =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
-          messenger_, "com.dora/notifications",
+          messenger_, "com.sync/notifications",
           &flutter::StandardMethodCodec::GetInstance());
 
   channel->SetMethodCallHandler(

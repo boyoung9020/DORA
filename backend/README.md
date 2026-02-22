@@ -1,152 +1,152 @@
-# DORA 백엔드 API 서버
+# SYNC 諛깆뿏??API ?쒕쾭
 
-FastAPI 기반의 프로젝트 관리 시스템 백엔드 서버입니다.
+FastAPI 湲곕컲???꾨줈?앺듃 愿由??쒖뒪??諛깆뿏???쒕쾭?낅땲??
 
-## 기술 스택
+## 湲곗닠 ?ㅽ깮
 
-- **FastAPI**: Python 웹 프레임워크
-- **PostgreSQL**: 관계형 데이터베이스
+- **FastAPI**: Python ???꾨젅?꾩썙??
+- **PostgreSQL**: 愿怨꾪삎 ?곗씠?곕쿋?댁뒪
 - **SQLAlchemy**: ORM (Object-Relational Mapping)
-- **Nginx**: 리버스 프록시 서버
-- **Docker Compose**: 컨테이너 오케스트레이션
+- **Nginx**: 由щ쾭???꾨줉???쒕쾭
+- **Docker Compose**: 而⑦뀒?대꼫 ?ㅼ??ㅽ듃?덉씠??
 
-## 프로젝트 구조
+## ?꾨줈?앺듃 援ъ“
 
 ```
 backend/
-├── app/
-│   ├── __init__.py
-│   ├── main.py              # FastAPI 메인 애플리케이션
-│   ├── config.py            # 설정 관리
-│   ├── database.py           # 데이터베이스 연결
-│   ├── models/              # SQLAlchemy 모델
-│   │   ├── user.py
-│   │   ├── project.py
-│   │   ├── task.py
-│   │   └── comment.py
-│   ├── schemas/             # Pydantic 스키마 (API 요청/응답)
-│   │   ├── user.py
-│   │   ├── project.py
-│   │   ├── task.py
-│   │   └── comment.py
-│   ├── routers/             # API 라우터
-│   │   ├── auth.py          # 인증 (회원가입, 로그인)
-│   │   ├── users.py         # 사용자 관리
-│   │   ├── projects.py      # 프로젝트 관리
-│   │   ├── tasks.py         # 태스크 관리
-│   │   └── comments.py      # 댓글 관리
-│   └── utils/               # 유틸리티 함수
-│       ├── security.py      # 비밀번호 해싱, JWT 토큰
-│       └── dependencies.py  # FastAPI 의존성
-├── requirements.txt         # Python 패키지 의존성
-├── Dockerfile              # Docker 이미지 빌드 설정
-└── init_db.py             # 데이터베이스 초기화 스크립트
+?쒋?? app/
+??  ?쒋?? __init__.py
+??  ?쒋?? main.py              # FastAPI 硫붿씤 ?좏뵆由ъ??댁뀡
+??  ?쒋?? config.py            # ?ㅼ젙 愿由?
+??  ?쒋?? database.py           # ?곗씠?곕쿋?댁뒪 ?곌껐
+??  ?쒋?? models/              # SQLAlchemy 紐⑤뜽
+??  ??  ?쒋?? user.py
+??  ??  ?쒋?? project.py
+??  ??  ?쒋?? task.py
+??  ??  ?붴?? comment.py
+??  ?쒋?? schemas/             # Pydantic ?ㅽ궎留?(API ?붿껌/?묐떟)
+??  ??  ?쒋?? user.py
+??  ??  ?쒋?? project.py
+??  ??  ?쒋?? task.py
+??  ??  ?붴?? comment.py
+??  ?쒋?? routers/             # API ?쇱슦??
+??  ??  ?쒋?? auth.py          # ?몄쬆 (?뚯썝媛?? 濡쒓렇??
+??  ??  ?쒋?? users.py         # ?ъ슜??愿由?
+??  ??  ?쒋?? projects.py      # ?꾨줈?앺듃 愿由?
+??  ??  ?쒋?? tasks.py         # ?쒖뒪??愿由?
+??  ??  ?붴?? comments.py      # ?볤? 愿由?
+??  ?붴?? utils/               # ?좏떥由ы떚 ?⑥닔
+??      ?쒋?? security.py      # 鍮꾨?踰덊샇 ?댁떛, JWT ?좏겙
+??      ?붴?? dependencies.py  # FastAPI ?섏〈??
+?쒋?? requirements.txt         # Python ?⑦궎吏 ?섏〈??
+?쒋?? Dockerfile              # Docker ?대?吏 鍮뚮뱶 ?ㅼ젙
+?붴?? init_db.py             # ?곗씠?곕쿋?댁뒪 珥덇린???ㅽ겕由쏀듃
 ```
 
-## API 엔드포인트
+## API ?붾뱶?ъ씤??
 
-### 인증 (`/api/auth`)
+### ?몄쬆 (`/api/auth`)
 
-- `POST /api/auth/register` - 회원가입
-- `POST /api/auth/login` - 로그인 (JWT 토큰 반환)
-- `GET /api/auth/me` - 현재 사용자 정보
+- `POST /api/auth/register` - ?뚯썝媛??
+- `POST /api/auth/login` - 濡쒓렇??(JWT ?좏겙 諛섑솚)
+- `GET /api/auth/me` - ?꾩옱 ?ъ슜???뺣낫
 
-### 사용자 (`/api/users`)
+### ?ъ슜??(`/api/users`)
 
-- `GET /api/users` - 모든 사용자 목록 (관리자만)
-- `GET /api/users/pending` - 승인 대기 사용자 (관리자만)
-- `GET /api/users/{user_id}` - 특정 사용자 정보
-- `PATCH /api/users/{user_id}/approve` - 사용자 승인 (관리자만)
-- `DELETE /api/users/{user_id}/reject` - 사용자 거부 (관리자만)
-- `PATCH /api/users/{user_id}/grant-pm` - PM 권한 부여 (관리자만)
-- `PATCH /api/users/{user_id}/revoke-pm` - PM 권한 제거 (관리자만)
+- `GET /api/users` - 紐⑤뱺 ?ъ슜??紐⑸줉 (愿由ъ옄留?
+- `GET /api/users/pending` - ?뱀씤 ?湲??ъ슜??(愿由ъ옄留?
+- `GET /api/users/{user_id}` - ?뱀젙 ?ъ슜???뺣낫
+- `PATCH /api/users/{user_id}/approve` - ?ъ슜???뱀씤 (愿由ъ옄留?
+- `DELETE /api/users/{user_id}/reject` - ?ъ슜??嫄곕? (愿由ъ옄留?
+- `PATCH /api/users/{user_id}/grant-pm` - PM 沅뚰븳 遺??(愿由ъ옄留?
+- `PATCH /api/users/{user_id}/revoke-pm` - PM 沅뚰븳 ?쒓굅 (愿由ъ옄留?
 
-### 프로젝트 (`/api/projects`)
+### ?꾨줈?앺듃 (`/api/projects`)
 
-- `GET /api/projects` - 모든 프로젝트 목록
-- `GET /api/projects/{project_id}` - 특정 프로젝트 정보
-- `POST /api/projects` - 새 프로젝트 생성
-- `PATCH /api/projects/{project_id}` - 프로젝트 수정
-- `DELETE /api/projects/{project_id}` - 프로젝트 삭제
-- `POST /api/projects/{project_id}/members/{user_id}` - 팀원 추가
-- `DELETE /api/projects/{project_id}/members/{user_id}` - 팀원 제거
+- `GET /api/projects` - 紐⑤뱺 ?꾨줈?앺듃 紐⑸줉
+- `GET /api/projects/{project_id}` - ?뱀젙 ?꾨줈?앺듃 ?뺣낫
+- `POST /api/projects` - ???꾨줈?앺듃 ?앹꽦
+- `PATCH /api/projects/{project_id}` - ?꾨줈?앺듃 ?섏젙
+- `DELETE /api/projects/{project_id}` - ?꾨줈?앺듃 ??젣
+- `POST /api/projects/{project_id}/members/{user_id}` - ???異붽?
+- `DELETE /api/projects/{project_id}/members/{user_id}` - ????쒓굅
 
-### 태스크 (`/api/tasks`)
+### ?쒖뒪??(`/api/tasks`)
 
-- `GET /api/tasks` - 모든 태스크 목록 (필터링 옵션)
-- `GET /api/tasks/{task_id}` - 특정 태스크 정보
-- `POST /api/tasks` - 새 태스크 생성
-- `PATCH /api/tasks/{task_id}` - 태스크 수정
-- `DELETE /api/tasks/{task_id}` - 태스크 삭제
-- `PATCH /api/tasks/{task_id}/status` - 태스크 상태 변경
+- `GET /api/tasks` - 紐⑤뱺 ?쒖뒪??紐⑸줉 (?꾪꽣留??듭뀡)
+- `GET /api/tasks/{task_id}` - ?뱀젙 ?쒖뒪???뺣낫
+- `POST /api/tasks` - ???쒖뒪???앹꽦
+- `PATCH /api/tasks/{task_id}` - ?쒖뒪???섏젙
+- `DELETE /api/tasks/{task_id}` - ?쒖뒪????젣
+- `PATCH /api/tasks/{task_id}/status` - ?쒖뒪???곹깭 蹂寃?
 
-### 댓글 (`/api/comments`)
+### ?볤? (`/api/comments`)
 
-- `GET /api/comments/task/{task_id}` - 태스크의 댓글 목록
-- `GET /api/comments/{comment_id}` - 특정 댓글 정보
-- `POST /api/comments` - 새 댓글 생성
-- `PATCH /api/comments/{comment_id}` - 댓글 수정
-- `DELETE /api/comments/{comment_id}` - 댓글 삭제
+- `GET /api/comments/task/{task_id}` - ?쒖뒪?ъ쓽 ?볤? 紐⑸줉
+- `GET /api/comments/{comment_id}` - ?뱀젙 ?볤? ?뺣낫
+- `POST /api/comments` - ???볤? ?앹꽦
+- `PATCH /api/comments/{comment_id}` - ?볤? ?섏젙
+- `DELETE /api/comments/{comment_id}` - ?볤? ??젣
 
-## 실행 방법
+## ?ㅽ뻾 諛⑸쾿
 
-### Docker Compose 사용 (권장)
+### Docker Compose ?ъ슜 (沅뚯옣)
 
 ```bash
-# 모든 서비스 시작 (PostgreSQL, FastAPI, Nginx)
+# 紐⑤뱺 ?쒕퉬???쒖옉 (PostgreSQL, FastAPI, Nginx)
 docker-compose up -d
 
-# 로그 확인
+# 濡쒓렇 ?뺤씤
 docker-compose logs -f
 
-# 서비스 중지
+# ?쒕퉬??以묒?
 docker-compose down
 
-# 데이터베이스 데이터까지 삭제
+# ?곗씠?곕쿋?댁뒪 ?곗씠?곌퉴吏 ??젣
 docker-compose down -v
 ```
 
-### 로컬 개발 환경
+### 濡쒖뺄 媛쒕컻 ?섍꼍
 
 ```bash
-# 가상 환경 생성
+# 媛???섍꼍 ?앹꽦
 python -m venv venv
 
-# 가상 환경 활성화
+# 媛???섍꼍 ?쒖꽦??
 # Windows
 venv\Scripts\activate
 # Linux/Mac
 source venv/bin/activate
 
-# 패키지 설치
+# ?⑦궎吏 ?ㅼ튂
 pip install -r requirements.txt
 
-# 데이터베이스 초기화
+# ?곗씠?곕쿋?댁뒪 珥덇린??
 python app/init_db.py
 
-# 서버 실행
+# ?쒕쾭 ?ㅽ뻾
 uvicorn app.main:app --reload
 ```
 
-## 초기 관리자 계정
+## 珥덇린 愿由ъ옄 怨꾩젙
 
-서버 시작 시 자동으로 생성됩니다:
+?쒕쾭 ?쒖옉 ???먮룞?쇰줈 ?앹꽦?⑸땲??
 
-- 사용자명: `admin`
-- 비밀번호: `admin123`
+- ?ъ슜?먮챸: `admin`
+- 鍮꾨?踰덊샇: `admin123`
 
-**프로덕션 환경에서는 반드시 비밀번호를 변경하세요!**
+**?꾨줈?뺤뀡 ?섍꼍?먯꽌??諛섎뱶??鍮꾨?踰덊샇瑜?蹂寃쏀븯?몄슂!**
 
-## 환경 변수
+## ?섍꼍 蹂??
 
-`.env` 파일을 생성하여 다음 설정을 변경할 수 있습니다:
+`.env` ?뚯씪???앹꽦?섏뿬 ?ㅼ쓬 ?ㅼ젙??蹂寃쏀븷 ???덉뒿?덈떎:
 
 ```env
 DB_HOST=postgres
 DB_PORT=5432
-DB_USER=dora_user
-DB_PASSWORD=dora_password
-DB_NAME=dora_db
+DB_USER=sync_user
+DB_PASSWORD=sync_password
+DB_NAME=sync_db
 
 SECRET_KEY=your-secret-key-change-in-production
 ACCESS_TOKEN_EXPIRE_MINUTES=1440

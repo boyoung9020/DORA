@@ -22,28 +22,28 @@ import '../widgets/glass_container.dart';
 import '../widgets/date_range_picker_dialog.dart';
 import '../utils/avatar_color.dart';
 
-/// 붙여넣기 Intent
+/// 遺숈뿬?ｊ린 Intent
 class _PasteIntent extends Intent {
   const _PasteIntent();
 }
 
-/// 코멘트 전송 Intent (Ctrl+Enter)
+/// 肄붾찘???꾩넚 Intent (Ctrl+Enter)
 class _SubmitCommentIntent extends Intent {
   const _SubmitCommentIntent();
 }
 
-/// 타임라인 아이템 타입
+/// ??꾨씪???꾩씠?????
 enum TimelineItemType {
   history,
   comment,
   detail,
 }
 
-/// 타임라인 아이템 데이터 클래스
+/// ??꾨씪???꾩씠???곗씠???대옒??
 class TimelineItem {
   final TimelineItemType type;
   final DateTime date;
-  final dynamic data; // HistoryEvent 또는 Comment
+  final dynamic data; // HistoryEvent ?먮뒗 Comment
 
   TimelineItem({
     required this.type,
@@ -52,7 +52,7 @@ class TimelineItem {
   });
 }
 
-/// 히스토리 이벤트 데이터 클래스
+/// ?덉뒪?좊━ ?대깽???곗씠???대옒??
 class HistoryEvent {
   final String username;
   final String action;
@@ -67,7 +67,7 @@ class HistoryEvent {
   });
 }
 
-/// 태스크 상세 화면 - GitHub 이슈 스타일
+/// ?쒖뒪???곸꽭 ?붾㈃ - GitHub ?댁뒋 ?ㅽ???
 class TaskDetailScreen extends StatefulWidget {
   final Task task;
 
@@ -98,16 +98,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   bool _isCommentDropHover = false;
   List<Comment> _comments = [];
   bool _isLoadingComments = false;
-  List<TimelineItem>? _timelineItems;  // 타임라인 아이템 캐시
-  String? _editingCommentId;  // 편집 중인 코멘트 ID
-  late TextEditingController _editCommentController;  // 편집용 컨트롤러
-  List<XFile> _selectedCommentImages = [];  // 댓글용 선택된 이미지 (웹/데스크톱 공통)
-  List<XFile> _selectedDetailImages = [];    // 상세 내용용 선택된 이미지
-  List<String> _uploadedCommentImageUrls = [];  // 업로드된 댓글 이미지 URL
-  List<String> _uploadedDetailImageUrls = [];   // 업로드된 상세 내용 이미지 URL
-  List<User>? _assignedMembers;  // 할당된 팀원 캐시
-  bool _isInitialLoad = true;  // 초기 로드 여부
-  List<String>? _lastAssignedMemberIds;  // 이전 할당된 팀원 ID (동기화 확인용)
+  List<TimelineItem>? _timelineItems;  // ??꾨씪???꾩씠??罹먯떆
+  String? _editingCommentId;  // ?몄쭛 以묒씤 肄붾찘??ID
+  late TextEditingController _editCommentController;  // ?몄쭛??而⑦듃濡ㅻ윭
+  List<XFile> _selectedCommentImages = [];  // ?볤????좏깮???대?吏 (???곗뒪?ы넲 怨듯넻)
+  List<XFile> _selectedDetailImages = [];    // ?곸꽭 ?댁슜???좏깮???대?吏
+  List<String> _uploadedCommentImageUrls = [];  // ?낅줈?쒕맂 ?볤? ?대?吏 URL
+  List<String> _uploadedDetailImageUrls = [];   // ?낅줈?쒕맂 ?곸꽭 ?댁슜 ?대?吏 URL
+  List<User>? _assignedMembers;  // ?좊떦?????罹먯떆
+  bool _isInitialLoad = true;  // 珥덇린 濡쒕뱶 ?щ?
+  List<String>? _lastAssignedMemberIds;  // ?댁쟾 ?좊떦?????ID (?숆린???뺤씤??
 
   @override
   void initState() {
@@ -122,10 +122,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _startDate = widget.task.startDate;
     _endDate = widget.task.endDate;
 
-    // 초기 로드 시 스크롤이 맨 아래로 가지 않도록 리스너 추가
+    // 珥덇린 濡쒕뱶 ???ㅽ겕濡ㅼ씠 留??꾨옒濡?媛吏 ?딅룄濡?由ъ뒪??異붽?
     _timelineScrollController.addListener(() {
       if (_isInitialLoad && _timelineScrollController.hasClients) {
-        // 초기 로드 중에 스크롤이 맨 아래로 가려고 하면 맨 위로 되돌림
+        // 珥덇린 濡쒕뱶 以묒뿉 ?ㅽ겕濡ㅼ씠 留??꾨옒濡?媛?ㅺ퀬 ?섎㈃ 留??꾨줈 ?섎룎由?
         if (_timelineScrollController.offset > 10) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (_isInitialLoad && _timelineScrollController.hasClients) {
@@ -136,17 +136,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       }
     });
 
-    // 실시간 댓글 갱신 리스너 등록
+    // ?ㅼ떆媛??볤? 媛깆떊 由ъ뒪???깅줉
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final taskProvider = context.read<TaskProvider>();
       taskProvider.addCommentListener(widget.task.id, _onCommentCreated);
     });
 
-    // 초기 데이터 로드 (한 번에 처리하여 setState 최소화)
+    // 珥덇린 ?곗씠??濡쒕뱶 (??踰덉뿉 泥섎━?섏뿬 setState 理쒖냼??
     _loadInitialData();
   }
 
-  /// WebSocket으로 댓글 생성 이벤트 수신 시 호출
+  /// WebSocket?쇰줈 ?볤? ?앹꽦 ?대깽???섏떊 ???몄텧
   void _onCommentCreated() {
     if (mounted) {
       _loadComments();
@@ -155,7 +155,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   @override
   void dispose() {
-    // 실시간 댓글 갱신 리스너 해제
+    // ?ㅼ떆媛??볤? 媛깆떊 由ъ뒪???댁젣
     final taskProvider = context.read<TaskProvider>();
     taskProvider.removeCommentListener(widget.task.id, _onCommentCreated);
 
@@ -169,9 +169,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     super.dispose();
   }
 
-  /// 초기 데이터 로드 (성능 최적화: 한 번에 처리)
-  // 채팅 화면과 동일하게 상대경로 이미지를 절대경로로 변환
-  String _resolveImageUrl(String url) {
+  /// 珥덇린 ?곗씠??濡쒕뱶 (?깅뒫 理쒖쟻?? ??踰덉뿉 泥섎━)
+  // 梨꾪똿 ?붾㈃怨??숈씪?섍쾶 ?곷?寃쎈줈 ?대?吏瑜??덈?寃쎈줈濡?蹂??  String _resolveImageUrl(String url) {
     final trimmed = url.trim();
     if (trimmed.isEmpty) return trimmed;
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
@@ -189,7 +188,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     });
     
     try {
-      // 댓글과 할당된 팀원을 동시에 로드
+      // ?볤?怨??좊떦????먯쓣 ?숈떆??濡쒕뱶
       final results = await Future.wait([
         _commentService.getCommentsByTaskId(widget.task.id),
         _loadAssignedMembersData(),
@@ -198,17 +197,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       final comments = results[0] as List<Comment>;
       final members = results[1] as List<User>?;
       
-      // 한 번만 setState 호출
+      // ??踰덈쭔 setState ?몄텧
       setState(() {
         _comments = comments;
         _assignedMembers = members;
         _isLoadingComments = false;
       });
       
-      // 타임라인 아이템 업데이트 (setState는 _loadTimelineItems 내부에서 호출)
+      // ??꾨씪???꾩씠???낅뜲?댄듃 (setState??_loadTimelineItems ?대??먯꽌 ?몄텧)
       await _loadTimelineItems();
       
-      // 할당된 팀원 목록이 비어있지만 태스크에 할당된 팀원이 있다면 다시 로드
+      // ?좊떦?????紐⑸줉??鍮꾩뼱?덉?留??쒖뒪?ъ뿉 ?좊떦????먯씠 ?덈떎硫??ㅼ떆 濡쒕뱶
       if ((members == null || members.isEmpty) && widget.task.assignedMemberIds.isNotEmpty) {
         await _loadAssignedMembers();
       }
@@ -219,7 +218,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// 댓글 로드
+  /// ?볤? 濡쒕뱶
   Future<void> _loadComments({bool updateTimeline = true}) async {
     setState(() {
       _isLoadingComments = true;
@@ -230,7 +229,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         _comments = comments;
         _isLoadingComments = false;
       });
-      // 코멘트 로드 후 타임라인 아이템 업데이트 (옵션)
+      // 肄붾찘??濡쒕뱶 ????꾨씪???꾩씠???낅뜲?댄듃 (?듭뀡)
       if (updateTimeline) {
         await _loadTimelineItems();
       }
@@ -241,16 +240,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
   
-  /// 할당된 팀원 데이터 로드 (반환값 있음)
+  /// ?좊떦??????곗씠??濡쒕뱶 (諛섑솚媛??덉쓬)
   Future<List<User>?> _loadAssignedMembersData() async {
     final taskProvider = context.read<TaskProvider>();
-    // 최신 태스크 정보 가져오기 (taskProvider에서 먼저 찾고, 없으면 widget.task 사용)
+    // 理쒖떊 ?쒖뒪???뺣낫 媛?몄삤湲?(taskProvider?먯꽌 癒쇱? 李얘퀬, ?놁쑝硫?widget.task ?ъ슜)
     final currentTask = taskProvider.tasks.firstWhere(
       (t) => t.id == widget.task.id,
       orElse: () => widget.task,
     );
     
-    // 할당된 팀원이 없으면 빈 리스트 반환
+    // ?좊떦????먯씠 ?놁쑝硫?鍮?由ъ뒪??諛섑솚
     if (currentTask.assignedMemberIds.isEmpty) {
       return [];
     }
@@ -260,19 +259,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       final allUsers = await authService.getAllUsers();
       final members = allUsers.where((user) => currentTask.assignedMemberIds.contains(user.id)).toList();
       
-      // 할당된 팀원 ID가 있지만 사용자를 찾지 못한 경우도 빈 리스트 반환하지 않고 로그 출력
+      // ?좊떦?????ID媛 ?덉?留??ъ슜?먮? 李얠? 紐삵븳 寃쎌슦??鍮?由ъ뒪??諛섑솚?섏? ?딄퀬 濡쒓렇 異쒕젰
       if (members.isEmpty && currentTask.assignedMemberIds.isNotEmpty) {
-        print('[TaskDetailScreen] 할당된 팀원 ID: ${currentTask.assignedMemberIds}, 찾은 사용자: ${members.length}명');
+        print('[TaskDetailScreen] ?좊떦?????ID: ${currentTask.assignedMemberIds}, 李얠? ?ъ슜?? ${members.length}紐?);
       }
       
       return members;
     } catch (e) {
-      print('[TaskDetailScreen] 할당된 팀원 로드 실패: $e');
+      print('[TaskDetailScreen] ?좊떦?????濡쒕뱶 ?ㅽ뙣: $e');
       return [];
     }
   }
 
-  /// 타임라인 아이템 로드 (스크롤 위치 유지)
+  /// ??꾨씪???꾩씠??濡쒕뱶 (?ㅽ겕濡??꾩튂 ?좎?)
   Future<void> _loadTimelineItems({bool scrollToBottom = false}) async {
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
     final currentTask = taskProvider.tasks.firstWhere(
@@ -280,7 +279,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       orElse: () => widget.task,
     );
     
-    // 초기 로드 시에는 스크롤을 맨 위로 유지해야 하므로 저장하지 않음
+    // 珥덇린 濡쒕뱶 ?쒖뿉???ㅽ겕濡ㅼ쓣 留??꾨줈 ?좎??댁빞 ?섎?濡???ν븯吏 ?딆쓬
     double? savedScrollPosition;
     final bool hadClients = _timelineScrollController.hasClients;
     if (!scrollToBottom && hadClients && !_isInitialLoad) {
@@ -290,7 +289,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       final timelineItems = _buildTimelineItems(currentTask);
     
     if (mounted) {
-      // setState를 호출하기 전에 스크롤 위치를 미리 저장
+      // setState瑜??몄텧?섍린 ?꾩뿉 ?ㅽ겕濡??꾩튂瑜?誘몃━ ???
       final maxScrollBefore = hadClients 
           ? _timelineScrollController.position.maxScrollExtent 
           : 0.0;
@@ -299,16 +298,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         _timelineItems = timelineItems;
       });
       
-      // setState 후 스크롤 위치 복원 또는 맨 아래로 이동
+      // setState ???ㅽ겕濡??꾩튂 蹂듭썝 ?먮뒗 留??꾨옒濡??대룞
       if (scrollToBottom) {
-        // 코멘트 추가 시 맨 아래로 이동 - 여러 번 시도하여 확실하게
+        // 肄붾찘??異붽? ??留??꾨옒濡??대룞 - ?щ윭 踰??쒕룄?섏뿬 ?뺤떎?섍쾶
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!_isInitialLoad) {
             _scrollToBottom();
           }
         });
       } else if (savedScrollPosition != null && !_isInitialLoad) {
-        // 저장된 위치로 복원 (초기 로드가 아닐 때만)
+        // ??λ맂 ?꾩튂濡?蹂듭썝 (珥덇린 濡쒕뱶媛 ?꾨땺 ?뚮쭔)
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
           final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
@@ -320,14 +319,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           );
         });
       } else if (_isInitialLoad) {
-        // 초기 로드 시 스크롤을 맨 위로 유지 (작업 카드 진입 시)
-        // 여러 번 시도하여 확실하게 맨 위로 유지
+        // 珥덇린 濡쒕뱶 ???ㅽ겕濡ㅼ쓣 留??꾨줈 ?좎? (?묒뾽 移대뱶 吏꾩엯 ??
+        // ?щ윭 踰??쒕룄?섏뿬 ?뺤떎?섍쾶 留??꾨줈 ?좎?
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || !_timelineScrollController.hasClients) return;
-          // 강제로 맨 위로 이동
+          // 媛뺤젣濡?留??꾨줈 ?대룞
           _timelineScrollController.jumpTo(0.0);
         });
-        // 추가 시도: 레이아웃 완료 후 다시 확인
+        // 異붽? ?쒕룄: ?덉씠?꾩썐 ?꾨즺 ???ㅼ떆 ?뺤씤
         Future.delayed(const Duration(milliseconds: 50), () {
           if (!mounted || !_timelineScrollController.hasClients || !_isInitialLoad) return;
           _timelineScrollController.jumpTo(0.0);
@@ -349,23 +348,23 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           if (_timelineScrollController.offset > 0) {
             _timelineScrollController.jumpTo(0.0);
           }
-          // 초기 로드 완료 표시 (모든 스크롤 시도가 끝난 후)
+          // 珥덇린 濡쒕뱶 ?꾨즺 ?쒖떆 (紐⑤뱺 ?ㅽ겕濡??쒕룄媛 ?앸궃 ??
           _isInitialLoad = false;
         });
       }
-      // 초기 로드가 아니고 저장된 위치도 없는 경우 스크롤 위치를 변경하지 않음
+      // 珥덇린 濡쒕뱶媛 ?꾨땲怨???λ맂 ?꾩튂???녿뒗 寃쎌슦 ?ㅽ겕濡??꾩튂瑜?蹂寃쏀븯吏 ?딆쓬
     }
   }
 
-  /// 맨 아래로 스크롤 (여러 번 시도하여 확실하게)
+  /// 留??꾨옒濡??ㅽ겕濡?(?щ윭 踰??쒕룄?섏뿬 ?뺤떎?섍쾶)
   void _scrollToBottom() {
     if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
     
-    // 즉시 시도
+    // 利됱떆 ?쒕룄
     final maxScroll = _timelineScrollController.position.maxScrollExtent;
     _timelineScrollController.jumpTo(maxScroll);
     
-    // 약간의 지연 후 다시 시도 (레이아웃이 완전히 완료된 후)
+    // ?쎄컙??吏?????ㅼ떆 ?쒕룄 (?덉씠?꾩썐???꾩쟾???꾨즺????
     Future.delayed(const Duration(milliseconds: 100), () {
       if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
       final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
@@ -376,7 +375,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       );
     });
     
-    // 추가 지연 후 한 번 더 시도 (이미지 로딩 등으로 높이가 변경될 수 있음)
+    // 異붽? 吏??????踰????쒕룄 (?대?吏 濡쒕뵫 ?깆쑝濡??믪씠媛 蹂寃쎈맆 ???덉쓬)
     Future.delayed(const Duration(milliseconds: 300), () {
       if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
       final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
@@ -384,11 +383,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     });
   }
 
-  /// 부드럽게 맨 아래로 스크롤 (카카오톡 스타일)
+  /// 遺?쒕읇寃?留??꾨옒濡??ㅽ겕濡?(移댁뭅?ㅽ넚 ?ㅽ???
   void _scrollToBottomSmooth() {
     if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
     
-    // 즉시 시도 (레이아웃이 이미 완료된 경우)
+    // 利됱떆 ?쒕룄 (?덉씠?꾩썐???대? ?꾨즺??寃쎌슦)
     final maxScroll = _timelineScrollController.position.maxScrollExtent;
     if (maxScroll > 0) {
       _timelineScrollController.animateTo(
@@ -398,7 +397,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       );
     }
     
-    // 레이아웃 완료 후 다시 시도
+    // ?덉씠?꾩썐 ?꾨즺 ???ㅼ떆 ?쒕룄
     Future.delayed(const Duration(milliseconds: 100), () {
       if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
       final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
@@ -411,7 +410,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       }
     });
     
-    // 이미지 로딩 등으로 높이가 변경될 수 있으므로 한 번 더 시도
+    // ?대?吏 濡쒕뵫 ?깆쑝濡??믪씠媛 蹂寃쎈맆 ???덉쑝誘濡???踰????쒕룄
     Future.delayed(const Duration(milliseconds: 400), () {
       if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
       final maxScrollFinal = _timelineScrollController.position.maxScrollExtent;
@@ -421,7 +420,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     });
   }
 
-  /// 이미지 선택 (댓글용)
+  /// ?대?吏 ?좏깮 (?볤???
   Future<void> _pickCommentImages() async {
     try {
       final List<XFile> images = await _imagePicker.pickMultiImage();
@@ -434,7 +433,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('이미지 선택 중 오류가 발생했습니다: $e'),
+            content: Text('?대?吏 ?좏깮 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -442,7 +441,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// 이미지 선택 (상세 내용용)
+  /// ?대?吏 ?좏깮 (?곸꽭 ?댁슜??
   Future<void> _pickDetailImages() async {
     try {
       final List<XFile> images = await _imagePicker.pickMultiImage();
@@ -455,7 +454,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('이미지 선택 중 오류가 발생했습니다: $e'),
+            content: Text('?대?吏 ?좏깮 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -463,7 +462,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// 댓글 추가
+  /// ?볤? 異붽?
   Future<void> _addComment() async {
     if (_commentController.text.trim().isEmpty && _selectedCommentImages.isEmpty) return;
 
@@ -474,7 +473,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
     
     try {
-      // 이미지 업로드
+      // ?대?吏 ?낅줈??
       List<String> imageUrls = [];
       if (_selectedCommentImages.isNotEmpty) {
         imageUrls = await _uploadService.uploadImagesFromXFiles(_selectedCommentImages);
@@ -488,18 +487,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         imageUrls: imageUrls,
       );
 
-      // Task에 댓글 ID 추가
+      // Task???볤? ID 異붽?
       final currentTask = taskProvider.tasks.firstWhere(
         (t) => t.id == widget.task.id,
         orElse: () => widget.task,
       );
       
-      // commentIds가 null이거나 잘못된 타입인 경우를 대비
+      // commentIds媛 null?닿굅???섎せ????낆씤 寃쎌슦瑜??鍮?
       List<String> updatedCommentIds;
       try {
         updatedCommentIds = List<String>.from(currentTask.commentIds);
       } catch (e) {
-        // commentIds가 null이거나 잘못된 타입인 경우 빈 리스트로 시작
+        // commentIds媛 null?닿굅???섎せ????낆씤 寃쎌슦 鍮?由ъ뒪?몃줈 ?쒖옉
         updatedCommentIds = [];
       }
       
@@ -513,32 +512,32 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ),
       );
 
-      // 입력 필드 초기화
+      // ?낅젰 ?꾨뱶 珥덇린??
       _commentController.clear();
       _selectedCommentImages.clear();
       _uploadedCommentImageUrls.clear();
       
-      // 낙관적 업데이트: 즉시 로컬 상태에 댓글 추가 (카카오톡처럼 부드럽게)
+      // ?숆????낅뜲?댄듃: 利됱떆 濡쒖뺄 ?곹깭???볤? 異붽? (移댁뭅?ㅽ넚泥섎읆 遺?쒕읇寃?
       setState(() {
         _comments.add(comment);
       });
       
-      // 타임라인에 새 댓글만 부드럽게 추가
+      // ??꾨씪?몄뿉 ???볤?留?遺?쒕읇寃?異붽?
       await _addCommentToTimeline(comment);
       
-      // 백그라운드에서 서버 동기화 (사용자 경험에 영향 없음)
+      // 諛깃렇?쇱슫?쒖뿉???쒕쾭 ?숆린??(?ъ슜??寃쏀뿕???곹뼢 ?놁쓬)
       _loadComments(updateTimeline: false).catchError((e) {
-        // 동기화 실패해도 이미 로컬에 추가되어 있으므로 무시
+        // ?숆린???ㅽ뙣?대룄 ?대? 濡쒖뺄??異붽??섏뼱 ?덉쑝誘濡?臾댁떆
       });
     } catch (e) {
       if (mounted) {
-        print('[ERROR] 댓글 추가 실패: $e');
+        print('[ERROR] ?볤? 異붽? ?ㅽ뙣: $e');
         print('[ERROR] task_id: ${widget.task.id}');
         print('[ERROR] content: ${_commentController.text}');
-        print('[ERROR] imageUrls: ${_selectedCommentImages.length}개');
+        print('[ERROR] imageUrls: ${_selectedCommentImages.length}媛?);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('댓글 추가 중 오류가 발생했습니다: $e'),
+            content: Text('?볤? 異붽? 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
             duration: const Duration(seconds: 5),
           ),
@@ -547,7 +546,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// 댓글 편집 시작
+  /// ?볤? ?몄쭛 ?쒖옉
   void _startEditComment(Comment comment) {
     setState(() {
       _editingCommentId = comment.id;
@@ -555,7 +554,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     });
   }
 
-  /// 댓글 편집 취소
+  /// ?볤? ?몄쭛 痍⑥냼
   void _cancelEditComment() {
     setState(() {
       _editingCommentId = null;
@@ -563,7 +562,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     });
   }
 
-  /// 댓글 업데이트
+  /// ?볤? ?낅뜲?댄듃
   Future<void> _updateComment(String commentId) async {
     if (_editCommentController.text.trim().isEmpty) {
       _cancelEditComment();
@@ -579,7 +578,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
       await _commentService.updateComment(updatedComment);
       
-      // 로컬 코멘트 리스트 업데이트
+      // 濡쒖뺄 肄붾찘??由ъ뒪???낅뜲?댄듃
       final index = _comments.indexWhere((c) => c.id == commentId);
       if (index != -1) {
         setState(() {
@@ -589,13 +588,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         });
       }
 
-      // 타임라인 업데이트
+      // ??꾨씪???낅뜲?댄듃
       await _loadTimelineItems();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('댓글 수정 중 오류가 발생했습니다: $e'),
+            content: Text('?볤? ?섏젙 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -603,19 +602,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// 댓글 삭제
+  /// ?볤? ??젣
   Future<void> _deleteComment(String commentId) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.currentUser == null) return;
 
     final comment = _comments.firstWhere((c) => c.id == commentId);
     
-    // 본인 댓글만 삭제 가능
+    // 蹂몄씤 ?볤?留???젣 媛??
     if (comment.userId != authProvider.currentUser!.id) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('본인의 댓글만 삭제할 수 있습니다'),
+            content: const Text('蹂몄씤???볤?留???젣?????덉뒿?덈떎'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -626,7 +625,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     try {
       await _commentService.deleteComment(commentId);
       
-      // Task에서 댓글 ID 제거
+      // Task?먯꽌 ?볤? ID ?쒓굅
       final taskProvider = Provider.of<TaskProvider>(context, listen: false);
       final currentTask = taskProvider.tasks.firstWhere(
         (t) => t.id == widget.task.id,
@@ -645,7 +644,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('댓글 삭제 중 오류가 발생했습니다: $e'),
+            content: Text('?볤? ??젣 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -656,23 +655,23 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    // context.read를 사용하여 불필요한 리빌드 방지
+    // context.read瑜??ъ슜?섏뿬 遺덊븘?뷀븳 由щ퉴??諛⑹?
     final taskProvider = context.read<TaskProvider>();
     final projectProvider = context.read<ProjectProvider>();
     final currentProject = projectProvider.currentProject;
     
-    // 최신 태스크 정보 가져오기
+    // 理쒖떊 ?쒖뒪???뺣낫 媛?몄삤湲?
     final currentTask = taskProvider.tasks.firstWhere(
       (t) => t.id == widget.task.id,
       orElse: () => widget.task,
     );
     
-    // 할당된 팀원 ID가 변경되었는지 확인하고 동기화
+    // ?좊떦?????ID媛 蹂寃쎈릺?덈뒗吏 ?뺤씤?섍퀬 ?숆린??
     final currentAssignedIds = currentTask.assignedMemberIds;
     if (_lastAssignedMemberIds == null || 
         !listEquals(_lastAssignedMemberIds!, currentAssignedIds)) {
       _lastAssignedMemberIds = List.from(currentAssignedIds);
-      // 다음 프레임에서 할당된 팀원 목록 다시 로드
+      // ?ㅼ쓬 ?꾨젅?꾩뿉???좊떦?????紐⑸줉 ?ㅼ떆 濡쒕뱶
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _loadAssignedMembers();
@@ -687,7 +686,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: GestureDetector(
-          onTap: () {}, // 내부 클릭 이벤트를 막아서 바깥 영역 클릭만 감지되도록
+          onTap: () {}, // ?대? ?대┃ ?대깽?몃? 留됱븘??諛붽묑 ?곸뿭 ?대┃留?媛먯??섎룄濡?
           child: ConstrainedBox(
             constraints: const BoxConstraints(
               maxWidth: 1200,
@@ -705,7 +704,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 헤더
+              // ?ㅻ뜑
               Row(
                 children: [
                   Expanded(
@@ -718,7 +717,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       ),
                     ),
                   ),
-                  // 중요도 배지
+                  // 以묒슂??諛곗?
                   GlassContainer(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     borderRadius: 20.0,
@@ -752,7 +751,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // 상태 배지
+                  // ?곹깭 諛곗?
                   GlassContainer(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     borderRadius: 20.0,
@@ -772,7 +771,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // 닫기 버튼
+                  // ?リ린 踰꾪듉
                   IconButton(
                     icon: Icon(Icons.close, color: colorScheme.onSurface),
                     onPressed: () => Navigator.of(context).pop(),
@@ -780,12 +779,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 ],
               ),
               const SizedBox(height: 24),
-              // 메인 컨텐츠
+              // 硫붿씤 而⑦뀗痢?
               Expanded(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 왼쪽: 타임라인
+                    // ?쇱そ: ??꾨씪??
                     Expanded(
                       flex: 2,
                       child: SingleChildScrollView(
@@ -793,7 +792,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // 상세 내용 (항상 맨 위)
+                            // ?곸꽭 ?댁슜 (??긽 留???
                             _buildDetailTimelineItem(
                               context,
                               currentTask,
@@ -810,7 +809,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               colorScheme,
                             ),
                             const SizedBox(height: 16),
-                            // 타임라인 아이템들 (시간순 정렬)
+                            // ??꾨씪???꾩씠?쒕뱾 (?쒓컙???뺣젹)
                                   if (_timelineItems == null)
                               const SizedBox.shrink()
                                   else
@@ -854,7 +853,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   return const SizedBox.shrink();
                                 }).toList(),
                               ),
-                            // 댓글 입력
+                            // ?볤? ?낅젰
                             const SizedBox(height: 16),
                             _buildCommentInput(context, colorScheme),
                           ],
@@ -862,14 +861,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       ),
                     ),
                       const SizedBox(width: 24),
-                      // 오른쪽: 사이드바
+                      // ?ㅻⅨ履? ?ъ씠?쒕컮
                       SizedBox(
                         width: 280,
                         child: SingleChildScrollView(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                            // 프로젝트
+                            // ?꾨줈?앺듃
                             if (currentProject != null)
                               GlassContainer(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
@@ -887,7 +886,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                     Row(
                                       children: [
                                         Text(
-                                          '프로젝트',
+                                          '?꾨줈?앺듃',
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.bold,
@@ -926,7 +925,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 ),
                               ),
                             const SizedBox(height: 12),
-                            // 상태
+                            // ?곹깭
                             GlassContainer(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                               borderRadius: 15.0,
@@ -943,7 +942,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   Row(
                                     children: [
                                       Text(
-                                        '상태',
+                                        '?곹깭',
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
@@ -990,7 +989,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           userId: currentUser?.id,
                                           username: currentUser?.username,
                                         );
-                                        // 상태 변경 후 타임라인 업데이트
+                                        // ?곹깭 蹂寃?????꾨씪???낅뜲?댄듃
                                         await _loadTimelineItems();
                                       }
                                     },
@@ -999,7 +998,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            // 중요도
+                            // 以묒슂??
                             GlassContainer(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                               borderRadius: 15.0,
@@ -1016,7 +1015,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   Row(
                                     children: [
                                       Text(
-                                        '중요도',
+                                        '以묒슂??,
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
@@ -1071,7 +1070,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           userId: currentUser?.id,
                                           username: currentUser?.username,
                                         );
-                                        // 중요도 변경 후 타임라인 업데이트
+                                        // 以묒슂??蹂寃?????꾨씪???낅뜲?댄듃
                                         await _loadTimelineItems();
                                       }
                                     },
@@ -1080,7 +1079,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            // 기간 (시작일 ~ 종료일)
+                            // 湲곌컙 (?쒖옉??~ 醫낅즺??
                             GlassContainer(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                               borderRadius: 15.0,
@@ -1097,7 +1096,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   Row(
                                     children: [
                                       Text(
-                                        '기간',
+                                        '湲곌컙',
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
@@ -1111,7 +1110,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   const SizedBox(height: 12),
                                   Row(
                                     children: [
-                                      // 시작일
+                                      // ?쒖옉??
                                       Expanded(
                                         child: InkWell(
                                           onTap: () => _openDateRangePicker(
@@ -1132,7 +1131,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  '시작일',
+                                                  '?쒖옉??,
                                                   style: TextStyle(
                                                     fontSize: 11,
                                                     color: colorScheme.onSurface.withOpacity(0.6),
@@ -1142,7 +1141,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                                 Text(
                                       _startDate != null
                                           ? '${_startDate!.year}-${_startDate!.month.toString().padLeft(2, '0')}-${_startDate!.day.toString().padLeft(2, '0')}'
-                                          : '날짜 선택',
+                                          : '?좎쭨 ?좏깮',
                                       style: TextStyle(
                                         fontSize: 14,
                                         color: _startDate != null
@@ -1163,7 +1162,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                         color: colorScheme.onSurface.withOpacity(0.5),
                                       ),
                                       const SizedBox(width: 12),
-                                      // 종료일
+                                      // 醫낅즺??
                                       Expanded(
                                         child: InkWell(
                                           onTap: () => _openDateRangePicker(
@@ -1184,7 +1183,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  '종료일',
+                                                  '醫낅즺??,
                                                   style: TextStyle(
                                                     fontSize: 11,
                                                     color: colorScheme.onSurface.withOpacity(0.6),
@@ -1194,7 +1193,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                                 Text(
                                       _endDate != null
                                           ? '${_endDate!.year}-${_endDate!.month.toString().padLeft(2, '0')}-${_endDate!.day.toString().padLeft(2, '0')}'
-                                          : '날짜 선택',
+                                          : '?좎쭨 ?좏깮',
                                       style: TextStyle(
                                         fontSize: 14,
                                         color: _endDate != null
@@ -1214,7 +1213,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            // 할당된 팀원
+                            // ?좊떦?????
                             GlassContainer(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                               borderRadius: 15.0,
@@ -1231,7 +1230,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   Row(
                                     children: [
                                       Text(
-                                        '할당된 팀원',
+                                        '?좊떦?????,
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
@@ -1246,7 +1245,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           color: colorScheme.primary,
                                         ),
                                         onPressed: () => _showAssignMemberDialog(context, currentTask, taskProvider, currentProject),
-                                        tooltip: '팀원 할당',
+                                        tooltip: '????좊떦',
                                         padding: EdgeInsets.zero,
                                         constraints: const BoxConstraints(),
                                       ),
@@ -1255,7 +1254,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   const SizedBox(height: 8),
                                   if (currentTask.assignedMemberIds.isEmpty)
                                     Text(
-                                      '할당된 팀원이 없습니다',
+                                      '?좊떦????먯씠 ?놁뒿?덈떎',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: colorScheme.onSurface.withOpacity(0.5),
@@ -1321,7 +1320,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            // 생성일
+                            // ?앹꽦??
                             GlassContainer(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                               borderRadius: 15.0,
@@ -1336,7 +1335,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '생성일',
+                                    '?앹꽦??,
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
@@ -1377,7 +1376,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
 
     try {
-      // 이미지 업로드
+      // ?대?吏 ?낅줈??
       List<String> imageUrls = List<String>.from(currentTask.detailImageUrls);
       if (_selectedDetailImages.isNotEmpty) {
         final uploadedUrls = await _uploadService.uploadImagesFromXFiles(_selectedDetailImages);
@@ -1401,7 +1400,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('태스크 저장 중 오류가 발생했습니다: $e'),
+            content: Text('?쒖뒪?????以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -1409,7 +1408,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// 할당된 팀원 목록 로드
+  /// ?좊떦?????紐⑸줉 濡쒕뱶
   Future<void> _loadAssignedMembers() async {
     final taskProvider = context.read<TaskProvider>();
     final currentTask = taskProvider.tasks.firstWhere(
@@ -1442,7 +1441,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// 팀원 할당 다이얼로그
+  /// ????좊떦 ?ㅼ씠?쇰줈洹?
   Future<void> _openDateRangePicker(
     BuildContext context,
     Task currentTask,
@@ -1492,7 +1491,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (projectMembers.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('할당할 수 있는 팀원이 없습니다'),
+            content: const Text('?좊떦?????덈뒗 ??먯씠 ?놁뒿?덈떎'),
             backgroundColor: colorScheme.error,
           ),
         );
@@ -1519,7 +1518,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '팀원 할당',
+                      '????좊떦',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -1568,7 +1567,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                     color: colorScheme.onSurface.withOpacity(0.3),
                                   ),
                             onTap: () async {
-                              // 한 명만 선택 가능하도록 기존 할당을 대체
+                              // ??紐낅쭔 ?좏깮 媛?ν븯?꾨줉 湲곗〈 ?좊떦???泥?
                               final authProvider = Provider.of<AuthProvider>(context, listen: false);
                               final currentUser = authProvider.currentUser;
                               if (currentUser != null) {
@@ -1580,11 +1579,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   userId: currentUser.id,
                                   username: currentUser.username,
                                 );
-                                // 메인화면 업데이트를 위해 태스크 목록 다시 로드
+                                // 硫붿씤?붾㈃ ?낅뜲?댄듃瑜??꾪빐 ?쒖뒪??紐⑸줉 ?ㅼ떆 濡쒕뱶
                                 await taskProvider.loadTasks();
                               }
                               Navigator.of(context).pop();
-                              // 할당된 팀원 목록 다시 로드
+                              // ?좊떦?????紐⑸줉 ?ㅼ떆 濡쒕뱶
                               await _loadAssignedMembers();
                             },
                           );
@@ -1598,7 +1597,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         TextButton(
                           onPressed: () => Navigator.of(context).pop(),
                           child: Text(
-                            '닫기',
+                            '?リ린',
                             style: TextStyle(color: colorScheme.onSurface),
                           ),
                         ),
@@ -1614,14 +1613,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('오류 발생: $e'),
+          content: Text('?ㅻ쪟 諛쒖깮: $e'),
           backgroundColor: colorScheme.error,
         ),
       );
     }
   }
 
-  /// 할당된 팀원 제거
+  /// ?좊떦??????쒓굅
   Future<void> _removeAssignedMember(
     BuildContext context,
     Task task,
@@ -1635,34 +1634,34 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         updatedAt: DateTime.now(),
       ),
     );
-    // 할당된 팀원 목록 다시 로드
+    // ?좊떦?????紐⑸줉 ?ㅼ떆 濡쒕뱶
     await _loadAssignedMembers();
   }
 
-  /// 생성자 이름 가져오기
+  /// ?앹꽦???대쫫 媛?몄삤湲?
   String _getCreatorUsername(Task task) {
-    // 실제로는 태스크에 creatorId가 있어야 하지만, 현재는 없으므로 기본값 반환
+    // ?ㅼ젣濡쒕뒗 ?쒖뒪?ъ뿉 creatorId媛 ?덉뼱???섏?留? ?꾩옱???놁쑝誘濡?湲곕낯媛?諛섑솚
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     return authProvider.currentUser?.username ?? 'Unknown';
   }
 
-  /// 새 댓글을 타임라인에 부드럽게 추가
+  /// ???볤?????꾨씪?몄뿉 遺?쒕읇寃?異붽?
   Future<void> _addCommentToTimeline(Comment comment) async {
-    // 현재 타임라인 아이템 가져오기
+    // ?꾩옱 ??꾨씪???꾩씠??媛?몄삤湲?
     final currentItems = _timelineItems ?? [];
     
-    // 새 댓글 아이템 생성
+    // ???볤? ?꾩씠???앹꽦
     final newCommentItem = TimelineItem(
       type: TimelineItemType.comment,
       date: comment.createdAt,
       data: comment,
     );
     
-    // 기존 아이템에 새 댓글 추가
+    // 湲곗〈 ?꾩씠?쒖뿉 ???볤? 異붽?
     final updatedItems = List<TimelineItem>.from(currentItems);
     updatedItems.add(newCommentItem);
     
-    // 시간순으로 정렬
+    // ?쒓컙?쒖쑝濡??뺣젹
     updatedItems.sort((a, b) {
       final aUtc = a.date.isUtc ? a.date : a.date.toUtc();
       final bUtc = b.date.isUtc ? b.date : b.date.toUtc();
@@ -1676,12 +1675,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         _timelineItems = updatedItems;
       });
       
-      // 부드럽게 맨 아래로 스크롤 - 여러 번 시도하여 확실하게
+      // 遺?쒕읇寃?留??꾨옒濡??ㅽ겕濡?- ?щ윭 踰??쒕룄?섏뿬 ?뺤떎?섍쾶
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollToBottomSmooth();
       });
       
-      // 추가 시도: 애니메이션 완료 후 다시 스크롤
+      // 異붽? ?쒕룄: ?좊땲硫붿씠???꾨즺 ???ㅼ떆 ?ㅽ겕濡?
       Future.delayed(const Duration(milliseconds: 350), () {
         if (mounted) {
           _scrollToBottomSmooth();
@@ -1690,12 +1689,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// 타임라인 아이템들 빌드 (시간순 정렬)
+  /// ??꾨씪???꾩씠?쒕뱾 鍮뚮뱶 (?쒓컙???뺣젹)
   List<TimelineItem> _buildTimelineItems(Task task) {
     final List<TimelineItem> items = [];
     final colorScheme = Theme.of(context).colorScheme;
 
-    // 이슈 생성 기록
+    // ?댁뒋 ?앹꽦 湲곕줉
     items.add(TimelineItem(
       type: TimelineItemType.history,
       date: task.createdAt,
@@ -1706,7 +1705,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       ),
     ));
 
-    // 할당 히스토리 (실제 할당 기록 사용)
+    // ?좊떦 ?덉뒪?좊━ (?ㅼ젣 ?좊떦 湲곕줉 ?ъ슜)
     for (final history in task.assignmentHistory) {
       items.add(TimelineItem(
         type: TimelineItemType.history,
@@ -1727,7 +1726,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       ));
     }
 
-    // 코멘트 추가
+    // 肄붾찘??異붽?
     for (final comment in _comments) {
       items.add(TimelineItem(
         type: TimelineItemType.comment,
@@ -1736,7 +1735,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       ));
     }
 
-    // 상태 변경 히스토리 (실제 상태 변경 기록 사용)
+    // ?곹깭 蹂寃??덉뒪?좊━ (?ㅼ젣 ?곹깭 蹂寃?湲곕줉 ?ъ슜)
     for (final history in task.statusHistory) {
       items.add(TimelineItem(
         type: TimelineItemType.history,
@@ -1771,7 +1770,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       ));
     }
     
-    // 중요도 변경 히스토리
+    // 以묒슂??蹂寃??덉뒪?좊━
     for (final history in task.priorityHistory) {
       items.add(TimelineItem(
         type: TimelineItemType.history,
@@ -1806,14 +1805,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       ));
     }
     
-    // 시간순으로 정렬 (오래된 것부터 - 최신 항목이 아래에 표시됨)
-    // 모든 날짜를 UTC로 변환하여 타임존 차이 문제 해결
+    // ?쒓컙?쒖쑝濡??뺣젹 (?ㅻ옒??寃껊???- 理쒖떊 ??ぉ???꾨옒???쒖떆??
+    // 紐⑤뱺 ?좎쭨瑜?UTC濡?蹂?섑븯????꾩〈 李⑥씠 臾몄젣 ?닿껐
     items.sort((a, b) {
-      // Local 타임존을 UTC로 변환
+      // Local ??꾩〈??UTC濡?蹂??
       final aUtc = a.date.isUtc ? a.date : a.date.toUtc();
       final bUtc = b.date.isUtc ? b.date : b.date.toUtc();
       
-      // UTC로 변환한 후 millisecondsSinceEpoch 비교
+      // UTC濡?蹂?섑븳 ??millisecondsSinceEpoch 鍮꾧탳
       final aMs = aUtc.millisecondsSinceEpoch;
       final bMs = bUtc.millisecondsSinceEpoch;
       return aMs.compareTo(bMs);
@@ -1822,7 +1821,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return items;
   }
 
-  /// 히스토리 아이템 빌드 (GitHub 스타일 - 작은 아이콘과 텍스트)
+  /// ?덉뒪?좊━ ?꾩씠??鍮뚮뱶 (GitHub ?ㅽ???- ?묒? ?꾩씠肄섍낵 ?띿뒪??
   Widget _buildHistoryItem(
     BuildContext context,
     DateTime date,
@@ -1837,7 +1836,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 작은 아이콘 (아바타 대신)
+          // ?묒? ?꾩씠肄?(?꾨컮? ???
           Container(
             width: 20,
             height: 20,
@@ -1849,7 +1848,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          // 내용
+          // ?댁슜
           Expanded(
             child: Wrap(
               crossAxisAlignment: WrapCrossAlignment.center,
@@ -1885,7 +1884,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  /// 타임라인 아이템 빌드 (코멘트용 - 아바타 포함)
+  /// ??꾨씪???꾩씠??鍮뚮뱶 (肄붾찘?몄슜 - ?꾨컮? ?ы븿)
   Widget _buildTimelineItem(
     BuildContext context,
     DateTime date,
@@ -1897,7 +1896,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 아바타
+        // ?꾨컮?
         CircleAvatar(
           radius: 16,
           backgroundColor: AvatarColor.getColorForUser(username),
@@ -1911,7 +1910,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
         ),
         const SizedBox(width: 12),
-        // 내용
+        // ?댁슜
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1955,12 +1954,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  /// 상대적 날짜 포맷팅 (예: "5 days ago", "yesterday")
-  /// 상대 날짜 포맷팅 (한국 시간 기준)
+  /// ?곷????좎쭨 ?щ㎎??(?? "5 days ago", "yesterday")
+  /// ?곷? ?좎쭨 ?щ㎎??(?쒓뎅 ?쒓컙 湲곗?)
   String _formatRelativeDate(DateTime date) {
-    // UTC 날짜를 로컬 시간(한국 시간)으로 변환
+    // UTC ?좎쭨瑜?濡쒖뺄 ?쒓컙(?쒓뎅 ?쒓컙)?쇰줈 蹂??
     final localDate = date.isUtc ? date.toLocal() : date;
-    final now = DateTime.now(); // 이미 로컬 시간
+    final now = DateTime.now(); // ?대? 濡쒖뺄 ?쒓컙
     final difference = now.difference(localDate);
     
     if (difference.inDays == 0) {
@@ -1989,7 +1988,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// 설명 타임라인 아이템
+  /// ?ㅻ챸 ??꾨씪???꾩씠??
   Widget _buildDescriptionTimelineItem(
     BuildContext context,
     String description,
@@ -2000,7 +1999,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(width: 44), // 아바타 너비 + 간격
+        const SizedBox(width: 44), // ?꾨컮? ?덈퉬 + 媛꾧꺽
         Expanded(
           child: GlassContainer(
             padding: const EdgeInsets.all(16),
@@ -2024,7 +2023,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  /// 상세 내용 타임라인 아이템
+  /// ?곸꽭 ?댁슜 ??꾨씪???꾩씠??
   Widget _buildDetailTimelineItem(
     BuildContext context,
     Task task,
@@ -2035,7 +2034,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(width: 44), // 아바타 너비 + 간격
+        const SizedBox(width: 44), // ?꾨컮? ?덈퉬 + 媛꾧꺽
         Expanded(
           child: GlassContainer(
             padding: const EdgeInsets.all(16),
@@ -2047,9 +2046,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             ],
             child: Stack(
               children: [
-                // 메인 컨텐츠 (최상단 배치)
+                // 硫붿씤 而⑦뀗痢?(理쒖긽??諛곗튂)
                 Padding(
-                  padding: const EdgeInsets.only(right: 36), // 연필 아이콘 공간 확보
+                  padding: const EdgeInsets.only(right: 36), // ?고븘 ?꾩씠肄?怨듦컙 ?뺣낫
                   child: isEditing
                       ? Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2059,7 +2058,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               maxLines: null,
                               minLines: 8,
                               decoration: InputDecoration(
-                                hintText: '상세 내용을 입력하세요...',
+                                hintText: '?곸꽭 ?댁슜???낅젰?섏꽭??..',
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -2073,7 +2072,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 height: 1.5,
                               ),
                             ),
-                            // 선택된 이미지 미리보기
+                            // ?좏깮???대?吏 誘몃━蹂닿린
                             if (_selectedDetailImages.isNotEmpty) ...[
                               const SizedBox(height: 8),
                               SizedBox(
@@ -2131,7 +2130,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 color: colorScheme.primary,
                               ),
                               onPressed: _pickDetailImages,
-                              tooltip: '이미지 추가',
+                              tooltip: '?대?吏 異붽?',
                             ),
                           ],
                         )
@@ -2152,14 +2151,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               )
                             else
                               Text(
-                                '상세 내용이 없습니다. 편집 버튼을 눌러 추가하세요.',
+                                '?곸꽭 ?댁슜???놁뒿?덈떎. ?몄쭛 踰꾪듉???뚮윭 異붽??섏꽭??',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: colorScheme.onSurface.withOpacity(0.5),
                                   height: 1.5,
                                 ),
                               ),
-                            // 이미지 표시
+                            // ?대?吏 ?쒖떆
                             if (task.detailImageUrls.isNotEmpty) ...[
                               if (task.detail.isNotEmpty) const SizedBox(height: 12),
                               Wrap(
@@ -2200,7 +2199,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           ],
                         ),
                 ),
-                // 연필 아이콘 (오른쪽 상단 고정)
+                // ?고븘 ?꾩씠肄?(?ㅻⅨ履??곷떒 怨좎젙)
                 Positioned(
                   top: 0,
                   right: 0,
@@ -2211,7 +2210,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       color: colorScheme.primary,
                     ),
                     onPressed: onEditToggle,
-                    tooltip: isEditing ? '저장' : '편집',
+                    tooltip: isEditing ? '??? : '?몄쭛',
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -2224,7 +2223,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  /// 댓글 타임라인 아이템 (코멘트 스타일 - 아바타와 박스)
+  /// ?볤? ??꾨씪???꾩씠??(肄붾찘???ㅽ???- ?꾨컮?? 諛뺤뒪)
   Widget _buildCommentTimelineItem(
     BuildContext context,
     Comment comment,
@@ -2315,7 +2314,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               children: [
                                 Icon(Icons.edit, size: 16),
                                 SizedBox(width: 8),
-                                Text('편집'),
+                                Text('?몄쭛'),
                               ],
                             ),
                           ),
@@ -2325,7 +2324,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               children: [
                                 Icon(Icons.delete, size: 16, color: Colors.red),
                                 SizedBox(width: 8),
-                                Text('삭제', style: TextStyle(color: Colors.red)),
+                                Text('??젣', style: TextStyle(color: Colors.red)),
                               ],
                             ),
                           ),
@@ -2351,7 +2350,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               maxLines: null,
                               minLines: 3,
                               decoration: InputDecoration(
-                                hintText: '댓글을 수정하세요...',
+                                hintText: '?볤????섏젙?섏꽭??..',
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -2372,7 +2371,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 TextButton(
                                   onPressed: _cancelEditComment,
                                   child: Text(
-                                    '취소',
+                                    '痍⑥냼',
                                     style: TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
                                   ),
                                 ),
@@ -2383,7 +2382,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                     backgroundColor: colorScheme.primary,
                                     foregroundColor: Colors.white,
                                   ),
-                                  child: const Text('저장'),
+                                  child: const Text('???),
                                 ),
                               ],
                             ),
@@ -2404,7 +2403,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   ),
                                 ),
                               ),
-                            // 이미지 표시
+                            // ?대?吏 ?쒖떆
                             if (comment.imageUrls.isNotEmpty) ...[
                               if (comment.content.isNotEmpty) const SizedBox(height: 8),
                               Wrap(
@@ -2453,7 +2452,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  /// 댓글 입력 위젯
+  /// ?볤? ?낅젰 ?꾩젽
   Widget _buildCommentInput(BuildContext context, ColorScheme colorScheme) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2494,7 +2493,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   if (dropped.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: const Text('이미지 파일만 드롭할 수 있습니다. (png, jpg, jpeg, gif, webp)'),
+                        content: const Text('?대?吏 ?뚯씪留??쒕∼?????덉뒿?덈떎. (png, jpg, jpeg, gif, webp)'),
                         backgroundColor: Theme.of(context).colorScheme.error,
                       ),
                     );
@@ -2526,7 +2525,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       child: KeyboardListener(
                         focusNode: FocusNode(),
                         onKeyEvent: (event) {
-                          // Shift+Enter는 줄바꿈, Enter만 누르면 전송
+                          // Shift+Enter??以꾨컮轅? Enter留??꾨Ⅴ硫??꾩넚
                           if (event is KeyDownEvent &&
                               event.logicalKey == LogicalKeyboardKey.enter &&
                               !HardwareKeyboard.instance.isShiftPressed &&
@@ -2566,7 +2565,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 textInputAction: TextInputAction.send,
                                 keyboardType: TextInputType.multiline,
                                 decoration: InputDecoration(
-                                  hintText: 'Add a comment... (Enter로 전송, Shift+Enter로 줄바꿈, 이미지를 드래그하거나 Ctrl+V로 붙여넣기)',
+                                  hintText: 'Add a comment... (Enter濡??꾩넚, Shift+Enter濡?以꾨컮轅? ?대?吏瑜??쒕옒洹명븯嫄곕굹 Ctrl+V濡?遺숈뿬?ｊ린)',
                                   border: InputBorder.none,
                                   hintStyle: TextStyle(
                                     color: colorScheme.onSurface.withOpacity(0.5),
@@ -2577,9 +2576,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   color: colorScheme.onSurface,
                                   height: 1.5,
                                 ),
-                                // onSubmitted 제거 - KeyboardListener가 Enter 키를 처리함
+                                // onSubmitted ?쒓굅 - KeyboardListener媛 Enter ?ㅻ? 泥섎━??
                               ),
-                              // 선택된 이미지 미리보기
+                              // ?좏깮???대?吏 誘몃━蹂닿린
                               if (_selectedCommentImages.isNotEmpty) ...[
                                 const SizedBox(height: 8),
                                 SizedBox(
@@ -2640,7 +2639,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       color: colorScheme.primary,
                                     ),
                                     onPressed: _pickCommentImages,
-                                    tooltip: '이미지 추가',
+                                    tooltip: '?대?吏 異붽?',
                                   ),
                                   TextButton(
                                     onPressed: _addComment,
@@ -2678,21 +2677,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         lower.endsWith('.webp');
   }
 
-  /// 붙여넣기 처리
+  /// 遺숈뿬?ｊ린 泥섎━
   Future<void> _handlePaste() async {
     if (!_commentFocusNode.hasFocus) return;
     
     try {
-      // 먼저 텍스트 클립보드 확인
+      // 癒쇱? ?띿뒪???대┰蹂대뱶 ?뺤씤
       final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
       if (clipboardData != null && clipboardData.text != null && clipboardData.text!.isNotEmpty) {
-        // 텍스트가 있으면 TextField에 붙여넣기
+        // ?띿뒪?멸? ?덉쑝硫?TextField??遺숈뿬?ｊ린
         final text = clipboardData.text!;
         final currentText = _commentController.text;
         final selection = _commentController.selection;
         
         if (selection.isValid) {
-          // 선택된 텍스트가 있으면 교체, 없으면 커서 위치에 삽입
+          // ?좏깮???띿뒪?멸? ?덉쑝硫?援먯껜, ?놁쑝硫?而ㅼ꽌 ?꾩튂???쎌엯
           final newText = currentText.replaceRange(
             selection.start,
             selection.end,
@@ -2703,7 +2702,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             selection: TextSelection.collapsed(offset: selection.start + text.length),
           );
         } else {
-          // 커서가 없으면 끝에 추가
+          // 而ㅼ꽌媛 ?놁쑝硫??앹뿉 異붽?
           _commentController.text = currentText + text;
           _commentController.selection = TextSelection.collapsed(
             offset: _commentController.text.length,
@@ -2712,9 +2711,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         return;
       }
       
-      // 텍스트가 없으면 이미지 확인 (Windows에서만)
+      // ?띿뒪?멸? ?놁쑝硫??대?吏 ?뺤씤 (Windows?먯꽌留?
       if (Platform.isWindows) {
-        const platform = MethodChannel('com.dora/clipboard');
+        const platform = MethodChannel('com.sync/clipboard');
         try {
           final result = await platform.invokeMethod('getClipboardImage');
           if (result != null) {
@@ -2745,7 +2744,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   if (dropped.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: const Text('이미지 파일만 붙여넣을 수 있습니다. (png, jpg, jpeg, gif, webp)'),
+                        content: const Text('?대?吏 ?뚯씪留?遺숈뿬?ｌ쓣 ???덉뒿?덈떎. (png, jpg, jpeg, gif, webp)'),
                         backgroundColor: Theme.of(context).colorScheme.error,
                       ),
                     );
@@ -2771,17 +2770,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             }
           }
         } catch (e) {
-          // 플랫폼 채널이 없거나 실패한 경우 무시
+          // ?뚮옯??梨꾨꼸???녾굅???ㅽ뙣??寃쎌슦 臾댁떆
         }
       }
       
-      // 텍스트도 이미지도 없으면 아무것도 하지 않음 (에러 메시지 제거)
+      // ?띿뒪?몃룄 ?대?吏???놁쑝硫??꾨Т寃껊룄 ?섏? ?딆쓬 (?먮윭 硫붿떆吏 ?쒓굅)
     } catch (e) {
-      // 에러 발생 시 무시
+      // ?먮윭 諛쒖깮 ??臾댁떆
     }
   }
 
-  /// 날짜 포맷팅
+  /// ?좎쭨 ?щ㎎??
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final difference = now.difference(date);
@@ -2802,7 +2801,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// 이미지 확대 다이얼로그 표시
+  /// ?대?吏 ?뺣? ?ㅼ씠?쇰줈洹??쒖떆
   void _showImageDialog(BuildContext context, String imageUrl, List<String> allImageUrls) {
     final colorScheme = Theme.of(context).colorScheme;
     final resolvedImageUrl = _resolveImageUrl(imageUrl);
@@ -2827,7 +2826,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             ),
             child: Stack(
               children: [
-                // 이미지 뷰어
+                // ?대?吏 酉곗뼱
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
@@ -2854,7 +2853,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
-                                    '이미지를 불러올 수 없습니다',
+                                    '?대?吏瑜?遺덈윭?????놁뒿?덈떎',
                                     style: TextStyle(
                                       color: colorScheme.onSurface.withOpacity(0.7),
                                     ),
@@ -2868,7 +2867,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     ),
                   ),
                 ),
-                // 닫기 버튼
+                // ?リ린 踰꾪듉
                 Positioned(
                   top: 8,
                   right: 8,
@@ -2885,9 +2884,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     ),
                   ),
                 ),
-                // 여러 이미지가 있을 경우 네비게이션 버튼
+                // ?щ윭 ?대?吏媛 ?덉쓣 寃쎌슦 ?ㅻ퉬寃뚯씠??踰꾪듉
                 if (resolvedAllImageUrls.length > 1) ...[
-                  // 이전 이미지
+                  // ?댁쟾 ?대?吏
                   if (currentIndex > 0)
                     Positioned(
                       left: 8,
@@ -2915,7 +2914,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         ),
                       ),
                     ),
-                  // 다음 이미지
+                  // ?ㅼ쓬 ?대?吏
                   if (currentIndex < resolvedAllImageUrls.length - 1)
                     Positioned(
                       right: 8,
@@ -2943,7 +2942,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         ),
                       ),
                     ),
-                  // 이미지 인덱스 표시
+                  // ?대?吏 ?몃뜳???쒖떆
                   Positioned(
                     bottom: 12,
                     left: 0,
@@ -2976,7 +2975,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 }
 
-/// XFile 미리보기 (웹/데스크톱 공통, Image.file 대체)
+/// XFile 誘몃━蹂닿린 (???곗뒪?ы넲 怨듯넻, Image.file ?泥?
 class _XFileImage extends StatelessWidget {
   const _XFileImage({
     required this.xfile,

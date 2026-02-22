@@ -1,4 +1,4 @@
-name: dora_project_manager
+name: sync_project_manager
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -35,32 +35,32 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
-  # 상태 관리
+  # ?곹깭 愿由?
   provider: ^6.1.1
 
-  # 로컬 저장소 (사용자 데이터, 세션 저장)
+  # 濡쒖뺄 ??μ냼 (?ъ슜???곗씠?? ?몄뀡 ???
   shared_preferences: ^2.2.2
 
-  # 비밀번호 해싱
+  # 鍮꾨?踰덊샇 ?댁떛
   crypto: ^3.0.3
   intl: ^0.19.0
 
-  # HTTP 클라이언트 (API 호출)
+  # HTTP ?대씪?댁뼵??(API ?몄텧)
   http: ^1.1.0
   
-  # WebSocket 클라이언트 (실시간 통신)
+  # WebSocket ?대씪?댁뼵??(?ㅼ떆媛??듭떊)
   web_socket_channel: ^2.4.0
 
-  # 커스텀 윈도우 타이틀바
+  # 而ㅼ뒪? ?덈룄????댄?諛?
   bitsdojo_window: ^0.1.6
   
-  # 이미지 선택
+  # ?대?吏 ?좏깮
   image_picker: ^1.0.7
   desktop_drop: ^0.4.4
   flutter_markdown: ^0.6.18
   lottie: ^3.3.0
   
-  # Windows 시스템 알림
+  # Windows ?쒖뒪???뚮┝
   flutter_local_notifications: ^17.2.3
   file_picker: ^8.0.7
   url_launcher: ^6.3.2
@@ -80,7 +80,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
 
-  # 앱 아이콘 생성
+  # ???꾩씠肄??앹꽦
   flutter_launcher_icons: ^0.13.1
 
 # For information on the generic Dart part of this file, see the
@@ -135,7 +135,7 @@ flutter:
         - asset: font/nanum-square-round/NanumSquareRoundEB.ttf
           weight: 800
 
-# 앱 아이콘 설정
+# ???꾩씠肄??ㅼ젙
 flutter_launcher_icons:
   android: false
   ios: false

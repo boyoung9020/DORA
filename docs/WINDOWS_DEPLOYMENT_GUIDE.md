@@ -1,198 +1,198 @@
-# Windows EXE 파일 배포 가이드
+# Windows EXE ?뚯씪 諛고룷 媛?대뱶
 
-## ✅ Windows 배포 가능 여부
+## ??Windows 諛고룷 媛???щ?
 
-**네, Windows에도 배포 가능합니다!** Flutter는 Windows 앱을 빌드할 수 있으며, `.exe` 파일로 배포할 수 있습니다.
+**?? Windows?먮룄 諛고룷 媛?ν빀?덈떎!** Flutter??Windows ?깆쓣 鍮뚮뱶?????덉쑝硫? `.exe` ?뚯씪濡?諛고룷?????덉뒿?덈떎.
 
-현재 프로젝트에는 이미 Windows 설정이 포함되어 있습니다:
-- ✅ `windows/` 폴더 존재
-- ✅ CMake 설정 완료
-- ✅ 앱 아이콘 설정 완료
+?꾩옱 ?꾨줈?앺듃?먮뒗 ?대? Windows ?ㅼ젙???ы븿?섏뼱 ?덉뒿?덈떎:
+- ??`windows/` ?대뜑 議댁옱
+- ??CMake ?ㅼ젙 ?꾨즺
+- ?????꾩씠肄??ㅼ젙 ?꾨즺
 
-## 🚀 Windows에서 실행 방법
+## ?? Windows?먯꽌 ?ㅽ뻾 諛⑸쾿
 
-### 1. Windows 개발 환경 요구사항
+### 1. Windows 媛쒕컻 ?섍꼍 ?붽뎄?ы빆
 
-- Windows 10 이상
-- Visual Studio 2022 (Community 버전 이상)
-  - "Desktop development with C++" 워크로드 설치 필요
+- Windows 10 ?댁긽
+- Visual Studio 2022 (Community 踰꾩쟾 ?댁긽)
+  - "Desktop development with C++" ?뚰겕濡쒕뱶 ?ㅼ튂 ?꾩슂
 - Flutter SDK
 - Git
 
-### 2. Visual Studio 설치
+### 2. Visual Studio ?ㅼ튂
 
-1. [Visual Studio 2022 Community](https://visualstudio.microsoft.com/downloads/) 다운로드
-2. 설치 시 다음 워크로드 선택:
+1. [Visual Studio 2022 Community](https://visualstudio.microsoft.com/downloads/) ?ㅼ슫濡쒕뱶
+2. ?ㅼ튂 ???ㅼ쓬 ?뚰겕濡쒕뱶 ?좏깮:
    - **Desktop development with C++**
-   - **Windows 10/11 SDK** (최신 버전)
+   - **Windows 10/11 SDK** (理쒖떊 踰꾩쟾)
 
-### 3. Flutter Windows 지원 확인
+### 3. Flutter Windows 吏???뺤씤
 
 ```bash
 flutter doctor
 ```
 
-다음 항목이 체크되어야 합니다:
-- ✅ Windows toolchain
-- ✅ Visual Studio
+?ㅼ쓬 ??ぉ??泥댄겕?섏뼱???⑸땲??
+- ??Windows toolchain
+- ??Visual Studio
 
-### 4. 앱 실행
+### 4. ???ㅽ뻾
 
 ```bash
-# 개발 모드로 실행
+# 媛쒕컻 紐⑤뱶濡??ㅽ뻾
 flutter run -d windows
 
-# 또는 특정 디바이스 선택
-flutter devices  # 사용 가능한 디바이스 확인
+# ?먮뒗 ?뱀젙 ?붾컮?댁뒪 ?좏깮
+flutter devices  # ?ъ슜 媛?ν븳 ?붾컮?댁뒪 ?뺤씤
 flutter run -d windows
 ```
 
-## 📦 Windows 앱 빌드
+## ?벀 Windows ??鍮뚮뱶
 
-### 개발 빌드
+### 媛쒕컻 鍮뚮뱶
 
 ```bash
 flutter build windows
 ```
 
-빌드 결과물 위치: `build/windows/x64/runner/Debug/dora_project_manager.exe`
+鍮뚮뱶 寃곌낵臾??꾩튂: `build/windows/x64/runner/Debug/sync_project_manager.exe`
 
-### 릴리스 빌드 (배포용)
+### 由대━??鍮뚮뱶 (諛고룷??
 
 ```bash
 flutter build windows --release
 ```
 
-빌드 결과물 위치: `build/windows/x64/runner/Release/dora_project_manager.exe`
+鍮뚮뱶 寃곌낵臾??꾩튂: `build/windows/x64/runner/Release/sync_project_manager.exe`
 
-## 📋 빌드 결과물 구조
+## ?뱥 鍮뚮뱶 寃곌낵臾?援ъ“
 
-릴리스 빌드 후 다음 파일들이 생성됩니다:
+由대━??鍮뚮뱶 ???ㅼ쓬 ?뚯씪?ㅼ씠 ?앹꽦?⑸땲??
 
 ```
 build/windows/x64/runner/Release/
-├── dora_project_manager.exe          # 실행 파일
-├── flutter_windows.dll              # Flutter 런타임
-├── data/                            # 앱 데이터
-│   └── flutter_assets/              # 리소스 파일
-└── [기타 DLL 파일들]                 # 의존성 라이브러리
+?쒋?? sync_project_manager.exe          # ?ㅽ뻾 ?뚯씪
+?쒋?? flutter_windows.dll              # Flutter ?고???
+?쒋?? data/                            # ???곗씠??
+??  ?붴?? flutter_assets/              # 由ъ냼???뚯씪
+?붴?? [湲고? DLL ?뚯씪??                 # ?섏〈???쇱씠釉뚮윭由?
 ```
 
-## 🎯 EXE 파일 배포 방법
+## ?렞 EXE ?뚯씪 諛고룷 諛⑸쾿
 
-### 방법 1: 전체 폴더 배포 (권장)
+### 諛⑸쾿 1: ?꾩껜 ?대뜑 諛고룷 (沅뚯옣)
 
-릴리스 빌드 후 `Release` 폴더 전체를 배포:
+由대━??鍮뚮뱶 ??`Release` ?대뜑 ?꾩껜瑜?諛고룷:
 
 ```bash
-# 빌드
+# 鍮뚮뱶
 flutter build windows --release
 
-# 배포 폴더 생성
+# 諛고룷 ?대뜑 ?앹꽦
 mkdir build/deploy/windows
 cp -r build/windows/x64/runner/Release/* build/deploy/windows/
 ```
 
-**배포 방법:**
-- ZIP 파일로 압축
-- USB 드라이브로 복사
-- 네트워크 공유 폴더에 배치
-- 클라우드 스토리지에 업로드
+**諛고룷 諛⑸쾿:**
+- ZIP ?뚯씪濡??뺤텞
+- USB ?쒕씪?대툕濡?蹂듭궗
+- ?ㅽ듃?뚰겕 怨듭쑀 ?대뜑??諛곗튂
+- ?대씪?곕뱶 ?ㅽ넗由ъ????낅줈??
 
-### 방법 2: 단일 EXE 파일 (고급)
+### 諛⑸쾿 2: ?⑥씪 EXE ?뚯씪 (怨좉툒)
 
-모든 의존성을 EXE에 포함하려면 추가 설정이 필요합니다. (권장하지 않음)
+紐⑤뱺 ?섏〈?깆쓣 EXE???ы븿?섎젮硫?異붽? ?ㅼ젙???꾩슂?⑸땲?? (沅뚯옣?섏? ?딆쓬)
 
-## 🔧 Windows 설정 확인
+## ?뵩 Windows ?ㅼ젙 ?뺤씤
 
-### 1. 앱 이름 확인
+### 1. ???대쫫 ?뺤씤
 
-`windows/CMakeLists.txt` 파일에서:
+`windows/CMakeLists.txt` ?뚯씪?먯꽌:
 ```
-set(BINARY_NAME "dora_project_manager")
+set(BINARY_NAME "sync_project_manager")
 ```
 
-### 2. 앱 아이콘 확인
+### 2. ???꾩씠肄??뺤씤
 
-`windows/runner/resources/app_icon.ico` 파일이 있는지 확인
+`windows/runner/resources/app_icon.ico` ?뚯씪???덈뒗吏 ?뺤씤
 
-### 3. 최소 Windows 버전 확인
+### 3. 理쒖냼 Windows 踰꾩쟾 ?뺤씤
 
-`windows/CMakeLists.txt`에서 Windows SDK 버전 확인
+`windows/CMakeLists.txt`?먯꽌 Windows SDK 踰꾩쟾 ?뺤씤
 
-## 📝 API 서버 주소 설정
+## ?뱷 API ?쒕쾭 二쇱냼 ?ㅼ젙
 
-Windows 앱도 서버에 연결하려면 `lib/utils/api_client.dart`에서 서버 주소를 확인하세요:
+Windows ?깅룄 ?쒕쾭???곌껐?섎젮硫?`lib/utils/api_client.dart`?먯꽌 ?쒕쾭 二쇱냼瑜??뺤씤?섏꽭??
 
 ```dart
 static const String baseUrl = 'http://192.168.1.102';
 ```
 
-## 🚀 빠른 배포 스크립트
+## ?? 鍮좊Ⅸ 諛고룷 ?ㅽ겕由쏀듃
 
-### PowerShell 스크립트 (`build_windows.ps1`)
+### PowerShell ?ㅽ겕由쏀듃 (`build_windows.ps1`)
 
 ```powershell
-# Windows 앱 빌드 및 배포 스크립트
+# Windows ??鍮뚮뱶 諛?諛고룷 ?ㅽ겕由쏀듃
 
-$APP_NAME = "dora_project_manager"
+$APP_NAME = "sync_project_manager"
 $VERSION = "1.0.0"
 
-Write-Host "=== DORA Windows 앱 빌드 및 배포 ===" -ForegroundColor Green
+Write-Host "=== SYNC Windows ??鍮뚮뱶 諛?諛고룷 ===" -ForegroundColor Green
 Write-Host ""
 
-# 1. 의존성 설치
-Write-Host "1. Flutter 의존성 설치 중..." -ForegroundColor Yellow
+# 1. ?섏〈???ㅼ튂
+Write-Host "1. Flutter ?섏〈???ㅼ튂 以?.." -ForegroundColor Yellow
 flutter pub get
 
-# 2. 클린 빌드
-Write-Host "2. 클린 빌드 중..." -ForegroundColor Yellow
+# 2. ?대┛ 鍮뚮뱶
+Write-Host "2. ?대┛ 鍮뚮뱶 以?.." -ForegroundColor Yellow
 flutter clean
 flutter pub get
 
-# 3. 릴리스 빌드
-Write-Host "3. 릴리스 빌드 중..." -ForegroundColor Yellow
+# 3. 由대━??鍮뚮뱶
+Write-Host "3. 由대━??鍮뚮뱶 以?.." -ForegroundColor Yellow
 flutter build windows --release
 
-# 4. 배포 파일 생성
-Write-Host "4. 배포 파일 생성 중..." -ForegroundColor Yellow
+# 4. 諛고룷 ?뚯씪 ?앹꽦
+Write-Host "4. 諛고룷 ?뚯씪 ?앹꽦 以?.." -ForegroundColor Yellow
 
 $BUILD_DIR = "build\deploy\windows"
 $RELEASE_DIR = "build\windows\x64\runner\Release"
 
-# 배포 디렉토리 생성
+# 諛고룷 ?붾젆?좊━ ?앹꽦
 if (Test-Path $BUILD_DIR) {
     Remove-Item -Recurse -Force $BUILD_DIR
 }
 New-Item -ItemType Directory -Path $BUILD_DIR -Force | Out-Null
 
-# 파일 복사
+# ?뚯씪 蹂듭궗
 Copy-Item -Path "$RELEASE_DIR\*" -Destination $BUILD_DIR -Recurse -Force
 
-Write-Host "✅ 파일 복사 완료: $BUILD_DIR" -ForegroundColor Green
+Write-Host "???뚯씪 蹂듭궗 ?꾨즺: $BUILD_DIR" -ForegroundColor Green
 
-# ZIP 파일 생성
-Write-Host "5. ZIP 파일 생성 중..." -ForegroundColor Yellow
+# ZIP ?뚯씪 ?앹꽦
+Write-Host "5. ZIP ?뚯씪 ?앹꽦 以?.." -ForegroundColor Yellow
 $ZIP_PATH = "build\${APP_NAME}_v${VERSION}_windows.zip"
 Compress-Archive -Path "$BUILD_DIR\*" -DestinationPath $ZIP_PATH -Force
 
 Write-Host ""
-Write-Host "✅ 배포 준비 완료!" -ForegroundColor Green
+Write-Host "??諛고룷 以鍮??꾨즺!" -ForegroundColor Green
 Write-Host ""
-Write-Host "📦 생성된 파일:" -ForegroundColor Cyan
-Write-Host "   - EXE: $RELEASE_DIR\dora_project_manager.exe"
-Write-Host "   - 배포 폴더: $BUILD_DIR"
+Write-Host "?벀 ?앹꽦???뚯씪:" -ForegroundColor Cyan
+Write-Host "   - EXE: $RELEASE_DIR\sync_project_manager.exe"
+Write-Host "   - 諛고룷 ?대뜑: $BUILD_DIR"
 Write-Host "   - ZIP: $ZIP_PATH"
 Write-Host ""
-Write-Host "🚀 배포 방법:" -ForegroundColor Cyan
-Write-Host "   1. $BUILD_DIR 폴더 전체를 복사"
-Write-Host "   2. 또는 ZIP 파일을 공유"
-Write-Host "   3. 사용자가 압축 해제 후 dora_project_manager.exe 실행"
+Write-Host "?? 諛고룷 諛⑸쾿:" -ForegroundColor Cyan
+Write-Host "   1. $BUILD_DIR ?대뜑 ?꾩껜瑜?蹂듭궗"
+Write-Host "   2. ?먮뒗 ZIP ?뚯씪??怨듭쑀"
+Write-Host "   3. ?ъ슜?먭? ?뺤텞 ?댁젣 ??sync_project_manager.exe ?ㅽ뻾"
 ```
 
-## 🔍 문제 해결
+## ?뵇 臾몄젣 ?닿껐
 
-### 빌드 오류
+### 鍮뚮뱶 ?ㅻ쪟
 
 ```bash
 flutter clean
@@ -200,39 +200,39 @@ flutter pub get
 flutter build windows --release
 ```
 
-### Visual Studio 오류
+### Visual Studio ?ㅻ쪟
 
-- Visual Studio 2022가 설치되어 있는지 확인
-- "Desktop development with C++" 워크로드가 설치되어 있는지 확인
-- Windows SDK가 설치되어 있는지 확인
+- Visual Studio 2022媛 ?ㅼ튂?섏뼱 ?덈뒗吏 ?뺤씤
+- "Desktop development with C++" ?뚰겕濡쒕뱶媛 ?ㅼ튂?섏뼱 ?덈뒗吏 ?뺤씤
+- Windows SDK媛 ?ㅼ튂?섏뼱 ?덈뒗吏 ?뺤씤
 
-### 실행 오류
+### ?ㅽ뻾 ?ㅻ쪟
 
-- 모든 DLL 파일이 EXE와 같은 폴더에 있는지 확인
-- `data/flutter_assets` 폴더가 있는지 확인
-- Windows Defender나 백신 프로그램이 차단하지 않는지 확인
+- 紐⑤뱺 DLL ?뚯씪??EXE? 媛숈? ?대뜑???덈뒗吏 ?뺤씤
+- `data/flutter_assets` ?대뜑媛 ?덈뒗吏 ?뺤씤
+- Windows Defender??諛깆떊 ?꾨줈洹몃옩??李⑤떒?섏? ?딅뒗吏 ?뺤씤
 
-## 📋 체크리스트
+## ?뱥 泥댄겕由ъ뒪??
 
-- [ ] Windows 개발 환경 설정 (Visual Studio, Flutter)
-- [ ] API 서버 주소 설정 (`api_client.dart`)
-- [ ] 앱 실행 테스트 (`flutter run -d windows`)
-- [ ] 릴리스 빌드 테스트 (`flutter build windows --release`)
-- [ ] 다른 Windows PC에서 실행 테스트
+- [ ] Windows 媛쒕컻 ?섍꼍 ?ㅼ젙 (Visual Studio, Flutter)
+- [ ] API ?쒕쾭 二쇱냼 ?ㅼ젙 (`api_client.dart`)
+- [ ] ???ㅽ뻾 ?뚯뒪??(`flutter run -d windows`)
+- [ ] 由대━??鍮뚮뱶 ?뚯뒪??(`flutter build windows --release`)
+- [ ] ?ㅻⅨ Windows PC?먯꽌 ?ㅽ뻾 ?뚯뒪??
 
-## 💡 참고사항
+## ?뮕 李멸퀬?ы빆
 
-1. **Windows와 동일한 코드 사용**: Flutter는 같은 코드베이스로 Windows, macOS, Linux 모두 빌드 가능
-2. **서버 주소**: Windows 앱도 같은 서버(`192.168.1.102`)에 연결
-3. **데이터 공유**: Windows와 macOS 앱이 같은 서버를 사용하므로 데이터가 공유됨
-4. **의존성 파일**: EXE 파일만 배포하면 안 되고, 모든 DLL과 데이터 폴더를 함께 배포해야 함
+1. **Windows? ?숈씪??肄붾뱶 ?ъ슜**: Flutter??媛숈? 肄붾뱶踰좎씠?ㅻ줈 Windows, macOS, Linux 紐⑤몢 鍮뚮뱶 媛??
+2. **?쒕쾭 二쇱냼**: Windows ?깅룄 媛숈? ?쒕쾭(`192.168.1.102`)???곌껐
+3. **?곗씠??怨듭쑀**: Windows? macOS ?깆씠 媛숈? ?쒕쾭瑜??ъ슜?섎?濡??곗씠?곌? 怨듭쑀??
+4. **?섏〈???뚯씪**: EXE ?뚯씪留?諛고룷?섎㈃ ???섍퀬, 紐⑤뱺 DLL怨??곗씠???대뜑瑜??④퍡 諛고룷?댁빞 ??
 
-## 🎯 요약
+## ?렞 ?붿빟
 
-- ✅ Windows 배포 가능
-- ✅ 현재 프로젝트에 Windows 설정 포함됨
-- ✅ macOS와 동일한 코드 사용
-- ✅ 같은 서버에 연결하여 데이터 공유
+- ??Windows 諛고룷 媛??
+- ???꾩옱 ?꾨줈?앺듃??Windows ?ㅼ젙 ?ы븿??
+- ??macOS? ?숈씪??肄붾뱶 ?ъ슜
+- ??媛숈? ?쒕쾭???곌껐?섏뿬 ?곗씠??怨듭쑀
 
-Windows에서 `flutter build windows --release` 명령어로 빌드하면 됩니다!
+Windows?먯꽌 `flutter build windows --release` 紐낅졊?대줈 鍮뚮뱶?섎㈃ ?⑸땲??
 

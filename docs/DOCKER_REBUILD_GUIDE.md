@@ -1,101 +1,101 @@
-# Docker 이미지 재빌드 가이드
+# Docker ?대?吏 ?щ퉴??媛?대뱶
 
-## ⚠️ 중요: requirements.txt를 수정한 후 반드시 재빌드해야 합니다!
+## ?좑툘 以묒슂: requirements.txt瑜??섏젙????諛섎뱶???щ퉴?쒗빐???⑸땲??
 
-`requirements.txt` 파일을 수정한 후에는 Docker 이미지를 재빌드해야 새로운 패키지가 설치됩니다.
+`requirements.txt` ?뚯씪???섏젙???꾩뿉??Docker ?대?吏瑜??щ퉴?쒗빐???덈줈???⑦궎吏媛 ?ㅼ튂?⑸땲??
 
-## 🔧 재빌드 방법
+## ?뵩 ?щ퉴??諛⑸쾿
 
-### 방법 1: 완전 재빌드 (권장)
+### 諛⑸쾿 1: ?꾩쟾 ?щ퉴??(沅뚯옣)
 
 ```bash
-# 1. 기존 컨테이너 중지 및 제거
+# 1. 湲곗〈 而⑦뀒?대꼫 以묒? 諛??쒓굅
 docker-compose down
 
-# 2. 이미지 재빌드 (캐시 없이)
+# 2. ?대?吏 ?щ퉴??(罹먯떆 ?놁씠)
 docker-compose build --no-cache
 
-# 3. 서비스 시작
+# 3. ?쒕퉬???쒖옉
 docker-compose up -d
 
-# 4. 로그 확인
+# 4. 濡쒓렇 ?뺤씤
 docker-compose logs -f api
 ```
 
-### 방법 2: 빠른 재빌드
+### 諛⑸쾿 2: 鍮좊Ⅸ ?щ퉴??
 
 ```bash
-# 1. 기존 컨테이너 중지
+# 1. 湲곗〈 而⑦뀒?대꼫 以묒?
 docker-compose stop
 
-# 2. 이미지 재빌드
+# 2. ?대?吏 ?щ퉴??
 docker-compose build
 
-# 3. 서비스 시작
+# 3. ?쒕퉬???쒖옉
 docker-compose up -d
 ```
 
-### 방법 3: 특정 서비스만 재빌드
+### 諛⑸쾿 3: ?뱀젙 ?쒕퉬?ㅻ쭔 ?щ퉴??
 
 ```bash
-# API 서비스만 재빌드
+# API ?쒕퉬?ㅻ쭔 ?щ퉴??
 docker-compose build --no-cache api
 docker-compose up -d api
 ```
 
-## 📋 현재 수정된 패키지
+## ?뱥 ?꾩옱 ?섏젙???⑦궎吏
 
-다음 패키지들이 추가/수정되었습니다:
+?ㅼ쓬 ?⑦궎吏?ㅼ씠 異붽?/?섏젙?섏뿀?듬땲??
 
-- `email-validator==2.1.0` (추가)
-- `bcrypt==4.1.2` (버전 업데이트)
+- `email-validator==2.1.0` (異붽?)
+- `bcrypt==4.1.2` (踰꾩쟾 ?낅뜲?댄듃)
 
-## ✅ 재빌드 후 확인
+## ???щ퉴?????뺤씤
 
-재빌드가 완료되면 다음을 확인하세요:
+?щ퉴?쒓? ?꾨즺?섎㈃ ?ㅼ쓬???뺤씤?섏꽭??
 
 ```bash
-# API 로그에서 오류가 없는지 확인
+# API 濡쒓렇?먯꽌 ?ㅻ쪟媛 ?녿뒗吏 ?뺤씤
 docker-compose logs api | grep -i error
 
-# 또는 실시간 로그 확인
+# ?먮뒗 ?ㅼ떆媛?濡쒓렇 ?뺤씤
 docker-compose logs -f api
 ```
 
-정상적으로 실행되면 다음과 같은 메시지가 보입니다:
+?뺤긽?곸쑝濡??ㅽ뻾?섎㈃ ?ㅼ쓬怨?媛숈? 硫붿떆吏媛 蹂댁엯?덈떎:
 
 ```
 INFO:     Uvicorn running on http://0.0.0.0:8000
-✅ 초기 관리자 계정이 생성되었습니다.
+??珥덇린 愿由ъ옄 怨꾩젙???앹꽦?섏뿀?듬땲??
 ```
 
-## 🐛 문제 해결
+## ?맀 臾몄젣 ?닿껐
 
-### 여전히 오류가 발생하는 경우
+### ?ъ쟾???ㅻ쪟媛 諛쒖깮?섎뒗 寃쎌슦
 
-1. **캐시 문제**: `--no-cache` 옵션 사용
+1. **罹먯떆 臾몄젣**: `--no-cache` ?듭뀡 ?ъ슜
 
    ```bash
    docker-compose build --no-cache
    ```
 
-2. **이미지 완전 삭제 후 재빌드**
+2. **?대?吏 ?꾩쟾 ??젣 ???щ퉴??*
 
    ```bash
    docker-compose down
-   docker rmi dora_api  # 이미지 이름 확인 필요
+   docker rmi sync_api  # ?대?吏 ?대쫫 ?뺤씤 ?꾩슂
    docker-compose build --no-cache
    docker-compose up -d
    ```
 
-3. **볼륨 문제**: 데이터베이스 데이터 삭제 후 재시작
+3. **蹂쇰ⅷ 臾몄젣**: ?곗씠?곕쿋?댁뒪 ?곗씠????젣 ???ъ떆??
    ```bash
    docker-compose down -v
    docker-compose build --no-cache
    docker-compose up -d
    ```
 
-## 💡 팁
+## ?뮕 ??
 
-- 개발 중에는 `docker-compose up --build`를 사용하면 자동으로 재빌드됩니다
-- `--no-cache` 옵션은 처음 빌드하거나 문제가 있을 때만 사용하세요 (느림)
+- 媛쒕컻 以묒뿉??`docker-compose up --build`瑜??ъ슜?섎㈃ ?먮룞?쇰줈 ?щ퉴?쒕맗?덈떎
+- `--no-cache` ?듭뀡? 泥섏쓬 鍮뚮뱶?섍굅??臾몄젣媛 ?덉쓣 ?뚮쭔 ?ъ슜?섏꽭??(?먮┝)

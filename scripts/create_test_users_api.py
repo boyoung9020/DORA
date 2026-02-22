@@ -1,61 +1,61 @@
 """
-API를 통한 테스트 유저 생성 스크립트
-실행: python create_test_users_api.py
-자동 승인: python create_test_users_api.py --approve
+API瑜??듯븳 ?뚯뒪???좎? ?앹꽦 ?ㅽ겕由쏀듃
+?ㅽ뻾: python create_test_users_api.py
+?먮룞 ?뱀씤: python create_test_users_api.py --approve
 """
 import argparse
 import requests
 
-# 백엔드 API URL
+# 諛깆뿏??API URL
 BASE_URL = "http://localhost:8000"
 
-# 테스트 유저 목록
+# ?뚯뒪???좎? 紐⑸줉
 test_users = [
     {
-        "username": "김철수",
-        "email": "kim.cs@dora.com",
+        "username": "源泥좎닔",
+        "email": "kim.cs@sync.com",
         "password": "test123",
     },
     {
-        "username": "이영희",
-        "email": "lee.yh@dora.com",
+        "username": "?댁쁺??,
+        "email": "lee.yh@sync.com",
         "password": "test123",
     },
     {
-        "username": "박지훈",
-        "email": "park.jh@dora.com",
+        "username": "諛뺤???,
+        "email": "park.jh@sync.com",
         "password": "test123",
     },
     {
-        "username": "최민수",
-        "email": "choi.ms@dora.com",
+        "username": "理쒕???,
+        "email": "choi.ms@sync.com",
         "password": "test123",
     },
     {
-        "username": "정수진",
-        "email": "jung.sj@dora.com",
+        "username": "?뺤닔吏?,
+        "email": "jung.sj@sync.com",
         "password": "test123",
     },
     {
-        "username": "강동원",
-        "email": "kang.dw@dora.com",
+        "username": "媛뺣룞??,
+        "email": "kang.dw@sync.com",
         "password": "test123",
     },
     {
-        "username": "송혜교",
-        "email": "song.hg@dora.com",
+        "username": "?≫삙援?,
+        "email": "song.hg@sync.com",
         "password": "test123",
     },
     {
-        "username": "이민호",
-        "email": "lee.mh@dora.com",
+        "username": "?대???,
+        "email": "lee.mh@sync.com",
         "password": "test123",
     },
 ]
 
 def create_users():
-    """API를 통해 유저 생성"""
-    print("\n🚀 테스트 유저 생성 시작...\n")
+    """API瑜??듯빐 ?좎? ?앹꽦"""
+    print("\n?? ?뚯뒪???좎? ?앹꽦 ?쒖옉...\n")
     
     created_count = 0
     failed_count = 0
@@ -69,48 +69,48 @@ def create_users():
             )
             
             if response.status_code in [200, 201]:
-                print(f"✅ {user_data['username']} 계정을 생성했습니다.")
+                print(f"??{user_data['username']} 怨꾩젙???앹꽦?덉뒿?덈떎.")
                 created_count += 1
             else:
                 try:
-                    error_detail = response.json().get('detail', '알 수 없는 오류')
+                    error_detail = response.json().get('detail', '?????녿뒗 ?ㅻ쪟')
                 except Exception:
                     error_detail = response.text
-                if "already exists" in str(error_detail) or "이미 존재" in str(error_detail):
-                    print(f"ℹ️  {user_data['username']} 계정이 이미 존재합니다.")
+                if "already exists" in str(error_detail) or "?대? 議댁옱" in str(error_detail):
+                    print(f"?뱄툘  {user_data['username']} 怨꾩젙???대? 議댁옱?⑸땲??")
                 else:
-                    print(f"❌ {user_data['username']} 생성 실패: {error_detail}")
+                    print(f"??{user_data['username']} ?앹꽦 ?ㅽ뙣: {error_detail}")
                     failed_count += 1
                 
         except requests.exceptions.ConnectionError:
-            print(f"❌ 서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인하세요.")
-            print(f"   백엔드 URL: {BASE_URL}")
+            print(f"???쒕쾭???곌껐?????놁뒿?덈떎. 諛깆뿏???쒕쾭媛 ?ㅽ뻾 以묒씤吏 ?뺤씤?섏꽭??")
+            print(f"   諛깆뿏??URL: {BASE_URL}")
             return
         except Exception as e:
-            print(f"❌ {user_data['username']} 생성 중 오류: {e}")
+            print(f"??{user_data['username']} ?앹꽦 以??ㅻ쪟: {e}")
             failed_count += 1
     
     print("\n" + "="*60)
-    print(f"📊 생성: {created_count}명, 실패: {failed_count}명")
+    print(f"?뱤 ?앹꽦: {created_count}紐? ?ㅽ뙣: {failed_count}紐?)
     print("="*60)
     
     if created_count > 0:
-        print("\n⚠️  주의: 생성된 유저는 관리자 승인이 필요합니다!")
-        print("   자동 승인: python create_test_users_api.py --approve\n")
+        print("\n?좑툘  二쇱쓽: ?앹꽦???좎???愿由ъ옄 ?뱀씤???꾩슂?⑸땲??")
+        print("   ?먮룞 ?뱀씤: python create_test_users_api.py --approve\n")
     
-    print("\n모든 테스트 유저 정보:")
+    print("\n紐⑤뱺 ?뚯뒪???좎? ?뺣낫:")
     print("-"*60)
     for user_data in test_users:
-        print(f"  👤 {user_data['username']:<10} | {user_data['email']:<25} | 비밀번호: {user_data['password']}")
+        print(f"  ?뫀 {user_data['username']:<10} | {user_data['email']:<25} | 鍮꾨?踰덊샇: {user_data['password']}")
     print("-"*60)
-    print("\n💡 모든 유저의 비밀번호는 'test123' 입니다.")
-    print("\n✨ 완료!\n")
+    print("\n?뮕 紐⑤뱺 ?좎???鍮꾨?踰덊샇??'test123' ?낅땲??")
+    print("\n???꾨즺!\n")
 
 def approve_all_users():
-    """모든 대기 중인 유저 승인 (admin 권한 필요)"""
-    print("\n🔐 관리자 로그인...\n")
+    """紐⑤뱺 ?湲?以묒씤 ?좎? ?뱀씤 (admin 沅뚰븳 ?꾩슂)"""
+    print("\n?뵍 愿由ъ옄 濡쒓렇??..\n")
     
-    # admin 로그인
+    # admin 濡쒓렇??
     try:
         login_response = requests.post(
             f"{BASE_URL}/api/auth/login",
@@ -122,16 +122,16 @@ def approve_all_users():
         )
         
         if login_response.status_code != 200:
-            print("❌ admin 로그인 실패. admin 계정을 확인하세요.")
+            print("??admin 濡쒓렇???ㅽ뙣. admin 怨꾩젙???뺤씤?섏꽭??")
             return
         
         token = login_response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
         
-        print("✅ admin 로그인 성공\n")
-        print("👥 승인 대기 중인 유저 확인 중...\n")
+        print("??admin 濡쒓렇???깃났\n")
+        print("?뫁 ?뱀씤 ?湲?以묒씤 ?좎? ?뺤씤 以?..\n")
         
-        # 대기 중인 유저 목록 가져오기
+        # ?湲?以묒씤 ?좎? 紐⑸줉 媛?몄삤湲?
         pending_response = requests.get(
             f"{BASE_URL}/api/users/pending",
             headers=headers,
@@ -139,16 +139,16 @@ def approve_all_users():
         )
         
         if pending_response.status_code != 200:
-            print("❌ 대기 중인 유저 목록을 가져올 수 없습니다.")
+            print("???湲?以묒씤 ?좎? 紐⑸줉??媛?몄삱 ???놁뒿?덈떎.")
             return
         
         pending_users = pending_response.json()
         
         if not pending_users:
-            print("ℹ️  승인 대기 중인 유저가 없습니다.\n")
+            print("?뱄툘  ?뱀씤 ?湲?以묒씤 ?좎?媛 ?놁뒿?덈떎.\n")
             return
         
-        print(f"📋 {len(pending_users)}명의 유저를 승인합니다...\n")
+        print(f"?뱥 {len(pending_users)}紐낆쓽 ?좎?瑜??뱀씤?⑸땲??..\n")
         
         approved_count = 0
         for user in pending_users:
@@ -160,34 +160,34 @@ def approve_all_users():
                 )
                 
                 if approve_response.status_code == 200:
-                    print(f"✅ {user['username']} 승인 완료")
+                    print(f"??{user['username']} ?뱀씤 ?꾨즺")
                     approved_count += 1
                 else:
-                    print(f"❌ {user['username']} 승인 실패")
+                    print(f"??{user['username']} ?뱀씤 ?ㅽ뙣")
             except Exception as e:
-                print(f"❌ {user['username']} 승인 중 오류: {e}")
+                print(f"??{user['username']} ?뱀씤 以??ㅻ쪟: {e}")
         
-        print(f"\n✨ {approved_count}명의 유저를 승인했습니다!\n")
+        print(f"\n??{approved_count}紐낆쓽 ?좎?瑜??뱀씤?덉뒿?덈떎!\n")
         
     except requests.exceptions.ConnectionError:
-        print(f"❌ 서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인하세요.")
+        print(f"???쒕쾭???곌껐?????놁뒿?덈떎. 諛깆뿏???쒕쾭媛 ?ㅽ뻾 以묒씤吏 ?뺤씤?섏꽭??")
     except Exception as e:
-        print(f"❌ 오류 발생: {e}")
+        print(f"???ㅻ쪟 諛쒖깮: {e}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="테스트 유저 생성 (API 사용)")
+    parser = argparse.ArgumentParser(description="?뚯뒪???좎? ?앹꽦 (API ?ъ슜)")
     parser.add_argument(
         "--approve",
         action="store_true",
-        help="유저 생성 후 admin으로 로그인해 대기 중인 유저 자동 승인",
+        help="?좎? ?앹꽦 ??admin?쇰줈 濡쒓렇?명빐 ?湲?以묒씤 ?좎? ?먮룞 ?뱀씤",
     )
     args = parser.parse_args()
 
-    # 1단계: 유저 생성
+    # 1?④퀎: ?좎? ?앹꽦
     create_users()
 
-    # 2단계: --approve 옵션이 있으면 자동 승인
+    # 2?④퀎: --approve ?듭뀡???덉쑝硫??먮룞 ?뱀씤
     if args.approve:
         approve_all_users()
     else:
-        print("💡 자동 승인하려면: python create_test_users_api.py --approve\n")
+        print("?뮕 ?먮룞 ?뱀씤?섎젮硫? python create_test_users_api.py --approve\n")

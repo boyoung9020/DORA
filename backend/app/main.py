@@ -1,5 +1,5 @@
 """
-FastAPI 메인 애플리케이션
+FastAPI 硫붿씤 ?좏뵆由ъ??댁뀡
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,16 +7,16 @@ from sqlalchemy import text
 from app.database import engine, Base
 from app.routers import auth, users, projects, tasks, comments, uploads, notifications, websocket, chat, workspaces
 
-# 데이터베이스 테이블 생성
+# ?곗씠?곕쿋?댁뒪 ?뚯씠釉??앹꽦
 Base.metadata.create_all(bind=engine)
 
-# comments 테이블에 image_urls 컬럼이 없으면 추가
+# comments ?뚯씠釉붿뿉 image_urls 而щ읆???놁쑝硫?異붽?
 def ensure_image_urls_column():
-    """comments 테이블에 image_urls 컬럼이 있는지 확인하고 없으면 추가"""
+    """comments ?뚯씠釉붿뿉 image_urls 而щ읆???덈뒗吏 ?뺤씤?섍퀬 ?놁쑝硫?異붽?"""
     try:
         conn = engine.connect()
         try:
-            # 컬럼이 이미 존재하는지 확인
+            # 而щ읆???대? 議댁옱?섎뒗吏 ?뺤씤
             result = conn.execute(text("""
                 SELECT column_name 
                 FROM information_schema.columns 
@@ -24,60 +24,60 @@ def ensure_image_urls_column():
             """))
             
             if result.fetchone() is None:
-                # image_urls 컬럼 추가
+                # image_urls 而щ읆 異붽?
                 conn.execute(text("""
                     ALTER TABLE comments 
                     ADD COLUMN image_urls VARCHAR[] DEFAULT '{}' NOT NULL
                 """))
                 conn.commit()
-                print("✅ comments 테이블에 image_urls 컬럼이 추가되었습니다.")
+                print("??comments ?뚯씠釉붿뿉 image_urls 而щ읆??異붽??섏뿀?듬땲??")
             else:
-                print("✅ comments 테이블에 image_urls 컬럼이 이미 존재합니다.")
+                print("??comments ?뚯씠釉붿뿉 image_urls 而щ읆???대? 議댁옱?⑸땲??")
         finally:
             conn.close()
     except Exception as e:
-        print(f"⚠️ image_urls 컬럼 확인 중 오류 (무시됨): {e}")
+        print(f"?좑툘 image_urls 而щ읆 ?뺤씤 以??ㅻ쪟 (臾댁떆??: {e}")
 
-# 서버 시작 시 컬럼 확인
+# ?쒕쾭 ?쒖옉 ??而щ읆 ?뺤씤
 ensure_image_urls_column()
 
-# FastAPI 앱 생성
+# FastAPI ???앹꽦
 app = FastAPI(
-    title="DORA Project Manager API",
-    description="프로젝트 관리 시스템 백엔드 API",
+    title="SYNC Project Manager API",
+    description="?꾨줈?앺듃 愿由??쒖뒪??諛깆뿏??API",
     version="1.0.0"
 )
 
-# CORS 설정 (Flutter 앱에서 접근 가능하도록)
+# CORS ?ㅼ젙 (Flutter ?깆뿉???묎렐 媛?ν븯?꾨줉)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 프로덕션에서는 특정 도메인만 허용하세요
+    allow_origins=["*"],  # ?꾨줈?뺤뀡?먯꽌???뱀젙 ?꾨찓?몃쭔 ?덉슜?섏꽭??
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 라우터 등록
-app.include_router(auth.router, prefix="/api/auth", tags=["인증"])
-app.include_router(users.router, prefix="/api/users", tags=["사용자"])
-app.include_router(projects.router, prefix="/api/projects", tags=["프로젝트"])
-app.include_router(tasks.router, prefix="/api/tasks", tags=["태스크"])
-app.include_router(comments.router, prefix="/api/comments", tags=["댓글"])
-app.include_router(uploads.router, prefix="/api/uploads", tags=["업로드"])
-app.include_router(notifications.router, prefix="/api/notifications", tags=["알림"])
-app.include_router(chat.router, prefix="/api/chat", tags=["채팅"])
-app.include_router(workspaces.router, prefix="/api/workspaces", tags=["워크스페이스"])
+# ?쇱슦???깅줉
+app.include_router(auth.router, prefix="/api/auth", tags=["?몄쬆"])
+app.include_router(users.router, prefix="/api/users", tags=["?ъ슜??])
+app.include_router(projects.router, prefix="/api/projects", tags=["?꾨줈?앺듃"])
+app.include_router(tasks.router, prefix="/api/tasks", tags=["?쒖뒪??])
+app.include_router(comments.router, prefix="/api/comments", tags=["?볤?"])
+app.include_router(uploads.router, prefix="/api/uploads", tags=["?낅줈??])
+app.include_router(notifications.router, prefix="/api/notifications", tags=["?뚮┝"])
+app.include_router(chat.router, prefix="/api/chat", tags=["梨꾪똿"])
+app.include_router(workspaces.router, prefix="/api/workspaces", tags=["?뚰겕?ㅽ럹?댁뒪"])
 app.include_router(websocket.router, prefix="/api", tags=["WebSocket"])
 
 
 @app.get("/")
 async def root():
-    """헬스 체크 엔드포인트"""
-    return {"message": "DORA API Server", "status": "running"}
+    """?ъ뒪 泥댄겕 ?붾뱶?ъ씤??""
+    return {"message": "SYNC API Server", "status": "running"}
 
 
 @app.get("/health")
 async def health_check():
-    """상세 헬스 체크"""
-    return {"status": "healthy", "service": "dora-api"}
+    """?곸꽭 ?ъ뒪 泥댄겕"""
+    return {"status": "healthy", "service": "sync-api"}
 

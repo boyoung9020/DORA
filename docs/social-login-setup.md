@@ -1,131 +1,131 @@
-# 소셜 로그인 구현 현황
+# ?뚯뀥 濡쒓렇??援ы쁽 ?꾪솴
 
-> 마지막 업데이트: 2026-02-21
-
----
-
-## 목차
-
-1. [전체 아키텍처](#전체-아키텍처)
-2. [백엔드 API 엔드포인트](#백엔드-api-엔드포인트)
-3. [백엔드 환경변수 설정](#백엔드-환경변수-설정)
-4. [Flutter 플랫폼별 인증 흐름](#flutter-플랫폼별-인증-흐름)
-5. [화면 구현 현황](#화면-구현-현황)
-6. [외부 서비스 설정 현황](#외부-서비스-설정-현황)
-7. [아직 해야 할 설정](#아직-해야-할-설정)
-8. [앱 실행 명령어](#앱-실행-명령어)
+> 留덉?留??낅뜲?댄듃: 2026-02-21
 
 ---
 
-## 전체 아키텍처
+## 紐⑹감
+
+1. [?꾩껜 ?꾪궎?띿쿂](#?꾩껜-?꾪궎?띿쿂)
+2. [諛깆뿏??API ?붾뱶?ъ씤??(#諛깆뿏??api-?붾뱶?ъ씤??
+3. [諛깆뿏???섍꼍蹂???ㅼ젙](#諛깆뿏???섍꼍蹂???ㅼ젙)
+4. [Flutter ?뚮옯?쇰퀎 ?몄쬆 ?먮쫫](#flutter-?뚮옯?쇰퀎-?몄쬆-?먮쫫)
+5. [?붾㈃ 援ы쁽 ?꾪솴](#?붾㈃-援ы쁽-?꾪솴)
+6. [?몃? ?쒕퉬???ㅼ젙 ?꾪솴](#?몃?-?쒕퉬???ㅼ젙-?꾪솴)
+7. [?꾩쭅 ?댁빞 ???ㅼ젙](#?꾩쭅-?댁빞-???ㅼ젙)
+8. [???ㅽ뻾 紐낅졊??(#???ㅽ뻾-紐낅졊??
+
+---
+
+## ?꾩껜 ?꾪궎?띿쿂
 
 ```
 [Flutter Web]                [Flutter Desktop(Windows)]
-     │                               │
-     │ PKCE redirect flow            │ PKCE loopback server flow
-     │ (현재 탭에서 리다이렉트)        │ (임의 포트 로컬 HTTP 서버)
-     ▼                               ▼
+     ??                              ??
+     ??PKCE redirect flow            ??PKCE loopback server flow
+     ??(?꾩옱 ??뿉??由щ떎?대젆??        ??(?꾩쓽 ?ы듃 濡쒖뺄 HTTP ?쒕쾭)
+     ??                              ??
 [Google / Kakao OAuth]       [Google / Kakao OAuth]
-     │                               │
-     ▼                               ▼
-[auth code 반환]             [auth code → Dart에서 token 교환]
-     │                               │
-     ▼                               ▼
-[백엔드 /code 엔드포인트]     [백엔드 /token 엔드포인트]
-     │                               │
-     └──────────────┬────────────────┘
-                    ▼
+     ??                              ??
+     ??                              ??
+[auth code 諛섑솚]             [auth code ??Dart?먯꽌 token 援먰솚]
+     ??                              ??
+     ??                              ??
+[諛깆뿏??/code ?붾뱶?ъ씤??     [諛깆뿏??/token ?붾뱶?ъ씤??
+     ??                              ??
+     ?붴???????????????р??????????????????
+                    ??
              [PostgreSQL DB]
-             유저 조회/생성 후
-             JWT 발급
+             ?좎? 議고쉶/?앹꽦 ??
+             JWT 諛쒓툒
 ```
 
 ---
 
-## 백엔드 API 엔드포인트
+## 諛깆뿏??API ?붾뱶?ъ씤??
 
-### 일반 인증
-| Method | Path | 설명 |
+### ?쇰컲 ?몄쬆
+| Method | Path | ?ㅻ챸 |
 |--------|------|------|
-| `POST` | `/api/auth/register` | 이메일/비밀번호 회원가입 |
-| `POST` | `/api/auth/login` | 이메일/비밀번호 로그인 |
-| `GET`  | `/api/auth/me` | 현재 로그인 사용자 정보 |
+| `POST` | `/api/auth/register` | ?대찓??鍮꾨?踰덊샇 ?뚯썝媛??|
+| `POST` | `/api/auth/login` | ?대찓??鍮꾨?踰덊샇 濡쒓렇??|
+| `GET`  | `/api/auth/me` | ?꾩옱 濡쒓렇???ъ슜???뺣낫 |
 
-### 소셜 로그인 (토큰 직접 전달 — Desktop 전용)
-| Method | Path | Body | 설명 |
+### ?뚯뀥 濡쒓렇??(?좏겙 吏곸젒 ?꾨떖 ??Desktop ?꾩슜)
+| Method | Path | Body | ?ㅻ챸 |
 |--------|------|------|------|
-| `POST` | `/api/auth/social/google` | `{id_token, mode}` | Google ID token으로 로그인/가입 |
-| `POST` | `/api/auth/social/kakao` | `{access_token, mode}` | Kakao access token으로 로그인/가입 |
+| `POST` | `/api/auth/social/google` | `{id_token, mode}` | Google ID token?쇰줈 濡쒓렇??媛??|
+| `POST` | `/api/auth/social/kakao` | `{access_token, mode}` | Kakao access token?쇰줈 濡쒓렇??媛??|
 
-### 소셜 로그인 (Authorization Code — Web 전용)
-| Method | Path | Body | 설명 |
+### ?뚯뀥 濡쒓렇??(Authorization Code ??Web ?꾩슜)
+| Method | Path | Body | ?ㅻ챸 |
 |--------|------|------|------|
-| `POST` | `/api/auth/social/google/code` | `{code, redirect_uri, code_verifier, mode}` | Google auth code → 백엔드가 token 교환 |
-| `POST` | `/api/auth/social/kakao/code` | `{code, redirect_uri, code_verifier, mode}` | Kakao auth code → 백엔드가 token 교환 |
+| `POST` | `/api/auth/social/google/code` | `{code, redirect_uri, code_verifier, mode}` | Google auth code ??諛깆뿏?쒓? token 援먰솚 |
+| `POST` | `/api/auth/social/kakao/code` | `{code, redirect_uri, code_verifier, mode}` | Kakao auth code ??諛깆뿏?쒓? token 援먰솚 |
 
-### `mode` 필드 동작
-| mode | 동작 |
+### `mode` ?꾨뱶 ?숈옉
+| mode | ?숈옉 |
 |------|------|
-| `"login"` | 기존 계정만 허용. 계정 없으면 **404** "가입된 계정이 없습니다." |
-| `"register"` | 계정 없으면 자동 생성. 이미 있으면 그대로 로그인 |
+| `"login"` | 湲곗〈 怨꾩젙留??덉슜. 怨꾩젙 ?놁쑝硫?**404** "媛?낅맂 怨꾩젙???놁뒿?덈떎." |
+| `"register"` | 怨꾩젙 ?놁쑝硫??먮룞 ?앹꽦. ?대? ?덉쑝硫?洹몃?濡?濡쒓렇??|
 
 ---
 
-## 백엔드 환경변수 설정
+## 諛깆뿏???섍꼍蹂???ㅼ젙
 
-### `backend/.env` 파일 (Docker Compose가 읽음)
+### `backend/.env` ?뚯씪 (Docker Compose媛 ?쎌쓬)
 
 ```dotenv
-# DB 설정 (docker-compose.yml과 일치해야 함)
+# DB ?ㅼ젙 (docker-compose.yml怨??쇱튂?댁빞 ??
 DB_HOST=postgres
 DB_PORT=5432
 DB_USER=admin
 DB_PASSWORD=admin123
-DB_NAME=dora_db
+DB_NAME=sync_db
 
 # JWT
 SECRET_KEY=your-very-secret-key-change-in-production
 
-# Google OAuth (Web Application 타입 클라이언트)
+# Google OAuth (Web Application ????대씪?댁뼵??
 GOOGLE_CLIENT_ID=666748471519-j64u791pkatfus7c3hu5fi98akuqv2bc.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=            # ← 아직 미입력 (Google Console에서 확인 필요)
+GOOGLE_CLIENT_SECRET=            # ???꾩쭅 誘몄엯??(Google Console?먯꽌 ?뺤씤 ?꾩슂)
 
 # Kakao
-KAKAO_REST_API_KEY=              # ← 아직 미입력 (Kakao Developers에서 확인 필요)
-KAKAO_CLIENT_SECRET=             # ← 선택사항 (미사용 시 비워도 됨)
+KAKAO_REST_API_KEY=              # ???꾩쭅 誘몄엯??(Kakao Developers?먯꽌 ?뺤씤 ?꾩슂)
+KAKAO_CLIENT_SECRET=             # ???좏깮?ы빆 (誘몄궗????鍮꾩썙????
 ```
 
-> **주의**: `GOOGLE_CLIENT_SECRET`이 없으면 Web redirect 흐름에서 token 교환이 실패할 수 있음.
-> Web Application 타입 Google 클라이언트는 code 교환 시 `client_secret`이 필요.
+> **二쇱쓽**: `GOOGLE_CLIENT_SECRET`???놁쑝硫?Web redirect ?먮쫫?먯꽌 token 援먰솚???ㅽ뙣?????덉쓬.
+> Web Application ???Google ?대씪?댁뼵?몃뒗 code 援먰솚 ??`client_secret`???꾩슂.
 
-### 관련 파일
-- [`backend/app/config.py`](../backend/app/config.py) — pydantic-settings로 `.env` 로드
-- [`backend/app/utils/social_auth.py`](../backend/app/utils/social_auth.py) — token 검증 / code 교환 로직
+### 愿???뚯씪
+- [`backend/app/config.py`](../backend/app/config.py) ??pydantic-settings濡?`.env` 濡쒕뱶
+- [`backend/app/utils/social_auth.py`](../backend/app/utils/social_auth.py) ??token 寃利?/ code 援먰솚 濡쒖쭅
 
 ---
 
-## Flutter 플랫폼별 인증 흐름
+## Flutter ?뚮옯?쇰퀎 ?몄쬆 ?먮쫫
 
-### Web (`kIsWeb == true`) — PKCE Redirect Flow
+### Web (`kIsWeb == true`) ??PKCE Redirect Flow
 
 ```
-1. 버튼 클릭 (login_screen / register_screen)
-2. Flutter 로딩 다이얼로그 표시
-3. PKCE code_verifier + code_challenge 생성
-4. state, code_verifier, redirect_uri를 SharedPreferences에 저장
-5. Google/Kakao OAuth URL로 현재 탭 리다이렉트 (_self)
-   ↓ [사용자가 브라우저에서 인증 완료]
-6. http://localhost:3000/?code=...&state=... 로 돌아옴
-7. 앱 시작 시 completePendingWebSocialLogin() 호출 (AuthProvider._loadCurrentUser)
-8. URL에서 code + state 읽기
-9. state 검증 (CSRF 방지)
-10. 백엔드 /api/auth/social/{provider}/code 호출
-    (code + redirect_uri + code_verifier + mode 전송)
-11. 백엔드가 OAuth 서버에서 token 교환
-12. JWT 발급 → 로그인 완료
+1. 踰꾪듉 ?대┃ (login_screen / register_screen)
+2. Flutter 濡쒕뵫 ?ㅼ씠?쇰줈洹??쒖떆
+3. PKCE code_verifier + code_challenge ?앹꽦
+4. state, code_verifier, redirect_uri瑜?SharedPreferences?????
+5. Google/Kakao OAuth URL濡??꾩옱 ??由щ떎?대젆??(_self)
+   ??[?ъ슜?먭? 釉뚮씪?곗??먯꽌 ?몄쬆 ?꾨즺]
+6. http://localhost:3000/?code=...&state=... 濡??뚯븘??
+7. ???쒖옉 ??completePendingWebSocialLogin() ?몄텧 (AuthProvider._loadCurrentUser)
+8. URL?먯꽌 code + state ?쎄린
+9. state 寃利?(CSRF 諛⑹?)
+10. 諛깆뿏??/api/auth/social/{provider}/code ?몄텧
+    (code + redirect_uri + code_verifier + mode ?꾩넚)
+11. 諛깆뿏?쒓? OAuth ?쒕쾭?먯꽌 token 援먰솚
+12. JWT 諛쒓툒 ??濡쒓렇???꾨즺
 ```
 
-**관련 파일**:
+**愿???뚯씪**:
 - [`lib/services/auth_service.dart`](../lib/services/auth_service.dart)
   - `_startGoogleWebRedirectFlow(mode)`
   - `_startKakaoWebRedirectFlow(mode)`
@@ -133,142 +133,142 @@ KAKAO_CLIENT_SECRET=             # ← 선택사항 (미사용 시 비워도 됨
 
 ---
 
-### Windows Desktop (`kIsWeb == false`) — PKCE Loopback Flow
+### Windows Desktop (`kIsWeb == false`) ??PKCE Loopback Flow
 
 ```
-1. 버튼 클릭
-2. Flutter 로딩 다이얼로그 표시
-3. PKCE code_verifier + code_challenge 생성
-4. 임의 포트로 로컬 HTTP 서버 시작 (dart:io HttpServer)
-   redirect_uri = http://localhost:{임의포트}
-5. 시스템 브라우저에서 OAuth URL 오픈 (LaunchMode.externalApplication)
-   ↓ [사용자가 브라우저에서 인증 완료]
-6. OAuth 서버가 http://localhost:{포트}/?code=... 로 리다이렉트
-7. Dart HTTP 서버가 code 수신 + 브라우저에 "완료" 페이지 전송
-8. [Google] code + code_verifier로 googleapis.com/token 에서 직접 token 교환
-          (client_secret 필요: --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=...)
-   [Kakao]  code + code_verifier로 kauth.kakao.com/oauth/token 에서 직접 token 교환
-9. 백엔드 /api/auth/social/google 또는 /kakao 에 id_token / access_token 전송
-10. JWT 발급 → 로그인 완료
+1. 踰꾪듉 ?대┃
+2. Flutter 濡쒕뵫 ?ㅼ씠?쇰줈洹??쒖떆
+3. PKCE code_verifier + code_challenge ?앹꽦
+4. ?꾩쓽 ?ы듃濡?濡쒖뺄 HTTP ?쒕쾭 ?쒖옉 (dart:io HttpServer)
+   redirect_uri = http://localhost:{?꾩쓽?ы듃}
+5. ?쒖뒪??釉뚮씪?곗??먯꽌 OAuth URL ?ㅽ뵂 (LaunchMode.externalApplication)
+   ??[?ъ슜?먭? 釉뚮씪?곗??먯꽌 ?몄쬆 ?꾨즺]
+6. OAuth ?쒕쾭媛 http://localhost:{?ы듃}/?code=... 濡?由щ떎?대젆??
+7. Dart HTTP ?쒕쾭媛 code ?섏떊 + 釉뚮씪?곗???"?꾨즺" ?섏씠吏 ?꾩넚
+8. [Google] code + code_verifier濡?googleapis.com/token ?먯꽌 吏곸젒 token 援먰솚
+          (client_secret ?꾩슂: --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=...)
+   [Kakao]  code + code_verifier濡?kauth.kakao.com/oauth/token ?먯꽌 吏곸젒 token 援먰솚
+9. 諛깆뿏??/api/auth/social/google ?먮뒗 /kakao ??id_token / access_token ?꾩넚
+10. JWT 諛쒓툒 ??濡쒓렇???꾨즺
 ```
 
-**관련 파일**:
+**愿???뚯씪**:
 - [`lib/services/auth_service.dart`](../lib/services/auth_service.dart)
   - `_loginWithGoogleDesktop(mode)`
   - `_loginWithKakaoDesktop(mode)`
 
 ---
 
-## 화면 구현 현황
+## ?붾㈃ 援ы쁽 ?꾪솴
 
-### 로그인 화면 (`lib/screens/login_screen.dart`)
+### 濡쒓렇???붾㈃ (`lib/screens/login_screen.dart`)
 
-| 기능 | 구현 상태 |
+| 湲곕뒫 | 援ы쁽 ?곹깭 |
 |------|----------|
-| 이메일/비밀번호 로그인 | ✅ 완료 |
-| Google로 계속하기 버튼 | ✅ 완료 |
-| 카카오로 계속하기 버튼 | ✅ 완료 |
-| 소셜 로그인 중 다이얼로그 표시 | ✅ 완료 |
-| 계정 없을 때 에러 메시지 | ✅ "가입된 계정이 없습니다. 먼저 회원가입을 해주세요." |
-| 취소 시 아무 동작 없음 | ✅ 완료 (errorMessage == null이면 스낵바 없음) |
+| ?대찓??鍮꾨?踰덊샇 濡쒓렇??| ???꾨즺 |
+| Google濡?怨꾩냽?섍린 踰꾪듉 | ???꾨즺 |
+| 移댁뭅?ㅻ줈 怨꾩냽?섍린 踰꾪듉 | ???꾨즺 |
+| ?뚯뀥 濡쒓렇??以??ㅼ씠?쇰줈洹??쒖떆 | ???꾨즺 |
+| 怨꾩젙 ?놁쓣 ???먮윭 硫붿떆吏 | ??"媛?낅맂 怨꾩젙???놁뒿?덈떎. 癒쇱? ?뚯썝媛?낆쓣 ?댁＜?몄슂." |
+| 痍⑥냼 ???꾨Т ?숈옉 ?놁쓬 | ???꾨즺 (errorMessage == null?대㈃ ?ㅻ궢諛??놁쓬) |
 
-**소셜 로그인 버튼 동작**: `mode = "login"` → 기존 계정만 허용
+**?뚯뀥 濡쒓렇??踰꾪듉 ?숈옉**: `mode = "login"` ??湲곗〈 怨꾩젙留??덉슜
 
 ---
 
-### 회원가입 화면 (`lib/screens/register_screen.dart`)
+### ?뚯썝媛???붾㈃ (`lib/screens/register_screen.dart`)
 
-| 기능 | 구현 상태 |
+| 湲곕뒫 | 援ы쁽 ?곹깭 |
 |------|----------|
-| 이메일/비밀번호 회원가입 | ✅ 완료 |
-| Google로 시작하기 버튼 | ✅ 완료 |
-| 카카오로 시작하기 버튼 | ✅ 완료 |
-| 소셜 가입 완료 후 메인으로 이동 | ✅ 완료 |
+| ?대찓??鍮꾨?踰덊샇 ?뚯썝媛??| ???꾨즺 |
+| Google濡??쒖옉?섍린 踰꾪듉 | ???꾨즺 |
+| 移댁뭅?ㅻ줈 ?쒖옉?섍린 踰꾪듉 | ???꾨즺 |
+| ?뚯뀥 媛???꾨즺 ??硫붿씤?쇰줈 ?대룞 | ???꾨즺 |
 
-**소셜 로그인 버튼 동작**: `mode = "register"` → 없으면 계정 생성, 이미 있으면 로그인
+**?뚯뀥 濡쒓렇??踰꾪듉 ?숈옉**: `mode = "register"` ???놁쑝硫?怨꾩젙 ?앹꽦, ?대? ?덉쑝硫?濡쒓렇??
 
 ---
 
-### 소셜 로그인 다이얼로그
+### ?뚯뀥 濡쒓렇???ㅼ씠?쇰줈洹?
 
-버튼 클릭 시 배경을 어둡게 하고 아래 다이얼로그 표시:
+踰꾪듉 ?대┃ ??諛곌꼍???대몼寃??섍퀬 ?꾨옒 ?ㅼ씠?쇰줈洹??쒖떆:
 
 ```
-┌──────────────────────────────┐
-│                              │
-│    ⏳ (로딩 스피너)           │
-│                              │
-│    Google 로그인 중...        │
-│  인증 페이지로 이동합니다      │
-│                              │
-└──────────────────────────────┘
+?뚢????????????????????????????????
+??                             ??
+??   ??(濡쒕뵫 ?ㅽ뵾??           ??
+??                             ??
+??   Google 濡쒓렇??以?..        ??
+?? ?몄쬆 ?섏씠吏濡??대룞?⑸땲??     ??
+??                             ??
+?붴????????????????????????????????
 ```
 
-- Web: 리다이렉트 직전에 잠깐 표시됨
-- Desktop: 브라우저가 열려 있는 동안 표시됨
+- Web: 由щ떎?대젆??吏곸쟾???좉퉸 ?쒖떆??
+- Desktop: 釉뚮씪?곗?媛 ?대젮 ?덈뒗 ?숈븞 ?쒖떆??
 
 ---
 
-## 외부 서비스 설정 현황
+## ?몃? ?쒕퉬???ㅼ젙 ?꾪솴
 
 ### Google Cloud Console
 
-| 항목 | 값 | 상태 |
+| ??ぉ | 媛?| ?곹깭 |
 |------|-----|------|
-| Web Application Client ID | `666748471519-j64u791pkatfus7c3hu5fi98akuqv2bc.apps.googleusercontent.com` | ✅ 발급됨 |
-| Web Application Client Secret | — | ❓ 백엔드 `.env`에 미입력 |
-| Authorized JavaScript origins | `http://localhost`, `http://localhost:3000` | ✅ 등록됨 (추정) |
-| Authorized redirect URIs (Web) | `http://localhost:3000` | ❓ **확인 필요** — redirect flow용 |
-| People API | 활성화 | ✅ 완료 |
-| Desktop App Client ID | — | ❓ Windows 빌드 시 별도 발급 필요 |
-| Desktop App Client Secret | — | ❓ Windows 빌드 시 별도 발급 필요 |
+| Web Application Client ID | `666748471519-j64u791pkatfus7c3hu5fi98akuqv2bc.apps.googleusercontent.com` | ??諛쒓툒??|
+| Web Application Client Secret | ??| ??諛깆뿏??`.env`??誘몄엯??|
+| Authorized JavaScript origins | `http://localhost`, `http://localhost:3000` | ???깅줉??(異붿젙) |
+| Authorized redirect URIs (Web) | `http://localhost:3000` | ??**?뺤씤 ?꾩슂** ??redirect flow??|
+| People API | ?쒖꽦??| ???꾨즺 |
+| Desktop App Client ID | ??| ??Windows 鍮뚮뱶 ??蹂꾨룄 諛쒓툒 ?꾩슂 |
+| Desktop App Client Secret | ??| ??Windows 鍮뚮뱶 ??蹂꾨룄 諛쒓툒 ?꾩슂 |
 
 ---
 
 ### Kakao Developers
 
-| 항목 | 값 | 상태 |
+| ??ぉ | 媛?| ?곹깭 |
 |------|-----|------|
-| 네이티브 앱 키 | `e5f10d7e9297ae72a3dd08a2d512a223` | ✅ 발급됨 |
-| JavaScript 키 | `91cad79c79703a53ac47994e328c2f13` | ✅ 발급됨 |
-| REST API 키 | — | ❓ **run_web.bat에 미입력** |
-| JavaScript SDK 도메인 | `http://localhost:3000` | ✅ 등록됨 |
-| 카카오 로그인 활성화 | ON | ✅ |
-| Redirect URI (REST API용) | `http://localhost:3000` | ❓ **확인 필요** — redirect flow용 |
-| 동의항목 (이메일, 닉네임) | — | ✅ 설정됨 (추정) |
-| PKCE 지원 | — | ❓ **활성화 필요** — 현재 코드가 PKCE 사용 |
+| ?ㅼ씠?곕툕 ????| `e5f10d7e9297ae72a3dd08a2d512a223` | ??諛쒓툒??|
+| JavaScript ??| `91cad79c79703a53ac47994e328c2f13` | ??諛쒓툒??|
+| REST API ??| ??| ??**run_web.bat??誘몄엯??* |
+| JavaScript SDK ?꾨찓??| `http://localhost:3000` | ???깅줉??|
+| 移댁뭅??濡쒓렇???쒖꽦??| ON | ??|
+| Redirect URI (REST API?? | `http://localhost:3000` | ??**?뺤씤 ?꾩슂** ??redirect flow??|
+| ?숈쓽??ぉ (?대찓?? ?됰꽕?? | ??| ???ㅼ젙??(異붿젙) |
+| PKCE 吏??| ??| ??**?쒖꽦???꾩슂** ???꾩옱 肄붾뱶媛 PKCE ?ъ슜 |
 
 ---
 
-## 아직 해야 할 설정
+## ?꾩쭅 ?댁빞 ???ㅼ젙
 
 ### 1. Google Cloud Console
-- [ ] **Authorized redirect URIs에 `http://localhost:3000` 추가**
-  `APIs & Services` → `Credentials` → Web Application 클라이언트 편집
-  → Authorized redirect URIs에 `http://localhost:3000` 추가
-- [ ] **`GOOGLE_CLIENT_SECRET`을 `backend/.env`에 입력**
-  Web Application 클라이언트의 secret 값 복사 → `.env`에 저장
+- [ ] **Authorized redirect URIs??`http://localhost:3000` 異붽?**
+  `APIs & Services` ??`Credentials` ??Web Application ?대씪?댁뼵???몄쭛
+  ??Authorized redirect URIs??`http://localhost:3000` 異붽?
+- [ ] **`GOOGLE_CLIENT_SECRET`??`backend/.env`???낅젰**
+  Web Application ?대씪?댁뼵?몄쓽 secret 媛?蹂듭궗 ??`.env`?????
 
 ### 2. Kakao Developers
-- [ ] **REST API 키 확인**
-  앱 키 페이지에서 `REST API 키` 값 복사
-- [ ] **Redirect URI (REST API용) `http://localhost:3000` 등록**
-  카카오 로그인 → Redirect URI → `http://localhost:3000` 추가
-  *(JavaScript SDK 도메인과 별개의 설정)*
-- [ ] **PKCE 지원 활성화**
-  카카오 로그인 → 보안 → PKCE 활성화
-  *(현재 코드가 `code_challenge`를 전송하므로 필수)*
+- [ ] **REST API ???뺤씤**
+  ?????섏씠吏?먯꽌 `REST API ?? 媛?蹂듭궗
+- [ ] **Redirect URI (REST API?? `http://localhost:3000` ?깅줉**
+  移댁뭅??濡쒓렇????Redirect URI ??`http://localhost:3000` 異붽?
+  *(JavaScript SDK ?꾨찓?멸낵 蹂꾧컻???ㅼ젙)*
+- [ ] **PKCE 吏???쒖꽦??*
+  移댁뭅??濡쒓렇????蹂댁븞 ??PKCE ?쒖꽦??
+  *(?꾩옱 肄붾뱶媛 `code_challenge`瑜??꾩넚?섎?濡??꾩닔)*
 
-### 3. Flutter 실행 명령어 업데이트
-- [ ] **`KAKAO_REST_API_KEY` 추가** (아래 참고)
+### 3. Flutter ?ㅽ뻾 紐낅졊???낅뜲?댄듃
+- [ ] **`KAKAO_REST_API_KEY` 異붽?** (?꾨옒 李멸퀬)
 
-### 4. Windows Desktop (선택사항)
-- [ ] Google Cloud Console에서 **Desktop app** 타입 OAuth 클라이언트 별도 생성
-- [ ] `GOOGLE_DESKTOP_CLIENT_ID`, `GOOGLE_DESKTOP_CLIENT_SECRET` 발급
+### 4. Windows Desktop (?좏깮?ы빆)
+- [ ] Google Cloud Console?먯꽌 **Desktop app** ???OAuth ?대씪?댁뼵??蹂꾨룄 ?앹꽦
+- [ ] `GOOGLE_DESKTOP_CLIENT_ID`, `GOOGLE_DESKTOP_CLIENT_SECRET` 諛쒓툒
 
 ---
 
-## 앱 실행 명령어
+## ???ㅽ뻾 紐낅졊??
 
 ### Web (`run_web.bat`)
 
@@ -280,29 +280,29 @@ flutter run -d chrome ^
   --dart-define=GOOGLE_SERVER_CLIENT_ID=666748471519-j64u791pkatfus7c3hu5fi98akuqv2bc.apps.googleusercontent.com ^
   --dart-define=KAKAO_NATIVE_APP_KEY=e5f10d7e9297ae72a3dd08a2d512a223 ^
   --dart-define=KAKAO_JAVASCRIPT_APP_KEY=91cad79c79703a53ac47994e328c2f13 ^
-  --dart-define=KAKAO_REST_API_KEY=여기에_REST_API_키_입력
+  --dart-define=KAKAO_REST_API_KEY=?ш린??REST_API_???낅젰
 ```
 
-> `KAKAO_REST_API_KEY`는 아직 미입력 상태. Kakao Developers에서 확인 후 추가 필요.
+> `KAKAO_REST_API_KEY`???꾩쭅 誘몄엯???곹깭. Kakao Developers?먯꽌 ?뺤씤 ??異붽? ?꾩슂.
 
-### Windows Desktop (미완성 — 별도 클라이언트 발급 후 사용)
+### Windows Desktop (誘몄셿????蹂꾨룄 ?대씪?댁뼵??諛쒓툒 ???ъ슜)
 
 ```batch
 flutter run -d windows ^
-  --dart-define=GOOGLE_DESKTOP_CLIENT_ID=발급받은_Desktop_Client_ID ^
-  --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=발급받은_Desktop_Client_Secret ^
-  --dart-define=KAKAO_REST_API_KEY=발급받은_REST_API_키
+  --dart-define=GOOGLE_DESKTOP_CLIENT_ID=諛쒓툒諛쏆?_Desktop_Client_ID ^
+  --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=諛쒓툒諛쏆?_Desktop_Client_Secret ^
+  --dart-define=KAKAO_REST_API_KEY=諛쒓툒諛쏆?_REST_API_??
 ```
 
-### 백엔드
+### 諛깆뿏??
 
 ```bash
-# Docker로 실행
+# Docker濡??ㅽ뻾
 docker compose up -d
 
-# 로그 확인
+# 濡쒓렇 ?뺤씤
 docker compose logs -f api
 
-# 코드 변경 후 재시작
+# 肄붾뱶 蹂寃????ъ떆??
 docker compose restart api
 ```

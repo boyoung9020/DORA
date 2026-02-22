@@ -30,7 +30,7 @@ ClipboardHandler::ClipboardHandler(flutter::BinaryMessenger* messenger)
 
   auto channel =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
-          messenger_, "com.dora/clipboard",
+          messenger_, "com.sync/clipboard",
           &flutter::StandardMethodCodec::GetInstance());
 
   channel->SetMethodCallHandler(

@@ -1,219 +1,219 @@
-# 백엔드 서버 설정 가이드
+# 諛깆뿏???쒕쾭 ?ㅼ젙 媛?대뱶
 
-이 문서는 Nginx + FastAPI + PostgreSQL을 Docker Compose로 구성하는 방법을 자세히 설명합니다.
+??臾몄꽌??Nginx + FastAPI + PostgreSQL??Docker Compose濡?援ъ꽦?섎뒗 諛⑸쾿???먯꽭???ㅻ챸?⑸땲??
 
-## 📋 목차
+## ?뱥 紐⑹감
 
-1. [아키텍처 개요](#아키텍처-개요)
-2. [Nginx란?](#nginx란)
-3. [구현 구조 설명](#구현-구조-설명)
-4. [실행 방법](#실행-방법)
-5. [테스트 방법](#테스트-방법)
-
----
-
-## 🏗️ 아키텍처 개요
-
-```
-┌─────────────┐
-│   클라이언트  │ (Flutter 앱 또는 웹 브라우저)
-│  (포트 80)   │
-└──────┬──────┘
-       │ HTTP 요청
-       ▼
-┌─────────────┐
-│    Nginx    │ (리버스 프록시)
-│  (포트 80)  │
-└──────┬──────┘
-       │ 프록시 요청
-       ▼
-┌─────────────┐
-│   FastAPI   │ (백엔드 API 서버)
-│  (포트 8000)│
-└──────┬──────┘
-       │ SQL 쿼리
-       ▼
-┌─────────────┐
-│ PostgreSQL  │ (데이터베이스)
-│  (포트 5432) │
-└─────────────┘
-```
-
-### 각 컴포넌트의 역할
-
-1. **Nginx**: 리버스 프록시 서버
-
-   - 클라이언트의 요청을 받아서 FastAPI 서버로 전달
-   - 로드 밸런싱, SSL 종료, 정적 파일 제공 등 가능
-
-2. **FastAPI**: 백엔드 API 서버
-
-   - 비즈니스 로직 처리
-   - 데이터베이스와 통신
-   - RESTful API 제공
-
-3. **PostgreSQL**: 관계형 데이터베이스
-   - 모든 데이터 영구 저장
-   - 트랜잭션 관리
+1. [?꾪궎?띿쿂 媛쒖슂](#?꾪궎?띿쿂-媛쒖슂)
+2. [Nginx??](#nginx?)
+3. [援ы쁽 援ъ“ ?ㅻ챸](#援ы쁽-援ъ“-?ㅻ챸)
+4. [?ㅽ뻾 諛⑸쾿](#?ㅽ뻾-諛⑸쾿)
+5. [?뚯뒪??諛⑸쾿](#?뚯뒪??諛⑸쾿)
 
 ---
 
-## 🔍 Nginx란?
-
-### Nginx의 역할
-
-**Nginx**는 고성능 웹 서버이자 리버스 프록시 서버입니다.
-
-#### 1. 리버스 프록시 (Reverse Proxy)
-
-리버스 프록시는 클라이언트와 백엔드 서버 사이에 위치하여:
-
-- 클라이언트는 Nginx에만 요청을 보냅니다
-- Nginx가 요청을 적절한 백엔드 서버로 전달합니다
-- 백엔드 서버의 실제 주소를 숨길 수 있습니다
-
-**예시:**
+## ?룛截??꾪궎?띿쿂 媛쒖슂
 
 ```
-클라이언트 → http://localhost/api/users
-           ↓
-         Nginx (포트 80)
-           ↓
-         FastAPI (포트 8000) → /api/users 처리
+?뚢???????????????
+??  ?대씪?댁뼵?? ??(Flutter ???먮뒗 ??釉뚮씪?곗?)
+?? (?ы듃 80)   ??
+?붴???????р????????
+       ??HTTP ?붿껌
+       ??
+?뚢???????????????
+??   Nginx    ??(由щ쾭???꾨줉??
+?? (?ы듃 80)  ??
+?붴???????р????????
+       ???꾨줉???붿껌
+       ??
+?뚢???????????????
+??  FastAPI   ??(諛깆뿏??API ?쒕쾭)
+?? (?ы듃 8000)??
+?붴???????р????????
+       ??SQL 荑쇰━
+       ??
+?뚢???????????????
+??PostgreSQL  ??(?곗씠?곕쿋?댁뒪)
+?? (?ы듃 5432) ??
+?붴???????????????
 ```
 
-#### 2. 로드 밸런싱
+### 媛?而댄룷?뚰듃????븷
 
-여러 개의 FastAPI 서버가 있을 때, Nginx가 요청을 분산시킬 수 있습니다.
+1. **Nginx**: 由щ쾭???꾨줉???쒕쾭
 
-#### 3. SSL/TLS 종료
+   - ?대씪?댁뼵?몄쓽 ?붿껌??諛쏆븘??FastAPI ?쒕쾭濡??꾨떖
+   - 濡쒕뱶 諛몃윴?? SSL 醫낅즺, ?뺤쟻 ?뚯씪 ?쒓났 ??媛??
 
-HTTPS 요청을 받아서 백엔드로는 HTTP로 전달할 수 있습니다.
+2. **FastAPI**: 諛깆뿏??API ?쒕쾭
 
-#### 4. 정적 파일 제공
+   - 鍮꾩쫰?덉뒪 濡쒖쭅 泥섎━
+   - ?곗씠?곕쿋?댁뒪? ?듭떊
+   - RESTful API ?쒓났
 
-이미지, CSS, JavaScript 파일 등을 직접 제공할 수 있습니다.
+3. **PostgreSQL**: 愿怨꾪삎 ?곗씠?곕쿋?댁뒪
+   - 紐⑤뱺 ?곗씠???곴뎄 ???
+   - ?몃옖??뀡 愿由?
 
 ---
 
-## 📁 구현 구조 설명
+## ?뵇 Nginx??
 
-### 1. Docker Compose 설정 (`docker-compose.yml`)
+### Nginx????븷
 
-Docker Compose는 여러 컨테이너를 하나의 네트워크에서 함께 실행합니다.
+**Nginx**??怨좎꽦?????쒕쾭?댁옄 由щ쾭???꾨줉???쒕쾭?낅땲??
+
+#### 1. 由щ쾭???꾨줉??(Reverse Proxy)
+
+由щ쾭???꾨줉?쒕뒗 ?대씪?댁뼵?몄? 諛깆뿏???쒕쾭 ?ъ씠???꾩튂?섏뿬:
+
+- ?대씪?댁뼵?몃뒗 Nginx?먮쭔 ?붿껌??蹂대깄?덈떎
+- Nginx媛 ?붿껌???곸젅??諛깆뿏???쒕쾭濡??꾨떖?⑸땲??
+- 諛깆뿏???쒕쾭???ㅼ젣 二쇱냼瑜??④만 ???덉뒿?덈떎
+
+**?덉떆:**
+
+```
+?대씪?댁뼵????http://localhost/api/users
+           ??
+         Nginx (?ы듃 80)
+           ??
+         FastAPI (?ы듃 8000) ??/api/users 泥섎━
+```
+
+#### 2. 濡쒕뱶 諛몃윴??
+
+?щ윭 媛쒖쓽 FastAPI ?쒕쾭媛 ?덉쓣 ?? Nginx媛 ?붿껌??遺꾩궛?쒗궗 ???덉뒿?덈떎.
+
+#### 3. SSL/TLS 醫낅즺
+
+HTTPS ?붿껌??諛쏆븘??諛깆뿏?쒕줈??HTTP濡??꾨떖?????덉뒿?덈떎.
+
+#### 4. ?뺤쟻 ?뚯씪 ?쒓났
+
+?대?吏, CSS, JavaScript ?뚯씪 ?깆쓣 吏곸젒 ?쒓났?????덉뒿?덈떎.
+
+---
+
+## ?뱚 援ы쁽 援ъ“ ?ㅻ챸
+
+### 1. Docker Compose ?ㅼ젙 (`docker-compose.yml`)
+
+Docker Compose???щ윭 而⑦뀒?대꼫瑜??섎굹???ㅽ듃?뚰겕?먯꽌 ?④퍡 ?ㅽ뻾?⑸땲??
 
 ```yaml
 services:
-  postgres: # PostgreSQL 데이터베이스
-  api: # FastAPI 백엔드 서버
-  nginx: # Nginx 리버스 프록시
+  postgres: # PostgreSQL ?곗씠?곕쿋?댁뒪
+  api: # FastAPI 諛깆뿏???쒕쾭
+  nginx: # Nginx 由щ쾭???꾨줉??
 ```
 
-#### 주요 설정 설명:
+#### 二쇱슂 ?ㅼ젙 ?ㅻ챸:
 
-**PostgreSQL 서비스:**
+**PostgreSQL ?쒕퉬??**
 
 ```yaml
 postgres:
   image: postgres:15-alpine
   environment:
-    POSTGRES_USER: dora_user
-    POSTGRES_PASSWORD: dora_password
-    POSTGRES_DB: dora_db
+    POSTGRES_USER: sync_user
+    POSTGRES_PASSWORD: sync_password
+    POSTGRES_DB: sync_db
   volumes:
-    - ./postgres_data:/var/lib/postgresql/data # 데이터 영구 저장
+    - ./postgres_data:/var/lib/postgresql/data # ?곗씠???곴뎄 ???
   ports:
-    - "5432:5432" # 호스트:컨테이너 포트 매핑
+    - "5432:5432" # ?몄뒪??而⑦뀒?대꼫 ?ы듃 留ㅽ븨
 ```
 
-**FastAPI 서비스:**
+**FastAPI ?쒕퉬??**
 
 ```yaml
 api:
   build:
     context: ./backend
   environment:
-    DB_HOST: postgres # Docker Compose 서비스 이름으로 접근
+    DB_HOST: postgres # Docker Compose ?쒕퉬???대쫫?쇰줈 ?묎렐
   depends_on:
     postgres:
-      condition: service_healthy # PostgreSQL이 준비될 때까지 대기
+      condition: service_healthy # PostgreSQL??以鍮꾨맆 ?뚭퉴吏 ?湲?
 ```
 
-**Nginx 서비스:**
+**Nginx ?쒕퉬??**
 
 ```yaml
 nginx:
   image: nginx:alpine
   ports:
-    - "80:80" # 외부에서 포트 80으로 접근
+    - "80:80" # ?몃??먯꽌 ?ы듃 80?쇰줈 ?묎렐
   volumes:
     - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
   depends_on:
-    - api # API 서버가 먼저 시작되어야 함
+    - api # API ?쒕쾭媛 癒쇱? ?쒖옉?섏뼱????
 ```
 
-### 2. Nginx 설정 (`nginx/nginx.conf`)
+### 2. Nginx ?ㅼ젙 (`nginx/nginx.conf`)
 
-#### 업스트림 정의:
+#### ?낆뒪?몃┝ ?뺤쓽:
 
 ```nginx
 upstream api {
-    server api:8000;  # 'api'는 Docker Compose 서비스 이름
+    server api:8000;  # 'api'??Docker Compose ?쒕퉬???대쫫
 }
 ```
 
-- `upstream`: 백엔드 서버 그룹을 정의
-- `api:8000`: Docker Compose 네트워크 내부에서 FastAPI 서버에 접근
+- `upstream`: 諛깆뿏???쒕쾭 洹몃９???뺤쓽
+- `api:8000`: Docker Compose ?ㅽ듃?뚰겕 ?대??먯꽌 FastAPI ?쒕쾭???묎렐
 
-#### 서버 블록:
+#### ?쒕쾭 釉붾줉:
 
 ```nginx
 server {
-    listen 80;  # 포트 80에서 요청 대기
+    listen 80;  # ?ы듃 80?먯꽌 ?붿껌 ?湲?
 
     location /api {
-        proxy_pass http://api;  # /api로 시작하는 요청을 FastAPI로 전달
-        proxy_set_header Host $host;  # 원본 호스트 헤더 전달
-        proxy_set_header X-Real-IP $remote_addr;  # 클라이언트 IP 전달
+        proxy_pass http://api;  # /api濡??쒖옉?섎뒗 ?붿껌??FastAPI濡??꾨떖
+        proxy_set_header Host $host;  # ?먮낯 ?몄뒪???ㅻ뜑 ?꾨떖
+        proxy_set_header X-Real-IP $remote_addr;  # ?대씪?댁뼵??IP ?꾨떖
     }
 }
 ```
 
-**프록시 헤더 설명:**
+**?꾨줉???ㅻ뜑 ?ㅻ챸:**
 
-- `Host`: 원본 요청의 호스트 정보 유지
-- `X-Real-IP`: 클라이언트의 실제 IP 주소 (로그, 보안에 사용)
-- `X-Forwarded-For`: 프록시 체인을 통과한 IP 주소들
-- `X-Forwarded-Proto`: 원본 프로토콜 (http/https)
+- `Host`: ?먮낯 ?붿껌???몄뒪???뺣낫 ?좎?
+- `X-Real-IP`: ?대씪?댁뼵?몄쓽 ?ㅼ젣 IP 二쇱냼 (濡쒓렇, 蹂댁븞???ъ슜)
+- `X-Forwarded-For`: ?꾨줉??泥댁씤???듦낵??IP 二쇱냼??
+- `X-Forwarded-Proto`: ?먮낯 ?꾨줈?좎퐳 (http/https)
 
-### 3. FastAPI 애플리케이션
+### 3. FastAPI ?좏뵆由ъ??댁뀡
 
-#### 메인 파일 (`app/main.py`):
+#### 硫붿씤 ?뚯씪 (`app/main.py`):
 
 ```python
 app = FastAPI()
 
-# CORS 설정 (Flutter 앱에서 접근 가능하도록)
+# CORS ?ㅼ젙 (Flutter ?깆뿉???묎렐 媛?ν븯?꾨줉)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 모든 출처 허용
-    allow_methods=["*"],  # 모든 HTTP 메서드 허용
+    allow_origins=["*"],  # 紐⑤뱺 異쒖쿂 ?덉슜
+    allow_methods=["*"],  # 紐⑤뱺 HTTP 硫붿꽌???덉슜
 )
 
-# 라우터 등록
+# ?쇱슦???깅줉
 app.include_router(auth.router, prefix="/api/auth")
 ```
 
-#### 데이터베이스 연결 (`app/database.py`):
+#### ?곗씠?곕쿋?댁뒪 ?곌껐 (`app/database.py`):
 
 ```python
 DATABASE_URL = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
 engine = create_engine(DATABASE_URL)
 ```
 
-### 4. 데이터베이스 모델
+### 4. ?곗씠?곕쿋?댁뒪 紐⑤뜽
 
-SQLAlchemy ORM을 사용하여 Python 클래스로 데이터베이스 테이블을 정의합니다.
+SQLAlchemy ORM???ъ슜?섏뿬 Python ?대옒?ㅻ줈 ?곗씠?곕쿋?댁뒪 ?뚯씠釉붿쓣 ?뺤쓽?⑸땲??
 
 ```python
 class User(Base):
@@ -225,77 +225,77 @@ class User(Base):
 
 ---
 
-## 🚀 실행 방법
+## ?? ?ㅽ뻾 諛⑸쾿
 
-### 1. Docker Compose로 실행
+### 1. Docker Compose濡??ㅽ뻾
 
 ```bash
-# 프로젝트 루트 디렉토리에서
+# ?꾨줈?앺듃 猷⑦듃 ?붾젆?좊━?먯꽌
 docker-compose up -d
 ```
 
-**명령어 설명:**
+**紐낅졊???ㅻ챸:**
 
-- `up`: 서비스 시작
-- `-d`: 백그라운드 모드 (detached)
+- `up`: ?쒕퉬???쒖옉
+- `-d`: 諛깃렇?쇱슫??紐⑤뱶 (detached)
 
-**실행 순서:**
+**?ㅽ뻾 ?쒖꽌:**
 
-1. PostgreSQL 컨테이너 시작
-2. 데이터베이스가 준비될 때까지 대기 (healthcheck)
-3. FastAPI 컨테이너 시작
-4. 데이터베이스 초기화 (관리자 계정 생성)
-5. Nginx 컨테이너 시작
+1. PostgreSQL 而⑦뀒?대꼫 ?쒖옉
+2. ?곗씠?곕쿋?댁뒪媛 以鍮꾨맆 ?뚭퉴吏 ?湲?(healthcheck)
+3. FastAPI 而⑦뀒?대꼫 ?쒖옉
+4. ?곗씠?곕쿋?댁뒪 珥덇린??(愿由ъ옄 怨꾩젙 ?앹꽦)
+5. Nginx 而⑦뀒?대꼫 ?쒖옉
 
-### 2. 로그 확인
+### 2. 濡쒓렇 ?뺤씤
 
 ```bash
-# 모든 서비스 로그
+# 紐⑤뱺 ?쒕퉬??濡쒓렇
 docker-compose logs -f
 
-# 특정 서비스 로그
+# ?뱀젙 ?쒕퉬??濡쒓렇
 docker-compose logs -f api
 docker-compose logs -f nginx
 docker-compose logs -f postgres
 ```
 
-### 3. 서비스 상태 확인
+### 3. ?쒕퉬???곹깭 ?뺤씤
 
 ```bash
-# 실행 중인 컨테이너 확인
+# ?ㅽ뻾 以묒씤 而⑦뀒?대꼫 ?뺤씤
 docker-compose ps
 ```
 
-### 4. 서비스 중지
+### 4. ?쒕퉬??以묒?
 
 ```bash
-# 서비스 중지 (컨테이너만 종료)
+# ?쒕퉬??以묒? (而⑦뀒?대꼫留?醫낅즺)
 docker-compose stop
 
-# 서비스 중지 및 컨테이너 삭제
+# ?쒕퉬??以묒? 諛?而⑦뀒?대꼫 ??젣
 docker-compose down
 
-# 데이터베이스 데이터까지 삭제
+# ?곗씠?곕쿋?댁뒪 ?곗씠?곌퉴吏 ??젣
 docker-compose down -v
 ```
 
 ---
 
-## 🧪 테스트 방법
+## ?㎦ ?뚯뒪??諛⑸쾿
 
-### 1. 헬스 체크
+### 1. ?ъ뒪 泥댄겕
 
 ```bash
-# Nginx를 통한 접근
+# Nginx瑜??듯븳 ?묎렐
 curl http://localhost/health
 
-# FastAPI 직접 접근
+# FastAPI 吏곸젒 ?묎렐
 curl http://localhost:8000/health
 ```
 
-### 2. API 테스트
+### 2. API ?뚯뒪??
 
-#### 회원가입:
+#### ?뚯썝媛??
 
 ```bash
 curl -X POST http://localhost/api/auth/register \
@@ -307,7 +307,7 @@ curl -X POST http://localhost/api/auth/register \
   }'
 ```
 
-#### 로그인:
+#### 濡쒓렇??
 
 ```bash
 curl -X POST http://localhost/api/auth/login \
@@ -318,7 +318,7 @@ curl -X POST http://localhost/api/auth/login \
   }'
 ```
 
-응답 예시:
+?묐떟 ?덉떆:
 
 ```json
 {
@@ -327,69 +327,69 @@ curl -X POST http://localhost/api/auth/login \
 }
 ```
 
-#### 인증이 필요한 API 호출:
+#### ?몄쬆???꾩슂??API ?몄텧:
 
 ```bash
 curl -X GET http://localhost/api/projects \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
-### 3. 브라우저에서 확인
+### 3. 釉뚮씪?곗??먯꽌 ?뺤씤
 
-- API 문서: http://localhost/docs (Swagger UI)
-- 대체 문서: http://localhost/redoc
+- API 臾몄꽌: http://localhost/docs (Swagger UI)
+- ?泥?臾몄꽌: http://localhost/redoc
 
 ---
 
-## 🔧 문제 해결
+## ?뵩 臾몄젣 ?닿껐
 
-### 1. 포트가 이미 사용 중인 경우
+### 1. ?ы듃媛 ?대? ?ъ슜 以묒씤 寃쎌슦
 
 ```bash
-# Windows에서 포트 사용 확인
+# Windows?먯꽌 ?ы듃 ?ъ슜 ?뺤씤
 netstat -ano | findstr :80
 netstat -ano | findstr :8000
 netstat -ano | findstr :5432
 
-# docker-compose.yml에서 포트 변경
+# docker-compose.yml?먯꽌 ?ы듃 蹂寃?
 ports:
-  - "8080:80"  # 80 대신 8080 사용
+  - "8080:80"  # 80 ???8080 ?ъ슜
 ```
 
-### 2. 데이터베이스 연결 오류
+### 2. ?곗씠?곕쿋?댁뒪 ?곌껐 ?ㅻ쪟
 
 ```bash
-# PostgreSQL 로그 확인
+# PostgreSQL 濡쒓렇 ?뺤씤
 docker-compose logs postgres
 
-# FastAPI 로그 확인
+# FastAPI 濡쒓렇 ?뺤씤
 docker-compose logs api
 ```
 
-### 3. Nginx 설정 오류
+### 3. Nginx ?ㅼ젙 ?ㅻ쪟
 
 ```bash
-# Nginx 설정 파일 문법 검사
+# Nginx ?ㅼ젙 ?뚯씪 臾몃쾿 寃??
 docker-compose exec nginx nginx -t
 
-# Nginx 재시작
+# Nginx ?ъ떆??
 docker-compose restart nginx
 ```
 
 ---
 
-## 📚 추가 학습 자료
+## ?뱴 異붽? ?숈뒿 ?먮즺
 
-- [Nginx 공식 문서](https://nginx.org/en/docs/)
-- [FastAPI 공식 문서](https://fastapi.tiangolo.com/)
-- [Docker Compose 공식 문서](https://docs.docker.com/compose/)
-- [PostgreSQL 공식 문서](https://www.postgresql.org/docs/)
+- [Nginx 怨듭떇 臾몄꽌](https://nginx.org/en/docs/)
+- [FastAPI 怨듭떇 臾몄꽌](https://fastapi.tiangolo.com/)
+- [Docker Compose 怨듭떇 臾몄꽌](https://docs.docker.com/compose/)
+- [PostgreSQL 怨듭떇 臾몄꽌](https://www.postgresql.org/docs/)
 
 ---
 
-## ✅ 다음 단계
+## ???ㅼ쓬 ?④퀎
 
-1. Flutter 앱에서 API 호출하도록 수정
-2. 프로덕션 환경 설정 (SSL, 보안 강화)
-3. 로그 관리 및 모니터링 설정
-4. 백업 전략 수립
+1. Flutter ?깆뿉??API ?몄텧?섎룄濡??섏젙
+2. ?꾨줈?뺤뀡 ?섍꼍 ?ㅼ젙 (SSL, 蹂댁븞 媛뺥솕)
+3. 濡쒓렇 愿由?諛?紐⑤땲?곕쭅 ?ㅼ젙
+4. 諛깆뾽 ?꾨왂 ?섎┰

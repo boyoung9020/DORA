@@ -1,4 +1,4 @@
-﻿"""Application settings."""
+"""Application settings."""
 from pydantic_settings import BaseSettings
 
 
@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     DB_PORT: int = 5432
     DB_USER: str = "admin"
     DB_PASSWORD: str = "admin123"
-    DB_NAME: str = "dora_db"
+    DB_NAME: str = "sync_db"
 
     # JWT
     SECRET_KEY: str = "your-secret-key-change-in-production"

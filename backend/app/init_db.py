@@ -81,7 +81,7 @@ def init_db():
             admin_user = User(
                 id=str(uuid.uuid4()),
                 username="admin",
-                email="admin@dora.com",
+                email="admin@sync.com",
                 password_hash=get_password_hash("admin123"),
                 is_admin=True,
                 is_approved=True,

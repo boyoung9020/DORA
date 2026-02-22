@@ -1,83 +1,83 @@
-# 웹 배포 가이드
+# ??諛고룷 媛?대뱶
 
-## ✅ 웹 배포 가능 여부
+## ????諛고룷 媛???щ?
 
-**네, 웹에도 배포 가능합니다!** Flutter는 웹도 지원하므로 브라우저에서 실행할 수 있습니다.
+**?? ?뱀뿉??諛고룷 媛?ν빀?덈떎!** Flutter???밸룄 吏?먰븯誘濡?釉뚮씪?곗??먯꽌 ?ㅽ뻾?????덉뒿?덈떎.
 
-현재 프로젝트에는 이미 웹 설정이 포함되어 있습니다:
+?꾩옱 ?꾨줈?앺듃?먮뒗 ?대? ???ㅼ젙???ы븿?섏뼱 ?덉뒿?덈떎:
 
-- ✅ `web/` 폴더 존재
-- ✅ `index.html` 설정 완료
-- ✅ `manifest.json` (PWA 설정) 완료
-- ✅ 아이콘 파일 준비 완료
+- ??`web/` ?대뜑 議댁옱
+- ??`index.html` ?ㅼ젙 ?꾨즺
+- ??`manifest.json` (PWA ?ㅼ젙) ?꾨즺
+- ???꾩씠肄??뚯씪 以鍮??꾨즺
 
-## 🚀 로컬에서 웹 실행
+## ?? 濡쒖뺄?먯꽌 ???ㅽ뻾
 
-### 1. 개발 모드로 실행
+### 1. 媛쒕컻 紐⑤뱶濡??ㅽ뻾
 
 ```bash
-# Chrome에서 실행
+# Chrome?먯꽌 ?ㅽ뻾
 flutter run -d chrome
 
-# 또는 기본 브라우저
+# ?먮뒗 湲곕낯 釉뚮씪?곗?
 flutter run -d web-server
 ```
 
-### 2. 특정 포트로 실행
+### 2. ?뱀젙 ?ы듃濡??ㅽ뻾
 
 ```bash
 flutter run -d chrome --web-port=8080
 ```
 
-## 📦 웹 앱 빌드
+## ?벀 ????鍮뚮뱶
 
-### 개발 빌드
+### 媛쒕컻 鍮뚮뱶
 
 ```bash
 flutter build web
 ```
 
-빌드 결과물 위치: `build/web/`
+鍮뚮뱶 寃곌낵臾??꾩튂: `build/web/`
 
-### 릴리스 빌드 (최적화)
+### 由대━??鍮뚮뱶 (理쒖쟻??
 
 ```bash
 flutter build web --release
 ```
 
-릴리스 빌드는 다음 최적화를 포함합니다:
+由대━??鍮뚮뱶???ㅼ쓬 理쒖쟻?붾? ?ы븿?⑸땲??
 
-- 코드 압축 및 최소화
-- 트리 쉐이킹 (사용하지 않는 코드 제거)
-- 더 작은 번들 크기
+- 肄붾뱶 ?뺤텞 諛?理쒖냼??
+- ?몃━ ?먯씠??(?ъ슜?섏? ?딅뒗 肄붾뱶 ?쒓굅)
+- ???묒? 踰덈뱾 ?ш린
 
-### 추가 빌드 옵션
+### 異붽? 鍮뚮뱶 ?듭뀡
 
 ```bash
-# Base URL 설정 (서브디렉토리에 배포 시)
-flutter build web --base-href=/dora/
+# Base URL ?ㅼ젙 (?쒕툕?붾젆?좊━??諛고룷 ??
+flutter build web --base-href=/sync/
 
-# 소스맵 포함 (디버깅용)
+# ?뚯뒪留??ы븿 (?붾쾭源낆슜)
 flutter build web --source-maps
 
-# PWA 모드 (서비스 워커 포함)
+# PWA 紐⑤뱶 (?쒕퉬???뚯빱 ?ы븿)
 flutter build web --pwa-strategy=offline-first
 ```
 
-## 🌐 Nginx로 웹 앱 배포
+## ?뙋 Nginx濡?????諛고룷
 
-현재 프로젝트는 이미 Nginx를 사용하고 있으므로, 웹 앱을 Nginx로 서빙할 수 있습니다.
+?꾩옱 ?꾨줈?앺듃???대? Nginx瑜??ъ슜?섍퀬 ?덉쑝誘濡? ???깆쓣 Nginx濡??쒕튃?????덉뒿?덈떎.
 
-### 방법 1: Nginx에 웹 앱 추가 (권장)
+### 諛⑸쾿 1: Nginx??????異붽? (沅뚯옣)
 
-`nginx/nginx.conf` 파일을 수정하여 웹 앱을 서빙합니다:
+`nginx/nginx.conf` ?뚯씪???섏젙?섏뿬 ???깆쓣 ?쒕튃?⑸땲??
 
 ```nginx
 server {
     listen 80;
     server_name localhost;
 
-    # API 요청은 FastAPI로 프록시
+    # API ?붿껌? FastAPI濡??꾨줉??
     location /api {
         proxy_pass http://api:8000;
         proxy_set_header Host $host;
@@ -86,14 +86,14 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # 웹 앱 정적 파일 서빙
+    # ?????뺤쟻 ?뚯씪 ?쒕튃
     location / {
         root /usr/share/nginx/html;
         try_files $uri $uri/ /index.html;
         index index.html;
     }
 
-    # 정적 파일 캐싱
+    # ?뺤쟻 ?뚯씪 罹먯떛
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
         root /usr/share/nginx/html;
         expires 1y;
@@ -102,17 +102,17 @@ server {
 }
 ```
 
-### 방법 2: Docker Compose에 웹 서비스 추가
+### 諛⑸쾿 2: Docker Compose?????쒕퉬??異붽?
 
-`docker-compose.yml`에 웹 서비스를 추가합니다:
+`docker-compose.yml`?????쒕퉬?ㅻ? 異붽??⑸땲??
 
 ```yaml
 services:
-  # ... 기존 서비스들 ...
+  # ... 湲곗〈 ?쒕퉬?ㅻ뱾 ...
 
   web:
     image: nginx:alpine
-    container_name: dora_web
+    container_name: sync_web
     ports:
       - "8080:80"
     volumes:
@@ -121,44 +121,44 @@ services:
     depends_on:
       - nginx
     networks:
-      - dora_network
+      - sync_network
 ```
 
-## 📋 배포 단계
+## ?뱥 諛고룷 ?④퀎
 
-### 1. 웹 앱 빌드
+### 1. ????鍮뚮뱶
 
 ```bash
-# 릴리스 빌드
+# 由대━??鍮뚮뱶
 flutter build web --release
 ```
 
-### 2. 빌드 결과물 확인
+### 2. 鍮뚮뱶 寃곌낵臾??뺤씤
 
-`build/web/` 폴더에 다음 파일들이 생성됩니다:
+`build/web/` ?대뜑???ㅼ쓬 ?뚯씪?ㅼ씠 ?앹꽦?⑸땲??
 
 - `index.html`
-- `main.dart.js` (압축된 JavaScript)
+- `main.dart.js` (?뺤텞??JavaScript)
 - `flutter.js`
-- `assets/` (이미지, 폰트 등)
+- `assets/` (?대?吏, ?고듃 ??
 - `manifest.json`
 - `favicon.png`
 
-### 3. 서버에 배포
+### 3. ?쒕쾭??諛고룷
 
-#### 옵션 A: Nginx로 직접 서빙
+#### ?듭뀡 A: Nginx濡?吏곸젒 ?쒕튃
 
 ```bash
-# 서버에 빌드 결과물 복사
-scp -r build/web/* user@server:/var/www/dora/
+# ?쒕쾭??鍮뚮뱶 寃곌낵臾?蹂듭궗
+scp -r build/web/* user@server:/var/www/sync/
 
-# Nginx 설정
-# /etc/nginx/sites-available/dora
+# Nginx ?ㅼ젙
+# /etc/nginx/sites-available/sync
 server {
     listen 80;
     server_name your-domain.com;
 
-    root /var/www/dora;
+    root /var/www/sync;
     index index.html;
 
     location / {
@@ -167,58 +167,58 @@ server {
 
     location /api {
         proxy_pass http://localhost:8000;
-        # ... 프록시 설정 ...
+        # ... ?꾨줉???ㅼ젙 ...
     }
 }
 ```
 
-#### 옵션 B: Docker Compose로 배포
+#### ?듭뀡 B: Docker Compose濡?諛고룷
 
 ```bash
-# 1. 웹 앱 빌드
+# 1. ????鍮뚮뱶
 flutter build web --release
 
-# 2. Docker Compose로 배포
+# 2. Docker Compose濡?諛고룷
 docker-compose up -d
 ```
 
-## 🔧 웹 설정 확인
+## ?뵩 ???ㅼ젙 ?뺤씤
 
-### 1. API 서버 주소 확인
+### 1. API ?쒕쾭 二쇱냼 ?뺤씤
 
-`lib/utils/api_client.dart`에서 서버 주소 확인:
+`lib/utils/api_client.dart`?먯꽌 ?쒕쾭 二쇱냼 ?뺤씤:
 
 ```dart
 static const String baseUrl = 'http://192.168.1.102';
 ```
 
-웹 배포 시에는:
+??諛고룷 ?쒖뿉??
 
-- 개발: `http://localhost` 또는 `http://192.168.1.102`
-- 프로덕션: 실제 도메인 또는 IP 주소
+- 媛쒕컻: `http://localhost` ?먮뒗 `http://192.168.1.102`
+- ?꾨줈?뺤뀡: ?ㅼ젣 ?꾨찓???먮뒗 IP 二쇱냼
 
-### 2. CORS 설정 확인
+### 2. CORS ?ㅼ젙 ?뺤씤
 
-백엔드 `backend/app/main.py`에서 CORS 설정 확인:
+諛깆뿏??`backend/app/main.py`?먯꽌 CORS ?ㅼ젙 ?뺤씤:
 
 ```python
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 프로덕션에서는 특정 도메인만 허용
+    allow_origins=["*"],  # ?꾨줈?뺤뀡?먯꽌???뱀젙 ?꾨찓?몃쭔 ?덉슜
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 ```
 
-### 3. PWA 설정 (선택사항)
+### 3. PWA ?ㅼ젙 (?좏깮?ы빆)
 
-`web/manifest.json`에서 PWA 설정 확인 및 수정:
+`web/manifest.json`?먯꽌 PWA ?ㅼ젙 ?뺤씤 諛??섏젙:
 
 ```json
 {
-  "name": "DORA Project Manager",
-  "short_name": "DORA",
+  "name": "SYNC Project Manager",
+  "short_name": "SYNC",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0175C2",
@@ -226,74 +226,74 @@ app.add_middleware(
 }
 ```
 
-## 🌍 다양한 배포 옵션
+## ?뙇 ?ㅼ뼇??諛고룷 ?듭뀡
 
-### 1. 정적 호스팅 서비스
+### 1. ?뺤쟻 ?몄뒪???쒕퉬??
 
 #### GitHub Pages
 
 ```bash
-# 1. 웹 빌드
-flutter build web --release --base-href=/DORA/
+# 1. ??鍮뚮뱶
+flutter build web --release --base-href=/SYNC/
 
-# 2. build/web 폴더를 GitHub Pages에 배포
-# GitHub 저장소 > Settings > Pages에서 설정
+# 2. build/web ?대뜑瑜?GitHub Pages??諛고룷
+# GitHub ??μ냼 > Settings > Pages?먯꽌 ?ㅼ젙
 ```
 
 #### Netlify
 
 ```bash
-# 1. 웹 빌드
+# 1. ??鍮뚮뱶
 flutter build web --release
 
-# 2. Netlify CLI로 배포
+# 2. Netlify CLI濡?諛고룷
 netlify deploy --prod --dir=build/web
 ```
 
 #### Vercel
 
 ```bash
-# 1. 웹 빌드
+# 1. ??鍮뚮뱶
 flutter build web --release
 
-# 2. Vercel CLI로 배포
+# 2. Vercel CLI濡?諛고룷
 vercel --prod build/web
 ```
 
 #### Firebase Hosting
 
 ```bash
-# 1. Firebase CLI 설치
+# 1. Firebase CLI ?ㅼ튂
 npm install -g firebase-tools
 
-# 2. Firebase 초기화
+# 2. Firebase 珥덇린??
 firebase init hosting
 
-# 3. 웹 빌드
+# 3. ??鍮뚮뱶
 flutter build web --release
 
-# 4. 배포
+# 4. 諛고룷
 firebase deploy --only hosting
 ```
 
-### 2. 자체 서버 배포
+### 2. ?먯껜 ?쒕쾭 諛고룷
 
-#### Nginx 설정 예시
+#### Nginx ?ㅼ젙 ?덉떆
 
 ```nginx
 server {
     listen 80;
-    server_name dora.yourdomain.com;
+    server_name sync.yourdomain.com;
 
-    root /var/www/dora;
+    root /var/www/sync;
     index index.html;
 
-    # SPA 라우팅 지원
+    # SPA ?쇱슦??吏??
     location / {
         try_files $uri $uri/ /index.html;
     }
 
-    # API 프록시
+    # API ?꾨줉??
     location /api {
         proxy_pass http://localhost:8000;
         proxy_set_header Host $host;
@@ -302,34 +302,34 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # 정적 파일 캐싱
+    # ?뺤쟻 ?뚯씪 罹먯떛
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
         expires 1y;
         add_header Cache-Control "public, immutable";
     }
 
-    # Gzip 압축
+    # Gzip ?뺤텞
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
 }
 ```
 
-## 🔐 HTTPS 설정 (프로덕션)
+## ?뵍 HTTPS ?ㅼ젙 (?꾨줈?뺤뀡)
 
-### Let's Encrypt 사용
+### Let's Encrypt ?ъ슜
 
 ```bash
-# Certbot 설치
+# Certbot ?ㅼ튂
 sudo apt-get install certbot python3-certbot-nginx
 
-# SSL 인증서 발급
+# SSL ?몄쬆??諛쒓툒
 sudo certbot --nginx -d your-domain.com
 
-# 자동 갱신 설정
+# ?먮룞 媛깆떊 ?ㅼ젙
 sudo certbot renew --dry-run
 ```
 
-### Nginx HTTPS 설정
+### Nginx HTTPS ?ㅼ젙
 
 ```nginx
 server {
@@ -339,10 +339,10 @@ server {
     ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
 
-    # ... 나머지 설정 ...
+    # ... ?섎㉧吏 ?ㅼ젙 ...
 }
 
-# HTTP를 HTTPS로 리다이렉트
+# HTTP瑜?HTTPS濡?由щ떎?대젆??
 server {
     listen 80;
     server_name your-domain.com;
@@ -350,56 +350,56 @@ server {
 }
 ```
 
-## 🧪 테스트
+## ?㎦ ?뚯뒪??
 
-### 로컬 테스트
+### 濡쒖뺄 ?뚯뒪??
 
 ```bash
-# 1. 웹 빌드
+# 1. ??鍮뚮뱶
 flutter build web --release
 
-# 2. 로컬 서버로 테스트
+# 2. 濡쒖뺄 ?쒕쾭濡??뚯뒪??
 cd build/web
 python -m http.server 8080
 
-# 또는
+# ?먮뒗
 npx serve -s build/web -l 8080
 ```
 
-### 프로덕션 테스트
+### ?꾨줈?뺤뀡 ?뚯뒪??
 
-1. 브라우저에서 접속: `http://your-domain.com`
-2. 로그인 테스트
-3. API 연결 확인
-4. 모든 기능 테스트
+1. 釉뚮씪?곗??먯꽌 ?묒냽: `http://your-domain.com`
+2. 濡쒓렇???뚯뒪??
+3. API ?곌껐 ?뺤씤
+4. 紐⑤뱺 湲곕뒫 ?뚯뒪??
 
-## 📱 PWA (Progressive Web App) 설정
+## ?벑 PWA (Progressive Web App) ?ㅼ젙
 
-웹 앱을 PWA로 만들면:
+???깆쓣 PWA濡?留뚮뱾硫?
 
-- 홈 화면에 추가 가능
-- 오프라인 지원
-- 앱처럼 동작
+- ???붾㈃??異붽? 媛??
+- ?ㅽ봽?쇱씤 吏??
+- ?깆쿂???숈옉
 
-### 서비스 워커 활성화
+### ?쒕퉬???뚯빱 ?쒖꽦??
 
 ```bash
 flutter build web --pwa-strategy=offline-first
 ```
 
-## 🔍 문제 해결
+## ?뵇 臾몄젣 ?닿껐
 
-### CORS 오류
+### CORS ?ㅻ쪟
 
-백엔드에서 CORS 설정 확인:
+諛깆뿏?쒖뿉??CORS ?ㅼ젙 ?뺤씤:
 
 ```python
 allow_origins=["http://your-domain.com", "https://your-domain.com"]
 ```
 
-### 라우팅 오류 (404)
+### ?쇱슦???ㅻ쪟 (404)
 
-Nginx 설정에서 `try_files` 확인:
+Nginx ?ㅼ젙?먯꽌 `try_files` ?뺤씤:
 
 ```nginx
 location / {
@@ -407,43 +407,43 @@ location / {
 }
 ```
 
-### API 연결 오류
+### API ?곌껐 ?ㅻ쪟
 
-1. 서버 주소 확인 (`api_client.dart`)
-2. CORS 설정 확인
-3. 네트워크 연결 확인
+1. ?쒕쾭 二쇱냼 ?뺤씤 (`api_client.dart`)
+2. CORS ?ㅼ젙 ?뺤씤
+3. ?ㅽ듃?뚰겕 ?곌껐 ?뺤씤
 
-## 📋 배포 체크리스트
+## ?뱥 諛고룷 泥댄겕由ъ뒪??
 
-- [ ] 웹 빌드 성공 (`flutter build web --release`)
-- [ ] API 서버 주소 설정 (`api_client.dart`)
-- [ ] CORS 설정 확인 (백엔드)
-- [ ] Nginx 설정 완료
-- [ ] HTTPS 설정 (프로덕션)
-- [ ] 도메인 설정 (선택사항)
-- [ ] 브라우저 테스트 완료
-- [ ] 모바일 브라우저 테스트 완료
+- [ ] ??鍮뚮뱶 ?깃났 (`flutter build web --release`)
+- [ ] API ?쒕쾭 二쇱냼 ?ㅼ젙 (`api_client.dart`)
+- [ ] CORS ?ㅼ젙 ?뺤씤 (諛깆뿏??
+- [ ] Nginx ?ㅼ젙 ?꾨즺
+- [ ] HTTPS ?ㅼ젙 (?꾨줈?뺤뀡)
+- [ ] ?꾨찓???ㅼ젙 (?좏깮?ы빆)
+- [ ] 釉뚮씪?곗? ?뚯뒪???꾨즺
+- [ ] 紐⑤컮??釉뚮씪?곗? ?뚯뒪???꾨즺
 
-## 💡 요약
+## ?뮕 ?붿빟
 
-- ✅ 웹 배포 가능
-- ✅ `flutter build web --release`로 빌드
-- ✅ Nginx로 서빙 가능
-- ✅ 정적 호스팅 서비스 사용 가능
-- ✅ Windows, macOS, 웹 모두 같은 코드 사용
-- ✅ 같은 서버에 연결하여 데이터 공유
+- ????諛고룷 媛??
+- ??`flutter build web --release`濡?鍮뚮뱶
+- ??Nginx濡??쒕튃 媛??
+- ???뺤쟻 ?몄뒪???쒕퉬???ъ슜 媛??
+- ??Windows, macOS, ??紐⑤몢 媛숈? 肄붾뱶 ?ъ슜
+- ??媛숈? ?쒕쾭???곌껐?섏뿬 ?곗씠??怨듭쑀
 
-## 🚀 빠른 시작
+## ?? 鍮좊Ⅸ ?쒖옉
 
 ```bash
-# 1. 웹 빌드
+# 1. ??鍮뚮뱶
 flutter build web --release
 
-# 2. 로컬 테스트
+# 2. 濡쒖뺄 ?뚯뒪??
 cd build/web
 python -m http.server 8080
 
-# 3. 브라우저에서 http://localhost:8080 접속
+# 3. 釉뚮씪?곗??먯꽌 http://localhost:8080 ?묒냽
 ```
 
-웹 배포가 완료되면 어디서든 브라우저로 접속하여 사용할 수 있습니다!
+??諛고룷媛 ?꾨즺?섎㈃ ?대뵒?쒕뱺 釉뚮씪?곗?濡??묒냽?섏뿬 ?ъ슜?????덉뒿?덈떎!

@@ -1,4 +1,4 @@
-package com.example.dora_project_manager
+package com.example.sync_project_manager
 
 import io.flutter.embedding.android.FlutterActivity
 

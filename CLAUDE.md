@@ -1,6 +1,6 @@
-# DORA Project Manager
+# SYNC Project Manager
 
-프로젝트 관리 데스크톱/웹 애플리케이션 (Flutter + FastAPI + PostgreSQL)
+?꾨줈?앺듃 愿由??곗뒪?ы넲/???좏뵆由ъ??댁뀡 (Flutter + FastAPI + PostgreSQL)
 
 ## Tech Stack
 
@@ -34,24 +34,24 @@ cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ```
 lib/
-├── main.dart                          # App entry point
-├── models/                            # Data models (fromJson/toJson/copyWith)
-├── providers/                         # State management (ChangeNotifier + Provider)
-├── services/                          # API calls and business logic
-├── screens/                           # UI screens
-├── widgets/                           # Reusable UI components
-└── utils/
-    └── api_client.dart                # Centralized HTTP client (baseUrl: localhost:8000)
+?쒋?? main.dart                          # App entry point
+?쒋?? models/                            # Data models (fromJson/toJson/copyWith)
+?쒋?? providers/                         # State management (ChangeNotifier + Provider)
+?쒋?? services/                          # API calls and business logic
+?쒋?? screens/                           # UI screens
+?쒋?? widgets/                           # Reusable UI components
+?붴?? utils/
+    ?붴?? api_client.dart                # Centralized HTTP client (baseUrl: localhost:8000)
 
 backend/app/
-├── main.py                            # FastAPI app setup
-├── config.py                          # Environment config (pydantic-settings)
-├── database.py                        # SQLAlchemy engine + session
-├── init_db.py                         # DB initialization + admin account creation
-├── models/                            # SQLAlchemy ORM models
-├── routers/                           # API endpoints (prefix: /api/*)
-├── schemas/                           # Pydantic request/response schemas
-└── utils/                             # Security, dependencies, notifications
+?쒋?? main.py                            # FastAPI app setup
+?쒋?? config.py                          # Environment config (pydantic-settings)
+?쒋?? database.py                        # SQLAlchemy engine + session
+?쒋?? init_db.py                         # DB initialization + admin account creation
+?쒋?? models/                            # SQLAlchemy ORM models
+?쒋?? routers/                           # API endpoints (prefix: /api/*)
+?쒋?? schemas/                           # Pydantic request/response schemas
+?붴?? utils/                             # Security, dependencies, notifications
 ```
 
 ## Key Patterns
