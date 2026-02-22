@@ -5,6 +5,7 @@ from app.schemas.comment import CommentCreate, CommentUpdate, CommentResponse
 from app.schemas.auth import Token, TokenData
 from app.schemas.sprint import SprintCreate, SprintUpdate, SprintResponse
 from app.schemas.search import SearchResponse
+from app.schemas.ai import AISummaryResponse
 
 __all__ = [
     "UserCreate", "UserResponse", "UserLogin",
@@ -14,5 +15,6 @@ __all__ = [
     "Token", "TokenData",
     "SprintCreate", "SprintUpdate", "SprintResponse",
     "SearchResponse",
+    "AISummaryResponse",
 ]
 

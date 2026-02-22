@@ -1,4 +1,5 @@
 from . import (
+    ai,
     auth,
     chat,
     comments,
@@ -14,6 +15,7 @@ from . import (
 )
 
 __all__ = [
+    "ai",
     "auth",
     "users",
     "projects",

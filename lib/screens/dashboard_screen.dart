@@ -3,9 +3,11 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/project_provider.dart';
 import '../providers/task_provider.dart';
+import '../providers/workspace_provider.dart';
 import '../models/task.dart';
 import '../models/project.dart';
 import '../models/user.dart';
+import '../services/ai_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/glass_container.dart';
 import '../utils/avatar_color.dart';
@@ -22,6 +24,11 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   Future<List<User>>? _usersFuture;
+  final AiService _aiService = AiService();
+  String? _aiSummary;
+  bool _aiLoading = false;
+  String? _aiError;
+  DateTime? _aiGeneratedAt;
 
   @override
   void initState() {
@@ -30,7 +37,137 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // ?붾㈃ 濡쒕뱶 ???쒖뒪??遺덈윭?ㅺ린
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TaskProvider>().loadTasks();
+      _loadAISummary();
     });
+  }
+
+  Future<void> _loadAISummary() async {
+    if (!mounted) return;
+    setState(() {
+      _aiLoading = true;
+      _aiError = null;
+    });
+
+    try {
+      final workspaceId = context.read<WorkspaceProvider>().currentWorkspaceId;
+      final result = await _aiService.getSummary(workspaceId: workspaceId);
+      if (!mounted) return;
+      setState(() {
+        _aiSummary = result.summary.isNotEmpty ? result.summary : null;
+        _aiGeneratedAt = result.generatedAt ?? DateTime.now();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _aiError = 'AI 요약을 불러오지 못했습니다';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _aiLoading = false;
+        });
+      }
+    }
+  }
+
+  String _formatAiGeneratedAt(DateTime dateTime) {
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
+  Widget _buildAISummaryCard(
+    BuildContext context,
+    ColorScheme colorScheme, {
+    double? maxBodyHeight,
+  }) {
+    final gradientColors = colorScheme.brightness == Brightness.dark
+        ? const [
+            Color(0xFF232840),
+            Color(0xFF1D2236),
+          ]
+        : const [
+            Color(0xFFF3EDFF),
+            Color(0xFFE9F0FF),
+          ];
+
+    return GlassContainer(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      borderRadius: 18.0,
+      blur: 22.0,
+      gradientColors: gradientColors,
+      borderColor: colorScheme.primary.withValues(alpha: 0.25),
+      borderWidth: 1.0,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_aiLoading) ...[
+            const LinearProgressIndicator(minHeight: 3),
+            const SizedBox(height: 12),
+            Container(
+              height: 12,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: colorScheme.onSurface.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: 12,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: colorScheme.onSurface.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: 12,
+              width: 220,
+              decoration: BoxDecoration(
+                color: colorScheme.onSurface.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+          ] else if (_aiError != null) ...[
+            Text(
+              _aiError!,
+              style: TextStyle(
+                color: colorScheme.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: _loadAISummary,
+              icon: const Icon(Icons.replay),
+              label: const Text('다시 시도'),
+            ),
+          ] else ...[
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: maxBodyHeight ?? 260,
+              ),
+              child: Scrollbar(
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    _aiSummary ?? '요약 내용이 없습니다.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.5,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   /// ?ㅻ뒛 ?????꾪꽣留?(紐⑤뱺 ?꾨줈?앺듃) - In review? In progress留? ?꾩옱 ?ъ슜?먯뿉寃??좊떦??寃껊쭔
@@ -189,7 +326,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     // 紐⑤뱺 ?꾨줈?앺듃???ㅻ뒛 ?????꾪꽣留?
     final todayTasks = _getTodayTasks(allTasks, user?.id);
-    // ?꾨줈?앺듃蹂??ㅻ뒛 ????洹몃９??
+    final projectsById = {for (final project in allProjects) project.id: project};
+    final taskCountsByProject = _getTaskCountsByProject(allTasks);
+
+    bool useFixedPanels = true;
+    if (useFixedPanels) {
+      return _buildFourPanelLayout(
+        context: context,
+        authProvider: authProvider,
+        colorScheme: colorScheme,
+        user: user,
+        allProjects: allProjects,
+        allTasks: allTasks,
+        todayTasks: todayTasks,
+        projectsById: projectsById,
+        statusCounts: statusCounts,
+        totalTaskCount: totalTaskCount,
+        taskCountsByProject: taskCountsByProject,
+      );
+    }
+
+    // ignore: dead_code
     final todayTasksByProject = _getTodayTasksByProject(allTasks, allProjects, user?.id);
 
     return Container(
@@ -348,27 +505,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 16),
                   // ?ㅻ뒛 ????紐⑸줉 (?꾨줈?앺듃蹂꾨줈 洹몃９??
                   todayTasks.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(40),
-                            child: Column(
-                              children: [
-                                Icon(
-                                  Icons.check_circle_outline,
-                                  size: 48,
-                                  color: colorScheme.onSurface.withValues(alpha: 0.5),
+                      ? Column(
+                          children: [
+                            Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(40),
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.check_circle_outline,
+                                      size: 48,
+                                      color: colorScheme.onSurface.withValues(alpha: 0.5),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      '오늘 할 일이 없습니다',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: colorScheme.onSurface.withValues(alpha: 0.7),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  '오늘 할 일이 없습니다',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: colorScheme.onSurface.withValues(alpha: 0.7),
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 16),
+                            Container(
+                              height: 1,
+                              color: colorScheme.onSurface.withValues(alpha: 0.12),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildAISummaryCard(context, colorScheme),
+                          ],
                         )
                       : Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -591,6 +759,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             );
                           }),
+                          Container(
+                            height: 1,
+                            color: colorScheme.onSurface.withValues(alpha: 0.12),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildAISummaryCard(context, colorScheme),
                           const SizedBox(height: 24),
                           Row(
                             children: [
@@ -992,6 +1166,649 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildFourPanelLayout({
+    required BuildContext context,
+    required AuthProvider authProvider,
+    required ColorScheme colorScheme,
+    required User? user,
+    required List<Project> allProjects,
+    required List<Task> allTasks,
+    required List<Task> todayTasks,
+    required Map<String, Project> projectsById,
+    required Map<TaskStatus, int> statusCounts,
+    required int totalTaskCount,
+    required Map<String, int> taskCountsByProject,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            children: [
+              Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${_getGreetingMessage()}, ',
+                      style: TextStyle(
+                        fontSize: 20,
+                        color: colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    Text(
+                      "${user?.username ?? '사용자'}님",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    if (authProvider.isAdmin) ...[
+                      const SizedBox(width: 12),
+                      GlassContainer(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        borderRadius: 12.0,
+                        blur: 15.0,
+                        gradientColors: [
+                          colorScheme.primary.withValues(alpha: 0.3),
+                          colorScheme.primary.withValues(alpha: 0.2),
+                        ],
+                        borderColor: colorScheme.primary.withValues(alpha: 0.5),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.admin_panel_settings,
+                              size: 16,
+                              color: colorScheme.primary,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '관리자',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _formatDate(DateTime.now()),
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+              ),
+              if (authProvider.isAdmin)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: GlassContainer(
+                    padding: EdgeInsets.zero,
+                    borderRadius: 12.0,
+                    blur: 20.0,
+                    gradientColors: [
+                      colorScheme.primary.withValues(alpha: 0.3),
+                      colorScheme.primary.withValues(alpha: 0.2),
+                    ],
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.admin_panel_settings,
+                        color: colorScheme.primary,
+                        size: 24,
+                      ),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => const AdminApprovalScreen(),
+                        );
+                      },
+                      tooltip: '관리자 페이지',
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: _buildTodayTasksSection(
+                          context: context,
+                          colorScheme: colorScheme,
+                          todayTasks: todayTasks,
+                          projectsById: projectsById,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        flex: 2,
+                        child: _buildAiSummarySection(
+                          context: context,
+                          colorScheme: colorScheme,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 1,
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  color: colorScheme.onSurface.withValues(alpha: 0.12),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: _buildProjectProgressSection(
+                          context: context,
+                          colorScheme: colorScheme,
+                          allProjects: allProjects,
+                          allTasks: allTasks,
+                          taskCountsByProject: taskCountsByProject,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        flex: 2,
+                        child: _buildStatusStatsSection(
+                          context: context,
+                          colorScheme: colorScheme,
+                          statusCounts: statusCounts,
+                          totalTaskCount: totalTaskCount,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader({
+    required ColorScheme colorScheme,
+    required IconData icon,
+    required String title,
+    Widget? trailing,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, color: colorScheme.primary, size: 22),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: colorScheme.onSurface,
+          ),
+        ),
+        if (trailing != null) ...[
+          const SizedBox(width: 10),
+          trailing,
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTodayTasksSection({
+    required BuildContext context,
+    required ColorScheme colorScheme,
+    required List<Task> todayTasks,
+    required Map<String, Project> projectsById,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader(
+          colorScheme: colorScheme,
+          icon: Icons.today,
+          title: '오늘 할 일',
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '${todayTasks.length}개',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.primary,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: GlassContainer(
+            padding: const EdgeInsets.all(16),
+            borderRadius: 16.0,
+            blur: 20.0,
+            gradientColors: [
+              colorScheme.surface.withValues(alpha: 0.45),
+              colorScheme.surface.withValues(alpha: 0.35),
+            ],
+            child: todayTasks.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.check_circle_outline,
+                          size: 48,
+                          color: colorScheme.onSurface.withValues(alpha: 0.5),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '오늘 할 일이 없습니다',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: colorScheme.onSurface.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: todayTasks.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final task = todayTasks[index];
+                      final project = projectsById[task.projectId];
+                      final statusColor = task.status.color;
+
+                      return InkWell(
+                        onTap: () {
+                          showGeneralDialog(
+                            context: context,
+                            transitionDuration: Duration.zero,
+                            pageBuilder: (context, animation, secondaryAnimation) =>
+                                TaskDetailScreen(task: task),
+                            transitionBuilder:
+                                (context, animation, secondaryAnimation, child) => child,
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surface.withValues(alpha: 0.45),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: statusColor.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 4,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: statusColor,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      task.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      project?.name ?? '프로젝트 미지정',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: colorScheme.onSurface.withValues(alpha: 0.68),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: statusColor.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  task.status.displayName,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: statusColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAiSummarySection({
+    required BuildContext context,
+    required ColorScheme colorScheme,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _buildSectionHeader(
+              colorScheme: colorScheme,
+              icon: Icons.auto_awesome,
+              title: 'AI 매니저',
+            ),
+            const Spacer(),
+            if (_aiGeneratedAt != null)
+              Text(
+                _formatAiGeneratedAt(_aiGeneratedAt!),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: colorScheme.onSurface.withValues(alpha: 0.65),
+                ),
+              ),
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: '새로고침',
+              icon: Icon(
+                Icons.refresh,
+                color: colorScheme.primary,
+                size: 20,
+              ),
+              onPressed: _aiLoading ? null : _loadAISummary,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Align(
+                alignment: Alignment.topLeft,
+                child: _buildAISummaryCard(
+                  context,
+                  colorScheme,
+                  maxBodyHeight: constraints.maxHeight - 20,
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProjectProgressSection({
+    required BuildContext context,
+    required ColorScheme colorScheme,
+    required List<Project> allProjects,
+    required List<Task> allTasks,
+    required Map<String, int> taskCountsByProject,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader(
+          colorScheme: colorScheme,
+          icon: Icons.assessment,
+          title: '프로젝트 진행률',
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: GlassContainer(
+            padding: const EdgeInsets.all(16),
+            borderRadius: 16.0,
+            blur: 20.0,
+            gradientColors: [
+              colorScheme.surface.withValues(alpha: 0.45),
+              colorScheme.surface.withValues(alpha: 0.35),
+            ],
+            child: allProjects.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.folder_outlined,
+                          size: 48,
+                          color: colorScheme.onSurface.withValues(alpha: 0.5),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '프로젝트가 없습니다',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: colorScheme.onSurface.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: allProjects.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final project = allProjects[index];
+                      final progress = _calculateProgress(project, allTasks);
+                      final taskCount = taskCountsByProject[project.id] ?? 0;
+                      final doneCount = allTasks
+                          .where((task) =>
+                              task.projectId == project.id &&
+                              task.status == TaskStatus.done)
+                          .length;
+
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface.withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: project.color.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 4,
+                                  height: 20,
+                                  decoration: BoxDecoration(
+                                    color: project.color,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    project.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  '${(progress * 100).toInt()}%',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: project.color,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: LinearProgressIndicator(
+                                value: progress,
+                                minHeight: 10,
+                                backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
+                                valueColor: AlwaysStoppedAnimation<Color>(project.color),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '전체 $taskCount개 · 완료 $doneCount개',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: colorScheme.onSurface.withValues(alpha: 0.68),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatusStatsSection({
+    required BuildContext context,
+    required ColorScheme colorScheme,
+    required Map<TaskStatus, int> statusCounts,
+    required int totalTaskCount,
+  }) {
+    final statuses = [
+      TaskStatus.backlog,
+      TaskStatus.ready,
+      TaskStatus.inProgress,
+      TaskStatus.inReview,
+      TaskStatus.done,
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader(
+          colorScheme: colorScheme,
+          icon: Icons.stacked_bar_chart_outlined,
+          title: '상태별 태스크 통계',
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: GlassContainer(
+            padding: const EdgeInsets.all(16),
+            borderRadius: 16.0,
+            blur: 20.0,
+            gradientColors: [
+              colorScheme.surface.withValues(alpha: 0.45),
+              colorScheme.surface.withValues(alpha: 0.35),
+            ],
+            child: ListView.separated(
+              itemCount: statuses.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final status = statuses[index];
+                final count = statusCounts[status] ?? 0;
+                final ratio = totalTaskCount == 0 ? 0.0 : count / totalTaskCount;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: status.color,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            status.displayName,
+                            style: TextStyle(
+                              color: colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '$count',
+                          style: TextStyle(
+                            color: colorScheme.onSurface.withValues(alpha: 0.75),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: ratio,
+                        minHeight: 6,
+                        backgroundColor: status.color.withValues(alpha: 0.15),
+                        valueColor: AlwaysStoppedAnimation<Color>(status.color),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   /// ?좊떦?????紐⑸줉 濡쒕뱶
   Future<List<dynamic>> _loadAssignedMembers(List<String> memberIds) async {
     try {
@@ -1003,4 +1820,3 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 }
-

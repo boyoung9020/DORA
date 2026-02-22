@@ -6,6 +6,7 @@ from sqlalchemy import text
 
 from app.database import Base, engine
 from app.routers import (
+    ai,
     auth,
     chat,
     comments,
@@ -74,6 +75,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
+app.include_router(ai.router, prefix="/api/ai", tags=["AI"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(projects.router, prefix="/api/projects", tags=["Projects"])
 app.include_router(tasks.router, prefix="/api/tasks", tags=["Tasks"])
