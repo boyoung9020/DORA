@@ -41,7 +41,6 @@ TextTheme _buildAppTextTheme(TextTheme base) {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   const kakaoNativeAppKey = String.fromEnvironment('KAKAO_NATIVE_APP_KEY');
   const kakaoJavascriptAppKey = String.fromEnvironment('KAKAO_JAVASCRIPT_APP_KEY');
   if (kakaoNativeAppKey.isNotEmpty || kakaoJavascriptAppKey.isNotEmpty) {

@@ -329,28 +329,26 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildImagePanel() {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.asset(
-          _heroImageAsset,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              color: const Color(0xFFF3DECA),
-              alignment: Alignment.center,
-              child: const Text(
-                'assets/app_logo.png',
-                style: TextStyle(
-                  color: Color(0xFF7C5A3B),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                ),
+    return SizedBox.expand(
+      child: Image.asset(
+        _heroImageAsset,
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: const Color(0xFFF3DECA),
+            alignment: Alignment.center,
+            child: const Text(
+              'assets/app_logo.png',
+              style: TextStyle(
+                color: Color(0xFF7C5A3B),
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
               ),
-            );
-          },
-        ),
-      ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -369,8 +367,8 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 SizedBox(
-                  width: 124,
-                  height: 62,
+                  width: 112,
+                  height: 56,
                   child: Image.asset(
                     _brandLogoAsset,
                     fit: BoxFit.contain,

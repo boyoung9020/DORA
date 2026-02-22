@@ -17,6 +17,7 @@ import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
 import '../services/comment_service.dart';
 import '../services/upload_service.dart';
+import '../utils/api_client.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/date_range_picker_dialog.dart';
 import '../utils/avatar_color.dart';
@@ -169,6 +170,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   /// 초기 데이터 로드 (성능 최적화: 한 번에 처리)
+  // 채팅 화면과 동일하게 상대경로 이미지를 절대경로로 변환
+  String _resolveImageUrl(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return trimmed;
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    if (trimmed.startsWith('/')) {
+      return '${ApiClient.baseUrl}$trimmed';
+    }
+    return '${ApiClient.baseUrl}/$trimmed';
+  }
+
   Future<void> _loadInitialData() async {
     setState(() {
       _isLoadingComments = true;
@@ -2151,31 +2165,36 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
-                                children: task.detailImageUrls.map((imageUrl) {
-                                  return GestureDetector(
-                                    onTap: () => _showImageDialog(context, imageUrl, task.detailImageUrls),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.network(
-                                        imageUrl,
-                                        width: 200,
-                                        height: 200,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) {
-                                          return Container(
-                                            width: 200,
-                                            height: 200,
-                                            color: Colors.white.withOpacity(0.7),
-                                            child: Icon(
-                                              Icons.broken_image,
-                                              color: colorScheme.onSurface.withOpacity(0.5),
-                                            ),
-                                          );
-                                        },
+                                children: () {
+                                  final allImageUrls = task.detailImageUrls
+                                      .map(_resolveImageUrl)
+                                      .toList();
+                                  return allImageUrls.map((imageUrl) {
+                                    return GestureDetector(
+                                      onTap: () => _showImageDialog(context, imageUrl, allImageUrls),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.network(
+                                          imageUrl,
+                                          width: 200,
+                                          height: 200,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Container(
+                                              width: 200,
+                                              height: 200,
+                                              color: Colors.white.withOpacity(0.7),
+                                              child: Icon(
+                                                Icons.broken_image,
+                                                color: colorScheme.onSurface.withOpacity(0.5),
+                                              ),
+                                            );
+                                          },
+                                        ),
                                       ),
-                                    ),
-                                  );
-                                }).toList(),
+                                    );
+                                  }).toList();
+                                }(),
                               ),
                             ],
                           ],
@@ -2391,31 +2410,36 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
-                                children: comment.imageUrls.map((imageUrl) {
-                                  return GestureDetector(
-                                    onTap: () => _showImageDialog(context, imageUrl, comment.imageUrls),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.network(
-                                        imageUrl,
-                                        width: 200,
-                                        height: 200,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) {
-                                          return Container(
-                                            width: 200,
-                                            height: 200,
-                                            color: Colors.white.withOpacity(0.7),
-                                            child: Icon(
-                                              Icons.broken_image,
-                                              color: colorScheme.onSurface.withOpacity(0.5),
-                                            ),
-                                          );
-                                        },
+                                children: () {
+                                  final allImageUrls = comment.imageUrls
+                                      .map(_resolveImageUrl)
+                                      .toList();
+                                  return allImageUrls.map((imageUrl) {
+                                    return GestureDetector(
+                                      onTap: () => _showImageDialog(context, imageUrl, allImageUrls),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.network(
+                                          imageUrl,
+                                          width: 200,
+                                          height: 200,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Container(
+                                              width: 200,
+                                              height: 200,
+                                              color: Colors.white.withOpacity(0.7),
+                                              child: Icon(
+                                                Icons.broken_image,
+                                                color: colorScheme.onSurface.withOpacity(0.5),
+                                              ),
+                                            );
+                                          },
+                                        ),
                                       ),
-                                    ),
-                                  );
-                                }).toList(),
+                                    );
+                                  }).toList();
+                                }(),
                               ),
                             ],
                           ],
@@ -2781,7 +2805,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   /// 이미지 확대 다이얼로그 표시
   void _showImageDialog(BuildContext context, String imageUrl, List<String> allImageUrls) {
     final colorScheme = Theme.of(context).colorScheme;
-    final currentIndex = allImageUrls.indexOf(imageUrl);
+    final resolvedImageUrl = _resolveImageUrl(imageUrl);
+    final resolvedAllImageUrls = allImageUrls.map(_resolveImageUrl).toList();
+    final matchedIndex = resolvedAllImageUrls.indexOf(resolvedImageUrl);
+    final currentIndex = matchedIndex >= 0 ? matchedIndex : 0;
     final screenSize = MediaQuery.of(context).size;
     final maxWidth = screenSize.width * 0.85;
     final maxHeight = screenSize.height * 0.75;
@@ -2810,7 +2837,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       maxScale: 4.0,
                       child: Center(
                         child: Image.network(
-                          imageUrl,
+                          resolvedImageUrl,
                           fit: BoxFit.contain,
                           errorBuilder: (context, error, stackTrace) {
                             return Container(
@@ -2859,7 +2886,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   ),
                 ),
                 // 여러 이미지가 있을 경우 네비게이션 버튼
-                if (allImageUrls.length > 1) ...[
+                if (resolvedAllImageUrls.length > 1) ...[
                   // 이전 이미지
                   if (currentIndex > 0)
                     Positioned(
@@ -2875,7 +2902,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           ),
                           onPressed: () {
                             Navigator.of(context).pop();
-                            _showImageDialog(context, allImageUrls[currentIndex - 1], allImageUrls);
+                            _showImageDialog(
+                              context,
+                              resolvedAllImageUrls[currentIndex - 1],
+                              resolvedAllImageUrls,
+                            );
                           },
                           style: IconButton.styleFrom(
                             backgroundColor: Colors.black.withOpacity(0.6),
@@ -2885,7 +2916,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       ),
                     ),
                   // 다음 이미지
-                  if (currentIndex < allImageUrls.length - 1)
+                  if (currentIndex < resolvedAllImageUrls.length - 1)
                     Positioned(
                       right: 8,
                       top: 0,
@@ -2899,7 +2930,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           ),
                           onPressed: () {
                             Navigator.of(context).pop();
-                            _showImageDialog(context, allImageUrls[currentIndex + 1], allImageUrls);
+                            _showImageDialog(
+                              context,
+                              resolvedAllImageUrls[currentIndex + 1],
+                              resolvedAllImageUrls,
+                            );
                           },
                           style: IconButton.styleFrom(
                             backgroundColor: Colors.black.withOpacity(0.6),
@@ -2921,7 +2956,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          '${currentIndex + 1} / ${allImageUrls.length}',
+                          '${currentIndex + 1} / ${resolvedAllImageUrls.length}',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 13,

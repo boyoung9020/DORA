@@ -787,9 +787,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
               backgroundColor: Colors.transparent,
               insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(
+                constraints: BoxConstraints(
                   maxWidth: 500,
-                  maxHeight: 600,
+                  maxHeight: MediaQuery.of(context).size.height - 48,
                 ),
                 child: GlassContainer(
                   padding: const EdgeInsets.all(24),
@@ -799,11 +799,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     colorScheme.surface.withOpacity(0.6),
                     colorScheme.surface.withOpacity(0.5),
                   ],
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                         Text(
                           '새 태스크 추가',
                       style: TextStyle(
@@ -1035,8 +1034,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                         ),
                       ],
                     ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
               ),
