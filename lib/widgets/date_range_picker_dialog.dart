@@ -230,6 +230,7 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
   }
 
   Widget _buildCalendarGrid(ColorScheme colorScheme) {
+    final today = DateTime.now();
     final firstDayOfMonth = DateTime(_visibleMonth.year, _visibleMonth.month, 1);
     final firstWeekday = firstDayOfMonth.weekday; // Monday=1 ... Sunday=7
     final leadingDays = (firstWeekday + 6) % 7; // shift so Monday starts column
@@ -251,6 +252,7 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
       itemBuilder: (context, index) {
         final date = days[index];
         final isCurrentMonth = date.month == _visibleMonth.month;
+        final isToday = _isSameDay(date, today);
         final isDisabled = !isCurrentMonth ||
             date.isBefore(widget.minDate) ||
             date.isAfter(widget.maxDate);
@@ -319,6 +321,25 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
                     ),
                   ),
                 ),
+                if (isToday && isCurrentMonth)
+                  const Positioned.fill(
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Padding(
+                        padding: EdgeInsets.only(bottom: 7),
+                        child: SizedBox(
+                          width: 5,
+                          height: 5,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Color(0xFFE53935),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
@@ -19,23 +20,31 @@ import 'screens/workspace_select_screen.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart' if (dart.library.html) 'bitsdojo_window_stub.dart' as bitsdojo;
 
 /// ???꾩껜 ?띿뒪??媛?낆꽦: 湲곕낯蹂대떎 ???④퀎??吏꾪븯寃??곸슜
+TextStyle? _ts(TextStyle? base, FontWeight weight) {
+  return base?.copyWith(fontWeight: weight);
+}
+
+/// 앱 텍스트 테마 구성:
+/// - display/headline/title: w700 (제목류 굵게 유지)
+/// - body/label: w400~w500 (입력 텍스트 가독성)
+/// NotoSansKR (google_fonts)를 base로 받아 weight만 오버라이드
 TextTheme _buildAppTextTheme(TextTheme base) {
   return TextTheme(
-    displayLarge: base.displayLarge?.copyWith(fontWeight: FontWeight.w700),
-    displayMedium: base.displayMedium?.copyWith(fontWeight: FontWeight.w700),
-    displaySmall: base.displaySmall?.copyWith(fontWeight: FontWeight.w700),
-    headlineLarge: base.headlineLarge?.copyWith(fontWeight: FontWeight.w700),
-    headlineMedium: base.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
-    headlineSmall: base.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-    titleLarge: base.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-    titleMedium: base.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-    titleSmall: base.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-    bodyLarge: base.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
-    bodyMedium: base.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
-    bodySmall: base.bodySmall?.copyWith(fontWeight: FontWeight.w700),
-    labelLarge: base.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-    labelMedium: base.labelMedium?.copyWith(fontWeight: FontWeight.w700),
-    labelSmall: base.labelSmall?.copyWith(fontWeight: FontWeight.w700),
+    displayLarge:   _ts(base.displayLarge,   FontWeight.w700),
+    displayMedium:  _ts(base.displayMedium,  FontWeight.w700),
+    displaySmall:   _ts(base.displaySmall,   FontWeight.w700),
+    headlineLarge:  _ts(base.headlineLarge,  FontWeight.w700),
+    headlineMedium: _ts(base.headlineMedium, FontWeight.w700),
+    headlineSmall:  _ts(base.headlineSmall,  FontWeight.w700),
+    titleLarge:     _ts(base.titleLarge,     FontWeight.w700),
+    titleMedium:    _ts(base.titleMedium,    FontWeight.w700),
+    titleSmall:     _ts(base.titleSmall,     FontWeight.w700),
+    bodyLarge:      _ts(base.bodyLarge,      FontWeight.w500),
+    bodyMedium:     _ts(base.bodyMedium,     FontWeight.w400),
+    bodySmall:      _ts(base.bodySmall,      FontWeight.w400),
+    labelLarge:     _ts(base.labelLarge,     FontWeight.w500),
+    labelMedium:    _ts(base.labelMedium,    FontWeight.w400),
+    labelSmall:     _ts(base.labelSmall,     FontWeight.w400),
   );
 }
 
@@ -98,8 +107,10 @@ class MyApp extends StatelessWidget {
             themeMode: themeProvider.themeMode,
             // ?? Light Theme: Clean Indigo ??
             theme: ThemeData(
-              fontFamily: 'NanumSquareRound',
-              textTheme: _buildAppTextTheme(Typography.material2021().black),
+              fontFamily: GoogleFonts.notoSansKr().fontFamily,
+              textTheme: _buildAppTextTheme(
+                GoogleFonts.notoSansKrTextTheme(Typography.material2021().black),
+              ),
               scaffoldBackgroundColor: Colors.white,
               colorScheme: ColorScheme.fromSeed(
                 seedColor: const Color(0xFFD86B27),
@@ -121,8 +132,10 @@ class MyApp extends StatelessWidget {
             ),
             // ?? Dark Theme: Deep Indigo ??
             darkTheme: ThemeData(
-              fontFamily: 'NanumSquareRound',
-              textTheme: _buildAppTextTheme(Typography.material2021().white),
+              fontFamily: GoogleFonts.notoSansKr().fontFamily,
+              textTheme: _buildAppTextTheme(
+                GoogleFonts.notoSansKrTextTheme(Typography.material2021().white),
+              ),
               scaffoldBackgroundColor: const Color(0xFF1A120C),
               colorScheme: ColorScheme.fromSeed(
                 seedColor: const Color(0xFFD86B27),

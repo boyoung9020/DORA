@@ -31,8 +31,44 @@
 
   <title>Sync</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- 폰트 preload: 브라우저가 Flutter bootstrap 실행 전에 폰트 다운로드 시작 -->
+  <link rel="preload" as="font"
+        href="assets/font/nanum-square-round/NanumSquareRoundR.ttf"
+        type="font/truetype" crossorigin="anonymous">
+  <link rel="preload" as="font"
+        href="assets/font/nanum-square-round/NanumSquareRoundB.ttf"
+        type="font/truetype" crossorigin="anonymous">
+
   <style>
     body { margin: 0; background-color: #FFF8F2; }
+
+    /* CSS @font-face: Flutter 렌더링 이전에도 브라우저가 한글 폰트 사용 가능 */
+    /* font-display: block → 폰트 로드 완료 전 텍스트 숨김 (깨진 글자 대신 빈 공간) */
+    @font-face {
+      font-family: 'NanumSquareRound';
+      src: url('assets/font/nanum-square-round/NanumSquareRoundL.ttf') format('truetype');
+      font-weight: 300;
+      font-display: block;
+    }
+    @font-face {
+      font-family: 'NanumSquareRound';
+      src: url('assets/font/nanum-square-round/NanumSquareRoundR.ttf') format('truetype');
+      font-weight: 400;
+      font-display: block;
+    }
+    @font-face {
+      font-family: 'NanumSquareRound';
+      src: url('assets/font/nanum-square-round/NanumSquareRoundB.ttf') format('truetype');
+      font-weight: 700;
+      font-display: block;
+    }
+    @font-face {
+      font-family: 'NanumSquareRound';
+      src: url('assets/font/nanum-square-round/NanumSquareRoundEB.ttf') format('truetype');
+      font-weight: 800;
+      font-display: block;
+    }
     #flutter-loading {
       position: fixed;
       top: 0; left: 0;
