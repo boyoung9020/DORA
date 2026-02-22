@@ -153,8 +153,8 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                 borderRadius: 12.0,
                 blur: 20.0,
                 gradientColors: [
-                  colorScheme.primary.withOpacity(0.3),
-                  colorScheme.primary.withOpacity(0.2),
+                  colorScheme.primary.withValues(alpha:0.3),
+                  colorScheme.primary.withValues(alpha:0.2),
                 ],
                 child: IconButton(
                   icon: Icon(Icons.date_range, color: colorScheme.primary),
@@ -187,8 +187,8 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
           borderRadius: 20.0,
           blur: 25.0,
           gradientColors: [
-            colorScheme.surface.withOpacity(0.3),
-            colorScheme.surface.withOpacity(0.2),
+            colorScheme.surface.withValues(alpha:0.3),
+            colorScheme.surface.withValues(alpha:0.2),
           ],
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -196,14 +196,14 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
               Icon(
                 Icons.timeline,
                 size: 64,
-                color: colorScheme.onSurface.withOpacity(0.5),
+                color: colorScheme.onSurface.withValues(alpha:0.5),
               ),
               const SizedBox(height: 16),
               Text(
                 '태스크가 없습니다',
                 style: TextStyle(
                   fontSize: 16,
-                  color: colorScheme.onSurface.withOpacity(0.7),
+                  color: colorScheme.onSurface.withValues(alpha:0.7),
                 ),
               ),
             ],
@@ -229,8 +229,8 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
       borderRadius: 20.0,
       blur: 25.0,
       gradientColors: [
-        colorScheme.surface.withOpacity(0.4),
-        colorScheme.surface.withOpacity(0.3),
+        colorScheme.surface.withValues(alpha:0.4),
+        colorScheme.surface.withValues(alpha:0.3),
       ],
       child: Column(
         children: [
@@ -245,7 +245,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                   border: Border(
                     right: BorderSide(
                       color: colorScheme.brightness == Brightness.dark
-                          ? colorScheme.onSurface.withOpacity(0.2)
+                          ? colorScheme.onSurface.withValues(alpha:0.2)
                           : const Color(0xFFE0E7FF),
                       width: 1,
                     ),
@@ -285,7 +285,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                     border: Border(
                       right: BorderSide(
                         color: colorScheme.brightness == Brightness.dark
-                            ? colorScheme.onSurface.withOpacity(0.2)
+                            ? colorScheme.onSurface.withValues(alpha:0.2)
                             : const Color(0xFFE0E7FF),
                         width: 1,
                       ),
@@ -348,69 +348,74 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
     final statusColor = task.status.color;
     final assignedMembers = task.assignedMemberIds;
 
-    return Container(
-      height: rowHeight,
-      margin: EdgeInsets.zero,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: statusColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: statusColor.withOpacity(0.3),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 8),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        height: rowHeight,
+        margin: EdgeInsets.zero,
+        decoration: BoxDecoration(
+          color: statusColor.withValues(alpha: 0.08),
+          border: Border.all(
+            color: statusColor.withValues(alpha: 0.2),
+            width: 1,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Text(
-                  task.title,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(width: 4, child: ColoredBox(color: statusColor)),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            task.title,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.onSurface,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildPriorityChip(task.priority, colorScheme),
+                            if (assignedMembers.isNotEmpty)
+                              FutureBuilder<List<User>>(
+                                future: _loadAssignedMembers(assignedMembers),
+                                builder: (context, snapshot) {
+                                  final members = snapshot.data;
+                                  if (members == null || members.isEmpty) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return Padding(
+                                    padding: const EdgeInsets.only(left: 8),
+                                    child: _buildAssigneeStack(members, colorScheme),
+                                  );
+                                },
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildPriorityChip(task.priority, colorScheme),
-                  if (assignedMembers.isNotEmpty)
-                    FutureBuilder<List<User>>(
-                      future: _loadAssignedMembers(assignedMembers),
-                      builder: (context, snapshot) {
-                        final members = snapshot.data;
-                        if (members == null || members.isEmpty) {
-                          return const SizedBox.shrink();
-                        }
-                        return Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: _buildAssigneeStack(members, colorScheme),
-                        );
-                      },
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -420,7 +425,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: priorityColor.withOpacity(0.2),
+        color: priorityColor.withValues(alpha:0.2),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
@@ -465,7 +470,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
               left: display.length * 20,
               child: CircleAvatar(
                 radius: 12,
-                backgroundColor: colorScheme.onSurface.withOpacity(0.4),
+                backgroundColor: colorScheme.onSurface.withValues(alpha:0.4),
                 child: Text(
                   '+$overflow',
                   style: const TextStyle(
@@ -509,7 +514,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
         border: Border(
           bottom: BorderSide(
             color: colorScheme.brightness == Brightness.dark
-                ? colorScheme.onSurface.withOpacity(0.2)
+                ? colorScheme.onSurface.withValues(alpha:0.2)
                 : const Color(0xFFE0E7FF),
             width: 1,
           ),
@@ -534,7 +539,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                   decoration: BoxDecoration(
                     border: Border(
                       right: BorderSide(
-                        color: colorScheme.onSurface.withOpacity(0.15),
+                        color: colorScheme.onSurface.withValues(alpha:0.15),
                         width: 1,
                       ),
                     ),
@@ -545,7 +550,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface.withOpacity(0.8),
+                        color: colorScheme.onSurface.withValues(alpha:0.8),
                       ),
                     ),
                   ),
@@ -571,13 +576,13 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                   width: dayWidth,
                   decoration: BoxDecoration(
                     color: isToday 
-                        ? colorScheme.primary.withOpacity(0.1)
+                        ? colorScheme.primary.withValues(alpha:0.1)
                         : isWeekend
-                            ? colorScheme.onSurface.withOpacity(0.03)
+                            ? colorScheme.onSurface.withValues(alpha:0.03)
                             : null,
                     border: Border(
                       right: BorderSide(
-                        color: colorScheme.onSurface.withOpacity(0.15),
+                        color: colorScheme.onSurface.withValues(alpha:0.15),
                         width: 1,
                       ),
                     ),
@@ -590,8 +595,8 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                         style: TextStyle(
                           fontSize: 9,
                           color: isWeekend
-                              ? colorScheme.onSurface.withOpacity(0.5)
-                              : colorScheme.onSurface.withOpacity(0.6),
+                              ? colorScheme.onSurface.withValues(alpha:0.5)
+                              : colorScheme.onSurface.withValues(alpha:0.6),
                           fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
@@ -604,8 +609,8 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                           color: isToday
                               ? colorScheme.primary
                               : isWeekend
-                                  ? colorScheme.onSurface.withOpacity(0.6)
-                                  : colorScheme.onSurface.withOpacity(0.8),
+                                  ? colorScheme.onSurface.withValues(alpha:0.6)
+                                  : colorScheme.onSurface.withValues(alpha:0.8),
                         ),
                       ),
                     ],
@@ -663,7 +668,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
         border: Border(
           bottom: BorderSide(
             color: isDarkMode
-                ? colorScheme.onSurface.withOpacity(0.1)
+                ? colorScheme.onSurface.withValues(alpha:0.1)
                 : const Color(0xFFE0E7FF),
             width: 1,
           ),
@@ -679,8 +684,8 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
               endDate: _endDate,
               dayWidth: dayWidth,
               lineColor: isDarkMode
-                  ? colorScheme.onSurface.withOpacity(0.1)
-                  : const Color(0xFFE0E7FF).withOpacity(0.6),
+                  ? colorScheme.onSurface.withValues(alpha:0.1)
+                  : const Color(0xFFE0E7FF).withValues(alpha:0.6),
             ),
           ),
           // 간트 바
@@ -691,7 +696,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
               width: barWidth,
               height: 32,
               decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.7),
+                color: statusColor.withValues(alpha:0.7),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: statusColor,
@@ -729,8 +734,8 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
             borderRadius: 20.0,
             blur: 25.0,
             gradientColors: [
-              colorScheme.surface.withOpacity(0.6),
-              colorScheme.surface.withOpacity(0.5),
+              colorScheme.surface.withValues(alpha:0.6),
+              colorScheme.surface.withValues(alpha:0.5),
             ],
             child: Column(
               mainAxisSize: MainAxisSize.min,

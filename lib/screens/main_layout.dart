@@ -190,7 +190,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       case 'task_created':
       case 'task_updated':
         // 태스크 목록 새로고침
-        await taskProvider.loadTasks();
+        await taskProvider.loadTasks(
+          projectId: projectProvider.currentProject?.id,
+        );
         
         // 태스크 관련 알림 처리
         final taskId = data['task_id'] as String?;
@@ -221,9 +223,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         break;
         
       case 'comment_created':
-        // 댓글이 추가되었으므로 태스크 목록 새로고침
-        await taskProvider.loadTasks();
-
         final taskId = data['task_id'] as String?;
         if (taskId != null) {
           // 열린 태스크 다이얼로그에 실시간 댓글 갱신 알림
@@ -395,7 +394,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       );
       
       // 태스크 목록도 다시 로드
-      await taskProvider.loadTasks();
+      await taskProvider.loadTasks(
+        projectId: projectProvider.currentProject?.id,
+      );
     }
   }
 
@@ -1145,6 +1146,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 _showCreateProjectDialog(context);
               } else {
                 projectProvider.setCurrentProject(value);
+                final selectedProjectId = projectProvider.currentProject?.id;
+                context.read<TaskProvider>().loadTasks(
+                  projectId: selectedProjectId,
+                );
               }
             },
           ),

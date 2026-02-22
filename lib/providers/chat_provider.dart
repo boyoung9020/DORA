@@ -16,6 +16,7 @@ class ChatProvider extends ChangeNotifier {
   bool _isSending = false;
   String? _errorMessage;
   int _totalUnreadCount = 0;
+  String? _currentWorkspaceId;
 
   List<ChatRoom> get rooms => _rooms;
   String? get currentRoomId => _currentRoomId;
@@ -40,13 +41,17 @@ class ChatProvider extends ChangeNotifier {
   bool hasMoreMessages(String roomId) => _hasMoreMessages[roomId] ?? true;
 
   /// 채팅방 목록 로드
-  Future<void> loadRooms() async {
+  Future<void> loadRooms({String? workspaceId}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      _rooms = await _chatService.getRooms();
+      _currentWorkspaceId = workspaceId;
+      _rooms = await _chatService.getRooms(workspaceId: workspaceId);
+      if (_currentRoomId != null && !_rooms.any((r) => r.id == _currentRoomId)) {
+        _currentRoomId = null;
+      }
       _totalUnreadCount = _rooms.fold(0, (sum, r) => sum + r.unreadCount);
     } catch (e) {
       _errorMessage = '채팅방 목록 로드 실패: $e';
@@ -210,7 +215,7 @@ class ChatProvider extends ChangeNotifier {
   /// 새 채팅방 생성 이벤트 처리
   void handleRoomCreated(Map<String, dynamic> data) {
     // 채팅방 목록 새로고침
-    loadRooms();
+    loadRooms(workspaceId: _currentWorkspaceId);
   }
 
   /// 읽음 처리
@@ -232,10 +237,14 @@ class ChatProvider extends ChangeNotifier {
   }
 
   /// DM 채팅방 생성 또는 기존 반환
-  Future<ChatRoom?> getOrCreateDMRoom(String otherUserId) async {
+  Future<ChatRoom?> getOrCreateDMRoom(
+    String otherUserId, {
+    String? workspaceId,
+  }) async {
     final room = await _chatService.createRoom(
       type: 'dm',
       memberIds: [otherUserId],
+      workspaceId: workspaceId,
     );
     if (room != null) {
       // 로컬 목록에 없으면 추가
@@ -253,12 +262,14 @@ class ChatProvider extends ChangeNotifier {
     required String name,
     required List<String> memberIds,
     String? projectId,
+    String? workspaceId,
   }) async {
     final room = await _chatService.createRoom(
       type: 'group',
       memberIds: memberIds,
       name: name,
       projectId: projectId,
+      workspaceId: workspaceId,
     );
     if (room != null) {
       _rooms.insert(0, room);

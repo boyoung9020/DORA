@@ -29,7 +29,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
     super.initState();
     // 화면 로드 시 태스크 불러오기
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TaskProvider>().loadTasks();
+      final projectId = context.read<ProjectProvider>().currentProject?.id;
+      context.read<TaskProvider>().loadTasks(projectId: projectId);
     });
     _searchController.addListener(() {
       setState(() {

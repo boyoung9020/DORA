@@ -9,6 +9,7 @@ class ChatRoom {
   final ChatRoomType type;
   final String? name;
   final String? projectId;
+  final String? workspaceId;
   final List<String> memberIds;
   final String? lastMessageContent;
   final String? lastMessageSender;
@@ -22,6 +23,7 @@ class ChatRoom {
     required this.type,
     this.name,
     this.projectId,
+    this.workspaceId,
     this.memberIds = const [],
     this.lastMessageContent,
     this.lastMessageSender,
@@ -33,6 +35,7 @@ class ChatRoom {
 
   factory ChatRoom.fromJson(Map<String, dynamic> json) {
     final projectIdKey = json.containsKey('project_id') ? 'project_id' : 'projectId';
+    final workspaceIdKey = json.containsKey('workspace_id') ? 'workspace_id' : 'workspaceId';
     final memberIdsKey = json.containsKey('member_ids') ? 'member_ids' : 'memberIds';
     final lastMsgContentKey = json.containsKey('last_message_content') ? 'last_message_content' : 'lastMessageContent';
     final lastMsgSenderKey = json.containsKey('last_message_sender') ? 'last_message_sender' : 'lastMessageSender';
@@ -46,6 +49,7 @@ class ChatRoom {
       type: json['type'] == 'dm' ? ChatRoomType.dm : ChatRoomType.group,
       name: json['name'],
       projectId: json[projectIdKey],
+      workspaceId: json[workspaceIdKey],
       memberIds: (json[memberIdsKey] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       lastMessageContent: json[lastMsgContentKey],
       lastMessageSender: json[lastMsgSenderKey],
@@ -62,6 +66,7 @@ class ChatRoom {
       'type': type.name,
       'name': name,
       'project_id': projectId,
+      'workspace_id': workspaceId,
       'member_ids': memberIds,
       'last_message_content': lastMessageContent,
       'last_message_sender': lastMessageSender,
@@ -77,6 +82,7 @@ class ChatRoom {
     ChatRoomType? type,
     String? name,
     String? projectId,
+    String? workspaceId,
     List<String>? memberIds,
     String? lastMessageContent,
     String? lastMessageSender,
@@ -90,6 +96,7 @@ class ChatRoom {
       type: type ?? this.type,
       name: name ?? this.name,
       projectId: projectId ?? this.projectId,
+      workspaceId: workspaceId ?? this.workspaceId,
       memberIds: memberIds ?? this.memberIds,
       lastMessageContent: lastMessageContent ?? this.lastMessageContent,
       lastMessageSender: lastMessageSender ?? this.lastMessageSender,

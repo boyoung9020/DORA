@@ -58,13 +58,13 @@ class TaskProvider extends ChangeNotifier {
   }
 
   /// 초기화 및 태스크 로드
-  Future<void> loadTasks() async {
+  Future<void> loadTasks({String? projectId}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      _tasks = await _taskService.getAllTasks();
+      _tasks = await _taskService.getAllTasks(projectId: projectId);
       _errorMessage = null;
     } catch (e) {
       _errorMessage = '태스크를 불러오는 중 오류가 발생했습니다: $e';

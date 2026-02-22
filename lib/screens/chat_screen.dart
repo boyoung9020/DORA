@@ -44,7 +44,8 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChatProvider>().loadRooms();
+      final workspaceId = context.read<WorkspaceProvider>().currentWorkspaceId;
+      context.read<ChatProvider>().loadRooms(workspaceId: workspaceId);
     });
     _messageScrollController.addListener(_onScroll);
   }
@@ -58,6 +59,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _workspaceScopeId = workspaceId;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
+          context.read<ChatProvider>().loadRooms(workspaceId: workspaceId);
           _loadAllUsers(workspaceIdOverride: workspaceId);
         }
       });
@@ -125,7 +127,11 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     final chatProvider = context.read<ChatProvider>();
-    final room = await chatProvider.getOrCreateDMRoom(user.id);
+    final workspaceId = context.read<WorkspaceProvider>().currentWorkspaceId;
+    final room = await chatProvider.getOrCreateDMRoom(
+      user.id,
+      workspaceId: workspaceId,
+    );
     if (room != null) {
       chatProvider.selectRoom(room.id);
       _scrollToBottom();
@@ -509,7 +515,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     child: availableUsers.isEmpty
                         ? Center(
                             child: Text(
-                              '모든 사용자와 이미 대화를 시작했습니다',
+                              '대화를 시작할 유저가 없습니다',
                               style: TextStyle(
                                 color: colorScheme.onSurface.withValues(alpha: 0.5),
                               ),
@@ -1200,7 +1206,12 @@ class _ChatScreenState extends State<ChatScreen> {
                 onGroupCreated: (name, memberIds) async {
                   Navigator.of(dialogContext).pop();
                   final chatProvider = context.read<ChatProvider>();
-                  final room = await chatProvider.createGroupRoom(name: name, memberIds: memberIds);
+                  final workspaceId = context.read<WorkspaceProvider>().currentWorkspaceId;
+                  final room = await chatProvider.createGroupRoom(
+                    name: name,
+                    memberIds: memberIds,
+                    workspaceId: workspaceId,
+                  );
                   if (room != null) chatProvider.selectRoom(room.id);
                 },
               ),

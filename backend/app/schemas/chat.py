@@ -12,6 +12,7 @@ class ChatRoomCreate(BaseModel):
     type: ChatRoomType
     name: Optional[str] = None
     project_id: Optional[str] = None
+    workspace_id: Optional[str] = None
     member_ids: List[str]
 
 
@@ -21,6 +22,7 @@ class ChatRoomResponse(BaseModel):
     type: ChatRoomType
     name: Optional[str] = None
     project_id: Optional[str] = None
+    workspace_id: Optional[str] = None
     member_ids: List[str]
     last_message_content: Optional[str] = None
     last_message_sender: Optional[str] = None
