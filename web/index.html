@@ -34,10 +34,16 @@
 
   <!-- 폰트 preload: 브라우저가 Flutter bootstrap 실행 전에 폰트 다운로드 시작 -->
   <link rel="preload" as="font"
+        href="assets/font/nanum-square-round/NanumSquareRoundL.ttf"
+        type="font/truetype" crossorigin="anonymous">
+  <link rel="preload" as="font"
         href="assets/font/nanum-square-round/NanumSquareRoundR.ttf"
         type="font/truetype" crossorigin="anonymous">
   <link rel="preload" as="font"
         href="assets/font/nanum-square-round/NanumSquareRoundB.ttf"
+        type="font/truetype" crossorigin="anonymous">
+  <link rel="preload" as="font"
+        href="assets/font/nanum-square-round/NanumSquareRoundEB.ttf"
         type="font/truetype" crossorigin="anonymous">
 
   <style>
@@ -110,10 +116,15 @@
     document.addEventListener('contextmenu', function(e) {
       e.preventDefault();
     });
-    // Flutter 첫 프레임 렌더링 후 로딩 오버레이 제거
+    // Flutter 첫 프레임 렌더링 후 폰트 로드 완료 시점에 오버레이 제거
     window.addEventListener('flutter-first-frame', function() {
       var el = document.getElementById('flutter-loading');
-      if (el) el.remove();
+      if (!el) return;
+      document.fonts.ready.then(function() {
+        el.style.transition = 'opacity 0.3s ease';
+        el.style.opacity = '0';
+        setTimeout(function() { el.remove(); }, 300);
+      });
     });
   </script>
   <script src="flutter_bootstrap.js" async></script>

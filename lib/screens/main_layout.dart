@@ -1326,6 +1326,26 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final colorScheme = Theme.of(context).colorScheme;
     final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
     final nameController = TextEditingController();
+    Future<void> submitCreateProject(BuildContext dialogContext) async {
+      if (nameController.text.trim().isEmpty) return;
+      final wsProvider = Provider.of<WorkspaceProvider>(dialogContext, listen: false);
+      final success = await projectProvider.createProject(
+        name: nameController.text.trim(),
+        workspaceId: wsProvider.currentWorkspaceId,
+      );
+      if (dialogContext.mounted) {
+        if (success) {
+          Navigator.of(dialogContext).pop();
+        } else {
+          ScaffoldMessenger.of(dialogContext).showSnackBar(
+            SnackBar(
+              content: Text(projectProvider.errorMessage ?? '프로젝트 생성에 실패했습니다.'),
+              backgroundColor: colorScheme.error,
+            ),
+          );
+        }
+      }
+    }
 
     showDialog(
       context: context,
@@ -1355,6 +1375,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 const SizedBox(height: 16),
                 TextField(
                   controller: nameController,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => submitCreateProject(context),
                   decoration: InputDecoration(
                     labelText: '프로젝트 이름',
                     border: OutlineInputBorder(
@@ -1375,27 +1397,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      onPressed: () async {
-                        if (nameController.text.trim().isNotEmpty) {
-                          final wsProvider = Provider.of<WorkspaceProvider>(context, listen: false);
-                          final success = await projectProvider.createProject(
-                            name: nameController.text.trim(),
-                            workspaceId: wsProvider.currentWorkspaceId,
-                          );
-                          if (context.mounted) {
-                            if (success) {
-                              Navigator.of(context).pop();
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(projectProvider.errorMessage ?? '프로젝트 생성에 실패했습니다.'),
-                                  backgroundColor: colorScheme.error,
-                                ),
-                              );
-                            }
-                          }
-                        }
-                      },
+                      onPressed: () => submitCreateProject(context),
                       child: const Text('생성'),
                     ),
                   ],
@@ -3200,5 +3202,4 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
     if (context.mounted) Navigator.of(context).pop();
   }
 }
-
 

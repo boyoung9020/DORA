@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -565,7 +565,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('???筌왖 ?醫뤾문 餓???살첒揶쎛 獄쏆뮇源??됰뮸??덈뼄: $e'),
+            content: Text('이미지 선택 중 오류가 발생했습니다: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -586,7 +586,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('???筌왖 ?醫뤾문 餓???살첒揶쎛 獄쏆뮇源??됰뮸??덈뼄: $e'),
+            content: Text('이미지 선택 중 오류가 발생했습니다: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -672,7 +672,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         print('[ERROR] imageUrls: ${_selectedCommentImages.length}개');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('?蹂? ?곕떽? 餓???살첒揶쎛 獄쏆뮇源??됰뮸??덈뼄: $e'),
+            content: Text('댓글 작성 중 오류가 발생했습니다: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
             duration: const Duration(seconds: 5),
           ),
@@ -729,7 +729,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('?蹂? ??륁젟 餓???살첒揶쎛 獄쏆뮇源??됰뮸??덈뼄: $e'),
+            content: Text('댓글 수정 중 오류가 발생했습니다: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -749,7 +749,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('癰귣챷????蹂?筌??????????됰뮸??덈뼄'),
+            content: const Text('본인의 댓글만 삭제할 수 있습니다'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -779,7 +779,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('?蹂? ????餓???살첒揶쎛 獄쏆뮇源??됰뮸??덈뼄: $e'),
+            content: Text('댓글 삭제 중 오류가 발생했습니다: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -1021,7 +1021,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                     Row(
                                       children: [
                                         Text(
-                                          '?袁⑥쨮??븍뱜',
+                                          '프로젝트',
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.bold,
@@ -1077,7 +1077,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   Row(
                                     children: [
                                       Text(
-                                        '?怨밴묶',
+                                        '상태',
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
@@ -1380,7 +1380,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           color: colorScheme.primary,
                                         ),
                                         onPressed: () => _showAssignMemberDialog(context, currentTask, taskProvider, currentProject),
-                                        tooltip: '?????醫딅뼣',
+                                        tooltip: '담당자 추가',
                                         padding: EdgeInsets.zero,
                                         constraints: const BoxConstraints(),
                                       ),
@@ -1389,7 +1389,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   const SizedBox(height: 8),
                                   if (currentTask.assignedMemberIds.isEmpty)
                                     Text(
-                                      '?醫딅뼣?????癒?뵠 ??곷뮸??덈뼄',
+                                      '담당자가 지정되지 않았습니다',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: colorScheme.onSurface.withValues(alpha: 0.5),
@@ -1535,7 +1535,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('??뽯뮞??????餓???살첒揶쎛 獄쏆뮇源??됰뮸??덈뼄: $e'),
+            content: Text('태스크 저장 중 오류가 발생했습니다: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -1626,7 +1626,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (projectMembers.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('?醫딅뼣??????덈뮉 ???癒?뵠 ??곷뮸??덈뼄'),
+            content: const Text('담당자로 추가할 수 있는 팀원이 없습니다'),
             backgroundColor: colorScheme.error,
           ),
         );
@@ -1653,7 +1653,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '?????醫딅뼣',
+                      '담당자 선택',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -1748,7 +1748,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('??살첒 獄쏆뮇源? $e'),
+          content: Text('업데이트 오류: $e'),
           backgroundColor: colorScheme.error,
         ),
       );
@@ -2193,7 +2193,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               maxLines: null,
                               minLines: 8,
                               decoration: InputDecoration(
-                                hintText: '?怨멸쉭 ??곸뒠????낆젾??뤾쉭??..',
+                                hintText: '상세 설명을 입력하세요..',
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -2286,7 +2286,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               )
                             else
                               Text(
-                                '?怨멸쉭 ??곸뒠????곷뮸??덈뼄. ?紐꾩춿 甕곌쑵??????쑎 ?곕떽???뤾쉭??',
+                                '상세 설명이 없습니다. 수정 버튼을 클릭하여 추가하세요.',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: colorScheme.onSurface.withValues(alpha: 0.5),
@@ -2449,7 +2449,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               children: [
                                 Icon(Icons.edit, size: 16),
                                 SizedBox(width: 8),
-                                Text('?紐꾩춿'),
+                                Text('수정'),
                               ],
                             ),
                           ),
@@ -2485,7 +2485,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               maxLines: null,
                               minLines: 3,
                               decoration: InputDecoration(
-                                hintText: '?蹂?????륁젟??뤾쉭??..',
+                                hintText: '댓글을 수정하세요..',
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -2618,7 +2618,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   if (dropped.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: const Text('???筌왖 ???뵬筌???뺚댘??????됰뮸??덈뼄. (png, jpg, jpeg, gif, webp)'),
+                        content: const Text('지원하지 않는 이미지 형식입니다. (png, jpg, jpeg, gif, webp)'),
                         backgroundColor: Theme.of(context).colorScheme.error,
                       ),
                     );
@@ -2691,7 +2691,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 keyboardType: TextInputType.multiline,
                                 onChanged: _handleCommentChanged,
                                 decoration: InputDecoration(
-                                  hintText: 'Add a comment... (Enter嚥??袁⑸꽊, Shift+Enter嚥?餓κ쑬而?퐛? ???筌왖????뺤삋域밸챸釉?쳞怨뺢돌 Ctrl+V嚥??븐늿肉?節딅┛)',
+                                  hintText: '댓글을 입력하세요... (Enter로 제출, Shift+Enter로 줄바꿈, 이미지는 드래그 또는 Ctrl+V로 붙여넣기)',
                                   border: InputBorder.none,
                                   hintStyle: TextStyle(
                                     color: colorScheme.onSurface.withValues(alpha: 0.5),
@@ -2815,7 +2815,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       color: colorScheme.primary,
                                     ),
                                     onPressed: _pickCommentImages,
-                                    tooltip: '???筌왖 ?곕떽?',
+                                    tooltip: '이미지 추가',
                                   ),
                                   TextButton(
                                     onPressed: _addComment,
@@ -2920,7 +2920,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   if (dropped.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: const Text('???筌왖 ???뵬筌??븐늿肉?節뚯뱽 ????됰뮸??덈뼄. (png, jpg, jpeg, gif, webp)'),
+                        content: const Text('지원하지 않는 이미지 형식은 붙여넣을 수 없습니다. (png, jpg, jpeg, gif, webp)'),
                         backgroundColor: Theme.of(context).colorScheme.error,
                       ),
                     );
@@ -3029,7 +3029,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
-                                    '???筌왖???븍뜄???????곷뮸??덈뼄',
+                                    '이미지를 불러올 수 없습니다',
                                     style: TextStyle(
                                       color: colorScheme.onSurface.withValues(alpha: 0.7),
                                     ),

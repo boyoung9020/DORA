@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
+from app.models.notification import Notification, NotificationType
 from app.models.project import Project
 from app.models.task import Task, TaskPriority, TaskStatus
 from app.models.user import User
@@ -38,6 +39,17 @@ def _priority_label(priority_value: str) -> str:
     return mapping.get(priority_value, priority_value)
 
 
+def _notification_type_label(ntype: NotificationType) -> str:
+    mapping = {
+        NotificationType.PROJECT_MEMBER_ADDED: "프로젝트 추가",
+        NotificationType.TASK_ASSIGNED: "작업 할당",
+        NotificationType.TASK_OPTION_CHANGED: "작업 변경",
+        NotificationType.TASK_COMMENT_ADDED: "새 댓글",
+        NotificationType.TASK_MENTIONED: "멘션",
+    }
+    return mapping.get(ntype, ntype.value)
+
+
 def _build_prompt(
     username: str,
     project_stats: List[Dict[str, object]],
@@ -45,6 +57,7 @@ def _build_prompt(
     today_due_tasks: List[Task],
     overdue_tasks: List[Task],
     project_name_by_id: Dict[str, str],
+    unread_notifications: List[Notification],
 ) -> str:
     today = datetime.now().astimezone().strftime("%Y-%m-%d")
 
@@ -80,20 +93,25 @@ def _build_prompt(
             f"{max(overdue_days, 0)}일 초과"
         )
 
+    notif_lines = []
+    for notif in unread_notifications[:15]:
+        notif_lines.append(
+            f"- [{_notification_type_label(notif.type)}] {notif.title}: {notif.message}"
+        )
+
     prompt = f"""
 [시스템]
-당신은 프로젝트 매니저 AI입니다. 아래 데이터는 '{username}'님 개인의 업무 현황입니다.
-'{username}'님에게 직접 말하듯 오늘의 업무 브리핑을 해주세요. 절대 "팀원 여러분" 같은 표현은 쓰지 마세요.
+당신은 프로젝트 매니저 AI입니다. 아래 데이터를 분석해 팀원에게 오늘의 업무 브리핑을 해주세요.
 형식: 한 줄 총평 + 주요 사항 불릿(최대 5개). 간결하고 친근한 한국어.
 
 [데이터]
 오늘 날짜: {today}
-사용자: {username}
+담당자: {username}
 
-=== 참여 프로젝트 현황 ===
+=== 프로젝트 현황 ===
 {chr(10).join(project_lines) if project_lines else "- 참여 중인 프로젝트가 없습니다"}
 
-=== 나의 긴급 태스크 (P0/P1) ===
+=== 긴급 태스크 (P0/P1) ===
 {chr(10).join(urgent_lines) if urgent_lines else "- 없음"}
 
 === 오늘 마감 ===
@@ -102,8 +120,10 @@ def _build_prompt(
 === 기한 초과 ===
 {chr(10).join(overdue_lines) if overdue_lines else "- 없음"}
 
+=== 미확인 알림 ===
+{chr(10).join(notif_lines) if notif_lines else "- 없음"}
+
 [출력 요구사항]
-- '{username}'님을 직접 호칭하며 시작 (예: "{username}님, 오늘은...")
 - 총 2~4문장 분량으로 작성
 - 첫 줄은 전체 분위기 요약
 - 이후 핵심 포인트를 불릿으로 제시
@@ -161,8 +181,7 @@ async def get_ai_summary(
             }
         )
 
-    now_local = datetime.now().astimezone()
-    today_local = now_local.date()
+    today_local = datetime.now().astimezone().date()
     assigned_to_me = [task for task in tasks if current_user.id in (task.assigned_member_ids or [])]
 
     urgent_tasks = [
@@ -186,6 +205,17 @@ async def get_ai_summary(
         and task.end_date.astimezone().date() < today_local
     ]
 
+    unread_notifications = (
+        db.query(Notification)
+        .filter(
+            Notification.user_id == current_user.id,
+            Notification.is_read.is_(False),
+        )
+        .order_by(Notification.created_at.desc())
+        .limit(15)
+        .all()
+    )
+
     prompt = _build_prompt(
         username=current_user.username,
         project_stats=stats,
@@ -193,6 +223,7 @@ async def get_ai_summary(
         today_due_tasks=today_due_tasks,
         overdue_tasks=overdue_tasks,
         project_name_by_id=project_name_by_id,
+        unread_notifications=unread_notifications,
     )
 
     try:
