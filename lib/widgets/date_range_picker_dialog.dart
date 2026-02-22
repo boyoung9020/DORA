@@ -14,7 +14,7 @@ Future<Map<String, DateTime?>?> showTaskDateRangePickerDialog({
 }) {
   return showDialog<Map<String, DateTime?>>(
     context: context,
-    barrierColor: Colors.black.withOpacity(0.2),
+    barrierColor: Colors.black.withValues(alpha: 0.2),
     builder: (context) {
       return _DateRangePickerDialog(
         initialStartDate: initialStartDate,
@@ -113,8 +113,8 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
           borderRadius: 20.0,
           blur: 25.0,
           gradientColors: [
-            colorScheme.surface.withOpacity(0.6),
-            colorScheme.surface.withOpacity(0.5),
+            colorScheme.surface.withValues(alpha: 0.6),
+            colorScheme.surface.withValues(alpha: 0.5),
           ],
           child: Column(
             mainAxisSize: MainAxisSize.max,
@@ -220,7 +220,7 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: colorScheme.onSurface.withOpacity(0.7),
+                color: colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
           ),
@@ -268,8 +268,8 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
         final textColor = isSelectedStart || isSelectedEnd
             ? Colors.white
             : isDisabled
-                ? colorScheme.onSurface.withOpacity(0.25)
-                : colorScheme.onSurface.withOpacity(
+                ? colorScheme.onSurface.withValues(alpha: 0.25)
+                : colorScheme.onSurface.withValues(alpha: 
                     isCurrentMonth ? 0.9 : 0.4,
                   );
 
@@ -284,7 +284,7 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
                     child: Container(
                       margin: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
-                        color: colorScheme.primary.withOpacity(
+                        color: colorScheme.primary.withValues(alpha: 
                           isRange ? 0.15 : 0.2,
                         ),
                         borderRadius: BorderRadius.horizontal(
@@ -376,7 +376,7 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
             });
           },
           icon: const Icon(Icons.refresh),
-          color: colorScheme.onSurface.withOpacity(0.8),
+          color: colorScheme.onSurface.withValues(alpha: 0.8),
         ),
       ],
     );
@@ -399,10 +399,10 @@ class _SelectionChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withOpacity(0.6),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: colorScheme.onSurface.withOpacity(0.15),
+          color: colorScheme.onSurface.withValues(alpha: 0.15),
         ),
       ),
       child: Column(
@@ -413,7 +413,7 @@ class _SelectionChip extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: 12,
-              color: colorScheme.onSurface.withOpacity(0.7),
+              color: colorScheme.onSurface.withValues(alpha: 0.7),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -427,7 +427,7 @@ class _SelectionChip extends StatelessWidget {
               fontWeight: FontWeight.bold,
               color: date != null
                   ? colorScheme.onSurface
-                  : colorScheme.onSurface.withOpacity(0.5),
+                  : colorScheme.onSurface.withValues(alpha: 0.5),
             ),
           ),
         ],

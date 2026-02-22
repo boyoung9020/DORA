@@ -86,14 +86,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
       label: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: isSelected ? Colors.white : colorScheme.onSurface.withOpacity(0.6)),
+          Icon(icon, size: 14, color: isSelected ? Colors.white : colorScheme.onSurface.withValues(alpha: 0.6)),
           const SizedBox(width: 6),
-          Text(label, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : colorScheme.onSurface.withOpacity(0.7))),
+          Text(label, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : colorScheme.onSurface.withValues(alpha: 0.7))),
         ],
       ),
       selectedColor: colorScheme.primary,
       backgroundColor: colorScheme.surface,
-      side: BorderSide(color: isSelected ? colorScheme.primary : colorScheme.outline.withOpacity(0.3)),
+      side: BorderSide(color: isSelected ? colorScheme.primary : colorScheme.outline.withValues(alpha: 0.3)),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       showCheckmark: false,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -116,6 +116,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return Icons.settings;
       case app_notification.NotificationType.taskCommentAdded:
         return Icons.comment;
+      case app_notification.NotificationType.taskMentioned:
+        return Icons.alternate_email;
     }
   }
 
@@ -130,6 +132,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return const Color(0xFF8B5CF6); // 바이올렛
       case app_notification.NotificationType.taskCommentAdded:
         return const Color(0xFF10B981); // 에메랄드
+      case app_notification.NotificationType.taskMentioned:
+        return const Color(0xFF2563EB); // 블루
     }
   }
 
@@ -150,7 +154,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         if (mounted) {
           showDialog(
             context: context,
-            barrierColor: Colors.black.withOpacity(0.2),
+            barrierColor: Colors.black.withValues(alpha: 0.2),
             builder: (context) => TaskDetailScreen(task: task),
           );
         }
@@ -194,7 +198,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: colorScheme.primary.withOpacity(0.08),
+                    color: colorScheme.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -211,7 +215,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 Expanded(
                   child: Container(
                     height: 1,
-                    color: colorScheme.outline.withOpacity(0.1),
+                    color: colorScheme.outline.withValues(alpha: 0.1),
                   ),
                 ),
               ],
@@ -332,6 +336,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 _buildFilterChip(app_notification.NotificationType.taskOptionChanged, '옵션 변경', Icons.settings, colorScheme),
                 const SizedBox(width: 8),
                 _buildFilterChip(app_notification.NotificationType.projectMemberAdded, '멤버 추가', Icons.group_add, colorScheme),
+                const SizedBox(width: 8),
+                _buildFilterChip(app_notification.NotificationType.taskMentioned, '멘션', Icons.alternate_email, colorScheme),
               ],
             ),
           ),
@@ -353,13 +359,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
                               width: 80,
                               height: 80,
                               decoration: BoxDecoration(
-                                color: colorScheme.primary.withOpacity(0.08),
+                                color: colorScheme.primary.withValues(alpha: 0.08),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
                                 Icons.notifications_none,
                                 size: 40,
-                                color: colorScheme.primary.withOpacity(0.4),
+                                color: colorScheme.primary.withValues(alpha: 0.4),
                               ),
                             ),
                             const SizedBox(height: 20),
@@ -376,7 +382,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                               '새로운 알림이 도착하면 여기에 표시됩니다',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                               ),
                             ),
                           ],
@@ -403,7 +409,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                 '해당 유형의 알림이 없습니다',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                                 ),
                               ),
                             );
@@ -461,7 +467,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
+                  color: iconColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -494,7 +500,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           _formatRelativeTime(notification.createdAt),
                           style: TextStyle(
                             fontSize: 11,
-                            color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                           ),
                         ),
                       ],
@@ -517,7 +523,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: iconColor.withOpacity(0.08),
+                            color: iconColor.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -534,14 +540,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           Icon(
                             Icons.open_in_new,
                             size: 13,
-                            color: colorScheme.primary.withOpacity(0.5),
+                            color: colorScheme.primary.withValues(alpha: 0.5),
                           ),
                           const SizedBox(width: 4),
                           Text(
                             '클릭하여 이동',
                             style: TextStyle(
                               fontSize: 11,
-                              color: colorScheme.primary.withOpacity(0.5),
+                              color: colorScheme.primary.withValues(alpha: 0.5),
                             ),
                           ),
                         ],
@@ -577,7 +583,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                             child: Icon(
                               Icons.close,
                               size: 16,
-                              color: colorScheme.onSurfaceVariant.withOpacity(0.4),
+                              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                             ),
                           ),
                         ),

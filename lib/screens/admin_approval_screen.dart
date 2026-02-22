@@ -59,7 +59,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('오류 발생: $e'),
-            backgroundColor: Colors.red.withOpacity(0.8),
+            backgroundColor: Colors.red.withValues(alpha: 0.8),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -86,7 +86,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('오류 발생: $e'),
-            backgroundColor: Colors.red.withOpacity(0.8),
+            backgroundColor: Colors.red.withValues(alpha: 0.8),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -101,7 +101,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('사용자가 승인되었습니다.'),
-            backgroundColor: Colors.green.withOpacity(0.8),
+            backgroundColor: Colors.green.withValues(alpha: 0.8),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -113,7 +113,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('승인 실패: $e'),
-            backgroundColor: Colors.red.withOpacity(0.8),
+            backgroundColor: Colors.red.withValues(alpha: 0.8),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -128,7 +128,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${user.username}님에게 PM 권한이 부여되었습니다.'),
-            backgroundColor: Colors.green.withOpacity(0.8),
+            backgroundColor: Colors.green.withValues(alpha: 0.8),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -139,7 +139,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('PM 권한 부여 실패: $e'),
-            backgroundColor: Colors.red.withOpacity(0.8),
+            backgroundColor: Colors.red.withValues(alpha: 0.8),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -157,8 +157,8 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
           borderRadius: 20.0,
           blur: 25.0,
           gradientColors: [
-            dialogColorScheme.surface.withOpacity(0.3),
-            dialogColorScheme.surface.withOpacity(0.2),
+            dialogColorScheme.surface.withValues(alpha: 0.3),
+            dialogColorScheme.surface.withValues(alpha: 0.2),
           ],
           child: AlertDialog(
             backgroundColor: Colors.transparent,
@@ -168,7 +168,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
             ),
             content: Text(
               '${user.username}님의 PM 권한을 제거하시겠습니까?',
-              style: TextStyle(color: dialogColorScheme.onSurface.withOpacity(0.9)),
+              style: TextStyle(color: dialogColorScheme.onSurface.withValues(alpha: 0.9)),
             ),
             actions: [
               TextButton(
@@ -198,7 +198,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('${user.username}님의 PM 권한이 제거되었습니다.'),
-              backgroundColor: Colors.orange.withOpacity(0.8),
+              backgroundColor: Colors.orange.withValues(alpha: 0.8),
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -209,7 +209,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('PM 권한 제거 실패: $e'),
-              backgroundColor: Colors.red.withOpacity(0.8),
+              backgroundColor: Colors.red.withValues(alpha: 0.8),
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -228,8 +228,8 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
           borderRadius: 20.0,
           blur: 25.0,
           gradientColors: [
-            dialogColorScheme.surface.withOpacity(0.3),
-            dialogColorScheme.surface.withOpacity(0.2),
+            dialogColorScheme.surface.withValues(alpha: 0.3),
+            dialogColorScheme.surface.withValues(alpha: 0.2),
           ],
           child: AlertDialog(
             backgroundColor: Colors.transparent,
@@ -239,7 +239,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
             ),
             content: Text(
               '${user.username}님의 회원가입을 거부하시겠습니까?',
-              style: TextStyle(color: dialogColorScheme.onSurface.withOpacity(0.9)),
+              style: TextStyle(color: dialogColorScheme.onSurface.withValues(alpha: 0.9)),
             ),
             actions: [
               TextButton(
@@ -269,7 +269,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('사용자가 거부되었습니다.'),
-              backgroundColor: Colors.orange.withOpacity(0.8),
+              backgroundColor: Colors.orange.withValues(alpha: 0.8),
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -280,7 +280,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('거부 실패: $e'),
-              backgroundColor: Colors.red.withOpacity(0.8),
+              backgroundColor: Colors.red.withValues(alpha: 0.8),
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -306,8 +306,8 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
           borderRadius: 20.0,
           blur: 25.0,
           gradientColors: [
-            colorScheme.surface.withOpacity(0.6),
-            colorScheme.surface.withOpacity(0.5),
+            colorScheme.surface.withValues(alpha: 0.6),
+            colorScheme.surface.withValues(alpha: 0.5),
           ],
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -330,8 +330,8 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                 borderRadius: 12.0,
                 blur: 20.0,
                 gradientColors: [
-                  colorScheme.primary.withOpacity(0.3),
-                  colorScheme.primary.withOpacity(0.2),
+                  colorScheme.primary.withValues(alpha: 0.3),
+                  colorScheme.primary.withValues(alpha: 0.2),
                 ],
                 child: IconButton(
                   icon: Icon(Icons.refresh, color: colorScheme.primary),
@@ -351,8 +351,8 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                 borderRadius: 12.0,
                 blur: 20.0,
                 gradientColors: [
-                  colorScheme.surface.withOpacity(0.3),
-                  colorScheme.surface.withOpacity(0.2),
+                  colorScheme.surface.withValues(alpha: 0.3),
+                  colorScheme.surface.withValues(alpha: 0.2),
                 ],
                 child: IconButton(
                   icon: Icon(Icons.close, color: colorScheme.onSurface),
@@ -371,13 +371,13 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
               borderRadius: 12.0,
               blur: 20.0,
               gradientColors: [
-                colorScheme.surface.withOpacity(0.3),
-                colorScheme.surface.withOpacity(0.2),
+                colorScheme.surface.withValues(alpha: 0.3),
+                colorScheme.surface.withValues(alpha: 0.2),
               ],
               child: TabBar(
                 controller: _tabController,
                 labelColor: colorScheme.primary,
-                unselectedLabelColor: colorScheme.onSurface.withOpacity(0.6),
+                unselectedLabelColor: colorScheme.onSurface.withValues(alpha: 0.6),
                 indicatorColor: colorScheme.primary,
                 tabs: const [
                   Tab(text: '승인 대기'),
@@ -400,8 +400,8 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                               borderRadius: 30.0,
                               blur: 25.0,
                               gradientColors: [
-                                colorScheme.surface.withOpacity(0.3),
-                                colorScheme.surface.withOpacity(0.2),
+                                colorScheme.surface.withValues(alpha: 0.3),
+                                colorScheme.surface.withValues(alpha: 0.2),
                               ],
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -416,7 +416,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                                     '승인 대기 중인 사용자가 없습니다',
                                     style: TextStyle(
                                       fontSize: 16,
-                                      color: colorScheme.onSurface.withOpacity(0.9),
+                                      color: colorScheme.onSurface.withValues(alpha: 0.9),
                                     ),
                                   ),
                                 ],
@@ -438,8 +438,8 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                                     borderRadius: 20.0,
                                     blur: 20.0,
                                     gradientColors: [
-                                      colorScheme.surface.withOpacity(0.25),
-                                      colorScheme.surface.withOpacity(0.18),
+                                      colorScheme.surface.withValues(alpha: 0.25),
+                                      colorScheme.surface.withValues(alpha: 0.18),
                                     ],
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -461,7 +461,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                                               onPressed: () => _approveUser(user),
                                               tooltip: '승인',
                                               style: IconButton.styleFrom(
-                                                backgroundColor: Colors.green.withOpacity(0.2),
+                                                backgroundColor: Colors.green.withValues(alpha: 0.2),
                                               ),
                                             ),
                                             const SizedBox(width: 8),
@@ -470,7 +470,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                                               onPressed: () => _rejectUser(user),
                                               tooltip: '거부',
                                               style: IconButton.styleFrom(
-                                                backgroundColor: Colors.red.withOpacity(0.2),
+                                                backgroundColor: Colors.red.withValues(alpha: 0.2),
                                               ),
                                             ),
                                           ],
@@ -479,7 +479,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                                         Text(
                                           '이메일: ${user.email}',
                                           style: TextStyle(
-                                            color: colorScheme.onSurface.withOpacity(0.9),
+                                            color: colorScheme.onSurface.withValues(alpha: 0.9),
                                             fontSize: 14,
                                           ),
                                         ),
@@ -487,7 +487,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                                         Text(
                                           '가입일: ${_formatDate(user.createdAt)}',
                                           style: TextStyle(
-                                            color: colorScheme.onSurface.withOpacity(0.7),
+                                            color: colorScheme.onSurface.withValues(alpha: 0.7),
                                             fontSize: 12,
                                           ),
                                         ),
@@ -506,8 +506,8 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                               borderRadius: 30.0,
                               blur: 25.0,
                               gradientColors: [
-                                colorScheme.surface.withOpacity(0.3),
-                                colorScheme.surface.withOpacity(0.2),
+                                colorScheme.surface.withValues(alpha: 0.3),
+                                colorScheme.surface.withValues(alpha: 0.2),
                               ],
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -522,7 +522,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                                     '승인된 사용자가 없습니다',
                                     style: TextStyle(
                                       fontSize: 16,
-                                      color: colorScheme.onSurface.withOpacity(0.9),
+                                      color: colorScheme.onSurface.withValues(alpha: 0.9),
                                     ),
                                   ),
                                 ],
@@ -544,8 +544,8 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                                     borderRadius: 20.0,
                                     blur: 20.0,
                                     gradientColors: [
-                                      colorScheme.surface.withOpacity(0.25),
-                                      colorScheme.surface.withOpacity(0.18),
+                                      colorScheme.surface.withValues(alpha: 0.25),
+                                      colorScheme.surface.withValues(alpha: 0.18),
                                     ],
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -576,8 +576,8 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                                                           borderRadius: 8.0,
                                                           blur: 15.0,
                                                           gradientColors: [
-                                                            colorScheme.primary.withOpacity(0.3),
-                                                            colorScheme.primary.withOpacity(0.2),
+                                                            colorScheme.primary.withValues(alpha: 0.3),
+                                                            colorScheme.primary.withValues(alpha: 0.2),
                                                           ],
                                                           child: Text(
                                                             '관리자',
@@ -599,8 +599,8 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                                                           borderRadius: 8.0,
                                                           blur: 15.0,
                                                           gradientColors: [
-                                                            Colors.orange.withOpacity(0.3),
-                                                            Colors.orange.withOpacity(0.2),
+                                                            Colors.orange.withValues(alpha: 0.3),
+                                                            Colors.orange.withValues(alpha: 0.2),
                                                           ],
                                                           child: Text(
                                                             'PM',
@@ -621,7 +621,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                                               IconButton(
                                                 icon: Icon(
                                                   user.isPM ? Icons.star : Icons.star_border,
-                                                  color: user.isPM ? Colors.orange : colorScheme.onSurface.withOpacity(0.5),
+                                                  color: user.isPM ? Colors.orange : colorScheme.onSurface.withValues(alpha: 0.5),
                                                 ),
                                                 onPressed: () {
                                                   if (user.isPM) {
@@ -638,7 +638,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                                         Text(
                                           '이메일: ${user.email}',
                                           style: TextStyle(
-                                            color: colorScheme.onSurface.withOpacity(0.9),
+                                            color: colorScheme.onSurface.withValues(alpha: 0.9),
                                             fontSize: 14,
                                           ),
                                         ),
@@ -646,7 +646,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                                         Text(
                                           '가입일: ${_formatDate(user.createdAt)}',
                                           style: TextStyle(
-                                            color: colorScheme.onSurface.withOpacity(0.7),
+                                            color: colorScheme.onSurface.withValues(alpha: 0.7),
                                             fontSize: 12,
                                           ),
                                         ),

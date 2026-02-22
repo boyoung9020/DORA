@@ -52,12 +52,12 @@ class GlassContainer extends StatelessWidget {
     final borderClr = isDarkMode
         ? (gradientColors != null
             ? gradientColors!.first
-            : Colors.white).withOpacity(0.1)
+            : Colors.white).withValues(alpha: 0.1)
         : const Color(0xFFF3DECA); // Indigo 100 ???몃뵒怨????뚮몢由?
 
     final shadow = isDarkMode
         ? BoxShadow(
-            color: shadowColor ?? Colors.black.withOpacity(0.25),
+            color: shadowColor ?? Colors.black.withValues(alpha: 0.25),
             blurRadius: shadowBlurRadius,
             spreadRadius: shadowSpreadRadius,
             offset: shadowOffset,
@@ -184,7 +184,7 @@ class GlassTextField extends StatelessWidget {
           prefixIcon: prefixIcon != null
               ? IconTheme(
                   data: IconThemeData(
-                    color: isDarkMode ? Colors.white.withOpacity(0.7) : const Color(0xFF64748B),
+                    color: isDarkMode ? Colors.white.withValues(alpha: 0.7) : const Color(0xFF64748B),
                   ),
                   child: prefixIcon!,
                 )
@@ -192,17 +192,17 @@ class GlassTextField extends StatelessWidget {
           suffixIcon: suffixIcon != null
               ? IconTheme(
                   data: IconThemeData(
-                    color: isDarkMode ? Colors.white.withOpacity(0.7) : const Color(0xFF64748B),
+                    color: isDarkMode ? Colors.white.withValues(alpha: 0.7) : const Color(0xFF64748B),
                   ),
                   child: suffixIcon!,
                 )
               : null,
           labelStyle: TextStyle(
-            color: isDarkMode ? Colors.white.withOpacity(0.7) : const Color(0xFF475569).withOpacity(0.8),
+            color: isDarkMode ? Colors.white.withValues(alpha: 0.7) : const Color(0xFF475569).withValues(alpha: 0.8),
             fontWeight: FontWeight.w400,
           ),
           hintStyle: TextStyle(
-            color: isDarkMode ? Colors.white.withOpacity(0.5) : const Color(0xFF94A3B8),
+            color: isDarkMode ? Colors.white.withValues(alpha: 0.5) : const Color(0xFF94A3B8),
           ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
@@ -250,8 +250,8 @@ class _GlassButtonState extends State<GlassButton> {
             : Colors.white;
 
     final hoverColor = widget.gradientColors != null
-        ? (isDarkMode ? const Color(0xFF0B0E14) : widget.gradientColors!.first.withOpacity(
-            (widget.gradientColors!.first.opacity + 0.2).clamp(0.0, 1.0),
+        ? (isDarkMode ? const Color(0xFF0B0E14) : widget.gradientColors!.first.withValues(alpha: 
+            (widget.gradientColors!.first.a + 0.2).clamp(0.0, 1.0),
           ))
         : isDarkMode
             ? const Color(0xFF0B0E14)
@@ -284,11 +284,11 @@ class _GlassButtonState extends State<GlassButton> {
             onTap: widget.isLoading ? null : widget.onPressed,
             borderRadius: BorderRadius.circular(15.0),
             splashColor: widget.gradientColors != null
-              ? Colors.white.withOpacity(0.3)
-              : Colors.black.withOpacity(0.1),
+              ? Colors.white.withValues(alpha: 0.3)
+              : Colors.black.withValues(alpha: 0.1),
             highlightColor: widget.gradientColors != null
-              ? Colors.white.withOpacity(0.2)
-              : Colors.black.withOpacity(0.05),
+              ? Colors.white.withValues(alpha: 0.2)
+              : Colors.black.withValues(alpha: 0.05),
             child: Container(
               width: widget.width ?? double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 16),

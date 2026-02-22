@@ -5,11 +5,13 @@ from app.models.comment import Comment
 from app.models.notification import Notification, NotificationType
 from app.models.chat import ChatRoom, ChatMessage, ChatRoomParticipant, ChatRoomType
 from app.models.workspace import Workspace, WorkspaceMember
+from app.models.sprint import Sprint, SprintStatus
 
 __all__ = [
     "User", "Project", "Task", "TaskStatus", "TaskPriority",
     "Comment", "Notification", "NotificationType",
     "ChatRoom", "ChatMessage", "ChatRoomParticipant", "ChatRoomType",
     "Workspace", "WorkspaceMember",
+    "Sprint", "SprintStatus",
 ]
 

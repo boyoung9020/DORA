@@ -19,6 +19,7 @@ class TaskBase(BaseModel):
     detail_image_urls: List[str] = []  # 상세 내용 이미지 URL 배열
     priority: TaskPriority = TaskPriority.P2
     assigned_member_ids: List[str] = []
+    sprint_id: Optional[str] = None
 
 
 class TaskCreate(TaskBase):
@@ -37,6 +38,7 @@ class TaskUpdate(BaseModel):
     detail_image_urls: Optional[List[str]] = None  # 상세 내용 이미지 URL 배열
     priority: Optional[TaskPriority] = None
     assigned_member_ids: Optional[List[str]] = None
+    sprint_id: Optional[str] = None
 
 
 class TaskReorderRequest(BaseModel):

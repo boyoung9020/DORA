@@ -93,13 +93,13 @@ class CatchUpScreen extends StatelessWidget {
                   Icon(
                     Icons.notifications_none,
                     size: 64,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     '알림이 없습니다',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                         ),
                   ),
                 ],
@@ -162,7 +162,7 @@ class _NotificationCard extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: _getTypeColor(notification.type, colorScheme).withOpacity(0.1),
+                  color: _getTypeColor(notification.type, colorScheme).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -207,7 +207,7 @@ class _NotificationCard extends StatelessWidget {
                       notification.message,
                       style: TextStyle(
                         fontSize: 14,
-                        color: colorScheme.onSurface.withOpacity(0.7),
+                        color: colorScheme.onSurface.withValues(alpha: 0.7),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -225,7 +225,7 @@ class _NotificationCard extends StatelessWidget {
                         Text(
                           '•',
                           style: TextStyle(
-                            color: colorScheme.onSurface.withOpacity(0.3),
+                            color: colorScheme.onSurface.withValues(alpha: 0.3),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -233,7 +233,7 @@ class _NotificationCard extends StatelessWidget {
                           _formatDateTime(notification.createdAt),
                           style: TextStyle(
                             fontSize: 12,
-                            color: colorScheme.onSurface.withOpacity(0.5),
+                            color: colorScheme.onSurface.withValues(alpha: 0.5),
                           ),
                         ),
                       ],
@@ -245,7 +245,7 @@ class _NotificationCard extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.close, size: 18),
                 onPressed: onDelete,
-                color: colorScheme.onSurface.withOpacity(0.5),
+                color: colorScheme.onSurface.withValues(alpha: 0.5),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
@@ -266,6 +266,8 @@ class _NotificationCard extends StatelessWidget {
         return const Color(0xFFC17E4A);
       case models.NotificationType.taskCommentAdded:
         return colorScheme.secondary;
+      case models.NotificationType.taskMentioned:
+        return const Color(0xFF2563EB);
     }
   }
 
@@ -279,6 +281,8 @@ class _NotificationCard extends StatelessWidget {
         return Icons.edit;
       case models.NotificationType.taskCommentAdded:
         return Icons.comment;
+      case models.NotificationType.taskMentioned:
+        return Icons.alternate_email;
     }
   }
 

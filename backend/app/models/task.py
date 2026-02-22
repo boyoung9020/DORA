@@ -1,7 +1,7 @@
 """
 태스크 모델 (SQLAlchemy)
 """
-from sqlalchemy import Column, String, DateTime, Integer, Enum as SQLEnum, ARRAY, JSON
+from sqlalchemy import Column, String, DateTime, Integer, Enum as SQLEnum, ARRAY, JSON, ForeignKey
 from sqlalchemy.sql import func
 from app.database import Base
 import enum
@@ -41,6 +41,7 @@ class Task(Base):
     comment_ids = Column(ARRAY(String), default=[], nullable=False)
     priority = Column(SQLEnum(TaskPriority), nullable=False, default=TaskPriority.P2)
     display_order = Column(Integer, default=0, nullable=False)
+    sprint_id = Column(String, ForeignKey("sprints.id"), nullable=True, index=True)
 
     # 히스토리 데이터는 JSON으로 저장
     status_history = Column(JSON, default=[], nullable=False)

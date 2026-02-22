@@ -121,6 +121,9 @@ class NotificationProvider extends ChangeNotifier {
 
   /// 새 알림 추가 (로컬에서만, 백엔드 동기화는 별도로)
   void addNotification(Notification notification) {
+    if (_notifications.any((n) => n.id == notification.id)) {
+      return;
+    }
     _notifications.insert(0, notification);
     if (!notification.isRead) {
       _unreadCount++;

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -22,28 +22,28 @@ import '../widgets/glass_container.dart';
 import '../widgets/date_range_picker_dialog.dart';
 import '../utils/avatar_color.dart';
 
-/// 遺숈뿬?ｊ린 Intent
+/// ?븐늿肉?節딅┛ Intent
 class _PasteIntent extends Intent {
   const _PasteIntent();
 }
 
-/// 肄붾찘???꾩넚 Intent (Ctrl+Enter)
+/// ?꾨뗀李???袁⑸꽊 Intent (Ctrl+Enter)
 class _SubmitCommentIntent extends Intent {
   const _SubmitCommentIntent();
 }
 
-/// ??꾨씪???꾩씠?????
+/// ???袁⑥뵬???袁⑹뵠??????
 enum TimelineItemType {
   history,
   comment,
   detail,
 }
 
-/// ??꾨씪???꾩씠???곗씠???대옒??
+/// ???袁⑥뵬???袁⑹뵠???怨쀬뵠???????
 class TimelineItem {
   final TimelineItemType type;
   final DateTime date;
-  final dynamic data; // HistoryEvent ?먮뒗 Comment
+  final dynamic data; // HistoryEvent ?癒?뮉 Comment
 
   TimelineItem({
     required this.type,
@@ -52,7 +52,7 @@ class TimelineItem {
   });
 }
 
-/// ?덉뒪?좊━ ?대깽???곗씠???대옒??
+/// ??됰뮞?醫듼봺 ??源???怨쀬뵠???????
 class HistoryEvent {
   final String username;
   final String action;
@@ -67,7 +67,7 @@ class HistoryEvent {
   });
 }
 
-/// ?쒖뒪???곸꽭 ?붾㈃ - GitHub ?댁뒋 ?ㅽ???
+/// ??뽯뮞???怨멸쉭 ?遺얇늺 - GitHub ??곷뭼 ?????
 class TaskDetailScreen extends StatefulWidget {
   final Task task;
 
@@ -98,16 +98,20 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   bool _isCommentDropHover = false;
   List<Comment> _comments = [];
   bool _isLoadingComments = false;
-  List<TimelineItem>? _timelineItems;  // ??꾨씪???꾩씠??罹먯떆
-  String? _editingCommentId;  // ?몄쭛 以묒씤 肄붾찘??ID
-  late TextEditingController _editCommentController;  // ?몄쭛??而⑦듃濡ㅻ윭
-  List<XFile> _selectedCommentImages = [];  // ?볤????좏깮???대?吏 (???곗뒪?ы넲 怨듯넻)
-  List<XFile> _selectedDetailImages = [];    // ?곸꽭 ?댁슜???좏깮???대?吏
-  List<String> _uploadedCommentImageUrls = [];  // ?낅줈?쒕맂 ?볤? ?대?吏 URL
-  List<String> _uploadedDetailImageUrls = [];   // ?낅줈?쒕맂 ?곸꽭 ?댁슜 ?대?吏 URL
-  List<User>? _assignedMembers;  // ?좊떦?????罹먯떆
-  bool _isInitialLoad = true;  // 珥덇린 濡쒕뱶 ?щ?
-  List<String>? _lastAssignedMemberIds;  // ?댁쟾 ?좊떦?????ID (?숆린???뺤씤??
+  List<TimelineItem>? _timelineItems;  // ???袁⑥뵬???袁⑹뵠??筌?Ŋ??
+  String? _editingCommentId;  // ?紐꾩춿 餓λ쵐???꾨뗀李??ID
+  late TextEditingController _editCommentController;  // ?紐꾩춿???뚢뫂?껅에?살쑎
+  List<XFile> _selectedCommentImages = [];  // ?蹂????醫뤾문?????筌왖 (???怨쀫뮞?????⑤벏??
+  List<XFile> _selectedDetailImages = [];    // ?怨멸쉭 ??곸뒠???醫뤾문?????筌왖
+  List<String> _uploadedCommentImageUrls = [];  // ??낆쨮??뺣쭆 ?蹂? ???筌왖 URL
+  List<String> _uploadedDetailImageUrls = [];   // ??낆쨮??뺣쭆 ?怨멸쉭 ??곸뒠 ???筌왖 URL
+  List<User>? _assignedMembers;  // ?醫딅뼣??????筌?Ŋ??
+  bool _isInitialLoad = true;  // ?λ뜃由?嚥≪뮆諭????
+  List<String>? _lastAssignedMemberIds;  // ??곸읈 ?醫딅뼣??????ID (??녿┛???類ㅼ뵥??
+  List<User> _mentionCandidates = [];
+  List<User> _filteredMentionUsers = [];
+  bool _showMentionSuggestions = false;
+  int _mentionStartIndex = -1;
 
   @override
   void initState() {
@@ -122,10 +126,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _startDate = widget.task.startDate;
     _endDate = widget.task.endDate;
 
-    // 珥덇린 濡쒕뱶 ???ㅽ겕濡ㅼ씠 留??꾨옒濡?媛吏 ?딅룄濡?由ъ뒪??異붽?
+    // ?λ뜃由?嚥≪뮆諭?????쎄쾿嚥▲끉??筌??袁⑥삋嚥?揶쎛筌왖 ??낅즲嚥??귐딅뮞???곕떽?
     _timelineScrollController.addListener(() {
       if (_isInitialLoad && _timelineScrollController.hasClients) {
-        // 珥덇린 濡쒕뱶 以묒뿉 ?ㅽ겕濡ㅼ씠 留??꾨옒濡?媛?ㅺ퀬 ?섎㈃ 留??꾨줈 ?섎룎由?
+        // ?λ뜃由?嚥≪뮆諭?餓λ쵐肉???쎄쾿嚥▲끉??筌??袁⑥삋嚥?揶쎛??블???롢늺 筌??袁⑥쨮 ??롫즼??
         if (_timelineScrollController.offset > 10) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (_isInitialLoad && _timelineScrollController.hasClients) {
@@ -136,17 +140,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       }
     });
 
-    // ?ㅼ떆媛??볤? 媛깆떊 由ъ뒪???깅줉
+    // ??쇰뻻揶??蹂? 揶쏄퉮???귐딅뮞???源낆쨯
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final taskProvider = context.read<TaskProvider>();
       taskProvider.addCommentListener(widget.task.id, _onCommentCreated);
     });
 
-    // 珥덇린 ?곗씠??濡쒕뱶 (??踰덉뿉 泥섎━?섏뿬 setState 理쒖냼??
+    // ?λ뜃由??怨쀬뵠??嚥≪뮆諭?(??甕곕뜆肉?筌ｌ꼶???뤿연 setState 筌ㅼ뮇???
     _loadInitialData();
   }
 
-  /// WebSocket?쇰줈 ?볤? ?앹꽦 ?대깽???섏떊 ???몄텧
+  /// WebSocket??곗쨮 ?蹂? ??밴쉐 ??源????뤿뻿 ???紐꾪뀱
   void _onCommentCreated() {
     if (mounted) {
       _loadComments();
@@ -155,7 +159,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   @override
   void dispose() {
-    // ?ㅼ떆媛??볤? 媛깆떊 由ъ뒪???댁젣
+    // ??쇰뻻揶??蹂? 揶쏄퉮???귐딅뮞????곸젫
     final taskProvider = context.read<TaskProvider>();
     taskProvider.removeCommentListener(widget.task.id, _onCommentCreated);
 
@@ -169,8 +173,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     super.dispose();
   }
 
-  /// 珥덇린 ?곗씠??濡쒕뱶 (?깅뒫 理쒖쟻?? ??踰덉뿉 泥섎━)
-  // 梨꾪똿 ?붾㈃怨??숈씪?섍쾶 ?곷?寃쎈줈 ?대?吏瑜??덈?寃쎈줈濡?蹂??  String _resolveImageUrl(String url) {
+  /// ?λ뜃由??怨쀬뵠??嚥≪뮆諭?(?源낅뮟 筌ㅼ뮇??? ??甕곕뜆肉?筌ｌ꼶??
+  /// Resolve image URL for local/relative paths
+  String _resolveImageUrl(String url) {
     final trimmed = url.trim();
     if (trimmed.isEmpty) return trimmed;
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
@@ -188,7 +193,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     });
     
     try {
-      // ?볤?怨??좊떦????먯쓣 ?숈떆??濡쒕뱶
+      // ?蹂????醫딅뼣?????癒?뱽 ??덈뻻??嚥≪뮆諭?
       final results = await Future.wait([
         _commentService.getCommentsByTaskId(widget.task.id),
         _loadAssignedMembersData(),
@@ -197,17 +202,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       final comments = results[0] as List<Comment>;
       final members = results[1] as List<User>?;
       
-      // ??踰덈쭔 setState ?몄텧
+      // ??甕곕뜄彛?setState ?紐꾪뀱
       setState(() {
         _comments = comments;
         _assignedMembers = members;
         _isLoadingComments = false;
       });
       
-      // ??꾨씪???꾩씠???낅뜲?댄듃 (setState??_loadTimelineItems ?대??먯꽌 ?몄텧)
+      // ???袁⑥뵬???袁⑹뵠????낅쑓??꾨뱜 (setState??_loadTimelineItems ????癒?퐣 ?紐꾪뀱)
       await _loadTimelineItems();
+      await _loadMentionCandidates();
       
-      // ?좊떦?????紐⑸줉??鍮꾩뼱?덉?留??쒖뒪?ъ뿉 ?좊떦????먯씠 ?덈떎硫??ㅼ떆 濡쒕뱶
+      // ?醫딅뼣??????筌뤴뫖以????쑴堉???筌???뽯뮞??肉??醫딅뼣?????癒?뵠 ??덈뼄筌???쇰뻻 嚥≪뮆諭?
       if ((members == null || members.isEmpty) && widget.task.assignedMemberIds.isNotEmpty) {
         await _loadAssignedMembers();
       }
@@ -218,7 +224,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// ?볤? 濡쒕뱶
+  /// ?蹂? 嚥≪뮆諭?
   Future<void> _loadComments({bool updateTimeline = true}) async {
     setState(() {
       _isLoadingComments = true;
@@ -229,7 +235,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         _comments = comments;
         _isLoadingComments = false;
       });
-      // 肄붾찘??濡쒕뱶 ????꾨씪???꾩씠???낅뜲?댄듃 (?듭뀡)
+      // ?꾨뗀李??嚥≪뮆諭??????袁⑥뵬???袁⑹뵠????낅쑓??꾨뱜 (????
       if (updateTimeline) {
         await _loadTimelineItems();
       }
@@ -240,16 +246,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
   
-  /// ?좊떦??????곗씠??濡쒕뱶 (諛섑솚媛??덉쓬)
+  /// ?醫딅뼣???????怨쀬뵠??嚥≪뮆諭?(獄쏆꼹?싧첎???됱벉)
   Future<List<User>?> _loadAssignedMembersData() async {
     final taskProvider = context.read<TaskProvider>();
-    // 理쒖떊 ?쒖뒪???뺣낫 媛?몄삤湲?(taskProvider?먯꽌 癒쇱? 李얘퀬, ?놁쑝硫?widget.task ?ъ슜)
+    // 筌ㅼ뮇????뽯뮞???類ｋ궖 揶쎛?紐꾩궎疫?(taskProvider?癒?퐣 ?믪눘? 筌≪뼐?? ??곸몵筌?widget.task ????
     final currentTask = taskProvider.tasks.firstWhere(
       (t) => t.id == widget.task.id,
       orElse: () => widget.task,
     );
     
-    // ?좊떦????먯씠 ?놁쑝硫?鍮?由ъ뒪??諛섑솚
+    // ?醫딅뼣?????癒?뵠 ??곸몵筌????귐딅뮞??獄쏆꼹??
     if (currentTask.assignedMemberIds.isEmpty) {
       return [];
     }
@@ -259,19 +265,145 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       final allUsers = await authService.getAllUsers();
       final members = allUsers.where((user) => currentTask.assignedMemberIds.contains(user.id)).toList();
       
-      // ?좊떦?????ID媛 ?덉?留??ъ슜?먮? 李얠? 紐삵븳 寃쎌슦??鍮?由ъ뒪??諛섑솚?섏? ?딄퀬 濡쒓렇 異쒕젰
+      // ?醫딅뼣??????ID揶쎛 ???筌?????癒? 筌≪뼚? 筌륁궢釉?野껋럩??????귐딅뮞??獄쏆꼹???? ??꾪?嚥≪뮄???곗뮆??
       if (members.isEmpty && currentTask.assignedMemberIds.isNotEmpty) {
-        print('[TaskDetailScreen] ?좊떦?????ID: ${currentTask.assignedMemberIds}, 李얠? ?ъ슜?? ${members.length}紐?);
+        print('[TaskDetailScreen] Assigned member IDs: ${currentTask.assignedMemberIds}, found users: ${members.length}');
       }
       
       return members;
     } catch (e) {
-      print('[TaskDetailScreen] ?좊떦?????濡쒕뱶 ?ㅽ뙣: $e');
+      print('[TaskDetailScreen] ?醫딅뼣??????嚥≪뮆諭???쎈솭: $e');
       return [];
     }
   }
 
-  /// ??꾨씪???꾩씠??濡쒕뱶 (?ㅽ겕濡??꾩튂 ?좎?)
+  Future<void> _loadMentionCandidates() async {
+    try {
+      final project = context.read<ProjectProvider>().currentProject;
+      if (project == null) {
+        if (mounted) {
+          setState(() {
+            _mentionCandidates = [];
+            _filteredMentionUsers = [];
+            _showMentionSuggestions = false;
+            _mentionStartIndex = -1;
+          });
+        }
+        return;
+      }
+
+      final authService = AuthService();
+      final allUsers = await authService.getAllUsers();
+      final currentUserId = context.read<AuthProvider>().currentUser?.id;
+      final candidates = allUsers
+          .where((u) => project.teamMemberIds.contains(u.id))
+          .where((u) => u.id != currentUserId)
+          .toList();
+
+      if (!mounted) return;
+      setState(() {
+        _mentionCandidates = candidates;
+      });
+    } catch (_) {
+      // noop
+    }
+  }
+
+  void _handleCommentChanged(String text) {
+    final cursor = _commentController.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) {
+      if (_showMentionSuggestions) {
+        setState(() {
+          _showMentionSuggestions = false;
+          _filteredMentionUsers = [];
+          _mentionStartIndex = -1;
+        });
+      }
+      return;
+    }
+
+    final prefix = text.substring(0, cursor);
+    final match = RegExp(r'@([A-Za-z0-9_]*)$').firstMatch(prefix);
+    if (match == null) {
+      if (_showMentionSuggestions) {
+        setState(() {
+          _showMentionSuggestions = false;
+          _filteredMentionUsers = [];
+          _mentionStartIndex = -1;
+        });
+      }
+      return;
+    }
+
+    final query = (match.group(1) ?? '').toLowerCase();
+    final filtered = _mentionCandidates
+        .where((u) => u.username.toLowerCase().contains(query))
+        .take(6)
+        .toList();
+
+    setState(() {
+      _mentionStartIndex = match.start;
+      _filteredMentionUsers = filtered;
+      _showMentionSuggestions = filtered.isNotEmpty;
+    });
+  }
+
+  void _insertMention(User user) {
+    if (_mentionStartIndex < 0) return;
+    final text = _commentController.text;
+    final cursor = _commentController.selection.baseOffset;
+    if (cursor < _mentionStartIndex || cursor > text.length) return;
+
+    final mention = '@${user.username} ';
+    final updated = text.replaceRange(_mentionStartIndex, cursor, mention);
+    final offset = _mentionStartIndex + mention.length;
+
+    _commentController.value = TextEditingValue(
+      text: updated,
+      selection: TextSelection.collapsed(offset: offset),
+    );
+
+    setState(() {
+      _showMentionSuggestions = false;
+      _filteredMentionUsers = [];
+      _mentionStartIndex = -1;
+    });
+
+    _commentFocusNode.requestFocus();
+  }
+
+  Widget _buildMentionRichText(String content, ColorScheme colorScheme) {
+    final baseStyle = TextStyle(
+      fontSize: 14,
+      color: colorScheme.onSurface.withValues(alpha: 0.85),
+      height: 1.6,
+    );
+    final mentionStyle = TextStyle(
+      fontSize: 14,
+      color: colorScheme.primary,
+      fontWeight: FontWeight.bold,
+      height: 1.6,
+    );
+
+    final regex = RegExp(r'@([A-Za-z0-9_]+)');
+    final spans = <TextSpan>[];
+    int start = 0;
+
+    for (final m in regex.allMatches(content)) {
+      if (m.start > start) {
+        spans.add(TextSpan(text: content.substring(start, m.start), style: baseStyle));
+      }
+      spans.add(TextSpan(text: m.group(0), style: mentionStyle));
+      start = m.end;
+    }
+    if (start < content.length) {
+      spans.add(TextSpan(text: content.substring(start), style: baseStyle));
+    }
+
+    return SelectableText.rich(TextSpan(children: spans));
+  }
+
+  /// ???袁⑥뵬???袁⑹뵠??嚥≪뮆諭?(??쎄쾿嚥??袁⑺뒄 ?醫?)
   Future<void> _loadTimelineItems({bool scrollToBottom = false}) async {
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
     final currentTask = taskProvider.tasks.firstWhere(
@@ -279,7 +411,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       orElse: () => widget.task,
     );
     
-    // 珥덇린 濡쒕뱶 ?쒖뿉???ㅽ겕濡ㅼ쓣 留??꾨줈 ?좎??댁빞 ?섎?濡???ν븯吏 ?딆쓬
+    // ?λ뜃由?嚥≪뮆諭???뽯퓠????쎄쾿嚥▲끉??筌??袁⑥쨮 ?醫???곷튊 ???嚥????館釉?쭪? ??놁벉
     double? savedScrollPosition;
     final bool hadClients = _timelineScrollController.hasClients;
     if (!scrollToBottom && hadClients && !_isInitialLoad) {
@@ -289,7 +421,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       final timelineItems = _buildTimelineItems(currentTask);
     
     if (mounted) {
-      // setState瑜??몄텧?섍린 ?꾩뿉 ?ㅽ겕濡??꾩튂瑜?誘몃━ ???
+      // setState???紐꾪뀱??띾┛ ?袁⑸퓠 ??쎄쾿嚥??袁⑺뒄??沃섎챶??????
       final maxScrollBefore = hadClients 
           ? _timelineScrollController.position.maxScrollExtent 
           : 0.0;
@@ -298,16 +430,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         _timelineItems = timelineItems;
       });
       
-      // setState ???ㅽ겕濡??꾩튂 蹂듭썝 ?먮뒗 留??꾨옒濡??대룞
+      // setState ????쎄쾿嚥??袁⑺뒄 癰귣벊???癒?뮉 筌??袁⑥삋嚥???猷?
       if (scrollToBottom) {
-        // 肄붾찘??異붽? ??留??꾨옒濡??대룞 - ?щ윭 踰??쒕룄?섏뿬 ?뺤떎?섍쾶
+        // ?꾨뗀李???곕떽? ??筌??袁⑥삋嚥???猷?- ????甕???뺣즲??뤿연 ?類ㅻ뼄??띿쓺
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!_isInitialLoad) {
             _scrollToBottom();
           }
         });
       } else if (savedScrollPosition != null && !_isInitialLoad) {
-        // ??λ맂 ?꾩튂濡?蹂듭썝 (珥덇린 濡쒕뱶媛 ?꾨땺 ?뚮쭔)
+        // ???貫留??袁⑺뒄嚥?癰귣벊??(?λ뜃由?嚥≪뮆諭뜹첎? ?袁⑤빜 ???춸)
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
           final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
@@ -319,14 +451,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           );
         });
       } else if (_isInitialLoad) {
-        // 珥덇린 濡쒕뱶 ???ㅽ겕濡ㅼ쓣 留??꾨줈 ?좎? (?묒뾽 移대뱶 吏꾩엯 ??
-        // ?щ윭 踰??쒕룄?섏뿬 ?뺤떎?섍쾶 留??꾨줈 ?좎?
+        // ?λ뜃由?嚥≪뮆諭?????쎄쾿嚥▲끉??筌??袁⑥쨮 ?醫? (?臾믩씜 燁삳?諭?筌욊쑴????
+        // ????甕???뺣즲??뤿연 ?類ㅻ뼄??띿쓺 筌??袁⑥쨮 ?醫?
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || !_timelineScrollController.hasClients) return;
-          // 媛뺤젣濡?留??꾨줈 ?대룞
+          // 揶쏅벡?ｆ에?筌??袁⑥쨮 ??猷?
           _timelineScrollController.jumpTo(0.0);
         });
-        // 異붽? ?쒕룄: ?덉씠?꾩썐 ?꾨즺 ???ㅼ떆 ?뺤씤
+        // ?곕떽? ??뺣즲: ??됱뵠?袁⑹뜍 ?袁⑥┷ ????쇰뻻 ?類ㅼ뵥
         Future.delayed(const Duration(milliseconds: 50), () {
           if (!mounted || !_timelineScrollController.hasClients || !_isInitialLoad) return;
           _timelineScrollController.jumpTo(0.0);
@@ -348,23 +480,23 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           if (_timelineScrollController.offset > 0) {
             _timelineScrollController.jumpTo(0.0);
           }
-          // 珥덇린 濡쒕뱶 ?꾨즺 ?쒖떆 (紐⑤뱺 ?ㅽ겕濡??쒕룄媛 ?앸궃 ??
+          // ?λ뜃由?嚥≪뮆諭??袁⑥┷ ??뽯뻻 (筌뤴뫀諭???쎄쾿嚥???뺣즲揶쎛 ??멸텆 ??
           _isInitialLoad = false;
         });
       }
-      // 珥덇린 濡쒕뱶媛 ?꾨땲怨???λ맂 ?꾩튂???녿뒗 寃쎌슦 ?ㅽ겕濡??꾩튂瑜?蹂寃쏀븯吏 ?딆쓬
+      // ?λ뜃由?嚥≪뮆諭뜹첎? ?袁⑤빍?????貫留??袁⑺뒄????용뮉 野껋럩????쎄쾿嚥??袁⑺뒄??癰궰野껋?釉?쭪? ??놁벉
     }
   }
 
-  /// 留??꾨옒濡??ㅽ겕濡?(?щ윭 踰??쒕룄?섏뿬 ?뺤떎?섍쾶)
+  /// 筌??袁⑥삋嚥???쎄쾿嚥?(????甕???뺣즲??뤿연 ?類ㅻ뼄??띿쓺)
   void _scrollToBottom() {
     if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
     
-    // 利됱떆 ?쒕룄
+    // 筌앸맩????뺣즲
     final maxScroll = _timelineScrollController.position.maxScrollExtent;
     _timelineScrollController.jumpTo(maxScroll);
     
-    // ?쎄컙??吏?????ㅼ떆 ?쒕룄 (?덉씠?꾩썐???꾩쟾???꾨즺????
+    // ??꾩퍢??筌왖??????쇰뻻 ??뺣즲 (??됱뵠?袁⑹뜍???袁⑹읈???袁⑥┷????
     Future.delayed(const Duration(milliseconds: 100), () {
       if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
       final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
@@ -375,7 +507,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       );
     });
     
-    // 異붽? 吏??????踰????쒕룄 (?대?吏 濡쒕뵫 ?깆쑝濡??믪씠媛 蹂寃쎈맆 ???덉쓬)
+    // ?곕떽? 筌왖??????甕?????뺣즲 (???筌왖 嚥≪뮆逾??源놁몵嚥??誘れ뵠揶쎛 癰궰野껋럥留?????됱벉)
     Future.delayed(const Duration(milliseconds: 300), () {
       if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
       final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
@@ -383,11 +515,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     });
   }
 
-  /// 遺?쒕읇寃?留??꾨옒濡??ㅽ겕濡?(移댁뭅?ㅽ넚 ?ㅽ???
+  /// ?봔??뺤쓦野?筌??袁⑥삋嚥???쎄쾿嚥?(燁삳똻萸??쎈꽊 ?????
   void _scrollToBottomSmooth() {
     if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
     
-    // 利됱떆 ?쒕룄 (?덉씠?꾩썐???대? ?꾨즺??寃쎌슦)
+    // 筌앸맩????뺣즲 (??됱뵠?袁⑹뜍????? ?袁⑥┷??野껋럩??
     final maxScroll = _timelineScrollController.position.maxScrollExtent;
     if (maxScroll > 0) {
       _timelineScrollController.animateTo(
@@ -397,7 +529,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       );
     }
     
-    // ?덉씠?꾩썐 ?꾨즺 ???ㅼ떆 ?쒕룄
+    // ??됱뵠?袁⑹뜍 ?袁⑥┷ ????쇰뻻 ??뺣즲
     Future.delayed(const Duration(milliseconds: 100), () {
       if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
       final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
@@ -410,7 +542,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       }
     });
     
-    // ?대?吏 濡쒕뵫 ?깆쑝濡??믪씠媛 蹂寃쎈맆 ???덉쑝誘濡???踰????쒕룄
+    // ???筌왖 嚥≪뮆逾??源놁몵嚥??誘れ뵠揶쎛 癰궰野껋럥留?????됱몵沃샕嚥???甕?????뺣즲
     Future.delayed(const Duration(milliseconds: 400), () {
       if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
       final maxScrollFinal = _timelineScrollController.position.maxScrollExtent;
@@ -420,7 +552,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     });
   }
 
-  /// ?대?吏 ?좏깮 (?볤???
+  /// ???筌왖 ?醫뤾문 (?蹂???
   Future<void> _pickCommentImages() async {
     try {
       final List<XFile> images = await _imagePicker.pickMultiImage();
@@ -433,7 +565,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('?대?吏 ?좏깮 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎: $e'),
+            content: Text('???筌왖 ?醫뤾문 餓???살첒揶쎛 獄쏆뮇源??됰뮸??덈뼄: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -441,7 +573,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// ?대?吏 ?좏깮 (?곸꽭 ?댁슜??
+  /// ???筌왖 ?醫뤾문 (?怨멸쉭 ??곸뒠??
   Future<void> _pickDetailImages() async {
     try {
       final List<XFile> images = await _imagePicker.pickMultiImage();
@@ -454,7 +586,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('?대?吏 ?좏깮 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎: $e'),
+            content: Text('???筌왖 ?醫뤾문 餓???살첒揶쎛 獄쏆뮇源??됰뮸??덈뼄: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -462,7 +594,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// ?볤? 異붽?
+  /// ?蹂? ?곕떽?
   Future<void> _addComment() async {
     if (_commentController.text.trim().isEmpty && _selectedCommentImages.isEmpty) return;
 
@@ -473,7 +605,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
     
     try {
-      // ?대?吏 ?낅줈??
+      // ???筌왖 ??낆쨮??
       List<String> imageUrls = [];
       if (_selectedCommentImages.isNotEmpty) {
         imageUrls = await _uploadService.uploadImagesFromXFiles(_selectedCommentImages);
@@ -487,18 +619,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         imageUrls: imageUrls,
       );
 
-      // Task???볤? ID 異붽?
+      // Task???蹂? ID ?곕떽?
       final currentTask = taskProvider.tasks.firstWhere(
         (t) => t.id == widget.task.id,
         orElse: () => widget.task,
       );
       
-      // commentIds媛 null?닿굅???섎せ????낆씤 寃쎌슦瑜??鍮?
+      // commentIds揶쎛 null??욧탢????롢걵??????놁뵥 野껋럩??몴?????
       List<String> updatedCommentIds;
       try {
         updatedCommentIds = List<String>.from(currentTask.commentIds);
       } catch (e) {
-        // commentIds媛 null?닿굅???섎せ????낆씤 寃쎌슦 鍮?由ъ뒪?몃줈 ?쒖옉
+        // commentIds揶쎛 null??욧탢????롢걵??????놁뵥 野껋럩?????귐딅뮞?紐껋쨮 ??뽰삂
         updatedCommentIds = [];
       }
       
@@ -512,32 +644,35 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ),
       );
 
-      // ?낅젰 ?꾨뱶 珥덇린??
+      // ??낆젾 ?袁⑤굡 ?λ뜃由??
       _commentController.clear();
       _selectedCommentImages.clear();
       _uploadedCommentImageUrls.clear();
+      _showMentionSuggestions = false;
+      _filteredMentionUsers = [];
+      _mentionStartIndex = -1;
       
-      // ?숆????낅뜲?댄듃: 利됱떆 濡쒖뺄 ?곹깭???볤? 異붽? (移댁뭅?ㅽ넚泥섎읆 遺?쒕읇寃?
+      // ???????낅쑓??꾨뱜: 筌앸맩??嚥≪뮇類??怨밴묶???蹂? ?곕떽? (燁삳똻萸??쎈꽊筌ｌ꼶???봔??뺤쓦野?
       setState(() {
         _comments.add(comment);
       });
       
-      // ??꾨씪?몄뿉 ???볤?留?遺?쒕읇寃?異붽?
+      // ???袁⑥뵬?紐꾨퓠 ???蹂?筌??봔??뺤쓦野??곕떽?
       await _addCommentToTimeline(comment);
       
-      // 諛깃렇?쇱슫?쒖뿉???쒕쾭 ?숆린??(?ъ슜??寃쏀뿕???곹뼢 ?놁쓬)
+      // 獄쏄퉫???깆뒲??뽯퓠????뺤쒔 ??녿┛??(?????野껋?肉???怨밸샨 ??곸벉)
       _loadComments(updateTimeline: false).catchError((e) {
-        // ?숆린???ㅽ뙣?대룄 ?대? 濡쒖뺄??異붽??섏뼱 ?덉쑝誘濡?臾댁떆
+        // ??녿┛????쎈솭??猷???? 嚥≪뮇類???곕떽???뤿선 ??됱몵沃샕嚥??얜똻??
       });
     } catch (e) {
       if (mounted) {
-        print('[ERROR] ?볤? 異붽? ?ㅽ뙣: $e');
+        print('[ERROR] ?蹂? ?곕떽? ??쎈솭: $e');
         print('[ERROR] task_id: ${widget.task.id}');
         print('[ERROR] content: ${_commentController.text}');
-        print('[ERROR] imageUrls: ${_selectedCommentImages.length}媛?);
+        print('[ERROR] imageUrls: ${_selectedCommentImages.length}개');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('?볤? 異붽? 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎: $e'),
+            content: Text('?蹂? ?곕떽? 餓???살첒揶쎛 獄쏆뮇源??됰뮸??덈뼄: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
             duration: const Duration(seconds: 5),
           ),
@@ -546,7 +681,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// ?볤? ?몄쭛 ?쒖옉
+  /// ?蹂? ?紐꾩춿 ??뽰삂
   void _startEditComment(Comment comment) {
     setState(() {
       _editingCommentId = comment.id;
@@ -554,7 +689,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     });
   }
 
-  /// ?볤? ?몄쭛 痍⑥냼
+  /// ?蹂? ?紐꾩춿 ?띯뫁??
   void _cancelEditComment() {
     setState(() {
       _editingCommentId = null;
@@ -562,7 +697,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     });
   }
 
-  /// ?볤? ?낅뜲?댄듃
+  /// ?蹂? ??낅쑓??꾨뱜
   Future<void> _updateComment(String commentId) async {
     if (_editCommentController.text.trim().isEmpty) {
       _cancelEditComment();
@@ -578,7 +713,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
       await _commentService.updateComment(updatedComment);
       
-      // 濡쒖뺄 肄붾찘??由ъ뒪???낅뜲?댄듃
+      // 嚥≪뮇類??꾨뗀李???귐딅뮞????낅쑓??꾨뱜
       final index = _comments.indexWhere((c) => c.id == commentId);
       if (index != -1) {
         setState(() {
@@ -588,13 +723,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         });
       }
 
-      // ??꾨씪???낅뜲?댄듃
+      // ???袁⑥뵬????낅쑓??꾨뱜
       await _loadTimelineItems();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('?볤? ?섏젙 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎: $e'),
+            content: Text('?蹂? ??륁젟 餓???살첒揶쎛 獄쏆뮇源??됰뮸??덈뼄: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -602,19 +737,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// ?볤? ??젣
+  /// ?蹂? ????
   Future<void> _deleteComment(String commentId) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.currentUser == null) return;
 
     final comment = _comments.firstWhere((c) => c.id == commentId);
     
-    // 蹂몄씤 ?볤?留???젣 媛??
+    // 癰귣챷???蹂?筌?????揶쎛??
     if (comment.userId != authProvider.currentUser!.id) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('蹂몄씤???볤?留???젣?????덉뒿?덈떎'),
+            content: const Text('癰귣챷????蹂?筌??????????됰뮸??덈뼄'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -625,7 +760,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     try {
       await _commentService.deleteComment(commentId);
       
-      // Task?먯꽌 ?볤? ID ?쒓굅
+      // Task?癒?퐣 ?蹂? ID ??볤탢
       final taskProvider = Provider.of<TaskProvider>(context, listen: false);
       final currentTask = taskProvider.tasks.firstWhere(
         (t) => t.id == widget.task.id,
@@ -644,7 +779,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('?볤? ??젣 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎: $e'),
+            content: Text('?蹂? ????餓???살첒揶쎛 獄쏆뮇源??됰뮸??덈뼄: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -655,23 +790,23 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    // context.read瑜??ъ슜?섏뿬 遺덊븘?뷀븳 由щ퉴??諛⑹?
+    // context.read???????뤿연 ?븍뜇釉?酉釉??귐됲돱??獄쎻뫗?
     final taskProvider = context.read<TaskProvider>();
     final projectProvider = context.read<ProjectProvider>();
     final currentProject = projectProvider.currentProject;
     
-    // 理쒖떊 ?쒖뒪???뺣낫 媛?몄삤湲?
+    // 筌ㅼ뮇????뽯뮞???類ｋ궖 揶쎛?紐꾩궎疫?
     final currentTask = taskProvider.tasks.firstWhere(
       (t) => t.id == widget.task.id,
       orElse: () => widget.task,
     );
     
-    // ?좊떦?????ID媛 蹂寃쎈릺?덈뒗吏 ?뺤씤?섍퀬 ?숆린??
+    // ?醫딅뼣??????ID揶쎛 癰궰野껋럥由??덈뮉筌왖 ?類ㅼ뵥??랁???녿┛??
     final currentAssignedIds = currentTask.assignedMemberIds;
     if (_lastAssignedMemberIds == null || 
         !listEquals(_lastAssignedMemberIds!, currentAssignedIds)) {
       _lastAssignedMemberIds = List.from(currentAssignedIds);
-      // ?ㅼ쓬 ?꾨젅?꾩뿉???좊떦?????紐⑸줉 ?ㅼ떆 濡쒕뱶
+      // ??쇱벉 ?袁⑥쟿?袁⑸퓠???醫딅뼣??????筌뤴뫖以???쇰뻻 嚥≪뮆諭?
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _loadAssignedMembers();
@@ -686,7 +821,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: GestureDetector(
-          onTap: () {}, // ?대? ?대┃ ?대깽?몃? 留됱븘??諛붽묑 ?곸뿭 ?대┃留?媛먯??섎룄濡?
+          onTap: () {}, // ??? ??????源?紐? 筌띾맩釉??獄쏅떽臾??怨몃열 ???껓쭕?揶쏅Ŋ???롫즲嚥?
           child: ConstrainedBox(
             constraints: const BoxConstraints(
               maxWidth: 1200,
@@ -697,14 +832,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           borderRadius: 20.0,
           blur: 25.0,
           gradientColors: [
-            Colors.white.withOpacity(0.9),
-            Colors.white.withOpacity(0.85),
+            Colors.white.withValues(alpha: 0.9),
+            Colors.white.withValues(alpha: 0.85),
           ],
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ?ㅻ뜑
+              // ??삳쐭
               Row(
                 children: [
                   Expanded(
@@ -717,16 +852,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       ),
                     ),
                   ),
-                  // 以묒슂??諛곗?
+                  // 餓λ쵐???獄쏄퀣?
                   GlassContainer(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     borderRadius: 20.0,
                     blur: 20.0,
                     gradientColors: [
-                      currentTask.priority.color.withOpacity(0.3),
-                      currentTask.priority.color.withOpacity(0.2),
+                      currentTask.priority.color.withValues(alpha: 0.3),
+                      currentTask.priority.color.withValues(alpha: 0.2),
                     ],
-                    borderColor: currentTask.priority.color.withOpacity(0.5),
+                    borderColor: currentTask.priority.color.withValues(alpha: 0.5),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -751,16 +886,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // ?곹깭 諛곗?
+                  // ?怨밴묶 獄쏄퀣?
                   GlassContainer(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     borderRadius: 20.0,
                     blur: 20.0,
                     gradientColors: [
-                      currentTask.status.color.withOpacity(0.3),
-                      currentTask.status.color.withOpacity(0.2),
+                      currentTask.status.color.withValues(alpha: 0.3),
+                      currentTask.status.color.withValues(alpha: 0.2),
                     ],
-                    borderColor: currentTask.status.color.withOpacity(0.5),
+                    borderColor: currentTask.status.color.withValues(alpha: 0.5),
                     child: Text(
                       currentTask.status.displayName,
                       style: TextStyle(
@@ -771,7 +906,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // ?リ린 踰꾪듉
+                  // ??る┛ 甕곌쑵??
                   IconButton(
                     icon: Icon(Icons.close, color: colorScheme.onSurface),
                     onPressed: () => Navigator.of(context).pop(),
@@ -779,12 +914,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 ],
               ),
               const SizedBox(height: 24),
-              // 硫붿씤 而⑦뀗痢?
+              // 筌롫뗄???뚢뫂?쀯㎘?
               Expanded(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ?쇱そ: ??꾨씪??
+                    // ??긱걹: ???袁⑥뵬??
                     Expanded(
                       flex: 2,
                       child: SingleChildScrollView(
@@ -792,7 +927,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // ?곸꽭 ?댁슜 (??긽 留???
+                            // ?怨멸쉭 ??곸뒠 (??湲?筌???
                             _buildDetailTimelineItem(
                               context,
                               currentTask,
@@ -809,7 +944,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               colorScheme,
                             ),
                             const SizedBox(height: 16),
-                            // ??꾨씪???꾩씠?쒕뱾 (?쒓컙???뺣젹)
+                            // ???袁⑥뵬???袁⑹뵠??뺣굶 (??볦퍢???類ｌ졊)
                                   if (_timelineItems == null)
                               const SizedBox.shrink()
                                   else
@@ -853,7 +988,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   return const SizedBox.shrink();
                                 }).toList(),
                               ),
-                            // ?볤? ?낅젰
+                            // ?蹂? ??낆젾
                             const SizedBox(height: 16),
                             _buildCommentInput(context, colorScheme),
                           ],
@@ -861,22 +996,22 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       ),
                     ),
                       const SizedBox(width: 24),
-                      // ?ㅻⅨ履? ?ъ씠?쒕컮
+                      // ??삘뀲筌? ?????뺤뺍
                       SizedBox(
                         width: 280,
                         child: SingleChildScrollView(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                            // ?꾨줈?앺듃
+                            // ?袁⑥쨮??븍뱜
                             if (currentProject != null)
                               GlassContainer(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                                 borderRadius: 15.0,
                                 blur: 20.0,
                                 gradientColors: [
-                                  Colors.white.withOpacity(0.8),
-                                  Colors.white.withOpacity(0.7),
+                                  Colors.white.withValues(alpha: 0.8),
+                                  Colors.white.withValues(alpha: 0.7),
                                 ],
                               shadowBlurRadius: 6,
                               shadowOffset: const Offset(0, 2),
@@ -886,7 +1021,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                     Row(
                                       children: [
                                         Text(
-                                          '?꾨줈?앺듃',
+                                          '?袁⑥쨮??븍뱜',
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.bold,
@@ -894,7 +1029,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           ),
                                         ),
                                         const Spacer(),
-                                        Icon(Icons.settings, size: 16, color: colorScheme.onSurface.withOpacity(0.5)),
+                                        Icon(Icons.settings, size: 16, color: colorScheme.onSurface.withValues(alpha: 0.5)),
                                       ],
                                     ),
                                     const SizedBox(height: 8),
@@ -914,7 +1049,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                             currentProject.name,
                                             style: TextStyle(
                                               fontSize: 14,
-                                              color: colorScheme.onSurface.withOpacity(0.8),
+                                              color: colorScheme.onSurface.withValues(alpha: 0.8),
                                             ),
                                             overflow: TextOverflow.ellipsis,
                                           ),
@@ -925,14 +1060,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 ),
                               ),
                             const SizedBox(height: 12),
-                            // ?곹깭
+                            // ?怨밴묶
                             GlassContainer(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                               borderRadius: 15.0,
                               blur: 20.0,
                               gradientColors: [
-                                Colors.white.withOpacity(0.8),
-                                Colors.white.withOpacity(0.7),
+                                Colors.white.withValues(alpha: 0.8),
+                                Colors.white.withValues(alpha: 0.7),
                               ],
                               shadowBlurRadius: 6,
                               shadowOffset: const Offset(0, 2),
@@ -942,7 +1077,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   Row(
                                     children: [
                                       Text(
-                                        '?곹깭',
+                                        '?怨밴묶',
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
@@ -950,7 +1085,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                         ),
                                       ),
                                       const Spacer(),
-                                      Icon(Icons.settings, size: 16, color: colorScheme.onSurface.withOpacity(0.5)),
+                                      Icon(Icons.settings, size: 16, color: colorScheme.onSurface.withValues(alpha: 0.5)),
                                     ],
                                   ),
                                   const SizedBox(height: 8),
@@ -989,7 +1124,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           userId: currentUser?.id,
                                           username: currentUser?.username,
                                         );
-                                        // ?곹깭 蹂寃?????꾨씪???낅뜲?댄듃
+                                        // ?怨밴묶 癰궰野??????袁⑥뵬????낅쑓??꾨뱜
                                         await _loadTimelineItems();
                                       }
                                     },
@@ -998,14 +1133,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            // 以묒슂??
+                            // 餓λ쵐???
                             GlassContainer(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                               borderRadius: 15.0,
                               blur: 20.0,
                               gradientColors: [
-                                Colors.white.withOpacity(0.8),
-                                Colors.white.withOpacity(0.7),
+                                Colors.white.withValues(alpha: 0.8),
+                                Colors.white.withValues(alpha: 0.7),
                               ],
                               shadowBlurRadius: 6,
                               shadowOffset: const Offset(0, 2),
@@ -1015,7 +1150,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   Row(
                                     children: [
                                       Text(
-                                        '以묒슂??,
+                                        '우선순위',
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
@@ -1023,7 +1158,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                         ),
                                       ),
                                       const Spacer(),
-                                      Icon(Icons.priority_high, size: 16, color: colorScheme.onSurface.withOpacity(0.5)),
+                                      Icon(Icons.priority_high, size: 16, color: colorScheme.onSurface.withValues(alpha: 0.5)),
                                     ],
                                   ),
                                   const SizedBox(height: 8),
@@ -1070,7 +1205,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           userId: currentUser?.id,
                                           username: currentUser?.username,
                                         );
-                                        // 以묒슂??蹂寃?????꾨씪???낅뜲?댄듃
+                                        // 餓λ쵐???癰궰野??????袁⑥뵬????낅쑓??꾨뱜
                                         await _loadTimelineItems();
                                       }
                                     },
@@ -1079,14 +1214,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            // 湲곌컙 (?쒖옉??~ 醫낅즺??
+                            // 疫꿸퀗而?(??뽰삂??~ ?ル굝利??
                             GlassContainer(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                               borderRadius: 15.0,
                               blur: 20.0,
                               gradientColors: [
-                                Colors.white.withOpacity(0.8),
-                                Colors.white.withOpacity(0.7),
+                                Colors.white.withValues(alpha: 0.8),
+                                Colors.white.withValues(alpha: 0.7),
                               ],
                               shadowBlurRadius: 6,
                               shadowOffset: const Offset(0, 2),
@@ -1096,7 +1231,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   Row(
                                     children: [
                                       Text(
-                                        '湲곌컙',
+                                        '옵션',
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
@@ -1104,13 +1239,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                         ),
                                       ),
                                       const Spacer(),
-                                      Icon(Icons.settings, size: 16, color: colorScheme.onSurface.withOpacity(0.5)),
+                                      Icon(Icons.settings, size: 16, color: colorScheme.onSurface.withValues(alpha: 0.5)),
                                     ],
                                   ),
                                   const SizedBox(height: 12),
                                   Row(
                                     children: [
-                                      // ?쒖옉??
+                                      // ??뽰삂??
                                       Expanded(
                                         child: InkWell(
                                           onTap: () => _openDateRangePicker(
@@ -1121,32 +1256,32 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           child: Container(
                                             padding: const EdgeInsets.all(12),
                                             decoration: BoxDecoration(
-                                              color: Colors.white.withOpacity(0.7),
+                                              color: Colors.white.withValues(alpha: 0.7),
                                               borderRadius: BorderRadius.circular(8),
                                               border: Border.all(
-                                                color: colorScheme.onSurface.withOpacity(0.1),
+                                                color: colorScheme.onSurface.withValues(alpha: 0.1),
                                               ),
                                             ),
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  '?쒖옉??,
+                                                  '시작일',
                                                   style: TextStyle(
                                                     fontSize: 11,
-                                                    color: colorScheme.onSurface.withOpacity(0.6),
+                                                    color: colorScheme.onSurface.withValues(alpha: 0.6),
                                                   ),
                                                 ),
                                                 const SizedBox(height: 4),
                                                 Text(
                                       _startDate != null
                                           ? '${_startDate!.year}-${_startDate!.month.toString().padLeft(2, '0')}-${_startDate!.day.toString().padLeft(2, '0')}'
-                                          : '?좎쭨 ?좏깮',
+                                          : '?醫롮? ?醫뤾문',
                                       style: TextStyle(
                                         fontSize: 14,
                                         color: _startDate != null
                                             ? colorScheme.onSurface
-                                            : colorScheme.onSurface.withOpacity(0.5),
+                                            : colorScheme.onSurface.withValues(alpha: 0.5),
                                                     fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -1159,10 +1294,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       Icon(
                                         Icons.arrow_forward,
                                         size: 16,
-                                        color: colorScheme.onSurface.withOpacity(0.5),
+                                        color: colorScheme.onSurface.withValues(alpha: 0.5),
                                       ),
                                       const SizedBox(width: 12),
-                                      // 醫낅즺??
+                                      // ?ル굝利??
                                       Expanded(
                                         child: InkWell(
                                           onTap: () => _openDateRangePicker(
@@ -1173,32 +1308,32 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           child: Container(
                                             padding: const EdgeInsets.all(12),
                                             decoration: BoxDecoration(
-                                              color: Colors.white.withOpacity(0.7),
+                                              color: Colors.white.withValues(alpha: 0.7),
                                               borderRadius: BorderRadius.circular(8),
                                               border: Border.all(
-                                                color: colorScheme.onSurface.withOpacity(0.1),
+                                                color: colorScheme.onSurface.withValues(alpha: 0.1),
                                               ),
                                             ),
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  '醫낅즺??,
+                                                  '종료일',
                                                   style: TextStyle(
                                                     fontSize: 11,
-                                                    color: colorScheme.onSurface.withOpacity(0.6),
+                                                    color: colorScheme.onSurface.withValues(alpha: 0.6),
                                                   ),
                                                 ),
                                                 const SizedBox(height: 4),
                                                 Text(
                                       _endDate != null
                                           ? '${_endDate!.year}-${_endDate!.month.toString().padLeft(2, '0')}-${_endDate!.day.toString().padLeft(2, '0')}'
-                                          : '?좎쭨 ?좏깮',
+                                          : '?醫롮? ?醫뤾문',
                                       style: TextStyle(
                                         fontSize: 14,
                                         color: _endDate != null
                                             ? colorScheme.onSurface
-                                            : colorScheme.onSurface.withOpacity(0.5),
+                                            : colorScheme.onSurface.withValues(alpha: 0.5),
                                                     fontWeight: FontWeight.w500,
                                                   ),
                                                 ),
@@ -1213,14 +1348,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            // ?좊떦?????
+                            // ?醫딅뼣??????
                             GlassContainer(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                               borderRadius: 15.0,
                               blur: 20.0,
                               gradientColors: [
-                                Colors.white.withOpacity(0.8),
-                                Colors.white.withOpacity(0.7),
+                                Colors.white.withValues(alpha: 0.8),
+                                Colors.white.withValues(alpha: 0.7),
                               ],
                               shadowBlurRadius: 6,
                               shadowOffset: const Offset(0, 2),
@@ -1230,7 +1365,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   Row(
                                     children: [
                                       Text(
-                                        '?좊떦?????,
+                                        '담당자',
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
@@ -1245,7 +1380,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           color: colorScheme.primary,
                                         ),
                                         onPressed: () => _showAssignMemberDialog(context, currentTask, taskProvider, currentProject),
-                                        tooltip: '????좊떦',
+                                        tooltip: '?????醫딅뼣',
                                         padding: EdgeInsets.zero,
                                         constraints: const BoxConstraints(),
                                       ),
@@ -1254,10 +1389,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   const SizedBox(height: 8),
                                   if (currentTask.assignedMemberIds.isEmpty)
                                     Text(
-                                      '?좊떦????먯씠 ?놁뒿?덈떎',
+                                      '?醫딅뼣?????癒?뵠 ??곷뮸??덈뼄',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: colorScheme.onSurface.withOpacity(0.5),
+                                        color: colorScheme.onSurface.withValues(alpha: 0.5),
                                       ),
                                     )
                                   else if (_assignedMembers == null)
@@ -1273,10 +1408,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                               borderRadius: 8.0,
                                               blur: 15.0,
                                               gradientColors: [
-                                                colorScheme.primary.withOpacity(0.2),
-                                                colorScheme.primary.withOpacity(0.1),
+                                                colorScheme.primary.withValues(alpha: 0.2),
+                                                colorScheme.primary.withValues(alpha: 0.1),
                                               ],
-                                              borderColor: colorScheme.primary.withOpacity(0.3),
+                                              borderColor: colorScheme.primary.withValues(alpha: 0.3),
                                               child: Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
@@ -1307,7 +1442,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                                     child: Icon(
                                                       Icons.close,
                                                       size: 14,
-                                                      color: colorScheme.onSurface.withOpacity(0.5),
+                                                      color: colorScheme.onSurface.withValues(alpha: 0.5),
                                                     ),
                                                   ),
                                                 ],
@@ -1320,14 +1455,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            // ?앹꽦??
+                            // ??밴쉐??
                             GlassContainer(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                               borderRadius: 15.0,
                               blur: 20.0,
                               gradientColors: [
-                                Colors.white.withOpacity(0.8),
-                                Colors.white.withOpacity(0.7),
+                                Colors.white.withValues(alpha: 0.8),
+                                Colors.white.withValues(alpha: 0.7),
                               ],
                               shadowBlurRadius: 6,
                               shadowOffset: const Offset(0, 2),
@@ -1335,7 +1470,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '?앹꽦??,
+                                    '생성일',
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
@@ -1347,7 +1482,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                     '${currentTask.createdAt.year}-${currentTask.createdAt.month.toString().padLeft(2, '0')}-${currentTask.createdAt.day.toString().padLeft(2, '0')}',
                                     style: TextStyle(
                                       fontSize: 14,
-                                      color: colorScheme.onSurface.withOpacity(0.7),
+                                      color: colorScheme.onSurface.withValues(alpha: 0.7),
                                     ),
                                   ),
                                 ],
@@ -1376,7 +1511,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
 
     try {
-      // ?대?吏 ?낅줈??
+      // ???筌왖 ??낆쨮??
       List<String> imageUrls = List<String>.from(currentTask.detailImageUrls);
       if (_selectedDetailImages.isNotEmpty) {
         final uploadedUrls = await _uploadService.uploadImagesFromXFiles(_selectedDetailImages);
@@ -1400,7 +1535,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('?쒖뒪?????以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎: $e'),
+            content: Text('??뽯뮞??????餓???살첒揶쎛 獄쏆뮇源??됰뮸??덈뼄: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -1408,7 +1543,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// ?좊떦?????紐⑸줉 濡쒕뱶
+  /// ?醫딅뼣??????筌뤴뫖以?嚥≪뮆諭?
   Future<void> _loadAssignedMembers() async {
     final taskProvider = context.read<TaskProvider>();
     final currentTask = taskProvider.tasks.firstWhere(
@@ -1441,7 +1576,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// ????좊떦 ?ㅼ씠?쇰줈洹?
+  /// ?????醫딅뼣 ??쇱뵠??곗쨮域?
   Future<void> _openDateRangePicker(
     BuildContext context,
     Task currentTask,
@@ -1491,7 +1626,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (projectMembers.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('?좊떦?????덈뒗 ??먯씠 ?놁뒿?덈떎'),
+            content: const Text('?醫딅뼣??????덈뮉 ???癒?뵠 ??곷뮸??덈뼄'),
             backgroundColor: colorScheme.error,
           ),
         );
@@ -1508,8 +1643,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               borderRadius: 20.0,
               blur: 25.0,
               gradientColors: [
-                colorScheme.surface.withOpacity(0.6),
-                colorScheme.surface.withOpacity(0.5),
+                colorScheme.surface.withValues(alpha: 0.6),
+                colorScheme.surface.withValues(alpha: 0.5),
               ],
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 400, maxHeight: 500),
@@ -1518,7 +1653,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '????좊떦',
+                      '?????醫딅뼣',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -1554,7 +1689,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             subtitle: Text(
                               user.email,
                               style: TextStyle(
-                                color: colorScheme.onSurface.withOpacity(0.7),
+                                color: colorScheme.onSurface.withValues(alpha: 0.7),
                               ),
                             ),
                             trailing: isAssigned
@@ -1564,10 +1699,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   )
                                 : Icon(
                                     Icons.radio_button_unchecked,
-                                    color: colorScheme.onSurface.withOpacity(0.3),
+                                    color: colorScheme.onSurface.withValues(alpha: 0.3),
                                   ),
                             onTap: () async {
-                              // ??紐낅쭔 ?좏깮 媛?ν븯?꾨줉 湲곗〈 ?좊떦???泥?
+                              // ??筌뤿굝彛??醫뤾문 揶쎛?館釉?袁⑥쨯 疫꿸퀣???醫딅뼣????筌?
                               final authProvider = Provider.of<AuthProvider>(context, listen: false);
                               final currentUser = authProvider.currentUser;
                               if (currentUser != null) {
@@ -1579,11 +1714,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   userId: currentUser.id,
                                   username: currentUser.username,
                                 );
-                                // 硫붿씤?붾㈃ ?낅뜲?댄듃瑜??꾪빐 ?쒖뒪??紐⑸줉 ?ㅼ떆 濡쒕뱶
+                                // 筌롫뗄??遺얇늺 ??낅쑓??꾨뱜???袁る퉸 ??뽯뮞??筌뤴뫖以???쇰뻻 嚥≪뮆諭?
                                 await taskProvider.loadTasks();
                               }
                               Navigator.of(context).pop();
-                              // ?좊떦?????紐⑸줉 ?ㅼ떆 濡쒕뱶
+                              // ?醫딅뼣??????筌뤴뫖以???쇰뻻 嚥≪뮆諭?
                               await _loadAssignedMembers();
                             },
                           );
@@ -1597,7 +1732,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         TextButton(
                           onPressed: () => Navigator.of(context).pop(),
                           child: Text(
-                            '?リ린',
+                            '??る┛',
                             style: TextStyle(color: colorScheme.onSurface),
                           ),
                         ),
@@ -1613,14 +1748,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('?ㅻ쪟 諛쒖깮: $e'),
+          content: Text('??살첒 獄쏆뮇源? $e'),
           backgroundColor: colorScheme.error,
         ),
       );
     }
   }
 
-  /// ?좊떦??????쒓굅
+  /// ?醫딅뼣????????볤탢
   Future<void> _removeAssignedMember(
     BuildContext context,
     Task task,
@@ -1634,34 +1769,34 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         updatedAt: DateTime.now(),
       ),
     );
-    // ?좊떦?????紐⑸줉 ?ㅼ떆 濡쒕뱶
+    // ?醫딅뼣??????筌뤴뫖以???쇰뻻 嚥≪뮆諭?
     await _loadAssignedMembers();
   }
 
-  /// ?앹꽦???대쫫 媛?몄삤湲?
+  /// ??밴쉐????已?揶쎛?紐꾩궎疫?
   String _getCreatorUsername(Task task) {
-    // ?ㅼ젣濡쒕뒗 ?쒖뒪?ъ뿉 creatorId媛 ?덉뼱???섏?留? ?꾩옱???놁쑝誘濡?湲곕낯媛?諛섑솚
+    // ??쇱젫嚥≪뮆????뽯뮞??肉?creatorId揶쎛 ??됰선?????筌? ?袁⑹삺????곸몵沃샕嚥?疫꿸퀡??첎?獄쏆꼹??
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     return authProvider.currentUser?.username ?? 'Unknown';
   }
 
-  /// ???볤?????꾨씪?몄뿉 遺?쒕읇寃?異붽?
+  /// ???蹂??????袁⑥뵬?紐꾨퓠 ?봔??뺤쓦野??곕떽?
   Future<void> _addCommentToTimeline(Comment comment) async {
-    // ?꾩옱 ??꾨씪???꾩씠??媛?몄삤湲?
+    // ?袁⑹삺 ???袁⑥뵬???袁⑹뵠??揶쎛?紐꾩궎疫?
     final currentItems = _timelineItems ?? [];
     
-    // ???볤? ?꾩씠???앹꽦
+    // ???蹂? ?袁⑹뵠????밴쉐
     final newCommentItem = TimelineItem(
       type: TimelineItemType.comment,
       date: comment.createdAt,
       data: comment,
     );
     
-    // 湲곗〈 ?꾩씠?쒖뿉 ???볤? 異붽?
+    // 疫꿸퀣???袁⑹뵠??뽯퓠 ???蹂? ?곕떽?
     final updatedItems = List<TimelineItem>.from(currentItems);
     updatedItems.add(newCommentItem);
     
-    // ?쒓컙?쒖쑝濡??뺣젹
+    // ??볦퍢??뽰몵嚥??類ｌ졊
     updatedItems.sort((a, b) {
       final aUtc = a.date.isUtc ? a.date : a.date.toUtc();
       final bUtc = b.date.isUtc ? b.date : b.date.toUtc();
@@ -1675,12 +1810,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         _timelineItems = updatedItems;
       });
       
-      // 遺?쒕읇寃?留??꾨옒濡??ㅽ겕濡?- ?щ윭 踰??쒕룄?섏뿬 ?뺤떎?섍쾶
+      // ?봔??뺤쓦野?筌??袁⑥삋嚥???쎄쾿嚥?- ????甕???뺣즲??뤿연 ?類ㅻ뼄??띿쓺
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollToBottomSmooth();
       });
       
-      // 異붽? ?쒕룄: ?좊땲硫붿씠???꾨즺 ???ㅼ떆 ?ㅽ겕濡?
+      // ?곕떽? ??뺣즲: ?醫딅빍筌롫뗄????袁⑥┷ ????쇰뻻 ??쎄쾿嚥?
       Future.delayed(const Duration(milliseconds: 350), () {
         if (mounted) {
           _scrollToBottomSmooth();
@@ -1689,12 +1824,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// ??꾨씪???꾩씠?쒕뱾 鍮뚮뱶 (?쒓컙???뺣젹)
+  /// ???袁⑥뵬???袁⑹뵠??뺣굶 ??슢諭?(??볦퍢???類ｌ졊)
   List<TimelineItem> _buildTimelineItems(Task task) {
     final List<TimelineItem> items = [];
     final colorScheme = Theme.of(context).colorScheme;
 
-    // ?댁뒋 ?앹꽦 湲곕줉
+    // ??곷뭼 ??밴쉐 疫꿸퀡以?
     items.add(TimelineItem(
       type: TimelineItemType.history,
       date: task.createdAt,
@@ -1705,7 +1840,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       ),
     ));
 
-    // ?좊떦 ?덉뒪?좊━ (?ㅼ젣 ?좊떦 湲곕줉 ?ъ슜)
+    // ?醫딅뼣 ??됰뮞?醫듼봺 (??쇱젫 ?醫딅뼣 疫꿸퀡以?????
     for (final history in task.assignmentHistory) {
       items.add(TimelineItem(
         type: TimelineItemType.history,
@@ -1726,7 +1861,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       ));
     }
 
-    // 肄붾찘??異붽?
+    // ?꾨뗀李???곕떽?
     for (final comment in _comments) {
       items.add(TimelineItem(
         type: TimelineItemType.comment,
@@ -1735,7 +1870,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       ));
     }
 
-    // ?곹깭 蹂寃??덉뒪?좊━ (?ㅼ젣 ?곹깭 蹂寃?湲곕줉 ?ъ슜)
+    // ?怨밴묶 癰궰野???됰뮞?醫듼봺 (??쇱젫 ?怨밴묶 癰궰野?疫꿸퀡以?????
     for (final history in task.statusHistory) {
       items.add(TimelineItem(
         type: TimelineItemType.history,
@@ -1770,7 +1905,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       ));
     }
     
-    // 以묒슂??蹂寃??덉뒪?좊━
+    // 餓λ쵐???癰궰野???됰뮞?醫듼봺
     for (final history in task.priorityHistory) {
       items.add(TimelineItem(
         type: TimelineItemType.history,
@@ -1805,14 +1940,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       ));
     }
     
-    // ?쒓컙?쒖쑝濡??뺣젹 (?ㅻ옒??寃껊???- 理쒖떊 ??ぉ???꾨옒???쒖떆??
-    // 紐⑤뱺 ?좎쭨瑜?UTC濡?蹂?섑븯????꾩〈 李⑥씠 臾몄젣 ?닿껐
+    // ??볦퍢??뽰몵嚥??類ｌ졊 (??살삋??野껉퍓???- 筌ㅼ뮇????????袁⑥삋????뽯뻻??
+    // 筌뤴뫀諭??醫롮???UTC嚥?癰궰??묐릭?????袁⒲?筌△뫁???얜챷????욧퍙
     items.sort((a, b) {
-      // Local ??꾩〈??UTC濡?蹂??
+      // Local ???袁⒲??UTC嚥?癰궰??
       final aUtc = a.date.isUtc ? a.date : a.date.toUtc();
       final bUtc = b.date.isUtc ? b.date : b.date.toUtc();
       
-      // UTC濡?蹂?섑븳 ??millisecondsSinceEpoch 鍮꾧탳
+      // UTC嚥?癰궰??묐립 ??millisecondsSinceEpoch ??쑨??
       final aMs = aUtc.millisecondsSinceEpoch;
       final bMs = bUtc.millisecondsSinceEpoch;
       return aMs.compareTo(bMs);
@@ -1821,7 +1956,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return items;
   }
 
-  /// ?덉뒪?좊━ ?꾩씠??鍮뚮뱶 (GitHub ?ㅽ???- ?묒? ?꾩씠肄섍낵 ?띿뒪??
+  /// ??됰뮞?醫듼봺 ?袁⑹뵠????슢諭?(GitHub ?????- ?臾? ?袁⑹뵠?꾩꼵????용뮞??
   Widget _buildHistoryItem(
     BuildContext context,
     DateTime date,
@@ -1836,7 +1971,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ?묒? ?꾩씠肄?(?꾨컮? ???
+          // ?臾? ?袁⑹뵠??(?袁⑥뺍?? ????
           Container(
             width: 20,
             height: 20,
@@ -1844,11 +1979,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             child: Icon(
               icon,
               size: 16,
-              color: colorScheme.onSurface.withOpacity(0.5),
+              color: colorScheme.onSurface.withValues(alpha: 0.5),
             ),
           ),
           const SizedBox(width: 8),
-          // ?댁슜
+          // ??곸뒠
           Expanded(
             child: Wrap(
               crossAxisAlignment: WrapCrossAlignment.center,
@@ -1865,7 +2000,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   ' $action ',
                   style: TextStyle(
                     fontSize: 14,
-                    color: colorScheme.onSurface.withOpacity(0.8),
+                    color: colorScheme.onSurface.withValues(alpha: 0.8),
                   ),
                 ),
                 if (target != null) target,
@@ -1873,7 +2008,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   ' ${_formatRelativeDate(date)}',
                   style: TextStyle(
                     fontSize: 14,
-                    color: colorScheme.onSurface.withOpacity(0.5),
+                    color: colorScheme.onSurface.withValues(alpha: 0.5),
                   ),
                 ),
               ],
@@ -1884,7 +2019,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  /// ??꾨씪???꾩씠??鍮뚮뱶 (肄붾찘?몄슜 - ?꾨컮? ?ы븿)
+  /// ???袁⑥뵬???袁⑹뵠????슢諭?(?꾨뗀李?紐꾩뒠 - ?袁⑥뺍?? ??釉?
   Widget _buildTimelineItem(
     BuildContext context,
     DateTime date,
@@ -1896,7 +2031,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ?꾨컮?
+        // ?袁⑥뺍??
         CircleAvatar(
           radius: 16,
           backgroundColor: AvatarColor.getColorForUser(username),
@@ -1910,7 +2045,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
         ),
         const SizedBox(width: 12),
-        // ?댁슜
+        // ??곸뒠
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1930,7 +2065,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     action,
                     style: TextStyle(
                       fontSize: 14,
-                      color: colorScheme.onSurface.withOpacity(0.7),
+                      color: colorScheme.onSurface.withValues(alpha: 0.7),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1938,7 +2073,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     _formatRelativeDate(date),
                     style: TextStyle(
                       fontSize: 12,
-                      color: colorScheme.onSurface.withOpacity(0.5),
+                      color: colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   ),
                 ],
@@ -1954,12 +2089,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  /// ?곷????좎쭨 ?щ㎎??(?? "5 days ago", "yesterday")
-  /// ?곷? ?좎쭨 ?щ㎎??(?쒓뎅 ?쒓컙 湲곗?)
+  /// ?怨????醫롮? ?????(?? "5 days ago", "yesterday")
+  /// ?怨? ?醫롮? ?????(??볥럢 ??볦퍢 疫꿸퀣?)
   String _formatRelativeDate(DateTime date) {
-    // UTC ?좎쭨瑜?濡쒖뺄 ?쒓컙(?쒓뎅 ?쒓컙)?쇰줈 蹂??
+    // UTC ?醫롮???嚥≪뮇類???볦퍢(??볥럢 ??볦퍢)??곗쨮 癰궰??
     final localDate = date.isUtc ? date.toLocal() : date;
-    final now = DateTime.now(); // ?대? 濡쒖뺄 ?쒓컙
+    final now = DateTime.now(); // ??? 嚥≪뮇類???볦퍢
     final difference = now.difference(localDate);
     
     if (difference.inDays == 0) {
@@ -1988,7 +2123,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// ?ㅻ챸 ??꾨씪???꾩씠??
+  /// ??살구 ???袁⑥뵬???袁⑹뵠??
   Widget _buildDescriptionTimelineItem(
     BuildContext context,
     String description,
@@ -1999,21 +2134,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(width: 44), // ?꾨컮? ?덈퉬 + 媛꾧꺽
+        const SizedBox(width: 44), // ?袁⑥뺍?? ??덊돩 + 揶쏄쑨爰?
         Expanded(
           child: GlassContainer(
             padding: const EdgeInsets.all(16),
             borderRadius: 12.0,
             blur: 20.0,
             gradientColors: [
-              Colors.white.withOpacity(0.8),
-              Colors.white.withOpacity(0.7),
+              Colors.white.withValues(alpha: 0.8),
+              Colors.white.withValues(alpha: 0.7),
             ],
             child: Text(
               description,
               style: TextStyle(
                 fontSize: 14,
-                color: colorScheme.onSurface.withOpacity(0.8),
+                color: colorScheme.onSurface.withValues(alpha: 0.8),
                 height: 1.5,
               ),
             ),
@@ -2023,7 +2158,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  /// ?곸꽭 ?댁슜 ??꾨씪???꾩씠??
+  /// ?怨멸쉭 ??곸뒠 ???袁⑥뵬???袁⑹뵠??
   Widget _buildDetailTimelineItem(
     BuildContext context,
     Task task,
@@ -2034,21 +2169,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(width: 44), // ?꾨컮? ?덈퉬 + 媛꾧꺽
+        const SizedBox(width: 44), // ?袁⑥뺍?? ??덊돩 + 揶쏄쑨爰?
         Expanded(
           child: GlassContainer(
             padding: const EdgeInsets.all(16),
             borderRadius: 12.0,
             blur: 20.0,
             gradientColors: [
-              Colors.white.withOpacity(0.8),
-              Colors.white.withOpacity(0.7),
+              Colors.white.withValues(alpha: 0.8),
+              Colors.white.withValues(alpha: 0.7),
             ],
             child: Stack(
               children: [
-                // 硫붿씤 而⑦뀗痢?(理쒖긽??諛곗튂)
+                // 筌롫뗄???뚢뫂?쀯㎘?(筌ㅼ뮇湲??獄쏄퀣??
                 Padding(
-                  padding: const EdgeInsets.only(right: 36), // ?고븘 ?꾩씠肄?怨듦컙 ?뺣낫
+                  padding: const EdgeInsets.only(right: 36), // ?怨좊툡 ?袁⑹뵠???⑤벀而??類ｋ궖
                   child: isEditing
                       ? Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2058,12 +2193,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               maxLines: null,
                               minLines: 8,
                               decoration: InputDecoration(
-                                hintText: '?곸꽭 ?댁슜???낅젰?섏꽭??..',
+                                hintText: '?怨멸쉭 ??곸뒠????낆젾??뤾쉭??..',
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 filled: true,
-                                fillColor: Colors.white.withOpacity(0.5),
+                                fillColor: Colors.white.withValues(alpha: 0.5),
                                 contentPadding: const EdgeInsets.all(12),
                               ),
                               style: TextStyle(
@@ -2072,7 +2207,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 height: 1.5,
                               ),
                             ),
-                            // ?좏깮???대?吏 誘몃━蹂닿린
+                            // ?醫뤾문?????筌왖 沃섎챶?곮퉪?용┛
                             if (_selectedDetailImages.isNotEmpty) ...[
                               const SizedBox(height: 8),
                               SizedBox(
@@ -2105,7 +2240,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                               child: Container(
                                                 padding: const EdgeInsets.all(4),
                                                 decoration: BoxDecoration(
-                                                  color: Colors.black.withOpacity(0.6),
+                                                  color: Colors.black.withValues(alpha: 0.6),
                                                   shape: BoxShape.circle,
                                                 ),
                                                 child: const Icon(
@@ -2130,7 +2265,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 color: colorScheme.primary,
                               ),
                               onPressed: _pickDetailImages,
-                              tooltip: '?대?吏 異붽?',
+                              tooltip: '???筌왖 ?곕떽?',
                             ),
                           ],
                         )
@@ -2144,21 +2279,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
                                   p: TextStyle(
                                     fontSize: 14,
-                                    color: colorScheme.onSurface.withOpacity(0.85),
+                                    color: colorScheme.onSurface.withValues(alpha: 0.85),
                                     height: 1.6,
                                   ),
                                 ),
                               )
                             else
                               Text(
-                                '?곸꽭 ?댁슜???놁뒿?덈떎. ?몄쭛 踰꾪듉???뚮윭 異붽??섏꽭??',
+                                '?怨멸쉭 ??곸뒠????곷뮸??덈뼄. ?紐꾩춿 甕곌쑵??????쑎 ?곕떽???뤾쉭??',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: colorScheme.onSurface.withOpacity(0.5),
+                                  color: colorScheme.onSurface.withValues(alpha: 0.5),
                                   height: 1.5,
                                 ),
                               ),
-                            // ?대?吏 ?쒖떆
+                            // ???筌왖 ??뽯뻻
                             if (task.detailImageUrls.isNotEmpty) ...[
                               if (task.detail.isNotEmpty) const SizedBox(height: 12),
                               Wrap(
@@ -2182,10 +2317,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                             return Container(
                                               width: 200,
                                               height: 200,
-                                              color: Colors.white.withOpacity(0.7),
+                                              color: Colors.white.withValues(alpha: 0.7),
                                               child: Icon(
                                                 Icons.broken_image,
-                                                color: colorScheme.onSurface.withOpacity(0.5),
+                                                color: colorScheme.onSurface.withValues(alpha: 0.5),
                                               ),
                                             );
                                           },
@@ -2199,7 +2334,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           ],
                         ),
                 ),
-                // ?고븘 ?꾩씠肄?(?ㅻⅨ履??곷떒 怨좎젙)
+                // ?怨좊툡 ?袁⑹뵠??(??삘뀲筌??怨룸뼊 ?⑥쥙??
                 Positioned(
                   top: 0,
                   right: 0,
@@ -2210,7 +2345,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       color: colorScheme.primary,
                     ),
                     onPressed: onEditToggle,
-                    tooltip: isEditing ? '??? : '?몄쭛',
+                    tooltip: isEditing ? '수정 완료' : '편집',
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -2223,7 +2358,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  /// ?볤? ??꾨씪???꾩씠??(肄붾찘???ㅽ???- ?꾨컮?? 諛뺤뒪)
+  /// ?蹂? ???袁⑥뵬???袁⑹뵠??(?꾨뗀李???????- ?袁⑥뺍???? 獄쏅벡??
   Widget _buildCommentTimelineItem(
     BuildContext context,
     Comment comment,
@@ -2269,7 +2404,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       _formatRelativeDate(comment.createdAt),
                       style: TextStyle(
                         fontSize: 12,
-                        color: colorScheme.onSurface.withOpacity(0.5),
+                        color: colorScheme.onSurface.withValues(alpha: 0.5),
                       ),
                     ),
                     if (isMyComment) ...[
@@ -2277,7 +2412,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: colorScheme.primary.withOpacity(0.2),
+                          color: colorScheme.primary.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -2296,7 +2431,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         icon: Icon(
                           Icons.more_vert,
                           size: 16,
-                          color: colorScheme.onSurface.withOpacity(0.5),
+                          color: colorScheme.onSurface.withValues(alpha: 0.5),
                         ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -2314,7 +2449,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               children: [
                                 Icon(Icons.edit, size: 16),
                                 SizedBox(width: 8),
-                                Text('?몄쭛'),
+                                Text('?紐꾩춿'),
                               ],
                             ),
                           ),
@@ -2324,7 +2459,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               children: [
                                 Icon(Icons.delete, size: 16, color: Colors.red),
                                 SizedBox(width: 8),
-                                Text('??젣', style: TextStyle(color: Colors.red)),
+                                Text('삭제', style: TextStyle(color: Colors.red)),
                               ],
                             ),
                           ),
@@ -2338,8 +2473,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   borderRadius: 8.0,
                   blur: 15.0,
                   gradientColors: [
-                    Colors.white.withOpacity(0.8),
-                    Colors.white.withOpacity(0.7),
+                    Colors.white.withValues(alpha: 0.8),
+                    Colors.white.withValues(alpha: 0.7),
                   ],
                   child: _editingCommentId == comment.id
                       ? Column(
@@ -2350,12 +2485,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               maxLines: null,
                               minLines: 3,
                               decoration: InputDecoration(
-                                hintText: '?볤????섏젙?섏꽭??..',
+                                hintText: '?蹂?????륁젟??뤾쉭??..',
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 filled: true,
-                                fillColor: Colors.white.withOpacity(0.5),
+                                fillColor: Colors.white.withValues(alpha: 0.5),
                                 contentPadding: const EdgeInsets.all(12),
                               ),
                               style: TextStyle(
@@ -2371,8 +2506,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 TextButton(
                                   onPressed: _cancelEditComment,
                                   child: Text(
-                                    '痍⑥냼',
-                                    style: TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
+                                    '취소',
+                                    style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.7)),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -2382,7 +2517,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                     backgroundColor: colorScheme.primary,
                                     foregroundColor: Colors.white,
                                   ),
-                                  child: const Text('???),
+                                  child: const Text('저장'),
                                 ),
                               ],
                             ),
@@ -2392,18 +2527,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (comment.content.isNotEmpty)
-                              MarkdownBody(
-                                data: comment.content,
-                                selectable: true,
-                                styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                                  p: TextStyle(
-                                    fontSize: 14,
-                                    color: colorScheme.onSurface.withOpacity(0.85),
-                                    height: 1.6,
-                                  ),
-                                ),
-                              ),
-                            // ?대?吏 ?쒖떆
+                              _buildMentionRichText(comment.content, colorScheme),
+                            // ???筌왖 ??뽯뻻
                             if (comment.imageUrls.isNotEmpty) ...[
                               if (comment.content.isNotEmpty) const SizedBox(height: 8),
                               Wrap(
@@ -2427,10 +2552,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                             return Container(
                                               width: 200,
                                               height: 200,
-                                              color: Colors.white.withOpacity(0.7),
+                                              color: Colors.white.withValues(alpha: 0.7),
                                               child: Icon(
                                                 Icons.broken_image,
-                                                color: colorScheme.onSurface.withOpacity(0.5),
+                                                color: colorScheme.onSurface.withValues(alpha: 0.5),
                                               ),
                                             );
                                           },
@@ -2452,7 +2577,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  /// ?볤? ?낅젰 ?꾩젽
+  /// ?蹂? ??낆젾 ?袁⑹졐
   Widget _buildCommentInput(BuildContext context, ColorScheme colorScheme) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2493,7 +2618,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   if (dropped.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: const Text('?대?吏 ?뚯씪留??쒕∼?????덉뒿?덈떎. (png, jpg, jpeg, gif, webp)'),
+                        content: const Text('???筌왖 ???뵬筌???뺚댘??????됰뮸??덈뼄. (png, jpg, jpeg, gif, webp)'),
                         backgroundColor: Theme.of(context).colorScheme.error,
                       ),
                     );
@@ -2525,7 +2650,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       child: KeyboardListener(
                         focusNode: FocusNode(),
                         onKeyEvent: (event) {
-                          // Shift+Enter??以꾨컮轅? Enter留??꾨Ⅴ硫??꾩넚
+                          // Shift+Enter??餓κ쑬而?퐛? Enter筌??袁ⓥ뀮筌??袁⑸꽊
                           if (event is KeyDownEvent &&
                               event.logicalKey == LogicalKeyboardKey.enter &&
                               !HardwareKeyboard.instance.isShiftPressed &&
@@ -2541,7 +2666,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: _isCommentDropHover
-                                ? colorScheme.primary.withOpacity(0.8)
+                                ? colorScheme.primary.withValues(alpha: 0.8)
                                 : Colors.transparent,
                             width: 2,
                           ),
@@ -2551,8 +2676,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           borderRadius: 12.0,
                           blur: 20.0,
                           gradientColors: [
-                            Colors.white.withOpacity(0.8),
-                            Colors.white.withOpacity(0.7),
+                            Colors.white.withValues(alpha: 0.8),
+                            Colors.white.withValues(alpha: 0.7),
                           ],
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2564,11 +2689,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 minLines: 3,
                                 textInputAction: TextInputAction.send,
                                 keyboardType: TextInputType.multiline,
+                                onChanged: _handleCommentChanged,
                                 decoration: InputDecoration(
-                                  hintText: 'Add a comment... (Enter濡??꾩넚, Shift+Enter濡?以꾨컮轅? ?대?吏瑜??쒕옒洹명븯嫄곕굹 Ctrl+V濡?遺숈뿬?ｊ린)',
+                                  hintText: 'Add a comment... (Enter嚥??袁⑸꽊, Shift+Enter嚥?餓κ쑬而?퐛? ???筌왖????뺤삋域밸챸釉?쳞怨뺢돌 Ctrl+V嚥??븐늿肉?節딅┛)',
                                   border: InputBorder.none,
                                   hintStyle: TextStyle(
-                                    color: colorScheme.onSurface.withOpacity(0.5),
+                                    color: colorScheme.onSurface.withValues(alpha: 0.5),
                                   ),
                                 ),
                                 style: TextStyle(
@@ -2576,9 +2702,59 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   color: colorScheme.onSurface,
                                   height: 1.5,
                                 ),
-                                // onSubmitted ?쒓굅 - KeyboardListener媛 Enter ?ㅻ? 泥섎━??
+                                // onSubmitted ??볤탢 - KeyboardListener揶쎛 Enter ??? 筌ｌ꼶???
                               ),
-                              // ?좏깮???대?吏 誘몃━蹂닿린
+                              if (_showMentionSuggestions) ...[
+                                const SizedBox(height: 8),
+                                Container(
+                                  constraints: const BoxConstraints(maxHeight: 180),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.92),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: colorScheme.primary.withValues(alpha: 0.2),
+                                    ),
+                                  ),
+                                  child: ListView.builder(
+                                    shrinkWrap: true,
+                                    itemCount: _filteredMentionUsers.length,
+                                    itemBuilder: (context, index) {
+                                      final user = _filteredMentionUsers[index];
+                                      return ListTile(
+                                        dense: true,
+                                        leading: CircleAvatar(
+                                          radius: 12,
+                                          backgroundColor: AvatarColor.getColorForUser(user.id),
+                                          child: Text(
+                                            AvatarColor.getInitial(user.username),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                        title: Text(
+                                          user.username,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: colorScheme.onSurface,
+                                          ),
+                                        ),
+                                        subtitle: Text(
+                                          '@${user.username}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: colorScheme.onSurface.withValues(alpha: 0.6),
+                                          ),
+                                        ),
+                                        onTap: () => _insertMention(user),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                              // ?醫뤾문?????筌왖 沃섎챶?곮퉪?용┛
                               if (_selectedCommentImages.isNotEmpty) ...[
                                 const SizedBox(height: 8),
                                 SizedBox(
@@ -2611,7 +2787,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                                 child: Container(
                                                   padding: const EdgeInsets.all(4),
                                                   decoration: BoxDecoration(
-                                                    color: Colors.black.withOpacity(0.6),
+                                                    color: Colors.black.withValues(alpha: 0.6),
                                                     shape: BoxShape.circle,
                                                   ),
                                                   child: const Icon(
@@ -2639,7 +2815,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       color: colorScheme.primary,
                                     ),
                                     onPressed: _pickCommentImages,
-                                    tooltip: '?대?吏 異붽?',
+                                    tooltip: '???筌왖 ?곕떽?',
                                   ),
                                   TextButton(
                                     onPressed: _addComment,
@@ -2677,21 +2853,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         lower.endsWith('.webp');
   }
 
-  /// 遺숈뿬?ｊ린 泥섎━
+  /// ?븐늿肉?節딅┛ 筌ｌ꼶??
   Future<void> _handlePaste() async {
     if (!_commentFocusNode.hasFocus) return;
     
     try {
-      // 癒쇱? ?띿뒪???대┰蹂대뱶 ?뺤씤
+      // ?믪눘? ??용뮞?????계퉪?諭??類ㅼ뵥
       final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
       if (clipboardData != null && clipboardData.text != null && clipboardData.text!.isNotEmpty) {
-        // ?띿뒪?멸? ?덉쑝硫?TextField??遺숈뿬?ｊ린
+        // ??용뮞?硫? ??됱몵筌?TextField???븐늿肉?節딅┛
         final text = clipboardData.text!;
         final currentText = _commentController.text;
         final selection = _commentController.selection;
         
         if (selection.isValid) {
-          // ?좏깮???띿뒪?멸? ?덉쑝硫?援먯껜, ?놁쑝硫?而ㅼ꽌 ?꾩튂???쎌엯
+          // ?醫뤾문????용뮞?硫? ??됱몵筌??대Ŋ猿? ??곸몵筌??뚣끉苑??袁⑺뒄????뚯뿯
           final newText = currentText.replaceRange(
             selection.start,
             selection.end,
@@ -2702,7 +2878,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             selection: TextSelection.collapsed(offset: selection.start + text.length),
           );
         } else {
-          // 而ㅼ꽌媛 ?놁쑝硫??앹뿉 異붽?
+          // ?뚣끉苑뚦첎? ??곸몵筌???밸퓠 ?곕떽?
           _commentController.text = currentText + text;
           _commentController.selection = TextSelection.collapsed(
             offset: _commentController.text.length,
@@ -2711,7 +2887,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         return;
       }
       
-      // ?띿뒪?멸? ?놁쑝硫??대?吏 ?뺤씤 (Windows?먯꽌留?
+      // ??용뮞?硫? ??곸몵筌????筌왖 ?類ㅼ뵥 (Windows?癒?퐣筌?
       if (Platform.isWindows) {
         const platform = MethodChannel('com.sync/clipboard');
         try {
@@ -2744,7 +2920,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   if (dropped.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: const Text('?대?吏 ?뚯씪留?遺숈뿬?ｌ쓣 ???덉뒿?덈떎. (png, jpg, jpeg, gif, webp)'),
+                        content: const Text('???筌왖 ???뵬筌??븐늿肉?節뚯뱽 ????됰뮸??덈뼄. (png, jpg, jpeg, gif, webp)'),
                         backgroundColor: Theme.of(context).colorScheme.error,
                       ),
                     );
@@ -2770,17 +2946,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             }
           }
         } catch (e) {
-          // ?뚮옯??梨꾨꼸???녾굅???ㅽ뙣??寃쎌슦 臾댁떆
+          // ???삸??筌?쑬瑗????얘탢????쎈솭??野껋럩???얜똻??
         }
       }
       
-      // ?띿뒪?몃룄 ?대?吏???놁쑝硫??꾨Т寃껊룄 ?섏? ?딆쓬 (?먮윭 硫붿떆吏 ?쒓굅)
+      // ??용뮞?紐껊즲 ???筌왖????곸몵筌??袁ⓓ℡칰猿딅즲 ??? ??놁벉 (?癒?쑎 筌롫뗄?놅쭪? ??볤탢)
     } catch (e) {
-      // ?먮윭 諛쒖깮 ??臾댁떆
+      // ?癒?쑎 獄쏆뮇源????얜똻??
     }
   }
 
-  /// ?좎쭨 ?щ㎎??
+  /// ?醫롮? ?????
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final difference = now.difference(date);
@@ -2801,7 +2977,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  /// ?대?吏 ?뺣? ?ㅼ씠?쇰줈洹??쒖떆
+  /// ???筌왖 ?類? ??쇱뵠??곗쨮域???뽯뻻
   void _showImageDialog(BuildContext context, String imageUrl, List<String> allImageUrls) {
     final colorScheme = Theme.of(context).colorScheme;
     final resolvedImageUrl = _resolveImageUrl(imageUrl);
@@ -2814,7 +2990,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.7),
+      barrierColor: Colors.black.withValues(alpha: 0.7),
       builder: (context) {
         return Dialog(
           backgroundColor: Colors.transparent,
@@ -2826,11 +3002,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             ),
             child: Stack(
               children: [
-                // ?대?吏 酉곗뼱
+                // ???筌왖 ?됯퀣堉?
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
-                    color: Colors.black.withOpacity(0.8),
+                    color: Colors.black.withValues(alpha: 0.8),
                     child: InteractiveViewer(
                       minScale: 0.5,
                       maxScale: 4.0,
@@ -2842,20 +3018,20 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             return Container(
                               width: 400,
                               height: 400,
-                              color: Colors.white.withOpacity(0.7),
+                              color: Colors.white.withValues(alpha: 0.7),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(
                                     Icons.broken_image,
                                     size: 64,
-                                    color: colorScheme.onSurface.withOpacity(0.5),
+                                    color: colorScheme.onSurface.withValues(alpha: 0.5),
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
-                                    '?대?吏瑜?遺덈윭?????놁뒿?덈떎',
+                                    '???筌왖???븍뜄???????곷뮸??덈뼄',
                                     style: TextStyle(
-                                      color: colorScheme.onSurface.withOpacity(0.7),
+                                      color: colorScheme.onSurface.withValues(alpha: 0.7),
                                     ),
                                   ),
                                 ],
@@ -2867,7 +3043,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     ),
                   ),
                 ),
-                // ?リ린 踰꾪듉
+                // ??る┛ 甕곌쑵??
                 Positioned(
                   top: 8,
                   right: 8,
@@ -2879,14 +3055,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     ),
                     onPressed: () => Navigator.of(context).pop(),
                     style: IconButton.styleFrom(
-                      backgroundColor: Colors.black.withOpacity(0.6),
+                      backgroundColor: Colors.black.withValues(alpha: 0.6),
                       padding: const EdgeInsets.all(6),
                     ),
                   ),
                 ),
-                // ?щ윭 ?대?吏媛 ?덉쓣 寃쎌슦 ?ㅻ퉬寃뚯씠??踰꾪듉
+                // ???????筌왖揶쎛 ??됱뱽 野껋럩????삵돩野껊슣???甕곌쑵??
                 if (resolvedAllImageUrls.length > 1) ...[
-                  // ?댁쟾 ?대?吏
+                  // ??곸읈 ???筌왖
                   if (currentIndex > 0)
                     Positioned(
                       left: 8,
@@ -2908,13 +3084,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             );
                           },
                           style: IconButton.styleFrom(
-                            backgroundColor: Colors.black.withOpacity(0.6),
+                            backgroundColor: Colors.black.withValues(alpha: 0.6),
                             padding: const EdgeInsets.all(10),
                           ),
                         ),
                       ),
                     ),
-                  // ?ㅼ쓬 ?대?吏
+                  // ??쇱벉 ???筌왖
                   if (currentIndex < resolvedAllImageUrls.length - 1)
                     Positioned(
                       right: 8,
@@ -2936,13 +3112,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             );
                           },
                           style: IconButton.styleFrom(
-                            backgroundColor: Colors.black.withOpacity(0.6),
+                            backgroundColor: Colors.black.withValues(alpha: 0.6),
                             padding: const EdgeInsets.all(10),
                           ),
                         ),
                       ),
                     ),
-                  // ?대?吏 ?몃뜳???쒖떆
+                  // ???筌왖 ?紐껊쑔????뽯뻻
                   Positioned(
                     bottom: 12,
                     left: 0,
@@ -2951,7 +3127,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.6),
+                          color: Colors.black.withValues(alpha: 0.6),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -2975,7 +3151,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 }
 
-/// XFile 誘몃━蹂닿린 (???곗뒪?ы넲 怨듯넻, Image.file ?泥?
+/// XFile 沃섎챶?곮퉪?용┛ (???怨쀫뮞?????⑤벏?? Image.file ??筌?
 class _XFileImage extends StatelessWidget {
   const _XFileImage({
     required this.xfile,
@@ -3016,4 +3192,6 @@ class _XFileImage extends StatelessWidget {
     );
   }
 }
+
+
 

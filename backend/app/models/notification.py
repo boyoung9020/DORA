@@ -13,6 +13,7 @@ class NotificationType(str, enum.Enum):
     TASK_ASSIGNED = "taskAssigned"                    # 작업 할당자로 임명됨
     TASK_OPTION_CHANGED = "taskOptionChanged"        # 작업 옵션 변경 (중요도, 상태, 날짜)
     TASK_COMMENT_ADDED = "taskCommentAdded"           # 작업에 코멘트 추가됨
+    TASK_MENTIONED = "taskMentioned"                  # 댓글에서 멘션됨
 
 
 class Notification(Base):

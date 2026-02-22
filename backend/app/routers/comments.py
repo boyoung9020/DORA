@@ -1,5 +1,6 @@
 """Comment API router."""
 
+import re
 import uuid
 from typing import List
 
@@ -13,7 +14,8 @@ from app.models.task import Task
 from app.models.user import User
 from app.schemas.comment import CommentCreate, CommentResponse, CommentUpdate
 from app.utils.dependencies import get_current_user
-from app.utils.notifications import notify_task_comment_added
+from app.models.notification import NotificationType
+from app.utils.notifications import create_notification, notify_task_comment_added
 
 router = APIRouter()
 
@@ -106,6 +108,30 @@ async def create_comment(
             db.refresh(new_comment)
 
             notify_task_comment_added(db, task, current_user, new_comment.id)
+
+            # Handle @mention notifications in comment content.
+            mention_pattern = re.compile(r"@([A-Za-z0-9_]+)")
+            mentioned_usernames = set(mention_pattern.findall(content))
+            if mentioned_usernames:
+                mentioned_users = (
+                    db.query(User)
+                    .filter(User.username.in_(list(mentioned_usernames)), User.id != current_user.id)
+                    .all()
+                )
+                team_member_ids = set(project.team_member_ids or []) if project else set()
+                for mentioned_user in mentioned_users:
+                    if team_member_ids and mentioned_user.id not in team_member_ids:
+                        continue
+                    create_notification(
+                        db=db,
+                        notification_type=NotificationType.TASK_MENTIONED,
+                        user_id=mentioned_user.id,
+                        title=f"'{task.title}'에서 멘션되었습니다",
+                        message=f"{current_user.username}님이 댓글에서 회원님을 언급했습니다",
+                        project_id=task.project_id,
+                        task_id=task.id,
+                        comment_id=new_comment.id,
+                    )
 
             import asyncio
 

@@ -6,6 +6,7 @@ from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
 from app.database import Base, SessionLocal, engine
+from app.models.sprint import Sprint  # noqa: F401
 from app.models.user import User
 from app.utils.security import get_password_hash
 
@@ -29,6 +30,17 @@ def run_migrations():
                 )
                 conn.commit()
                 print("[migration] added tasks.display_order")
+            if "sprint_id" not in columns:
+                conn.execute(text("ALTER TABLE tasks ADD COLUMN sprint_id VARCHAR"))
+                conn.commit()
+                print("[migration] added tasks.sprint_id")
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_tasks_sprint_id "
+                    "ON tasks(sprint_id)"
+                )
+            )
+            conn.commit()
 
         if "projects" in inspector.get_table_names():
             columns = [col["name"] for col in inspector.get_columns("projects")]

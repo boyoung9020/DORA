@@ -83,6 +83,7 @@ async def create_task(
         detail_image_urls=task_data.detail_image_urls or [],
         priority=task_data.priority,
         assigned_member_ids=task_data.assigned_member_ids,
+        sprint_id=task_data.sprint_id,
         comment_ids=[],
         status_history=[],
         assignment_history=[],
@@ -213,6 +214,8 @@ async def update_task(
                 notify_task_assigned(db, task, member_id, current_user)
         
         task.assigned_member_ids = task_data.assigned_member_ids
+    if task_data.sprint_id is not None:
+        task.sprint_id = task_data.sprint_id
     
     # 작업 옵션 변경 알림 (중요도, 상태, 날짜 변경 시)
     if changed_fields:

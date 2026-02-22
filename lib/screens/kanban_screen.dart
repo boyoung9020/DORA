@@ -71,7 +71,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     borderRadius: BorderRadius.circular(12.0),
                     border: Border.all(
                       color: colorScheme.brightness == Brightness.dark
-                          ? colorScheme.onSurface.withOpacity(0.1)
+                          ? colorScheme.onSurface.withValues(alpha: 0.1)
                           : const Color(0xFFE0E7FF),
                       width: 1,
                     ),
@@ -116,7 +116,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   child: Text(
                     'Discard',
                     style: TextStyle(
-                      color: colorScheme.onSurface.withOpacity(0.7),
+                      color: colorScheme.onSurface.withValues(alpha: 0.7),
                       fontSize: 14,
                     ),
                   ),
@@ -163,14 +163,14 @@ class _KanbanScreenState extends State<KanbanScreen> {
             Icon(
               Icons.folder_open,
               size: 64,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
               '프로젝트가 없습니다',
               style: TextStyle(
                 fontSize: 18,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
             const SizedBox(height: 8),
@@ -178,7 +178,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
               '관리자에게 프로젝트 참여를 요청하세요',
               style: TextStyle(
                 fontSize: 14,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
               ),
             ),
           ],
@@ -282,8 +282,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
             borderRadius: 15.0,
             blur: 20.0,
             gradientColors: [
-              colorScheme.surface.withOpacity(0.6),
-              colorScheme.surface.withOpacity(0.5),
+              colorScheme.surface.withValues(alpha: 0.6),
+              colorScheme.surface.withValues(alpha: 0.5),
             ],
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -314,7 +314,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: colorScheme.onSurface.withOpacity(0.7),
+                        color: colorScheme.onSurface.withValues(alpha: 0.7),
                       ),
                     ),
                   ],
@@ -324,7 +324,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   status.description,
                   style: TextStyle(
                     fontSize: 11,
-                    color: colorScheme.onSurface.withOpacity(0.6),
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -369,7 +369,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                       color: isDraggingOver
                           ? colorScheme.primary
                           : isDarkMode
-                              ? colorScheme.onSurface.withOpacity(0.1)
+                              ? colorScheme.onSurface.withValues(alpha: 0.1)
                               : const Color(0xFFE0E7FF),
                       width: isDraggingOver ? 2 : 1,
                     ),
@@ -438,11 +438,11 @@ class _KanbanScreenState extends State<KanbanScreen> {
                               borderRadius: 20.0,
                               blur: 20.0,
                               gradientColors: [
-                                colorScheme.surface.withOpacity(0.6),
-                                colorScheme.surface.withOpacity(0.5),
+                                colorScheme.surface.withValues(alpha: 0.6),
+                                colorScheme.surface.withValues(alpha: 0.5),
                               ],
                               borderColor: Theme.of(context).brightness == Brightness.dark
-                                  ? colorScheme.onSurface.withOpacity(0.2)
+                                  ? colorScheme.onSurface.withValues(alpha: 0.2)
                                   : const Color(0xFFE0E7FF),
                               borderWidth: 1.0,
                               child: Container(
@@ -483,7 +483,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
           color: isDarkMode
-              ? colorScheme.onSurface.withOpacity(0.1)
+              ? colorScheme.onSurface.withValues(alpha: 0.1)
               : const Color(0xFFE0E7FF),
           style: BorderStyle.solid,
         ),
@@ -492,7 +492,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
         child: Text(
           '태스크를 여기로 드래그하세요',
           style: TextStyle(
-            color: colorScheme.onSurface.withOpacity(0.5),
+            color: colorScheme.onSurface.withValues(alpha: 0.5),
             fontSize: 14,
           ),
         ),
@@ -525,7 +525,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
             border: Border.all(color: statusColor, width: 2),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withValues(alpha: 0.2),
                 blurRadius: 10,
                 spreadRadius: 2,
               ),
@@ -583,11 +583,11 @@ class _KanbanScreenState extends State<KanbanScreen> {
         blur: 25.0,
         borderWidth: 1.0,
         gradientColors: [
-          colorScheme.surface.withOpacity(0.6),
-          colorScheme.surface.withOpacity(0.5),
+          colorScheme.surface.withValues(alpha: 0.6),
+          colorScheme.surface.withValues(alpha: 0.5),
         ],
         borderColor: Theme.of(context).brightness == Brightness.dark
-            ? colorScheme.onSurface.withOpacity(0.1)
+            ? colorScheme.onSurface.withValues(alpha: 0.1)
             : const Color(0xFFE0E7FF),
         child: Stack(
           clipBehavior: Clip.none, // 경계 밖으로 나가는 것을 허용
@@ -667,7 +667,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: colorScheme.onSurface.withOpacity(0.7),
+                  color: colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -693,7 +693,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
             task.description,
             style: TextStyle(
               fontSize: 14,
-              color: colorScheme.onSurface.withOpacity(0.7),
+              color: colorScheme.onSurface.withValues(alpha: 0.7),
             ),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
@@ -704,10 +704,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: task.priority.color.withOpacity(0.2),
+            color: task.priority.color.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: task.priority.color.withOpacity(0.5),
+              color: task.priority.color.withValues(alpha: 0.5),
               width: 1,
             ),
           ),
@@ -797,8 +797,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   borderRadius: 20.0,
                   blur: 25.0,
                   gradientColors: [
-                    colorScheme.surface.withOpacity(0.6),
-                    colorScheme.surface.withOpacity(0.5),
+                    colorScheme.surface.withValues(alpha: 0.6),
+                    colorScheme.surface.withValues(alpha: 0.5),
                   ],
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -843,7 +843,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                   });
                                 }
                               },
-                              selectedColor: status.color.withOpacity(0.3),
+                              selectedColor: status.color.withValues(alpha: 0.3),
                               labelStyle: TextStyle(
                                 color: selectedStatus == status
                                     ? status.color
@@ -896,7 +896,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                   });
                                 }
                               },
-                              selectedColor: priority.color.withOpacity(0.3),
+                              selectedColor: priority.color.withValues(alpha: 0.3),
                               labelStyle: TextStyle(
                                 color: selectedPriority == priority
                                     ? priority.color
@@ -929,12 +929,12 @@ class _KanbanScreenState extends State<KanbanScreen> {
                         borderRadius: 12.0,
                         blur: 20.0,
                         gradientColors: [
-                          colorScheme.surface.withOpacity(0.3),
-                          colorScheme.surface.withOpacity(0.2),
+                          colorScheme.surface.withValues(alpha: 0.3),
+                          colorScheme.surface.withValues(alpha: 0.2),
                         ],
                         child: Row(
                           children: [
-                            Icon(Icons.calendar_today, size: 20, color: colorScheme.onSurface.withOpacity(0.7)),
+                            Icon(Icons.calendar_today, size: 20, color: colorScheme.onSurface.withValues(alpha: 0.7)),
                             const SizedBox(width: 12),
                             Text(
                               startDate != null
@@ -944,7 +944,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                 fontSize: 16,
                                 color: startDate != null
                                     ? colorScheme.onSurface
-                                    : colorScheme.onSurface.withOpacity(0.5),
+                                    : colorScheme.onSurface.withValues(alpha: 0.5),
                               ),
                             ),
                           ],
@@ -969,12 +969,12 @@ class _KanbanScreenState extends State<KanbanScreen> {
                         borderRadius: 12.0,
                         blur: 20.0,
                         gradientColors: [
-                          colorScheme.surface.withOpacity(0.3),
-                          colorScheme.surface.withOpacity(0.2),
+                          colorScheme.surface.withValues(alpha: 0.3),
+                          colorScheme.surface.withValues(alpha: 0.2),
                         ],
                         child: Row(
                           children: [
-                            Icon(Icons.calendar_today, size: 20, color: colorScheme.onSurface.withOpacity(0.7)),
+                            Icon(Icons.calendar_today, size: 20, color: colorScheme.onSurface.withValues(alpha: 0.7)),
                             const SizedBox(width: 12),
                             Text(
                               endDate != null
@@ -984,7 +984,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                 fontSize: 16,
                                 color: endDate != null
                                     ? colorScheme.onSurface
-                                    : colorScheme.onSurface.withOpacity(0.5),
+                                    : colorScheme.onSurface.withValues(alpha: 0.5),
                               ),
                             ),
                           ],
@@ -1028,8 +1028,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
                               }
                             },
                             gradientColors: [
-                              colorScheme.primary.withOpacity(0.5),
-                              colorScheme.primary.withOpacity(0.4),
+                              colorScheme.primary.withValues(alpha: 0.5),
+                              colorScheme.primary.withValues(alpha: 0.4),
                             ],
                           ),
                         ),
@@ -1050,7 +1050,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
   void _showTaskDetailScreen(BuildContext context, Task task, TaskProvider taskProvider) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.2),
+      barrierColor: Colors.black.withValues(alpha: 0.2),
       builder: (context) => TaskDetailScreen(task: task),
     );
   }
@@ -1081,8 +1081,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   borderRadius: 20.0,
                   blur: 25.0,
                   gradientColors: [
-                    colorScheme.surface.withOpacity(0.6),
-                    colorScheme.surface.withOpacity(0.5),
+                    colorScheme.surface.withValues(alpha: 0.6),
+                    colorScheme.surface.withValues(alpha: 0.5),
                   ],
                   child: SingleChildScrollView(
                     child: Column(
@@ -1135,7 +1135,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                   });
                                 }
                               },
-                              selectedColor: status.color.withOpacity(0.3),
+                              selectedColor: status.color.withValues(alpha: 0.3),
                               labelStyle: TextStyle(
                                 color: selectedStatus == status
                                     ? status.color
@@ -1177,8 +1177,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
                               }
                             },
                             gradientColors: [
-                              colorScheme.primary.withOpacity(0.5),
-                              colorScheme.primary.withOpacity(0.4),
+                              colorScheme.primary.withValues(alpha: 0.5),
+                              colorScheme.primary.withValues(alpha: 0.4),
                             ],
                           ),
                         ),
@@ -1258,8 +1258,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
               borderRadius: 20.0,
               blur: 25.0,
               gradientColors: [
-                dialogColorScheme.surface.withOpacity(0.6),
-                dialogColorScheme.surface.withOpacity(0.5),
+                dialogColorScheme.surface.withValues(alpha: 0.6),
+                dialogColorScheme.surface.withValues(alpha: 0.5),
               ],
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1278,7 +1278,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 15,
-                      color: dialogColorScheme.onSurface.withOpacity(0.8),
+                      color: dialogColorScheme.onSurface.withValues(alpha: 0.8),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -1302,7 +1302,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                           await taskProvider.deleteTask(task.id);
                         },
                         style: TextButton.styleFrom(
-                          backgroundColor: Colors.red.withOpacity(0.2),
+                          backgroundColor: Colors.red.withValues(alpha: 0.2),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         ),
                         child: Text(

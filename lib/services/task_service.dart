@@ -45,6 +45,7 @@ class TaskService {
     List<String> detailImageUrls = const [],
     TaskPriority priority = TaskPriority.p2,
     List<String>? assignedMemberIds,
+    String? sprintId,
   }) async {
     try {
       final response = await ApiClient.post(
@@ -60,6 +61,7 @@ class TaskService {
           'detail_image_urls': detailImageUrls,
           'priority': priority.name,
           'assigned_member_ids': assignedMemberIds ?? [],
+          'sprint_id': sprintId,
         },
       );
       
@@ -83,6 +85,7 @@ class TaskService {
         'detail_image_urls': task.detailImageUrls,
         'priority': task.priority.name,
         'assigned_member_ids': task.assignedMemberIds,
+        'sprint_id': task.sprintId,
       };
       
       final response = await ApiClient.patch(
@@ -115,6 +118,16 @@ class TaskService {
   /// 프로젝트별 태스크 가져오기
   Future<List<Task>> getTasksByProject(String projectId) async {
     return getAllTasks(projectId: projectId);
+  }
+
+  Future<Task?> getTaskById(String taskId) async {
+    try {
+      final response = await ApiClient.get('/api/tasks/$taskId');
+      final taskData = ApiClient.handleResponse(response);
+      return Task.fromJson(taskData);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// 태스크 상태 변경

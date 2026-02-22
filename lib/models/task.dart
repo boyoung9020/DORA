@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../utils/date_utils.dart';
 
-/// 상태 변경 히스토리
+/// ?곹깭 蹂寃??덉뒪?좊━
 class StatusChangeHistory {
   final TaskStatus fromStatus;
   final TaskStatus toStatus;
@@ -44,7 +44,7 @@ class StatusChangeHistory {
   }
 }
 
-/// 팀원 할당 히스토리
+/// ????좊떦 ?덉뒪?좊━
 class AssignmentHistory {
   final String assignedUserId;
   final String assignedUsername;
@@ -81,7 +81,7 @@ class AssignmentHistory {
   }
 }
 
-/// 중요도 변경 히스토리
+/// 以묒슂??蹂寃??덉뒪?좊━
 class PriorityChangeHistory {
   final TaskPriority fromPriority;
   final TaskPriority toPriority;
@@ -124,33 +124,34 @@ class PriorityChangeHistory {
   }
 }
 
-/// 태스크 모델 클래스
+/// ?쒖뒪??紐⑤뜽 ?대옒??
 /// 
-/// 칸반 보드의 각 카드를 나타내는 데이터 모델입니다.
-/// - id: 고유 식별자
-/// - title: 태스크 제목
-/// - description: 태스크 설명
-/// - status: 태스크 상태 (todo, inProgress, done)
-/// - createdAt: 생성 시간
-/// - updatedAt: 수정 시간
-/// - assignedMemberIds: 할당된 팀원 사용자 ID 목록
+/// 移몃컲 蹂대뱶??媛?移대뱶瑜??섑??대뒗 ?곗씠??紐⑤뜽?낅땲??
+/// - id: 怨좎쑀 ?앸퀎??
+/// - title: ?쒖뒪???쒕ぉ
+/// - description: ?쒖뒪???ㅻ챸
+/// - status: ?쒖뒪???곹깭 (todo, inProgress, done)
+/// - createdAt: ?앹꽦 ?쒓컙
+/// - updatedAt: ?섏젙 ?쒓컙
+/// - assignedMemberIds: ?좊떦??????ъ슜??ID 紐⑸줉
 class Task {
   final String id;
   final String title;
   final String description;
   final TaskStatus status;
-  final String projectId; // 프로젝트 ID 추가
-  final DateTime? startDate; // 시작일
-  final DateTime? endDate; // 종료일
-  final String detail; // 상세 내용
-  final List<String> detailImageUrls; // 상세 내용 이미지 URL 배열
-  final List<String> assignedMemberIds; // 할당된 팀원 사용자 ID 목록
-  final List<String> commentIds; // 댓글 ID 목록
-  final TaskPriority priority; // 중요도
-  final List<StatusChangeHistory> statusHistory; // 상태 변경 히스토리
-  final List<AssignmentHistory> assignmentHistory; // 할당 히스토리
-  final List<PriorityChangeHistory> priorityHistory; // 중요도 변경 히스토리
-  final int displayOrder; // 칸반 보드 내 표시 순서
+  final String projectId;
+  final String? sprintId; // ?꾨줈?앺듃 ID 異붽?
+  final DateTime? startDate; // ?쒖옉??
+  final DateTime? endDate; // 醫낅즺??
+  final String detail; // ?곸꽭 ?댁슜
+  final List<String> detailImageUrls; // ?곸꽭 ?댁슜 ?대?吏 URL 諛곗뿴
+  final List<String> assignedMemberIds; // ?좊떦??????ъ슜??ID 紐⑸줉
+  final List<String> commentIds; // ?볤? ID 紐⑸줉
+  final TaskPriority priority; // 以묒슂??
+  final List<StatusChangeHistory> statusHistory; // ?곹깭 蹂寃??덉뒪?좊━
+  final List<AssignmentHistory> assignmentHistory; // ?좊떦 ?덉뒪?좊━
+  final List<PriorityChangeHistory> priorityHistory; // 以묒슂??蹂寃??덉뒪?좊━
+  final int displayOrder; // 移몃컲 蹂대뱶 ???쒖떆 ?쒖꽌
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -160,6 +161,7 @@ class Task {
     this.description = '',
     required this.status,
     required this.projectId,
+    this.sprintId,
     this.startDate,
     this.endDate,
     this.detail = '',
@@ -181,7 +183,7 @@ class Task {
        assignmentHistory = assignmentHistory ?? [],
        priorityHistory = priorityHistory ?? [];
 
-  /// JSON으로 변환 (저장용)
+  /// JSON?쇰줈 蹂??(??μ슜)
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -189,6 +191,7 @@ class Task {
       'description': description,
       'status': status.name,
       'projectId': projectId,
+      'sprint_id': sprintId,
       'startDate': startDate?.toIso8601String(),
       'endDate': endDate?.toIso8601String(),
       'detail': detail,
@@ -205,14 +208,14 @@ class Task {
     };
   }
 
-  /// JSON에서 Task 객체 생성
+  /// JSON?먯꽌 Task 媛앹껜 ?앹꽦
   factory Task.fromJson(Map<String, dynamic> json) {
-    // API 응답은 snake_case, 로컬 저장은 camelCase 지원
+    // API ?묐떟? snake_case, 濡쒖뺄 ??μ? camelCase 吏??
     String getKey(String camelKey, String snakeKey) {
       return json.containsKey(snakeKey) ? snakeKey : camelKey;
     }
     
-    // assigned_member_ids 또는 assignedMemberIds 처리
+    // assigned_member_ids ?먮뒗 assignedMemberIds 泥섎━
     List<String> assignedMemberIds = [];
     final assignedKey = getKey('assignedMemberIds', 'assigned_member_ids');
     if (json.containsKey(assignedKey) && json[assignedKey] != null) {
@@ -226,7 +229,7 @@ class Task {
       }
     }
     
-    // comment_ids 또는 commentIds 처리
+    // comment_ids ?먮뒗 commentIds 泥섎━
     List<String> commentIds = [];
     final commentKey = getKey('commentIds', 'comment_ids');
     if (json.containsKey(commentKey) && json[commentKey] != null) {
@@ -240,7 +243,7 @@ class Task {
       }
     }
     
-    // status_history 또는 statusHistory 처리
+    // status_history ?먮뒗 statusHistory 泥섎━
     List<StatusChangeHistory> statusHistory = [];
     final statusHistoryKey = getKey('statusHistory', 'status_history');
     if (json.containsKey(statusHistoryKey) && json[statusHistoryKey] != null) {
@@ -254,7 +257,7 @@ class Task {
       }
     }
     
-    // assignment_history 또는 assignmentHistory 처리
+    // assignment_history ?먮뒗 assignmentHistory 泥섎━
     List<AssignmentHistory> assignmentHistory = [];
     final assignmentHistoryKey = getKey('assignmentHistory', 'assignment_history');
     if (json.containsKey(assignmentHistoryKey) && json[assignmentHistoryKey] != null) {
@@ -268,7 +271,7 @@ class Task {
       }
     }
     
-    // priority_history 또는 priorityHistory 처리
+    // priority_history ?먮뒗 priorityHistory 泥섎━
     List<PriorityChangeHistory> priorityHistory = [];
     final priorityHistoryKey = getKey('priorityHistory', 'priority_history');
     if (json.containsKey(priorityHistoryKey) && json[priorityHistoryKey] != null) {
@@ -282,23 +285,25 @@ class Task {
       }
     }
     
-    // project_id 또는 projectId 처리
+    // project_id ?먮뒗 projectId 泥섎━
     final projectIdKey = getKey('projectId', 'project_id');
     final projectId = json[projectIdKey] ?? '';
+    final sprintIdKey = getKey('sprintId', 'sprint_id');
+    final sprintId = json[sprintIdKey] as String?;
     
-    // start_date 또는 startDate 처리
+    // start_date ?먮뒗 startDate 泥섎━
     final startDateKey = getKey('startDate', 'start_date');
     final startDate = parseUtcToLocalOrNull(json[startDateKey]);
 
-    // end_date 또는 endDate 처리
+    // end_date ?먮뒗 endDate 泥섎━
     final endDateKey = getKey('endDate', 'end_date');
     final endDate = parseUtcToLocalOrNull(json[endDateKey]);
 
-    // created_at 또는 createdAt 처리
+    // created_at ?먮뒗 createdAt 泥섎━
     final createdAtKey = getKey('createdAt', 'created_at');
     final createdAt = parseUtcToLocal(json[createdAtKey]);
 
-    // updated_at 또는 updatedAt 처리
+    // updated_at ?먮뒗 updatedAt 泥섎━
     final updatedAtKey = getKey('updatedAt', 'updated_at');
     final updatedAt = parseUtcToLocal(json[updatedAtKey]);
     
@@ -311,6 +316,7 @@ class Task {
         orElse: () => TaskStatus.backlog,
       ),
       projectId: projectId,
+      sprintId: sprintId,
       startDate: startDate,
       endDate: endDate,
       detail: json['detail'] ?? '',
@@ -334,13 +340,14 @@ class Task {
     );
   }
 
-  /// 상태를 변경한 복사본 생성
+  /// ?곹깭瑜?蹂寃쏀븳 蹂듭궗蹂??앹꽦
   Task copyWith({
     String? id,
     String? title,
     String? description,
     TaskStatus? status,
     String? projectId,
+    String? sprintId,
     DateTime? startDate,
     DateTime? endDate,
     String? detail,
@@ -361,6 +368,7 @@ class Task {
       description: description ?? this.description,
       status: status ?? this.status,
       projectId: projectId ?? this.projectId,
+      sprintId: sprintId ?? this.sprintId,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       detail: detail ?? this.detail,
@@ -378,49 +386,49 @@ class Task {
   }
 }
 
-/// 태스크 상태 열거형
+/// ?쒖뒪???곹깭 ?닿굅??
 enum TaskStatus {
-  backlog,      // 백로그
-  ready,         // 준비됨
-  inProgress,    // 진행 중
-  inReview,      // 검토 중
-  done,          // 완료
+  backlog,      // 諛깅줈洹?
+  ready,         // 以鍮꾨맖
+  inProgress,    // 吏꾪뻾 以?
+  inReview,      // 寃??以?
+  done,          // ?꾨즺
 }
 
-/// 상태별 한글 이름
+/// ?곹깭蹂??쒓? ?대쫫
 extension TaskStatusExtension on TaskStatus {
   String get displayName {
     switch (this) {
       case TaskStatus.backlog:
         return '백로그';
       case TaskStatus.ready:
-        return '요청';
+        return '준비됨';
       case TaskStatus.inProgress:
-        return '진행';
+        return '진행 중';
       case TaskStatus.inReview:
-        return '리뷰';
+        return '검토 중';
       case TaskStatus.done:
         return '완료';
     }
   }
 
-  /// 상태별 색상
+  /// ?곹깭蹂??됱긽
   Color get color {
     switch (this) {
       case TaskStatus.backlog:
-        return const Color(0xFF9E9E9E); // 회색
+        return const Color(0xFF9E9E9E); // ?뚯깋
       case TaskStatus.ready:
-        return const Color(0xFF2196F3); // 파란색
+        return const Color(0xFF2196F3); // ?뚮???
       case TaskStatus.inProgress:
-        return const Color(0xFFFF9800); // 주황색
+        return const Color(0xFFFF9800); // 二쇳솴??
       case TaskStatus.inReview:
-        return const Color(0xFF9C27B0); // 보라색
+        return const Color(0xFF9C27B0); // 蹂대씪??
       case TaskStatus.done:
-        return const Color(0xFF4CAF50); // 초록색
+        return const Color(0xFF4CAF50); // 珥덈줉??
     }
   }
 
-  /// 상태별 설명
+  /// ?곹깭蹂??ㅻ챸
   String get description {
     switch (this) {
       case TaskStatus.backlog:
@@ -437,15 +445,15 @@ extension TaskStatusExtension on TaskStatus {
   }
 }
 
-/// 태스크 중요도 열거형
+/// ?쒖뒪??以묒슂???닿굅??
 enum TaskPriority {
-  p0,  // 최우선
-  p1,  // 높음
-  p2,  // 보통
-  p3,  // 낮음
+  p0,  // 理쒖슦??
+  p1,  // ?믪쓬
+  p2,  // 蹂댄넻
+  p3,  // ??쓬
 }
 
-/// 중요도별 확장
+/// 以묒슂?꾨퀎 ?뺤옣
 extension TaskPriorityExtension on TaskPriority {
   String get displayName {
     switch (this) {
@@ -460,21 +468,21 @@ extension TaskPriorityExtension on TaskPriority {
     }
   }
 
-  /// 중요도별 색상
+  /// 以묒슂?꾨퀎 ?됱긽
   Color get color {
     switch (this) {
       case TaskPriority.p0:
-        return const Color(0xFFE53935); // 빨간색 (최우선)
+        return const Color(0xFFE53935); // 鍮④컙??(理쒖슦??
       case TaskPriority.p1:
-        return const Color(0xFFFF9800); // 주황색 (높음)
+        return const Color(0xFFFF9800); // 二쇳솴??(?믪쓬)
       case TaskPriority.p2:
-        return const Color(0xFF2196F3); // 파란색 (보통)
+        return const Color(0xFF2196F3); // ?뚮???(蹂댄넻)
       case TaskPriority.p3:
-        return const Color(0xFF9E9E9E); // 회색 (낮음)
+        return const Color(0xFF9E9E9E); // ?뚯깋 (??쓬)
     }
   }
 
-  /// 중요도별 설명
+  /// 以묒슂?꾨퀎 ?ㅻ챸
   String get description {
     switch (this) {
       case TaskPriority.p0:
@@ -488,4 +496,5 @@ extension TaskPriorityExtension on TaskPriority {
     }
   }
 }
+
 

@@ -10,6 +10,7 @@ import 'providers/theme_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/workspace_provider.dart';
+import 'providers/sprint_provider.dart';
 import 'services/windows_notification_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_layout.dart';
@@ -98,6 +99,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         // WorkspaceProvider
         ChangeNotifierProvider(create: (_) => WorkspaceProvider()),
+        ChangeNotifierProvider(create: (_) => SprintProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {

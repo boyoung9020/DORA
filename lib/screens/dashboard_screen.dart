@@ -5,6 +5,7 @@ import '../providers/project_provider.dart';
 import '../providers/task_provider.dart';
 import '../models/task.dart';
 import '../models/project.dart';
+import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../widgets/glass_container.dart';
 import '../utils/avatar_color.dart';
@@ -20,9 +21,12 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  Future<List<User>>? _usersFuture;
+
   @override
   void initState() {
     super.initState();
+    _usersFuture = AuthService().getAllUsers();
     // ?붾㈃ 濡쒕뱶 ???쒖뒪??遺덈윭?ㅺ린
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TaskProvider>().loadTasks();
@@ -138,6 +142,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Map<TaskStatus, int> _getStatusCounts(List<Task> tasks) {
+    final counts = <TaskStatus, int>{
+      TaskStatus.backlog: 0,
+      TaskStatus.ready: 0,
+      TaskStatus.inProgress: 0,
+      TaskStatus.inReview: 0,
+      TaskStatus.done: 0,
+    };
+    for (final task in tasks) {
+      counts[task.status] = (counts[task.status] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  List<MapEntry<String, int>> _buildWorkload(
+    List<Task> tasks,
+    List<User> users,
+  ) {
+    final usernameById = {for (final u in users) u.id: u.username};
+    final counts = <String, int>{};
+    for (final task in tasks) {
+      for (final uid in task.assignedMemberIds) {
+        counts[uid] = (counts[uid] ?? 0) + 1;
+      }
+    }
+
+    final result = counts.entries
+        .map((e) => MapEntry(usernameById[e.key] ?? e.key, e.value))
+        .toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return result.take(5).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -147,6 +184,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final user = authProvider.currentUser;
     final allProjects = projectProvider.projects;
     final allTasks = taskProvider.tasks;
+    final statusCounts = _getStatusCounts(allTasks);
+    final totalTaskCount = allTasks.length;
 
     // 紐⑤뱺 ?꾨줈?앺듃???ㅻ뒛 ?????꾪꽣留?
     final todayTasks = _getTodayTasks(allTasks, user?.id);
@@ -170,7 +209,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       '${_getGreetingMessage()}, ',
                       style: TextStyle(
                         fontSize: 20,
-                        color: colorScheme.onSurface.withOpacity(0.7),
+                        color: colorScheme.onSurface.withValues(alpha: 0.7),
                       ),
                     ),
                     Text(
@@ -188,10 +227,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         borderRadius: 12.0,
                         blur: 15.0,
                         gradientColors: [
-                          colorScheme.primary.withOpacity(0.3),
-                          colorScheme.primary.withOpacity(0.2),
+                          colorScheme.primary.withValues(alpha: 0.3),
+                          colorScheme.primary.withValues(alpha: 0.2),
                         ],
-                        borderColor: colorScheme.primary.withOpacity(0.5),
+                        borderColor: colorScheme.primary.withValues(alpha: 0.5),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -223,7 +262,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   _formatDate(DateTime.now()),
                   style: TextStyle(
                     fontSize: 16,
-                    color: colorScheme.onSurface.withOpacity(0.6),
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
               ),
@@ -236,8 +275,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     borderRadius: 12.0,
                     blur: 20.0,
                     gradientColors: [
-                      colorScheme.primary.withOpacity(0.3),
-                      colorScheme.primary.withOpacity(0.2),
+                      colorScheme.primary.withValues(alpha: 0.3),
+                      colorScheme.primary.withValues(alpha: 0.2),
                     ],
                     child: IconButton(
                       icon: Icon(
@@ -292,7 +331,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
-                          color: colorScheme.primary.withOpacity(0.2),
+                          color: colorScheme.primary.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
@@ -317,14 +356,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 Icon(
                                   Icons.check_circle_outline,
                                   size: 48,
-                                  color: colorScheme.onSurface.withOpacity(0.5),
+                                  color: colorScheme.onSurface.withValues(alpha: 0.5),
                                 ),
                                 const SizedBox(height: 12),
                                 Text(
                                   '오늘 할 일이 없습니다',
                                   style: TextStyle(
                                     fontSize: 16,
-                                    color: colorScheme.onSurface.withOpacity(0.7),
+                                    color: colorScheme.onSurface.withValues(alpha: 0.7),
                                   ),
                                 ),
                               ],
@@ -333,10 +372,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         )
                       : Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: allProjects.where((project) {
-                            final projectTasks = todayTasksByProject[project.id] ?? [];
-                            return projectTasks.isNotEmpty;
-                          }).map((project) {
+                          children: [
+                            ...allProjects.where((project) {
+                              final projectTasks = todayTasksByProject[project.id] ?? [];
+                              return projectTasks.isNotEmpty;
+                            }).map((project) {
                             final projectTasks = todayTasksByProject[project.id] ?? [];
                             
                             return Padding(
@@ -346,10 +386,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 borderRadius: 15.0,
                                 blur: 20.0,
                                 gradientColors: [
-                                  colorScheme.surface.withOpacity(0.5),
-                                  colorScheme.surface.withOpacity(0.4),
+                                  colorScheme.surface.withValues(alpha: 0.5),
+                                  colorScheme.surface.withValues(alpha: 0.4),
                                 ],
-                                borderColor: project.color.withOpacity(0.4),
+                                borderColor: project.color.withValues(alpha: 0.4),
                                 borderWidth: 1.0,
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -381,7 +421,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             vertical: 4,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: project.color.withOpacity(0.2),
+                                            color: project.color.withValues(alpha: 0.2),
                                             borderRadius: BorderRadius.circular(8),
                                           ),
                                           child: Text(
@@ -418,10 +458,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             blur: 15.0,
                                             borderWidth: 1.0,
                                             gradientColors: [
-                                              colorScheme.surface.withOpacity(0.6),
-                                              colorScheme.surface.withOpacity(0.5),
+                                              colorScheme.surface.withValues(alpha: 0.6),
+                                              colorScheme.surface.withValues(alpha: 0.5),
                                             ],
-                                            borderColor: statusColor.withOpacity(0.3),
+                                            borderColor: statusColor.withValues(alpha: 0.3),
                                             child: Row(
                                             children: [
                                               // ?곹깭 ?됱긽 ?몃뵒耳?댄꽣
@@ -453,7 +493,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                         task.description,
                                                         style: TextStyle(
                                                           fontSize: 14,
-                                                          color: colorScheme.onSurface.withOpacity(0.7),
+                                                          color: colorScheme.onSurface.withValues(alpha: 0.7),
                                                         ),
                                                         maxLines: 2,
                                                         overflow: TextOverflow.ellipsis,
@@ -478,10 +518,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                                 borderRadius: 6.0,
                                                                 blur: 10.0,
                                                                 gradientColors: [
-                                                                  colorScheme.primary.withOpacity(0.2),
-                                                                  colorScheme.primary.withOpacity(0.1),
+                                                                  colorScheme.primary.withValues(alpha: 0.2),
+                                                                  colorScheme.primary.withValues(alpha: 0.1),
                                                                 ],
-                                                                borderColor: colorScheme.primary.withOpacity(0.3),
+                                                                borderColor: colorScheme.primary.withValues(alpha: 0.3),
                                                                 child: Row(
                                                                   mainAxisSize: MainAxisSize.min,
                                                                   children: [
@@ -527,10 +567,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 borderRadius: 12.0,
                                                 blur: 15.0,
                                                 gradientColors: [
-                                                  statusColor.withOpacity(0.3),
-                                                  statusColor.withOpacity(0.2),
+                                                  statusColor.withValues(alpha: 0.3),
+                                                  statusColor.withValues(alpha: 0.2),
                                                 ],
-                                                borderColor: statusColor.withOpacity(0.5),
+                                                borderColor: statusColor.withValues(alpha: 0.5),
                                                 child: Text(
                                                   task.status.displayName,
                                                   style: TextStyle(
@@ -550,7 +590,133 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ),
                               ),
                             );
-                          }).toList(),
+                          }),
+                          const SizedBox(height: 24),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.people_alt_outlined,
+                                color: colorScheme.primary,
+                                size: 22,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '팀원별 워크로드',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          FutureBuilder<List<User>>(
+                            future: _usersFuture,
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData) {
+                                return const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 24),
+                                  child: Center(child: CircularProgressIndicator()),
+                                );
+                              }
+
+                              final workload = _buildWorkload(allTasks, snapshot.data!);
+                              if (workload.isEmpty) {
+                                return GlassContainer(
+                                  padding: const EdgeInsets.all(16),
+                                  borderRadius: 14.0,
+                                  blur: 18.0,
+                                  gradientColors: [
+                                    colorScheme.surface.withValues(alpha: 0.5),
+                                    colorScheme.surface.withValues(alpha: 0.4),
+                                  ],
+                                  child: Text(
+                                    '담당자가 지정된 태스크가 없습니다',
+                                    style: TextStyle(
+                                      color: colorScheme.onSurface.withValues(alpha: 0.7),
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              final maxCount = workload.first.value;
+                              return GlassContainer(
+                                padding: const EdgeInsets.all(16),
+                                borderRadius: 14.0,
+                                blur: 18.0,
+                                gradientColors: [
+                                  colorScheme.surface.withValues(alpha: 0.5),
+                                  colorScheme.surface.withValues(alpha: 0.4),
+                                ],
+                                child: Column(
+                                  children: workload.map((entry) {
+                                    final ratio = maxCount == 0 ? 0.0 : entry.value / maxCount;
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 12),
+                                      child: Row(
+                                        children: [
+                                          CircleAvatar(
+                                            radius: 12,
+                                            backgroundColor: AvatarColor.getColorForUser(entry.key),
+                                            child: Text(
+                                              AvatarColor.getInitial(entry.key),
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        entry.key,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                        style: TextStyle(
+                                                          color: colorScheme.onSurface,
+                                                          fontWeight: FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      '${entry.value}개',
+                                                      style: TextStyle(
+                                                        color: colorScheme.onSurface.withValues(alpha: 0.7),
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 6),
+                                                ClipRRect(
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  child: LinearProgressIndicator(
+                                                    value: ratio,
+                                                    minHeight: 6,
+                                                    backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
+                                                    valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              );
+                            },
+                          ),
+                          ],
                         ),
                       ],
                     ),
@@ -596,8 +762,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       borderRadius: 20.0,
                       blur: 25.0,
                       gradientColors: [
-                        colorScheme.surface.withOpacity(0.4),
-                        colorScheme.surface.withOpacity(0.3),
+                        colorScheme.surface.withValues(alpha: 0.4),
+                        colorScheme.surface.withValues(alpha: 0.3),
                       ],
                       child: Center(
                         child: Column(
@@ -605,14 +771,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Icon(
                               Icons.folder_outlined,
                               size: 48,
-                              color: colorScheme.onSurface.withOpacity(0.5),
+                              color: colorScheme.onSurface.withValues(alpha: 0.5),
                             ),
                             const SizedBox(height: 12),
                             Text(
                               '프로젝트가 없습니다',
                               style: TextStyle(
                                 fontSize: 16,
-                                color: colorScheme.onSurface.withOpacity(0.7),
+                                color: colorScheme.onSurface.withValues(alpha: 0.7),
                               ),
                             ),
                           ],
@@ -638,10 +804,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           blur: 25.0,
                           borderWidth: 1.0,
                           gradientColors: [
-                            colorScheme.surface.withOpacity(0.4),
-                            colorScheme.surface.withOpacity(0.3),
+                            colorScheme.surface.withValues(alpha: 0.4),
+                            colorScheme.surface.withValues(alpha: 0.3),
                           ],
-                          borderColor: project.color.withOpacity(0.3),
+                          borderColor: project.color.withValues(alpha: 0.3),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -695,14 +861,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   Icon(
                                     Icons.task,
                                     size: 16,
-                                    color: colorScheme.onSurface.withOpacity(0.6),
+                                    color: colorScheme.onSurface.withValues(alpha: 0.6),
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
                                     '전체: $taskCount개',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: colorScheme.onSurface.withOpacity(0.7),
+                                      color: colorScheme.onSurface.withValues(alpha: 0.7),
                                     ),
                                   ),
                                   const SizedBox(width: 16),
@@ -716,7 +882,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     '완료: $doneCount개',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: colorScheme.onSurface.withOpacity(0.7),
+                                      color: colorScheme.onSurface.withValues(alpha: 0.7),
                                     ),
                                   ),
                                 ],
@@ -726,6 +892,94 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       );
                     }).toList(),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.stacked_bar_chart_outlined,
+                          color: colorScheme.primary,
+                          size: 22,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '상태별 태스크 통계',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    GlassContainer(
+                      padding: const EdgeInsets.all(16),
+                      borderRadius: 14.0,
+                      blur: 18.0,
+                      gradientColors: [
+                        colorScheme.surface.withValues(alpha: 0.45),
+                        colorScheme.surface.withValues(alpha: 0.35),
+                      ],
+                      child: Column(
+                        children: [
+                          TaskStatus.backlog,
+                          TaskStatus.ready,
+                          TaskStatus.inProgress,
+                          TaskStatus.inReview,
+                          TaskStatus.done,
+                        ].map((status) {
+                          final count = statusCounts[status] ?? 0;
+                          final ratio = totalTaskCount == 0 ? 0.0 : count / totalTaskCount;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        color: status.color,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        status.displayName,
+                                        style: TextStyle(
+                                          color: colorScheme.onSurface,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      '$count',
+                                      style: TextStyle(
+                                        color: colorScheme.onSurface.withValues(alpha: 0.75),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: ratio,
+                                    minHeight: 6,
+                                    backgroundColor: status.color.withValues(alpha: 0.15),
+                                    valueColor: AlwaysStoppedAnimation<Color>(status.color),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
                 ],
               ),
             ),

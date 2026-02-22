@@ -50,23 +50,23 @@ class AppTitleBar extends StatelessWidget {
                           const Spacer(),
                           MinimizeWindowButton(
                             colors: WindowButtonColors(
-                              iconNormal: colorScheme.onSurface.withOpacity(0.7),
+                              iconNormal: colorScheme.onSurface.withValues(alpha: 0.7),
                               iconMouseOver: colorScheme.primary,
-                              mouseOver: colorScheme.primary.withOpacity(0.1),
-                              mouseDown: colorScheme.primary.withOpacity(0.2),
+                              mouseOver: colorScheme.primary.withValues(alpha: 0.1),
+                              mouseDown: colorScheme.primary.withValues(alpha: 0.2),
                             ),
                           ),
                           MaximizeWindowButton(
                             colors: WindowButtonColors(
-                              iconNormal: colorScheme.onSurface.withOpacity(0.7),
+                              iconNormal: colorScheme.onSurface.withValues(alpha: 0.7),
                               iconMouseOver: colorScheme.primary,
-                              mouseOver: colorScheme.primary.withOpacity(0.1),
-                              mouseDown: colorScheme.primary.withOpacity(0.2),
+                              mouseOver: colorScheme.primary.withValues(alpha: 0.1),
+                              mouseDown: colorScheme.primary.withValues(alpha: 0.2),
                             ),
                           ),
                           CloseWindowButton(
                             colors: WindowButtonColors(
-                              iconNormal: colorScheme.onSurface.withOpacity(0.7),
+                              iconNormal: colorScheme.onSurface.withValues(alpha: 0.7),
                               iconMouseOver: Colors.white,
                               mouseOver: Colors.red,
                               mouseDown: Colors.red.shade700,

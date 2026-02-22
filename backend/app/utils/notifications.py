@@ -1,12 +1,15 @@
 """
 알림 생성 유틸리티
 """
+import asyncio
+import uuid
+
 from sqlalchemy.orm import Session
+
 from app.models.notification import Notification, NotificationType
 from app.models.project import Project
 from app.models.task import Task
 from app.models.user import User
-import uuid
 
 
 def create_notification(
@@ -35,6 +38,36 @@ def create_notification(
     db.add(notification)
     db.commit()
     db.refresh(notification)
+
+    # Push realtime notification event to the target user.
+    try:
+        from app.routers.websocket import manager
+
+        asyncio.create_task(
+            manager.send_to_user(
+                {
+                    "type": "notification_created",
+                    "data": {
+                        "id": notification.id,
+                        "type": notification.type.value,
+                        "user_id": notification.user_id,
+                        "project_id": notification.project_id,
+                        "task_id": notification.task_id,
+                        "comment_id": notification.comment_id,
+                        "title": notification.title,
+                        "message": notification.message,
+                        "is_read": notification.is_read,
+                        "created_at": notification.created_at.isoformat()
+                        if notification.created_at
+                        else None,
+                    },
+                },
+                notification.user_id,
+            )
+        )
+    except Exception as e:
+        print(f"[Notification] websocket push failed: {e}")
+
     return notification
 
 

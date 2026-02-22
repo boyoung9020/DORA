@@ -14,6 +14,7 @@ import '../services/upload_service.dart';
 import '../providers/notification_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/workspace_provider.dart';
+import '../providers/sprint_provider.dart';
 import '../models/notification.dart' as models;
 import '../models/project.dart';
 import '../models/user.dart';
@@ -29,9 +30,11 @@ import 'kanban_screen.dart';
 import 'calendar_screen.dart';
 import 'gantt_chart_screen.dart';
 import 'quick_task_screen.dart';
+import 'sprint_screen.dart';
 import 'admin_approval_screen.dart';
 import 'notification_screen.dart';
 import 'chat_screen.dart';
+import 'search_screen.dart';
 
 /// 메인 레이아웃 - Slack 스타일 (왼쪽 사이드바 + 오른쪽 컨텐츠)
 class MainLayout extends StatefulWidget {
@@ -78,16 +81,22 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       index: 4,
     ),
     MenuItem(
+      icon: Icons.bolt_outlined,
+      selectedIcon: Icons.bolt,
+      label: '스프린트',
+      index: 5,
+    ),
+    MenuItem(
       icon: Icons.chat_bubble_outline,
       selectedIcon: Icons.chat_bubble,
       label: '채팅',
-      index: 5,
+      index: 6,
     ),
     MenuItem(
       icon: Icons.notifications_outlined,
       selectedIcon: Icons.notifications,
       label: '알림',
-      index: 6,
+      index: 7,
     ),
   ];
 
@@ -152,6 +161,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+    final sprintProvider = Provider.of<SprintProvider>(context, listen: false);
     final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
     
     if (!authProvider.isAuthenticated || authProvider.currentUser == null) {
@@ -263,10 +273,18 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         final chatProvider2 = Provider.of<ChatProvider>(context, listen: false);
         chatProvider2.handleRoomCreated(data);
         break;
-    }
 
-    // 백엔드에서 알림 목록 동기화 (중복 로컬 생성 대신 서버 데이터 기반)
-    await notificationProvider.loadNotifications(userId: user.id);
+      case 'sprint_created':
+      case 'sprint_updated':
+        await sprintProvider.loadSprints(
+          projectId: projectProvider.currentProject?.id,
+        );
+        break;
+
+      case 'notification_created':
+        notificationProvider.addNotification(models.Notification.fromJson(data));
+        break;
+    }
   }
 
   /// 인앱 토스트 알림 표시 (Slack/Notion 스타일)
@@ -300,6 +318,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         accentColor = const Color(0xFF10B981);
         icon = Icons.comment;
         break;
+      case models.NotificationType.taskMentioned:
+        accentColor = const Color(0xFF2563EB);
+        icon = Icons.alternate_email;
+        break;
     }
     
     ScaffoldMessenger.of(context).clearSnackBars();
@@ -311,7 +333,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.2),
+                color: accentColor.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, color: accentColor, size: 20),
@@ -335,7 +357,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     message,
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.white.withValues(alpha: 0.8),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -375,6 +397,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+    final sprintProvider = Provider.of<SprintProvider>(context, listen: false);
     
     if (authProvider.isAuthenticated && authProvider.currentUser != null) {
       final user = authProvider.currentUser!;
@@ -395,6 +418,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       
       // 태스크 목록도 다시 로드
       await taskProvider.loadTasks(
+        projectId: projectProvider.currentProject?.id,
+      );
+      await sprintProvider.loadSprints(
         projectId: projectProvider.currentProject?.id,
       );
     }
@@ -434,16 +460,22 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         index: 4,
       ),
       MenuItem(
+        icon: Icons.bolt_outlined,
+        selectedIcon: Icons.bolt,
+        label: '스프린트',
+        index: 5,
+      ),
+      MenuItem(
         icon: Icons.chat_bubble_outline,
         selectedIcon: Icons.chat_bubble,
         label: '채팅',
-        index: 5,
+        index: 6,
       ),
       MenuItem(
         icon: Icons.notifications_outlined,
         selectedIcon: Icons.notifications,
         label: '알림',
-        index: 6,
+        index: 7,
       ),
     ];
 
@@ -563,19 +595,19 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                 boxShadow: isDarkMode
                                     ? [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.25),
+                                          color: Colors.black.withValues(alpha: 0.25),
                                           blurRadius: 30,
                                           offset: const Offset(0, 18),
                                         ),
                                       ]
                                     : [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.05),
+                                          color: Colors.black.withValues(alpha: 0.05),
                                           blurRadius: 28,
                                           offset: const Offset(0, 12),
                                         ),
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.03),
+                                          color: Colors.black.withValues(alpha: 0.03),
                                           blurRadius: 16,
                                           offset: const Offset(0, 4),
                                         ),
@@ -595,16 +627,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                           Container(
                                             width: 1,
                                             decoration: BoxDecoration(
-                                              color: colorScheme.outline.withOpacity(0.1),
+                                              color: colorScheme.outline.withValues(alpha: 0.1),
                                               boxShadow: [
                                                 BoxShadow(
-                                                  color: Colors.black.withOpacity(isDarkMode ? 0.45 : 0.14),
+                                                  color: Colors.black.withValues(alpha: isDarkMode ? 0.45 : 0.14),
                                                   blurRadius: 8,
                                                   offset: const Offset(-1, 0),
                                                   spreadRadius: 0,
                                                 ),
                                                 BoxShadow(
-                                                  color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.08),
+                                                  color: Colors.black.withValues(alpha: isDarkMode ? 0.2 : 0.08),
                                                   blurRadius: 4,
                                                   offset: const Offset(-2, 0),
                                                   spreadRadius: 0,
@@ -670,13 +702,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: railForeground.withOpacity(0.3),
+                            color: railForeground.withValues(alpha: 0.3),
                             width: 1.5,
                           ),
                         ),
                         child: Icon(
                           Icons.add,
-                          color: railForeground.withOpacity(0.85),
+                          color: railForeground.withValues(alpha: 0.85),
                           size: 20,
                         ),
                       ),
@@ -687,7 +719,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               // 구분선
               Padding(
                 padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                child: Divider(height: 1, thickness: 1, color: railForeground.withOpacity(0.15)),
+                child: Divider(height: 1, thickness: 1, color: railForeground.withValues(alpha: 0.15)),
               ),
               // ② 워크스페이스 아이콘 목록
               ...wsProvider.workspaces.map((ws) {
@@ -709,7 +741,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                         onTap: () => WorkspaceSettingsScreen.showAsDialog(context),
                         child: Padding(
                           padding: const EdgeInsets.all(6),
-                          child: Icon(Icons.more_horiz, color: railForeground.withOpacity(0.72), size: 20),
+                          child: Icon(Icons.more_horiz, color: railForeground.withValues(alpha: 0.72), size: 20),
                         ),
                       ),
                     ),
@@ -768,7 +800,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: isSelected ? color : color.withOpacity(0.65),
+                  color: isSelected ? color : color.withValues(alpha: 0.65),
                   borderRadius: BorderRadius.circular(10), // 워크스페이스는 항상 네모
                 ),
                 child: Center(
@@ -803,7 +835,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         : const Color(0xFFF7E9DC);
     final sidebarTextColor = isDarkMode
         ? const Color(0xFFE5E7EB)
-        : const Color(0xFF8A5731).withOpacity(0.9);
+        : const Color(0xFF8A5731).withValues(alpha: 0.9);
 
     return Container(
       width: 75,
@@ -1024,8 +1056,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                           Icons.folder_outlined,
                           size: 20,
                           color: isDarkMode
-                              ? colorScheme.onSurface.withOpacity(0.7)
-                              : const Color(0xFF8A5731).withOpacity(0.75),
+                              ? colorScheme.onSurface.withValues(alpha: 0.7)
+                              : const Color(0xFF8A5731).withValues(alpha: 0.75),
                         ),
                         const SizedBox(width: 12),
                         Text(
@@ -1033,8 +1065,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                           style: TextStyle(
                             fontSize: 16,
                             color: isDarkMode
-                                ? colorScheme.onSurface.withOpacity(0.7)
-                                : const Color(0xFF8A5731).withOpacity(0.75),
+                                ? colorScheme.onSurface.withValues(alpha: 0.7)
+                                : const Color(0xFF8A5731).withValues(alpha: 0.75),
                           ),
                         ),
                       ],
@@ -1042,8 +1074,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                       Icon(
                         Icons.arrow_drop_down,
                         color: isDarkMode
-                            ? colorScheme.onSurface.withOpacity(0.7)
-                            : const Color(0xFF8A5731).withOpacity(0.75),
+                            ? colorScheme.onSurface.withValues(alpha: 0.7)
+                            : const Color(0xFF8A5731).withValues(alpha: 0.75),
                         size: 24,
                       ),
                     ],
@@ -1150,8 +1182,20 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 context.read<TaskProvider>().loadTasks(
                   projectId: selectedProjectId,
                 );
+                context.read<SprintProvider>().loadSprints(
+                  projectId: selectedProjectId,
+                );
               }
             },
+          ),
+          const Spacer(),
+          IconButton(
+            tooltip: '전체 검색',
+            onPressed: () => _showSearchDialog(context),
+            icon: Icon(
+              Icons.search,
+              color: isDarkMode ? colorScheme.onSurface : const Color(0xFF8A5731),
+            ),
           ),
         ],
       ),
@@ -1293,8 +1337,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             borderRadius: 20.0,
             blur: 25.0,
             gradientColors: [
-              colorScheme.surface.withOpacity(0.6),
-              colorScheme.surface.withOpacity(0.5),
+              colorScheme.surface.withValues(alpha: 0.6),
+              colorScheme.surface.withValues(alpha: 0.5),
             ],
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1409,8 +1453,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 borderRadius: BorderRadius.circular(12),
                 color: isSelected
                     ? (isDarkMode
-                        ? Colors.white.withOpacity(0.16)
-                        : const Color(0xFFDCBA9F).withOpacity(0.28))
+                        ? Colors.white.withValues(alpha: 0.16)
+                        : const Color(0xFFDCBA9F).withValues(alpha: 0.28))
                     : Colors.transparent,
               ),
               child: Column(
@@ -1423,7 +1467,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                         isSelected ? item.selectedIcon : item.icon,
                         color: isSelected
                             ? menuTextColor
-                            : menuTextColor.withOpacity(0.82),
+                            : menuTextColor.withValues(alpha: 0.82),
                         size: 24,
                       ),
                       // 알림/채팅 뱃지 (읽지 않은 항목이 있을 때만)
@@ -1465,7 +1509,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       color: isSelected
                           ? menuTextColor
-                          : menuTextColor.withOpacity(0.82),
+                          : menuTextColor.withValues(alpha: 0.82),
                     ),
                     textAlign: TextAlign.center,
                     maxLines: 1,
@@ -1587,14 +1631,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 Icon(
                   Icons.people_outline,
                   size: 48,
-                  color: colorScheme.onSurface.withOpacity(0.5),
+                  color: colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   '팀원이 없습니다',
                   style: TextStyle(
                     fontSize: 14,
-                    color: colorScheme.onSurface.withOpacity(0.7),
+                    color: colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
                 Consumer2<AuthProvider, ProjectProvider>(
@@ -1609,7 +1653,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                             '+ 버튼을 눌러\n팀원을 추가하세요',
                             style: TextStyle(
                               fontSize: 12,
-                              color: colorScheme.onSurface.withOpacity(0.5),
+                              color: colorScheme.onSurface.withValues(alpha: 0.5),
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -1639,7 +1683,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      color: colorScheme.surface.withOpacity(0.3),
+                      color: colorScheme.surface.withValues(alpha: 0.3),
                     ),
                     child: Row(
                       children: [
@@ -1666,10 +1710,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: colorScheme.primary.withOpacity(0.2),
+                                        color: colorScheme.primary.withValues(alpha: 0.2),
                                         borderRadius: BorderRadius.circular(4),
                                         border: Border.all(
-                                          color: colorScheme.primary.withOpacity(0.5),
+                                          color: colorScheme.primary.withValues(alpha: 0.5),
                                           width: 1,
                                         ),
                                       ),
@@ -1689,7 +1733,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                 member.email,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: colorScheme.onSurface.withOpacity(0.6),
+                                  color: colorScheme.onSurface.withValues(alpha: 0.6),
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1705,7 +1749,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                 icon: Icon(
                                   Icons.close,
                                   size: 16,
-                                  color: Colors.red.withOpacity(0.7),
+                                  color: Colors.red.withValues(alpha: 0.7),
                                 ),
                                 onPressed: () => _removeTeamMember(
                                   context,
@@ -1780,8 +1824,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   borderRadius: 20.0,
                   blur: 25.0,
                   gradientColors: [
-                    colorScheme.surface.withOpacity(0.6),
-                    colorScheme.surface.withOpacity(0.5),
+                    colorScheme.surface.withValues(alpha: 0.6),
+                    colorScheme.surface.withValues(alpha: 0.5),
                   ],
                   child: CircularProgressIndicator(
                     valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
@@ -1810,8 +1854,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 borderRadius: 20.0,
                 blur: 25.0,
                 gradientColors: [
-                  colorScheme.surface.withOpacity(0.6),
-                  colorScheme.surface.withOpacity(0.5),
+                  colorScheme.surface.withValues(alpha: 0.6),
+                  colorScheme.surface.withValues(alpha: 0.5),
                 ],
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
@@ -1846,7 +1890,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                               subtitle: Text(
                                 user.email,
                                 style: TextStyle(
-                                  color: colorScheme.onSurface.withOpacity(0.7),
+                                  color: colorScheme.onSurface.withValues(alpha: 0.7),
                                 ),
                               ),
                               trailing: IconButton(
@@ -1954,8 +1998,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             borderRadius: 20.0,
             blur: 25.0,
             gradientColors: [
-              colorScheme.surface.withOpacity(0.6),
-              colorScheme.surface.withOpacity(0.5),
+              colorScheme.surface.withValues(alpha: 0.6),
+              colorScheme.surface.withValues(alpha: 0.5),
             ],
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1973,7 +2017,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   '${user.username}님을 팀에서 제거하시겠습니까?',
                   style: TextStyle(
                     fontSize: 16,
-                    color: colorScheme.onSurface.withOpacity(0.8),
+                    color: colorScheme.onSurface.withValues(alpha: 0.8),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -1992,7 +2036,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(true),
                       style: TextButton.styleFrom(
-                        backgroundColor: colorScheme.error.withOpacity(0.2),
+                        backgroundColor: colorScheme.error.withValues(alpha: 0.2),
                       ),
                       child: Text(
                         '제거',
@@ -2078,6 +2122,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         return const GanttChartScreen();
       case '빠른 추가':
         return const QuickTaskScreen();
+      case '스프린트':
+        return const SprintScreen();
       case '알림':
         return const NotificationScreen();
       case '채팅':
@@ -2111,11 +2157,24 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     }
   }
 
+  void _showSearchDialog(BuildContext context) {
+    final workspaceId = context.read<WorkspaceProvider>().currentWorkspaceId;
+    final projectId = context.read<ProjectProvider>().currentProject?.id;
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.2),
+      builder: (_) => SearchScreen(
+        workspaceId: workspaceId,
+        projectId: projectId,
+      ),
+    );
+  }
+
   /// 설정 다이얼로그
   void _showSettingsDialog(BuildContext context) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.2),
+      barrierColor: Colors.black.withValues(alpha: 0.2),
       builder: (_) => _SettingsDialogContent(
         onPickProfileImage: _pickAndUploadProfileImage,
       ),
@@ -2201,7 +2260,7 @@ class _ProfileImageButtonState extends State<_ProfileImageButton> {
                     boxShadow: _pressed
                         ? [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
+                              color: Colors.black.withValues(alpha: 0.2),
                               blurRadius: 4,
                               offset: const Offset(0, 1),
                             ),
@@ -2209,7 +2268,7 @@ class _ProfileImageButtonState extends State<_ProfileImageButton> {
                         : _hovered
                             ? [
                                 BoxShadow(
-                                  color: widget.colorScheme.primary.withOpacity(0.5),
+                                  color: widget.colorScheme.primary.withValues(alpha: 0.5),
                                   blurRadius: 6,
                                   spreadRadius: 0.5,
                                 ),
@@ -2292,8 +2351,8 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
               borderRadius: 20.0,
               blur: 25.0,
               gradientColors: [
-                colorScheme.surface.withOpacity(isDarkMode ? 0.88 : 0.95),
-                colorScheme.surface.withOpacity(isDarkMode ? 0.82 : 0.90),
+                colorScheme.surface.withValues(alpha: isDarkMode ? 0.88 : 0.95),
+                colorScheme.surface.withValues(alpha: isDarkMode ? 0.82 : 0.90),
               ],
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2303,8 +2362,8 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                     width: 200,
                     decoration: BoxDecoration(
                       color: isDarkMode
-                          ? Colors.white.withOpacity(0.04)
-                          : Colors.black.withOpacity(0.03),
+                          ? Colors.white.withValues(alpha: 0.04)
+                          : Colors.black.withValues(alpha: 0.03),
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(20),
                         bottomLeft: Radius.circular(20),
@@ -2357,7 +2416,7 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                                       user?.email ?? '',
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color: colorScheme.onSurface.withOpacity(0.55),
+                                        color: colorScheme.onSurface.withValues(alpha: 0.55),
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -2367,7 +2426,7 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                             ],
                           ),
                         ),
-                        Divider(height: 1, color: colorScheme.outline.withOpacity(0.15)),
+                        Divider(height: 1, color: colorScheme.outline.withValues(alpha: 0.15)),
                         const SizedBox(height: 8),
                         // 네비게이션 아이템
                         for (int i = 0; i < sections.length; i++)
@@ -2392,7 +2451,7 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                             },
                           ),
                         const Spacer(),
-                        Divider(height: 1, color: colorScheme.outline.withOpacity(0.15)),
+                        Divider(height: 1, color: colorScheme.outline.withValues(alpha: 0.15)),
                         // 로그아웃 버튼
                         Padding(
                           padding: const EdgeInsets.all(10),
@@ -2416,7 +2475,7 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                   // 구분선
                   VerticalDivider(
                     width: 1,
-                    color: colorScheme.outline.withOpacity(0.15),
+                    color: colorScheme.outline.withValues(alpha: 0.15),
                   ),
                   // ── 우측 컨텐츠 패널 ──
                   Expanded(
@@ -2440,14 +2499,14 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                               IconButton(
                                 icon: Icon(
                                   Icons.close,
-                                  color: colorScheme.onSurface.withOpacity(0.6),
+                                  color: colorScheme.onSurface.withValues(alpha: 0.6),
                                 ),
                                 onPressed: () => Navigator.of(context).pop(),
                               ),
                             ],
                           ),
                         ),
-                        Divider(height: 1, color: colorScheme.outline.withOpacity(0.15)),
+                        Divider(height: 1, color: colorScheme.outline.withValues(alpha: 0.15)),
                         // 섹션 컨텐츠
                         Expanded(
                           child: SingleChildScrollView(
@@ -2494,7 +2553,7 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: isSelected ? colorScheme.primary.withOpacity(0.12) : Colors.transparent,
+              color: isSelected ? colorScheme.primary.withValues(alpha: 0.12) : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -2504,7 +2563,7 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                   size: 18,
                   color: isSelected
                       ? colorScheme.primary
-                      : colorScheme.onSurface.withOpacity(0.65),
+                      : colorScheme.onSurface.withValues(alpha: 0.65),
                 ),
                 const SizedBox(width: 10),
                 Text(
@@ -2514,7 +2573,7 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                     color: isSelected
                         ? colorScheme.primary
-                        : colorScheme.onSurface.withOpacity(0.85),
+                        : colorScheme.onSurface.withValues(alpha: 0.85),
                   ),
                 ),
               ],
@@ -2595,7 +2654,7 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            color: colorScheme.onSurface.withOpacity(0.55),
+            color: colorScheme.onSurface.withValues(alpha: 0.55),
           ),
         ),
         const SizedBox(height: 4),
@@ -2603,9 +2662,9 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHighest.withOpacity(0.4),
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: colorScheme.outline.withOpacity(0.25)),
+            border: Border.all(color: colorScheme.outline.withValues(alpha: 0.25)),
           ),
           child: Text(value, style: TextStyle(fontSize: 14, color: colorScheme.onSurface)),
         ),
@@ -2617,9 +2676,9 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         label,
@@ -2639,11 +2698,11 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
               padding: const EdgeInsets.symmetric(vertical: 40),
               child: Column(
                 children: [
-                  Icon(Icons.group_outlined, size: 48, color: colorScheme.onSurface.withOpacity(0.35)),
+                  Icon(Icons.group_outlined, size: 48, color: colorScheme.onSurface.withValues(alpha: 0.35)),
                   const SizedBox(height: 12),
                   Text(
                     '선택된 워크스페이스가 없습니다',
-                    style: TextStyle(color: colorScheme.onSurface.withOpacity(0.55)),
+                    style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.55)),
                   ),
                 ],
               ),
@@ -2694,7 +2753,7 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                           ws.description!,
                           style: TextStyle(
                             fontSize: 13,
-                            color: colorScheme.onSurface.withOpacity(0.6),
+                            color: colorScheme.onSurface.withValues(alpha: 0.6),
                           ),
                         ),
                     ],
@@ -2710,20 +2769,20 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: colorScheme.onSurface.withOpacity(0.55),
+                color: colorScheme.onSurface.withValues(alpha: 0.55),
               ),
             ),
             const SizedBox(height: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest.withOpacity(0.4),
+                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: colorScheme.outline.withOpacity(0.25)),
+                border: Border.all(color: colorScheme.outline.withValues(alpha: 0.25)),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.link, size: 16, color: colorScheme.onSurface.withOpacity(0.5)),
+                  Icon(Icons.link, size: 16, color: colorScheme.onSurface.withValues(alpha: 0.5)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -2785,7 +2844,7 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: colorScheme.onSurface.withOpacity(0.55),
+                color: colorScheme.onSurface.withValues(alpha: 0.55),
               ),
             ),
             const SizedBox(height: 6),
@@ -2840,7 +2899,7 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                       fontSize: 12,
                       color: member.isOwner
                           ? colorScheme.primary
-                          : colorScheme.onSurface.withOpacity(0.5),
+                          : colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   ),
                   trailing: isOwner && !isMe && !member.isOwner
@@ -2888,7 +2947,7 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
           '앱 테마를 선택하세요',
           style: TextStyle(
             fontSize: 14,
-            color: colorScheme.onSurface.withOpacity(0.65),
+            color: colorScheme.onSurface.withValues(alpha: 0.65),
           ),
         ),
         const SizedBox(height: 20),
@@ -2901,13 +2960,13 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                   padding: const EdgeInsets.symmetric(vertical: 24),
                   decoration: BoxDecoration(
                     color: !themeProvider.isDarkMode
-                        ? colorScheme.primary.withOpacity(0.12)
+                        ? colorScheme.primary.withValues(alpha: 0.12)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: !themeProvider.isDarkMode
                           ? colorScheme.primary
-                          : colorScheme.outline.withOpacity(0.3),
+                          : colorScheme.outline.withValues(alpha: 0.3),
                       width: !themeProvider.isDarkMode ? 2 : 1,
                     ),
                   ),
@@ -2918,7 +2977,7 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                         size: 36,
                         color: !themeProvider.isDarkMode
                             ? colorScheme.primary
-                            : colorScheme.onSurface.withOpacity(0.45),
+                            : colorScheme.onSurface.withValues(alpha: 0.45),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -2930,7 +2989,7 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                               : FontWeight.normal,
                           color: !themeProvider.isDarkMode
                               ? colorScheme.primary
-                              : colorScheme.onSurface.withOpacity(0.65),
+                              : colorScheme.onSurface.withValues(alpha: 0.65),
                         ),
                       ),
                     ],
@@ -2946,13 +3005,13 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                   padding: const EdgeInsets.symmetric(vertical: 24),
                   decoration: BoxDecoration(
                     color: themeProvider.isDarkMode
-                        ? colorScheme.primary.withOpacity(0.12)
+                        ? colorScheme.primary.withValues(alpha: 0.12)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: themeProvider.isDarkMode
                           ? colorScheme.primary
-                          : colorScheme.outline.withOpacity(0.3),
+                          : colorScheme.outline.withValues(alpha: 0.3),
                       width: themeProvider.isDarkMode ? 2 : 1,
                     ),
                   ),
@@ -2963,7 +3022,7 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                         size: 36,
                         color: themeProvider.isDarkMode
                             ? colorScheme.primary
-                            : colorScheme.onSurface.withOpacity(0.45),
+                            : colorScheme.onSurface.withValues(alpha: 0.45),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -2975,7 +3034,7 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                               : FontWeight.normal,
                           color: themeProvider.isDarkMode
                               ? colorScheme.primary
-                              : colorScheme.onSurface.withOpacity(0.65),
+                              : colorScheme.onSurface.withValues(alpha: 0.65),
                         ),
                       ),
                     ],
@@ -2998,7 +3057,7 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
     // 설정 다이얼로그가 열린 상태에서 확인창을 띄움 (context 유효성 유지)
     final confirmed = await showDialog<bool>(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.2),
+      barrierColor: Colors.black.withValues(alpha: 0.2),
       builder: (ctx) {
         final cs = Theme.of(ctx).colorScheme;
         return Dialog(
@@ -3011,8 +3070,8 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
               borderRadius: 24.0,
               blur: 25.0,
               gradientColors: [
-                cs.surface.withOpacity(0.6),
-                cs.surface.withOpacity(0.5),
+                cs.surface.withValues(alpha: 0.6),
+                cs.surface.withValues(alpha: 0.5),
               ],
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -3031,7 +3090,7 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                     const SizedBox(height: 12),
                     Text(
                       '로그아웃하시겠습니까?',
-                      style: TextStyle(fontSize: 15, color: cs.onSurface.withOpacity(0.8)),
+                      style: TextStyle(fontSize: 15, color: cs.onSurface.withValues(alpha: 0.8)),
                     ),
                     const SizedBox(height: 20),
                     Row(
@@ -3041,14 +3100,14 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                           onPressed: () => Navigator.of(ctx).pop(false),
                           child: Text(
                             '취소',
-                            style: TextStyle(color: cs.onSurface.withOpacity(0.7)),
+                            style: TextStyle(color: cs.onSurface.withValues(alpha: 0.7)),
                           ),
                         ),
                         const SizedBox(width: 8),
                         TextButton(
                           onPressed: () => Navigator.of(ctx).pop(true),
                           style: TextButton.styleFrom(
-                            backgroundColor: cs.primary.withOpacity(0.15),
+                            backgroundColor: cs.primary.withValues(alpha: 0.15),
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 8),
                           ),

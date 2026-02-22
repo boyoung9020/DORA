@@ -85,6 +85,7 @@ class TaskProvider extends ChangeNotifier {
     String detail = '',
     TaskPriority priority = TaskPriority.p2,
     List<String>? assignedMemberIds,
+    String? sprintId,
   }) async {
     try {
       final task = await _taskService.createTask(
@@ -97,6 +98,7 @@ class TaskProvider extends ChangeNotifier {
         detail: detail,
         priority: priority,
         assignedMemberIds: assignedMemberIds,
+        sprintId: sprintId,
       );
       _tasks.add(task);
       notifyListeners();

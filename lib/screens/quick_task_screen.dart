@@ -112,7 +112,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                 '${allTasks.length}개',
                 style: TextStyle(
                   fontSize: 18,
-                  color: colorScheme.onSurface.withOpacity(0.7),
+                  color: colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -127,8 +127,8 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                       borderRadius: 30.0,
                       blur: 25.0,
                       gradientColors: [
-                        colorScheme.surface.withOpacity(0.3),
-                        colorScheme.surface.withOpacity(0.2),
+                        colorScheme.surface.withValues(alpha: 0.3),
+                        colorScheme.surface.withValues(alpha: 0.2),
                       ],
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -136,14 +136,14 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                           Icon(
                             Icons.inbox_outlined,
                             size: 64,
-                            color: colorScheme.onSurface.withOpacity(0.5),
+                            color: colorScheme.onSurface.withValues(alpha: 0.5),
                           ),
                           const SizedBox(height: 16),
                           Text(
                             '태스크가 없습니다',
                             style: TextStyle(
                               fontSize: 16,
-                              color: colorScheme.onSurface.withOpacity(0.7),
+                              color: colorScheme.onSurface.withValues(alpha: 0.7),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -151,7 +151,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                             '하단 입력창에서 태스크를 추가하세요',
                             style: TextStyle(
                               fontSize: 14,
-                              color: colorScheme.onSurface.withOpacity(0.5),
+                              color: colorScheme.onSurface.withValues(alpha: 0.5),
                             ),
                           ),
                         ],
@@ -184,10 +184,10 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                             blur: 25.0,
                             borderWidth: 1.0,
                             gradientColors: [
-                              colorScheme.surface.withOpacity(0.6),
-                              colorScheme.surface.withOpacity(0.5),
+                              colorScheme.surface.withValues(alpha: 0.6),
+                              colorScheme.surface.withValues(alpha: 0.5),
                             ],
-                            borderColor: statusColor.withOpacity(0.3),
+                            borderColor: statusColor.withValues(alpha: 0.3),
                             child: Column(
                               children: [
                                 Row(
@@ -223,7 +223,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                               style: TextStyle(
                                                 fontSize: 14,
                                                 color: colorScheme.onSurface
-                                                    .withOpacity(0.7),
+                                                    .withValues(alpha: 0.7),
                                               ),
                                               maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
@@ -248,10 +248,10 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                                       borderRadius: 6.0,
                                                       blur: 10.0,
                                                       gradientColors: [
-                                                        colorScheme.primary.withOpacity(0.2),
-                                                        colorScheme.primary.withOpacity(0.1),
+                                                        colorScheme.primary.withValues(alpha: 0.2),
+                                                        colorScheme.primary.withValues(alpha: 0.1),
                                                       ],
-                                                      borderColor: colorScheme.primary.withOpacity(0.3),
+                                                      borderColor: colorScheme.primary.withValues(alpha: 0.3),
                                                       child: Row(
                                                         mainAxisSize: MainAxisSize.min,
                                                         children: [
@@ -303,16 +303,16 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                           color: (task.startDate != null ||
                                                   task.endDate != null)
                                               ? colorScheme.primary
-                                                  .withOpacity(0.12)
+                                                  .withValues(alpha: 0.12)
                                               : colorScheme.onSurface
-                                                  .withOpacity(0.08),
+                                                  .withValues(alpha: 0.08),
                                           borderRadius: BorderRadius.circular(12),
                                           border: Border.all(
                                             color: (task.startDate != null ||
                                                     task.endDate != null)
-                                                ? colorScheme.primary.withOpacity(0.4)
+                                                ? colorScheme.primary.withValues(alpha: 0.4)
                                                 : colorScheme.onSurface
-                                                    .withOpacity(0.2),
+                                                    .withValues(alpha: 0.2),
                                           ),
                                         ),
                                         child: Row(
@@ -325,7 +325,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                                       task.endDate != null)
                                                   ? colorScheme.primary
                                                   : colorScheme.onSurface
-                                                      .withOpacity(0.4),
+                                                      .withValues(alpha: 0.4),
                                             ),
                                             const SizedBox(width: 8),
                                             Text(
@@ -337,7 +337,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                                         task.endDate != null)
                                                     ? colorScheme.primary
                                                     : colorScheme.onSurface
-                                                        .withOpacity(0.6),
+                                                        .withValues(alpha: 0.6),
                                               ),
                                             ),
                                           ],
@@ -353,10 +353,10 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 10, vertical: 6),
                                         decoration: BoxDecoration(
-                                          color: statusColor.withOpacity(0.2),
+                                          color: statusColor.withValues(alpha: 0.2),
                                           borderRadius: BorderRadius.circular(12),
                                           border: Border.all(
-                                            color: statusColor.withOpacity(0.5),
+                                            color: statusColor.withValues(alpha: 0.5),
                                             width: 1,
                                           ),
                                         ),
@@ -389,12 +389,12 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                       icon: Icon(
                                         Icons.edit,
                                         size: 20,
-                                        color: colorScheme.primary.withOpacity(0.7),
+                                        color: colorScheme.primary.withValues(alpha: 0.7),
                                       ),
                                       onPressed: () {
                                         showGeneralDialog(
                                           context: context,
-                                          barrierColor: Colors.black.withOpacity(0.2),
+                                          barrierColor: Colors.black.withValues(alpha: 0.2),
                                           transitionDuration: Duration.zero,
                                           pageBuilder: (context, animation, secondaryAnimation) => TaskDetailScreen(task: task),
                                           transitionBuilder: (context, animation, secondaryAnimation, child) => child,
@@ -407,7 +407,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                       icon: Icon(
                                         Icons.close,
                                         size: 20,
-                                        color: Colors.red.withOpacity(0.7),
+                                        color: Colors.red.withValues(alpha: 0.7),
                                       ),
                                       onPressed: () {
                                         _showDeleteConfirmDialog(
@@ -432,7 +432,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                             style: TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.bold,
-                                              color: colorScheme.onSurface.withOpacity(0.8),
+                                              color: colorScheme.onSurface.withValues(alpha: 0.8),
                                             ),
                                           ),
                                           const SizedBox(height: 8),
@@ -440,7 +440,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                             task.description,
                                             style: TextStyle(
                                               fontSize: 14,
-                                              color: colorScheme.onSurface.withOpacity(0.7),
+                                              color: colorScheme.onSurface.withValues(alpha: 0.7),
                                               height: 1.5,
                                             ),
                                           ),
@@ -453,7 +453,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                             style: TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.bold,
-                                              color: colorScheme.onSurface.withOpacity(0.8),
+                                              color: colorScheme.onSurface.withValues(alpha: 0.8),
                                             ),
                                           ),
                                           const SizedBox(height: 8),
@@ -461,7 +461,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                             task.detail,
                                             style: TextStyle(
                                               fontSize: 14,
-                                              color: colorScheme.onSurface.withOpacity(0.7),
+                                              color: colorScheme.onSurface.withValues(alpha: 0.7),
                                               height: 1.5,
                                             ),
                                           ),
@@ -516,8 +516,8 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
             borderRadius: 20.0,
             blur: 25.0,
             gradientColors: [
-              colorScheme.surface.withOpacity(0.6),
-              colorScheme.surface.withOpacity(0.5),
+              colorScheme.surface.withValues(alpha: 0.6),
+              colorScheme.surface.withValues(alpha: 0.5),
             ],
             child: Row(
               children: [
@@ -528,7 +528,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                       hintText: '태스크를 입력하고 Enter를 누르세요...',
                       border: InputBorder.none,
                       hintStyle: TextStyle(
-                        color: colorScheme.onSurface.withOpacity(0.5),
+                        color: colorScheme.onSurface.withValues(alpha: 0.5),
                         fontSize: 16,
                       ),
                     ),
@@ -567,7 +567,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.2),
+      barrierColor: Colors.black.withValues(alpha: 0.2),
       builder: (context) {
         final dialogColorScheme = Theme.of(context).colorScheme;
         return Dialog(
@@ -579,8 +579,8 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
               borderRadius: 20.0,
               blur: 25.0,
               gradientColors: [
-                dialogColorScheme.surface.withOpacity(0.6),
-                dialogColorScheme.surface.withOpacity(0.5),
+                dialogColorScheme.surface.withValues(alpha: 0.6),
+                dialogColorScheme.surface.withValues(alpha: 0.5),
               ],
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -599,7 +599,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 15,
-                      color: dialogColorScheme.onSurface.withOpacity(0.8),
+                      color: dialogColorScheme.onSurface.withValues(alpha: 0.8),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -620,7 +620,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(true),
                         style: TextButton.styleFrom(
-                          backgroundColor: Colors.red.withOpacity(0.2),
+                          backgroundColor: Colors.red.withValues(alpha: 0.2),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         ),
                         child: const Text(
@@ -702,7 +702,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
 
     final result = await showDialog<TaskStatus>(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.2),
+      barrierColor: Colors.black.withValues(alpha: 0.2),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
@@ -719,8 +719,8 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                   borderRadius: 20.0,
                   blur: 25.0,
                   gradientColors: [
-                    colorScheme.surface.withOpacity(0.6),
-                    colorScheme.surface.withOpacity(0.5),
+                    colorScheme.surface.withValues(alpha: 0.6),
+                    colorScheme.surface.withValues(alpha: 0.5),
                   ],
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -752,13 +752,13 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? statusColor.withOpacity(0.2)
-                                    : colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                                    ? statusColor.withValues(alpha: 0.2)
+                                    : colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: isSelected
-                                      ? statusColor.withOpacity(0.8)
-                                      : colorScheme.onSurface.withOpacity(0.2),
+                                      ? statusColor.withValues(alpha: 0.8)
+                                      : colorScheme.onSurface.withValues(alpha: 0.2),
                                   width: isSelected ? 2 : 1,
                                 ),
                               ),

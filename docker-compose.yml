@@ -1,27 +1,16 @@
-# Docker Compose ?ㅼ젙 ?뚯씪
-# ?щ윭 而⑦뀒?대꼫瑜??섎굹???ㅽ듃?뚰겕?먯꽌 ?④퍡 ?ㅽ뻾?⑸땲??
-# version? ???댁긽 ?꾩슂 ?놁쓬 (理쒖떊 Docker Compose???먮룞 媛먯?)
-
 services:
-  # PostgreSQL ?곗씠?곕쿋?댁뒪 ?쒕퉬??
   postgres:
-    image: postgres:15-alpine # PostgreSQL 15 踰꾩쟾 (寃쎈웾 Alpine Linux 湲곕컲)
+    image: postgres:15-alpine
     container_name: sync_postgres
     environment:
-      # ?곗씠?곕쿋?댁뒪 ?ㅼ젙 (?섍꼍 蹂??
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin123
       POSTGRES_DB: sync_db
     volumes:
-      # ?곗씠?곕쿋?댁뒪 ?곗씠?곕? ?몄뒪?몄뿉 ?곴뎄 ???
-      # ./postgres_data???꾨줈?앺듃 猷⑦듃???앹꽦?⑸땲??
       - ./postgres_data:/var/lib/postgresql/data
     ports:
-      # ?몄뒪?몄쓽 5432 ?ы듃瑜?而⑦뀒?대꼫??5432 ?ы듃濡?留ㅽ븨
-      # ?몃??먯꽌 ?묎렐 媛??(媛쒕컻??
       - "5432:5432"
     healthcheck:
-      # ?곗씠?곕쿋?댁뒪媛 以鍮꾨릺?덈뒗吏 ?뺤씤
       test: ["CMD-SHELL", "pg_isready -U admin"]
       interval: 5s
       timeout: 5s
@@ -30,32 +19,24 @@ services:
       - sync_network
     restart: always
 
-  # FastAPI 諛깆뿏???쒕퉬??
   api:
     build:
-      # Dockerfile???덈뒗 ?붾젆?좊━
       context: ./backend
       dockerfile: Dockerfile
     container_name: sync_api
     environment:
-      # ?곗씠?곕쿋?댁뒪 ?곌껐 ?뺣낫
-      DB_HOST: postgres # Docker Compose ?쒕퉬???대쫫
+      DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: admin
       DB_PASSWORD: admin123
       DB_NAME: sync_db
-      # JWT ?쒗겕由???(?꾨줈?뺤뀡?먯꽌??諛섎뱶??蹂寃?)
       SECRET_KEY: TH-Xej6q7F3K3tJGtR7R20T2miI1h_P0myhfjke-rak
-      # Python 寃쎈줈 ?ㅼ젙 (app 紐⑤뱢??李얘린 ?꾪빐)
       PYTHONPATH: /app
     volumes:
-      # 肄붾뱶 蹂寃????먮룞 諛섏쁺 (媛쒕컻??
       - ./backend:/app
     ports:
-      # ?몄뒪?몄쓽 8000 ?ы듃瑜?而⑦뀒?대꼫??8000 ?ы듃濡?留ㅽ븨
       - "8000:8000"
     depends_on:
-      # PostgreSQL??癒쇱? ?쒖옉?섎룄濡??ㅼ젙
       postgres:
         condition: service_healthy
     command: >
@@ -68,29 +49,20 @@ services:
       - sync_network
     restart: always
 
-  # Nginx 由щ쾭???꾨줉???쒕퉬??
   nginx:
-    image: nginx:alpine # 寃쎈웾 Nginx ?대?吏
+    image: nginx:alpine
     container_name: sync_nginx
     ports:
-      # ?몄뒪?몄쓽 8080 ?ы듃瑜?而⑦뀒?대꼫??80 ?ы듃濡?留ㅽ븨
-      # ??釉뚮씪?곗??먯꽌 http://localhost:8080濡??묎렐 媛??
       - "80:80"
     volumes:
-      # Nginx ?ㅼ젙 ?뚯씪??而⑦뀒?대꼫??留덉슫??
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      # Flutter ????鍮뚮뱶 寃곌낵臾?留덉슫??
-      # 癒쇱? 'flutter build web --release' ?ㅽ뻾 ?꾩슂
       - ./build/web:/usr/share/nginx/html:ro
     depends_on:
-      # API ?쒕퉬?ㅺ? 癒쇱? ?쒖옉?섎룄濡??ㅼ젙
       - api
     networks:
       - sync_network
     restart: always
 
-# ?ㅽ듃?뚰겕 ?뺤쓽
-# 紐⑤뱺 ?쒕퉬?ㅺ? 媛숈? ?ㅽ듃?뚰겕???덉뼱???쒕퉬???대쫫?쇰줈 ?듭떊 媛??
 networks:
   sync_network:
     driver: bridge

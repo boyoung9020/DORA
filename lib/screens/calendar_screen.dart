@@ -85,8 +85,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 borderRadius: 12.0,
                 blur: 20.0,
                 gradientColors: [
-                  colorScheme.primary.withOpacity(0.3),
-                  colorScheme.primary.withOpacity(0.2),
+                  colorScheme.primary.withValues(alpha: 0.3),
+                  colorScheme.primary.withValues(alpha: 0.2),
                 ],
                 child: IconButton(
                   icon: Icon(Icons.chevron_left, color: colorScheme.primary),
@@ -117,8 +117,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 borderRadius: 12.0,
                 blur: 20.0,
                 gradientColors: [
-                  colorScheme.primary.withOpacity(0.3),
-                  colorScheme.primary.withOpacity(0.2),
+                  colorScheme.primary.withValues(alpha: 0.3),
+                  colorScheme.primary.withValues(alpha: 0.2),
                 ],
                 child: IconButton(
                   icon: Icon(Icons.chevron_right, color: colorScheme.primary),
@@ -148,8 +148,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     borderRadius: 20.0,
                     blur: 25.0,
                     gradientColors: [
-                      colorScheme.surface.withOpacity(0.4),
-                      colorScheme.surface.withOpacity(0.3),
+                      colorScheme.surface.withValues(alpha: 0.4),
+                      colorScheme.surface.withValues(alpha: 0.3),
                     ],
                     child: _buildCalendar(context, tasksInMonth, colorScheme),
                   ),
@@ -163,8 +163,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     borderRadius: 20.0,
                     blur: 25.0,
                     gradientColors: [
-                      colorScheme.surface.withOpacity(0.4),
-                      colorScheme.surface.withOpacity(0.3),
+                      colorScheme.surface.withValues(alpha: 0.4),
+                      colorScheme.surface.withValues(alpha: 0.3),
                     ],
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -246,7 +246,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface.withOpacity(0.7),
+                    color: colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
               ),
@@ -354,7 +354,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                         ? FontWeight.bold
                                         : FontWeight.normal,
                                     color: !isCurrentMonth
-                                        ? colorScheme.onSurface.withOpacity(0.3)
+                                        ? colorScheme.onSurface.withValues(alpha: 0.3)
                                         : colorScheme.onSurface,
                                   ),
                                 ),
@@ -521,7 +521,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       height: taskBarHeight,
       child: Container(
         decoration: BoxDecoration(
-          color: statusColor.withOpacity(0.8),
+          color: statusColor.withValues(alpha: 0.8),
           borderRadius: borderRadius,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -550,10 +550,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (tasks.isEmpty) {
       return Center(
         child: Text(
-          '???좎쭨???쒖뒪?ш? ?놁뒿?덈떎',
+          '선택한 날짜에 일정이 없습니다',
           style: TextStyle(
             fontSize: 14,
-            color: colorScheme.onSurface.withOpacity(0.5),
+            color: colorScheme.onSurface.withValues(alpha: 0.5),
           ),
         ),
       );
@@ -574,14 +574,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 : Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: statusColor.withOpacity(0.5),
+              color: statusColor.withValues(alpha: 0.5),
               width: 2,
             ),
             boxShadow: colorScheme.brightness == Brightness.dark
                 ? null
                 : [
                     BoxShadow(
-                      color: const Color(0xFFD86B27).withOpacity(0.05),
+                      color: const Color(0xFFD86B27).withValues(alpha: 0.05),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -621,7 +621,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   task.description,
                   style: TextStyle(
                     fontSize: 12,
-                    color: colorScheme.onSurface.withOpacity(0.7),
+                    color: colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -631,7 +631,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.2),
+                  color: statusColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
