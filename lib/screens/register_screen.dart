@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -250,10 +251,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Scaffold(
       body: Column(
         children: [
-          const AppTitleBar(
-            backgroundColor: Colors.transparent,
-            extraHeight: 8,
-          ),
+          if (!kIsWeb)
+            const AppTitleBar(
+              backgroundColor: Colors.transparent,
+              extraHeight: 8,
+            ),
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {

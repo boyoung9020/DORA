@@ -530,7 +530,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextButton(
                   onPressed: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                      PageRouteBuilder(
+                        pageBuilder: (_, __, ___) => const RegisterScreen(),
+                        transitionDuration: Duration.zero,
+                        reverseTransitionDuration: Duration.zero,
+                      ),
                     );
                   },
                   style: TextButton.styleFrom(
