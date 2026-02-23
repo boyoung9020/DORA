@@ -49,7 +49,8 @@ class ChatProvider extends ChangeNotifier {
     try {
       _currentWorkspaceId = workspaceId;
       _rooms = await _chatService.getRooms(workspaceId: workspaceId);
-      if (_currentRoomId != null && !_rooms.any((r) => r.id == _currentRoomId)) {
+      if (_currentRoomId != null &&
+          !_rooms.any((r) => r.id == _currentRoomId)) {
         _currentRoomId = null;
       }
       _totalUnreadCount = _rooms.fold(0, (sum, r) => sum + r.unreadCount);
@@ -115,7 +116,11 @@ class ChatProvider extends ChangeNotifier {
   }
 
   /// 메시지 전송
-  Future<bool> sendMessage(String content, {List<String>? imageUrls, List<String>? fileUrls}) async {
+  Future<bool> sendMessage(
+    String content, {
+    List<String>? imageUrls,
+    List<String>? fileUrls,
+  }) async {
     if (_currentRoomId == null) return false;
     _isSending = true;
     notifyListeners();
@@ -168,11 +173,13 @@ class ChatProvider extends ChangeNotifier {
       senderId: data['sender_id'] ?? '',
       senderUsername: data['sender_username'] ?? '',
       content: data['content'] ?? '',
-      imageUrls: (data['image_urls'] as List<dynamic>?)
+      imageUrls:
+          (data['image_urls'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
-      fileUrls: (data['file_urls'] as List<dynamic>?)
+      fileUrls:
+          (data['file_urls'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
@@ -203,6 +210,9 @@ class ChatProvider extends ChangeNotifier {
           unreadCount: _rooms[idx].unreadCount + 1,
         );
         _totalUnreadCount++;
+      } else {
+        // 로컬 목록에 없는 방 메시지는 목록을 다시 불러와 unread를 동기화한다.
+        loadRooms(workspaceId: _currentWorkspaceId);
       }
     } else {
       // 현재 방이면 바로 읽음 처리

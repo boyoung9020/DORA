@@ -13,6 +13,8 @@ from app.models.user import User
 from app.schemas.task import TaskCreate, TaskUpdate, TaskResponse, TaskReorderRequest
 from app.utils.dependencies import get_current_user
 from app.models.project import Project
+from app.models.notification import Notification
+from app.models.comment import Comment
 from app.utils.notifications import notify_task_assigned, notify_task_option_changed
 from sqlalchemy import or_
 from app.routers.websocket import manager
@@ -252,6 +254,18 @@ async def delete_task(
             detail="태스크를 찾을 수 없습니다"
         )
     
+    # 관련 댓글 ID 조회
+    comment_ids = [
+        c.id for c in db.query(Comment.id).filter(Comment.task_id == task_id).all()
+    ]
+    # 관련 알림 삭제 (task_id 또는 comment_id 참조)
+    noti_filter = Notification.task_id == task_id
+    if comment_ids:
+        noti_filter = or_(noti_filter, Notification.comment_id.in_(comment_ids))
+    db.query(Notification).filter(noti_filter).delete(synchronize_session=False)
+    # 관련 댓글 삭제
+    db.query(Comment).filter(Comment.task_id == task_id).delete(synchronize_session=False)
+    # 태스크 삭제
     db.delete(task)
     db.commit()
     return {"message": "태스크가 삭제되었습니다"}

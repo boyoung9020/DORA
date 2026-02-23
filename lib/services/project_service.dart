@@ -8,9 +8,10 @@ class ProjectService {
   static const String _currentProjectKey = 'current_project_id';
 
   /// 모든 프로젝트 가져오기
-  Future<List<Project>> getAllProjects() async {
+  Future<List<Project>> getAllProjects({String? workspaceId}) async {
     try {
-      final response = await ApiClient.get('/api/projects/');
+      final query = workspaceId != null ? '?workspace_id=$workspaceId' : '';
+      final response = await ApiClient.get('/api/projects/$query');
       final projectsData = ApiClient.handleListResponse(response);
       return projectsData.map((json) => Project.fromJson(json as Map<String, dynamic>)).toList();
     } catch (e) {

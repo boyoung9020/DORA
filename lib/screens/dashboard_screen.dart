@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/project_provider.dart';
@@ -29,6 +29,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _aiLoading = false;
   String? _aiError;
   DateTime? _aiGeneratedAt;
+  String? _lastAiScopeKey;
 
   @override
   void initState() {
@@ -37,8 +38,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // ?붾㈃ 濡쒕뱶 ???쒖뒪??遺덈윭?ㅺ린
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TaskProvider>().loadTasks();
+      _lastAiScopeKey = _currentAiScopeKey();
       _loadAISummary();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final workspaceId =
+        Provider.of<WorkspaceProvider>(context).currentWorkspaceId ?? '';
+    final userId = Provider.of<AuthProvider>(context).currentUser?.id ?? '';
+    final currentScopeKey = '$userId|$workspaceId';
+    if (_lastAiScopeKey == null) {
+      _lastAiScopeKey = currentScopeKey;
+      return;
+    }
+    if (currentScopeKey != _lastAiScopeKey) {
+      _lastAiScopeKey = currentScopeKey;
+      _loadAISummary();
+    }
   }
 
   Future<void> _loadAISummary({bool forceRefresh = false}) async {
@@ -83,20 +102,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return '$meridiem $hour:$minute';
   }
 
+  String _currentAiScopeKey() {
+    final workspaceId =
+        context.read<WorkspaceProvider>().currentWorkspaceId ?? '';
+    final userId = context.read<AuthProvider>().currentUser?.id ?? '';
+    return '$userId|$workspaceId';
+  }
+
   Widget _buildAISummaryCard(
     BuildContext context,
     ColorScheme colorScheme, {
     double? maxBodyHeight,
   }) {
     final gradientColors = colorScheme.brightness == Brightness.dark
-        ? const [
-            Color(0xFF232840),
-            Color(0xFF1D2236),
-          ]
-        : const [
-            Color(0xFFF3EDFF),
-            Color(0xFFE9F0FF),
-          ];
+        ? const [Color(0xFF232840), Color(0xFF1D2236)]
+        : const [Color(0xFFF3EDFF), Color(0xFFE9F0FF)];
 
     return GlassContainer(
       width: double.infinity,
@@ -155,9 +175,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ] else ...[
             ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: maxBodyHeight ?? 260,
-              ),
+              constraints: BoxConstraints(maxHeight: maxBodyHeight ?? 260),
               child: Scrollbar(
                 child: SingleChildScrollView(
                   child: SelectableText(
@@ -184,40 +202,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return allTasks.where((task) {
       // ?꾩옱 ?ъ슜?먯뿉寃??좊떦???쒖뒪?щ쭔 ?꾪꽣留?
-      if (currentUserId == null || !task.assignedMemberIds.contains(currentUserId)) {
+      if (currentUserId == null ||
+          !task.assignedMemberIds.contains(currentUserId)) {
         return false;
       }
-      
+
       // In review ?먮뒗 In progress ?곹깭留??꾪꽣留?
-      if (task.status != TaskStatus.inReview && task.status != TaskStatus.inProgress) {
+      if (task.status != TaskStatus.inReview &&
+          task.status != TaskStatus.inProgress) {
         return false;
       }
-      
+
       // ?쒖옉?쇱씠 ?덉쑝硫??쒖옉??湲곗?, ?놁쑝硫??앹꽦??湲곗?
       final startDate = task.startDate;
       final endDate = task.endDate;
-      
+
       // 鍮꾧탳???좎쭨 寃곗젙: ?쒖옉?쇱씠 ?덉쑝硫??쒖옉?? ?놁쑝硫??앹꽦??
       DateTime dateToCheck;
       if (startDate != null) {
         dateToCheck = DateTime(startDate.year, startDate.month, startDate.day);
       } else {
-        dateToCheck = DateTime(task.createdAt.year, task.createdAt.month, task.createdAt.day);
+        dateToCheck = DateTime(
+          task.createdAt.year,
+          task.createdAt.month,
+          task.createdAt.day,
+        );
       }
-      
+
       // ?좎쭨媛 ?ㅻ뒛??寃쎌슦
       if (dateToCheck.isAtSameMomentAs(todayStart)) {
         return true;
       }
-      
+
       // ?쒖옉?쇨낵 醫낅즺?쇱씠 紐⑤몢 ?덇퀬, ?ㅻ뒛??洹??ъ씠???덈뒗 寃쎌슦
       if (startDate != null && endDate != null) {
-        final startDateOnly = DateTime(startDate.year, startDate.month, startDate.day);
+        final startDateOnly = DateTime(
+          startDate.year,
+          startDate.month,
+          startDate.day,
+        );
         final endDateOnly = DateTime(endDate.year, endDate.month, endDate.day);
-        return (todayStart.isAfter(startDateOnly.subtract(const Duration(days: 1))) &&
-                todayStart.isBefore(endDateOnly.add(const Duration(days: 1))));
+        return (todayStart.isAfter(
+              startDateOnly.subtract(const Duration(days: 1)),
+            ) &&
+            todayStart.isBefore(endDateOnly.add(const Duration(days: 1))));
       }
-      
+
       return false;
     }).toList();
   }
@@ -243,23 +273,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   /// ?꾨줈?앺듃蹂??ㅻ뒛 ????洹몃９??
-  Map<String, List<Task>> _getTodayTasksByProject(List<Task> allTasks, List<Project> projects, String? currentUserId) {
+  Map<String, List<Task>> _getTodayTasksByProject(
+    List<Task> allTasks,
+    List<Project> projects,
+    String? currentUserId,
+  ) {
     final todayTasks = _getTodayTasks(allTasks, currentUserId);
     final Map<String, List<Task>> tasksByProject = {};
-    
+
     for (final project in projects) {
-      tasksByProject[project.id] = todayTasks.where((task) => task.projectId == project.id).toList();
+      tasksByProject[project.id] = todayTasks
+          .where((task) => task.projectId == project.id)
+          .toList();
     }
-    
+
     return tasksByProject;
   }
 
   /// ?꾨줈?앺듃蹂?吏꾪뻾瑜?怨꾩궛
   double _calculateProgress(Project project, List<Task> allTasks) {
-    final projectTasks = allTasks.where((task) => task.projectId == project.id).toList();
+    final projectTasks = allTasks
+        .where((task) => task.projectId == project.id)
+        .toList();
     if (projectTasks.isEmpty) return 0.0;
-    
-    final doneTasks = projectTasks.where((task) => task.status == TaskStatus.done).length;
+
+    final doneTasks = projectTasks
+        .where((task) => task.status == TaskStatus.done)
+        .length;
     return doneTasks / projectTasks.length;
   }
 
@@ -312,10 +352,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     }
 
-    final result = counts.entries
-        .map((e) => MapEntry(usernameById[e.key] ?? e.key, e.value))
-        .toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final result =
+        counts.entries
+            .map((e) => MapEntry(usernameById[e.key] ?? e.key, e.value))
+            .toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
     return result.take(5).toList();
   }
 
@@ -333,7 +374,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     // 紐⑤뱺 ?꾨줈?앺듃???ㅻ뒛 ?????꾪꽣留?
     final todayTasks = _getTodayTasks(allTasks, user?.id);
-    final projectsById = {for (final project in allProjects) project.id: project};
+    final projectsById = {
+      for (final project in allProjects) project.id: project,
+    };
     final taskCountsByProject = _getTaskCountsByProject(allTasks);
 
     bool useFixedPanels = true;
@@ -354,7 +397,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     // ignore: dead_code
-    final todayTasksByProject = _getTodayTasksByProject(allTasks, allProjects, user?.id);
+    final todayTasksByProject = _getTodayTasksByProject(
+      allTasks,
+      allProjects,
+      user?.id,
+    );
 
     return Container(
       padding: const EdgeInsets.all(24.0),
@@ -387,7 +434,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     if (authProvider.isAdmin) ...[
                       const SizedBox(width: 12),
                       GlassContainer(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         borderRadius: 12.0,
                         blur: 15.0,
                         gradientColors: [
@@ -474,431 +524,637 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                  // ?ㅻ뜑
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.today,
-                        color: colorScheme.primary,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '오늘 할 일',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '${todayTasks.length}개',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  // ?ㅻ뒛 ????紐⑸줉 (?꾨줈?앺듃蹂꾨줈 洹몃９??
-                  todayTasks.isEmpty
-                      ? Column(
+                        // ?ㅻ뜑
+                        Row(
                           children: [
-                            Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(40),
-                                child: Column(
-                                  children: [
-                                    Icon(
-                                      Icons.check_circle_outline,
-                                      size: 48,
-                                      color: colorScheme.onSurface.withValues(alpha: 0.5),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      '오늘 할 일이 없습니다',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: colorScheme.onSurface.withValues(alpha: 0.7),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                            Icon(
+                              Icons.today,
+                              color: colorScheme.primary,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '오늘 할 일',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.onSurface,
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(width: 12),
                             Container(
-                              height: 1,
-                              color: colorScheme.onSurface.withValues(alpha: 0.12),
-                            ),
-                            const SizedBox(height: 16),
-                            _buildAISummaryCard(context, colorScheme),
-                          ],
-                        )
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ...allProjects.where((project) {
-                              final projectTasks = todayTasksByProject[project.id] ?? [];
-                              return projectTasks.isNotEmpty;
-                            }).map((project) {
-                            final projectTasks = todayTasksByProject[project.id] ?? [];
-                            
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 20),
-                              child: GlassContainer(
-                                padding: const EdgeInsets.all(20),
-                                borderRadius: 15.0,
-                                blur: 20.0,
-                                gradientColors: [
-                                  colorScheme.surface.withValues(alpha: 0.5),
-                                  colorScheme.surface.withValues(alpha: 0.4),
-                                ],
-                                borderColor: project.color.withValues(alpha: 0.4),
-                                borderWidth: 1.0,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // ?꾨줈?앺듃 ?ㅻ뜑
-                                    Row(
-                                      children: [
-                                        Container(
-                                          width: 8,
-                                          height: 8,
-                                          decoration: BoxDecoration(
-                                            color: project.color,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          project.name,
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                            color: colorScheme.onSurface,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: project.color.withValues(alpha: 0.2),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: Text(
-                                            '${projectTasks.length}개',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              color: project.color,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    // ?꾨줈?앺듃蹂??쒖뒪??紐⑸줉
-                                    ...projectTasks.map((task) {
-                                      final statusColor = task.status.color;
-                                      
-                                      return Padding(
-                                        padding: const EdgeInsets.only(bottom: 12),
-                                        child: InkWell(
-                                          onTap: () {
-                                            showGeneralDialog(
-                                              context: context,
-                                              transitionDuration: Duration.zero,
-                                              pageBuilder: (context, animation, secondaryAnimation) => TaskDetailScreen(task: task),
-                                              transitionBuilder: (context, animation, secondaryAnimation, child) => child,
-                                            );
-                                          },
-                                          borderRadius: BorderRadius.circular(12.0),
-                                          child: GlassContainer(
-                                            padding: const EdgeInsets.all(16),
-                                            borderRadius: 12.0,
-                                            blur: 15.0,
-                                            borderWidth: 1.0,
-                                            gradientColors: [
-                                              colorScheme.surface.withValues(alpha: 0.6),
-                                              colorScheme.surface.withValues(alpha: 0.5),
-                                            ],
-                                            borderColor: statusColor.withValues(alpha: 0.3),
-                                            child: Row(
-                                            children: [
-                                              // ?곹깭 ?됱긽 ?몃뵒耳?댄꽣
-                                              Container(
-                                                width: 4,
-                                                height: 40,
-                                                decoration: BoxDecoration(
-                                                  color: statusColor,
-                                                  borderRadius: BorderRadius.circular(2),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              // ?쒖뒪???댁슜
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      task.title,
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        fontWeight: FontWeight.bold,
-                                                        color: colorScheme.onSurface,
-                                                      ),
-                                                    ),
-                                                    if (task.description.isNotEmpty) ...[
-                                                      const SizedBox(height: 4),
-                                                      Text(
-                                                        task.description,
-                                                        style: TextStyle(
-                                                          fontSize: 14,
-                                                          color: colorScheme.onSurface.withValues(alpha: 0.7),
-                                                        ),
-                                                        maxLines: 2,
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                    ],
-                                                    // ?좊떦??????쒓렇
-                                                    if (task.assignedMemberIds.isNotEmpty) ...[
-                                                      const SizedBox(height: 8),
-                                                      FutureBuilder<List<dynamic>>(
-                                                        future: _loadAssignedMembers(task.assignedMemberIds),
-                                                        builder: (context, snapshot) {
-                                                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                                                            return const SizedBox.shrink();
-                                                          }
-                                                          final members = snapshot.data!;
-                                                          return Wrap(
-                                                            spacing: 4,
-                                                            runSpacing: 4,
-                                                            children: members.map((member) {
-                                                              return GlassContainer(
-                                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                                borderRadius: 6.0,
-                                                                blur: 10.0,
-                                                                gradientColors: [
-                                                                  colorScheme.primary.withValues(alpha: 0.2),
-                                                                  colorScheme.primary.withValues(alpha: 0.1),
-                                                                ],
-                                                                borderColor: colorScheme.primary.withValues(alpha: 0.3),
-                                                                child: Row(
-                                                                  mainAxisSize: MainAxisSize.min,
-                                                                  children: [
-                                                                    CircleAvatar(
-                                                                      radius: 6,
-                                                                      backgroundColor: AvatarColor.getColorForUser(member.id),
-                                                                      child: Text(
-                                                                    AvatarColor.getInitial(member.username),
-                                                                    style: const TextStyle(
-                                                                          fontSize: 8,
-                                                                          color: Colors.white,
-                                                                          fontWeight: FontWeight.bold,
-                                                                        ),
-                                                                      ),
-                                                                    ),
-                                                                    const SizedBox(width: 4),
-                                                                    Text(
-                                                                      member.username,
-                                                                      style: TextStyle(
-                                                                        fontSize: 10,
-                                                                        color: colorScheme.onSurface,
-                                                                        fontWeight: FontWeight.w500,
-                                                                      ),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              );
-                                                            }).toList(),
-                                                          );
-                                                        },
-                                                      ),
-                                                    ],
-                                                  ],
-                                                ),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              // ?곹깭 諛곗?
-                                              GlassContainer(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 12,
-                                                  vertical: 6,
-                                                ),
-                                                borderRadius: 12.0,
-                                                blur: 15.0,
-                                                gradientColors: [
-                                                  statusColor.withValues(alpha: 0.3),
-                                                  statusColor.withValues(alpha: 0.2),
-                                                ],
-                                                borderColor: statusColor.withValues(alpha: 0.5),
-                                                child: Text(
-                                                  task.status.displayName,
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: statusColor,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        ),
-                                      );
-                                    }).toList(),
-                                  ],
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primary.withValues(
+                                  alpha: 0.2,
                                 ),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            );
-                          }),
-                          Container(
-                            height: 1,
-                            color: colorScheme.onSurface.withValues(alpha: 0.12),
-                          ),
-                          const SizedBox(height: 16),
-                          _buildAISummaryCard(context, colorScheme),
-                          const SizedBox(height: 24),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.people_alt_outlined,
-                                color: colorScheme.primary,
-                                size: 22,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '팀원별 워크로드',
+                              child: Text(
+                                '${todayTasks.length}개',
                                 style: TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: colorScheme.onSurface,
+                                  color: colorScheme.primary,
                                 ),
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          FutureBuilder<List<User>>(
-                            future: _usersFuture,
-                            builder: (context, snapshot) {
-                              if (!snapshot.hasData) {
-                                return const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 24),
-                                  child: Center(child: CircularProgressIndicator()),
-                                );
-                              }
-
-                              final workload = _buildWorkload(allTasks, snapshot.data!);
-                              if (workload.isEmpty) {
-                                return GlassContainer(
-                                  padding: const EdgeInsets.all(16),
-                                  borderRadius: 14.0,
-                                  blur: 18.0,
-                                  gradientColors: [
-                                    colorScheme.surface.withValues(alpha: 0.5),
-                                    colorScheme.surface.withValues(alpha: 0.4),
-                                  ],
-                                  child: Text(
-                                    '담당자가 지정된 태스크가 없습니다',
-                                    style: TextStyle(
-                                      color: colorScheme.onSurface.withValues(alpha: 0.7),
-                                    ),
-                                  ),
-                                );
-                              }
-
-                              final maxCount = workload.first.value;
-                              return GlassContainer(
-                                padding: const EdgeInsets.all(16),
-                                borderRadius: 14.0,
-                                blur: 18.0,
-                                gradientColors: [
-                                  colorScheme.surface.withValues(alpha: 0.5),
-                                  colorScheme.surface.withValues(alpha: 0.4),
-                                ],
-                                child: Column(
-                                  children: workload.map((entry) {
-                                    final ratio = maxCount == 0 ? 0.0 : entry.value / maxCount;
-                                    return Padding(
-                                      padding: const EdgeInsets.only(bottom: 12),
-                                      child: Row(
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        // ?ㅻ뒛 ????紐⑸줉 (?꾨줈?앺듃蹂꾨줈 洹몃９??
+                        todayTasks.isEmpty
+                            ? Column(
+                                children: [
+                                  Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(40),
+                                      child: Column(
                                         children: [
-                                          CircleAvatar(
-                                            radius: 12,
-                                            backgroundColor: AvatarColor.getColorForUser(entry.key),
-                                            child: Text(
-                                              AvatarColor.getInitial(entry.key),
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 11,
-                                              ),
-                                            ),
+                                          Icon(
+                                            Icons.check_circle_outline,
+                                            size: 48,
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.5),
                                           ),
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Text(
-                                                        entry.key,
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
-                                                        style: TextStyle(
-                                                          color: colorScheme.onSurface,
-                                                          fontWeight: FontWeight.w600,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    Text(
-                                                      '${entry.value}개',
-                                                      style: TextStyle(
-                                                        color: colorScheme.onSurface.withValues(alpha: 0.7),
-                                                        fontSize: 12,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 6),
-                                                ClipRRect(
-                                                  borderRadius: BorderRadius.circular(4),
-                                                  child: LinearProgressIndicator(
-                                                    value: ratio,
-                                                    minHeight: 6,
-                                                    backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
-                                                    valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-                                                  ),
-                                                ),
-                                              ],
+                                          const SizedBox(height: 12),
+                                          Text(
+                                            '오늘 할 일이 없습니다',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              color: colorScheme.onSurface
+                                                  .withValues(alpha: 0.7),
                                             ),
                                           ),
                                         ],
                                       ),
-                                    );
-                                  }).toList(),
-                                ),
-                              );
-                            },
-                          ),
-                          ],
-                        ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Container(
+                                    height: 1,
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.12,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _buildAISummaryCard(context, colorScheme),
+                                ],
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  ...allProjects
+                                      .where((project) {
+                                        final projectTasks =
+                                            todayTasksByProject[project.id] ??
+                                            [];
+                                        return projectTasks.isNotEmpty;
+                                      })
+                                      .map((project) {
+                                        final projectTasks =
+                                            todayTasksByProject[project.id] ??
+                                            [];
+
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 20,
+                                          ),
+                                          child: GlassContainer(
+                                            padding: const EdgeInsets.all(20),
+                                            borderRadius: 15.0,
+                                            blur: 20.0,
+                                            gradientColors: [
+                                              colorScheme.surface.withValues(
+                                                alpha: 0.5,
+                                              ),
+                                              colorScheme.surface.withValues(
+                                                alpha: 0.4,
+                                              ),
+                                            ],
+                                            borderColor: project.color
+                                                .withValues(alpha: 0.4),
+                                            borderWidth: 1.0,
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                // ?꾨줈?앺듃 ?ㅻ뜑
+                                                Row(
+                                                  children: [
+                                                    Container(
+                                                      width: 8,
+                                                      height: 8,
+                                                      decoration: BoxDecoration(
+                                                        color: project.color,
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Text(
+                                                      project.name,
+                                                      style: TextStyle(
+                                                        fontSize: 18,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: colorScheme
+                                                            .onSurface,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 12),
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 8,
+                                                            vertical: 4,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        color: project.color
+                                                            .withValues(
+                                                              alpha: 0.2,
+                                                            ),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              8,
+                                                            ),
+                                                      ),
+                                                      child: Text(
+                                                        '${projectTasks.length}개',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: project.color,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 16),
+                                                // ?꾨줈?앺듃蹂??쒖뒪??紐⑸줉
+                                                ...projectTasks.map((task) {
+                                                  final statusColor =
+                                                      task.status.color;
+
+                                                  return Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          bottom: 12,
+                                                        ),
+                                                    child: InkWell(
+                                                      onTap: () {
+                                                        showGeneralDialog(
+                                                          context: context,
+                                                          transitionDuration:
+                                                              Duration.zero,
+                                                          pageBuilder:
+                                                              (
+                                                                context,
+                                                                animation,
+                                                                secondaryAnimation,
+                                                              ) =>
+                                                                  TaskDetailScreen(
+                                                                    task: task,
+                                                                  ),
+                                                          transitionBuilder:
+                                                              (
+                                                                context,
+                                                                animation,
+                                                                secondaryAnimation,
+                                                                child,
+                                                              ) => child,
+                                                        );
+                                                      },
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            12.0,
+                                                          ),
+                                                      child: GlassContainer(
+                                                        padding:
+                                                            const EdgeInsets.all(
+                                                              16,
+                                                            ),
+                                                        borderRadius: 12.0,
+                                                        blur: 15.0,
+                                                        borderWidth: 1.0,
+                                                        gradientColors: [
+                                                          colorScheme.surface
+                                                              .withValues(
+                                                                alpha: 0.6,
+                                                              ),
+                                                          colorScheme.surface
+                                                              .withValues(
+                                                                alpha: 0.5,
+                                                              ),
+                                                        ],
+                                                        borderColor: statusColor
+                                                            .withValues(
+                                                              alpha: 0.3,
+                                                            ),
+                                                        child: Row(
+                                                          children: [
+                                                            // ?곹깭 ?됱긽 ?몃뵒耳?댄꽣
+                                                            Container(
+                                                              width: 4,
+                                                              height: 40,
+                                                              decoration: BoxDecoration(
+                                                                color:
+                                                                    statusColor,
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      2,
+                                                                    ),
+                                                              ),
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 12,
+                                                            ),
+                                                            // ?쒖뒪???댁슜
+                                                            Expanded(
+                                                              child: Column(
+                                                                crossAxisAlignment:
+                                                                    CrossAxisAlignment
+                                                                        .start,
+                                                                children: [
+                                                                  Text(
+                                                                    task.title,
+                                                                    style: TextStyle(
+                                                                      fontSize:
+                                                                          14,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .bold,
+                                                                      color: colorScheme
+                                                                          .onSurface,
+                                                                    ),
+                                                                  ),
+                                                                  if (task
+                                                                      .description
+                                                                      .isNotEmpty) ...[
+                                                                    const SizedBox(
+                                                                      height: 4,
+                                                                    ),
+                                                                    Text(
+                                                                      task.description,
+                                                                      style: TextStyle(
+                                                                        fontSize:
+                                                                            14,
+                                                                        color: colorScheme
+                                                                            .onSurface
+                                                                            .withValues(
+                                                                              alpha: 0.7,
+                                                                            ),
+                                                                      ),
+                                                                      maxLines:
+                                                                          2,
+                                                                      overflow:
+                                                                          TextOverflow
+                                                                              .ellipsis,
+                                                                    ),
+                                                                  ],
+                                                                  // ?좊떦??????쒓렇
+                                                                  if (task
+                                                                      .assignedMemberIds
+                                                                      .isNotEmpty) ...[
+                                                                    const SizedBox(
+                                                                      height: 8,
+                                                                    ),
+                                                                    FutureBuilder<
+                                                                      List<
+                                                                        dynamic
+                                                                      >
+                                                                    >(
+                                                                      future: _loadAssignedMembers(
+                                                                        task.assignedMemberIds,
+                                                                      ),
+                                                                      builder:
+                                                                          (
+                                                                            context,
+                                                                            snapshot,
+                                                                          ) {
+                                                                            if (!snapshot.hasData ||
+                                                                                snapshot.data!.isEmpty) {
+                                                                              return const SizedBox.shrink();
+                                                                            }
+                                                                            final members =
+                                                                                snapshot.data!;
+                                                                            return Wrap(
+                                                                              spacing: 4,
+                                                                              runSpacing: 4,
+                                                                              children: members.map(
+                                                                                (
+                                                                                  member,
+                                                                                ) {
+                                                                                  return GlassContainer(
+                                                                                    padding: const EdgeInsets.symmetric(
+                                                                                      horizontal: 6,
+                                                                                      vertical: 2,
+                                                                                    ),
+                                                                                    borderRadius: 6.0,
+                                                                                    blur: 10.0,
+                                                                                    gradientColors: [
+                                                                                      colorScheme.primary.withValues(
+                                                                                        alpha: 0.2,
+                                                                                      ),
+                                                                                      colorScheme.primary.withValues(
+                                                                                        alpha: 0.1,
+                                                                                      ),
+                                                                                    ],
+                                                                                    borderColor: colorScheme.primary.withValues(
+                                                                                      alpha: 0.3,
+                                                                                    ),
+                                                                                    child: Row(
+                                                                                      mainAxisSize: MainAxisSize.min,
+                                                                                      children: [
+                                                                                        CircleAvatar(
+                                                                                          radius: 6,
+                                                                                          backgroundColor: AvatarColor.getColorForUser(
+                                                                                            member.id,
+                                                                                          ),
+                                                                                          child: Text(
+                                                                                            AvatarColor.getInitial(
+                                                                                              member.username,
+                                                                                            ),
+                                                                                            style: const TextStyle(
+                                                                                              fontSize: 8,
+                                                                                              color: Colors.white,
+                                                                                              fontWeight: FontWeight.bold,
+                                                                                            ),
+                                                                                          ),
+                                                                                        ),
+                                                                                        const SizedBox(
+                                                                                          width: 4,
+                                                                                        ),
+                                                                                        Text(
+                                                                                          member.username,
+                                                                                          style: TextStyle(
+                                                                                            fontSize: 10,
+                                                                                            color: colorScheme.onSurface,
+                                                                                            fontWeight: FontWeight.w500,
+                                                                                          ),
+                                                                                        ),
+                                                                                      ],
+                                                                                    ),
+                                                                                  );
+                                                                                },
+                                                                              ).toList(),
+                                                                            );
+                                                                          },
+                                                                    ),
+                                                                  ],
+                                                                ],
+                                                              ),
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 12,
+                                                            ),
+                                                            // ?곹깭 諛곗?
+                                                            GlassContainer(
+                                                              padding:
+                                                                  const EdgeInsets.symmetric(
+                                                                    horizontal:
+                                                                        12,
+                                                                    vertical: 6,
+                                                                  ),
+                                                              borderRadius:
+                                                                  12.0,
+                                                              blur: 15.0,
+                                                              gradientColors: [
+                                                                statusColor
+                                                                    .withValues(
+                                                                      alpha:
+                                                                          0.3,
+                                                                    ),
+                                                                statusColor
+                                                                    .withValues(
+                                                                      alpha:
+                                                                          0.2,
+                                                                    ),
+                                                              ],
+                                                              borderColor:
+                                                                  statusColor
+                                                                      .withValues(
+                                                                        alpha:
+                                                                            0.5,
+                                                                      ),
+                                                              child: Text(
+                                                                task
+                                                                    .status
+                                                                    .displayName,
+                                                                style: TextStyle(
+                                                                  fontSize: 12,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  color:
+                                                                      statusColor,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  );
+                                                }).toList(),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      }),
+                                  Container(
+                                    height: 1,
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.12,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _buildAISummaryCard(context, colorScheme),
+                                  const SizedBox(height: 24),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.people_alt_outlined,
+                                        color: colorScheme.primary,
+                                        size: 22,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '팀원별 워크로드',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  FutureBuilder<List<User>>(
+                                    future: _usersFuture,
+                                    builder: (context, snapshot) {
+                                      if (!snapshot.hasData) {
+                                        return const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            vertical: 24,
+                                          ),
+                                          child: Center(
+                                            child: CircularProgressIndicator(),
+                                          ),
+                                        );
+                                      }
+
+                                      final workload = _buildWorkload(
+                                        allTasks,
+                                        snapshot.data!,
+                                      );
+                                      if (workload.isEmpty) {
+                                        return GlassContainer(
+                                          padding: const EdgeInsets.all(16),
+                                          borderRadius: 14.0,
+                                          blur: 18.0,
+                                          gradientColors: [
+                                            colorScheme.surface.withValues(
+                                              alpha: 0.5,
+                                            ),
+                                            colorScheme.surface.withValues(
+                                              alpha: 0.4,
+                                            ),
+                                          ],
+                                          child: Text(
+                                            '담당자가 지정된 태스크가 없습니다',
+                                            style: TextStyle(
+                                              color: colorScheme.onSurface
+                                                  .withValues(alpha: 0.7),
+                                            ),
+                                          ),
+                                        );
+                                      }
+
+                                      final maxCount = workload.first.value;
+                                      return GlassContainer(
+                                        padding: const EdgeInsets.all(16),
+                                        borderRadius: 14.0,
+                                        blur: 18.0,
+                                        gradientColors: [
+                                          colorScheme.surface.withValues(
+                                            alpha: 0.5,
+                                          ),
+                                          colorScheme.surface.withValues(
+                                            alpha: 0.4,
+                                          ),
+                                        ],
+                                        child: Column(
+                                          children: workload.map((entry) {
+                                            final ratio = maxCount == 0
+                                                ? 0.0
+                                                : entry.value / maxCount;
+                                            return Padding(
+                                              padding: const EdgeInsets.only(
+                                                bottom: 12,
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  CircleAvatar(
+                                                    radius: 12,
+                                                    backgroundColor:
+                                                        AvatarColor.getColorForUser(
+                                                          entry.key,
+                                                        ),
+                                                    child: Text(
+                                                      AvatarColor.getInitial(
+                                                        entry.key,
+                                                      ),
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 11,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 10),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Row(
+                                                          children: [
+                                                            Expanded(
+                                                              child: Text(
+                                                                entry.key,
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                                style: TextStyle(
+                                                                  color: colorScheme
+                                                                      .onSurface,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            Text(
+                                                              '${entry.value}개',
+                                                              style: TextStyle(
+                                                                color: colorScheme
+                                                                    .onSurface
+                                                                    .withValues(
+                                                                      alpha:
+                                                                          0.7,
+                                                                    ),
+                                                                fontSize: 12,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 6,
+                                                        ),
+                                                        ClipRRect(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                4,
+                                                              ),
+                                                          child: LinearProgressIndicator(
+                                                            value: ratio,
+                                                            minHeight: 6,
+                                                            backgroundColor:
+                                                                colorScheme
+                                                                    .primary
+                                                                    .withValues(
+                                                                      alpha:
+                                                                          0.12,
+                                                                    ),
+                                                            valueColor:
+                                                                AlwaysStoppedAnimation<
+                                                                  Color
+                                                                >(
+                                                                  colorScheme
+                                                                      .primary,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          }).toList(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
                       ],
                     ),
                   ),
@@ -916,255 +1172,289 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                  // ?ㅻ뜑
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.assessment,
-                        color: colorScheme.primary,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '프로젝트 진행률',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  // ?꾨줈?앺듃蹂?吏꾪뻾瑜?移대뱶
-                  if (allProjects.isEmpty)
-                    GlassContainer(
-                      padding: const EdgeInsets.all(40),
-                      borderRadius: 20.0,
-                      blur: 25.0,
-                      gradientColors: [
-                        colorScheme.surface.withValues(alpha: 0.4),
-                        colorScheme.surface.withValues(alpha: 0.3),
-                      ],
-                      child: Center(
-                        child: Column(
+                        // ?ㅻ뜑
+                        Row(
                           children: [
                             Icon(
-                              Icons.folder_outlined,
-                              size: 48,
-                              color: colorScheme.onSurface.withValues(alpha: 0.5),
+                              Icons.assessment,
+                              color: colorScheme.primary,
+                              size: 24,
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(width: 8),
                             Text(
-                              '프로젝트가 없습니다',
+                              '프로젝트 진행률',
                               style: TextStyle(
-                                fontSize: 16,
-                                color: colorScheme.onSurface.withValues(alpha: 0.7),
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.onSurface,
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    )
-                  else
-                    ...allProjects.map((project) {
-                      final progress = _calculateProgress(project, allTasks);
-                      final taskCounts = _getTaskCountsByProject(allTasks);
-                      final taskCount = taskCounts[project.id] ?? 0;
-                      final doneCount = allTasks
-                          .where((task) =>
-                              task.projectId == project.id &&
-                              task.status == TaskStatus.done)
-                          .length;
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: GlassContainer(
-                          padding: const EdgeInsets.all(20),
-                          borderRadius: 20.0,
-                          blur: 25.0,
-                          borderWidth: 1.0,
-                          gradientColors: [
-                            colorScheme.surface.withValues(alpha: 0.4),
-                            colorScheme.surface.withValues(alpha: 0.3),
-                          ],
-                          borderColor: project.color.withValues(alpha: 0.3),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // ?꾨줈?앺듃 ?ㅻ뜑
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 4,
-                                    height: 24,
-                                    decoration: BoxDecoration(
-                                      color: project.color,
-                                      borderRadius: BorderRadius.circular(2),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      project.name,
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: colorScheme.onSurface,
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    '${(progress * 100).toInt()}%',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: project.color,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              // 吏꾪뻾瑜?諛?
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: LinearProgressIndicator(
-                                  value: progress,
-                                  minHeight: 12,
-                                  backgroundColor: const Color(0xFFF3DECA),
-                                  valueColor: AlwaysStoppedAnimation<Color>(project.color),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              // ?쒖뒪???듦퀎
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.task,
-                                    size: 16,
-                                    color: colorScheme.onSurface.withValues(alpha: 0.6),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '전체: $taskCount개',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: colorScheme.onSurface.withValues(alpha: 0.7),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Icon(
-                                    Icons.check_circle,
-                                    size: 16,
-                                    color: TaskStatus.done.color,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '완료: $doneCount개',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: colorScheme.onSurface.withValues(alpha: 0.7),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                        const SizedBox(height: 16),
+                        // ?꾨줈?앺듃蹂?吏꾪뻾瑜?移대뱶
+                        if (allProjects.isEmpty)
+                          GlassContainer(
+                            padding: const EdgeInsets.all(40),
+                            borderRadius: 20.0,
+                            blur: 25.0,
+                            gradientColors: [
+                              colorScheme.surface.withValues(alpha: 0.4),
+                              colorScheme.surface.withValues(alpha: 0.3),
                             ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.stacked_bar_chart_outlined,
-                          color: colorScheme.primary,
-                          size: 22,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '상태별 태스크 통계',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    GlassContainer(
-                      padding: const EdgeInsets.all(16),
-                      borderRadius: 14.0,
-                      blur: 18.0,
-                      gradientColors: [
-                        colorScheme.surface.withValues(alpha: 0.45),
-                        colorScheme.surface.withValues(alpha: 0.35),
-                      ],
-                      child: Column(
-                        children: [
-                          TaskStatus.backlog,
-                          TaskStatus.ready,
-                          TaskStatus.inProgress,
-                          TaskStatus.inReview,
-                          TaskStatus.done,
-                        ].map((status) {
-                          final count = statusCounts[status] ?? 0;
-                          final ratio = totalTaskCount == 0 ? 0.0 : count / totalTaskCount;
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
+                            child: Center(
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.folder_outlined,
+                                    size: 48,
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    '프로젝트가 없습니다',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: colorScheme.onSurface.withValues(
+                                        alpha: 0.7,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          ...allProjects.map((project) {
+                            final progress = _calculateProgress(
+                              project,
+                              allTasks,
+                            );
+                            final taskCounts = _getTaskCountsByProject(
+                              allTasks,
+                            );
+                            final taskCount = taskCounts[project.id] ?? 0;
+                            final doneCount = allTasks
+                                .where(
+                                  (task) =>
+                                      task.projectId == project.id &&
+                                      task.status == TaskStatus.done,
+                                )
+                                .length;
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: GlassContainer(
+                                padding: const EdgeInsets.all(20),
+                                borderRadius: 20.0,
+                                blur: 25.0,
+                                borderWidth: 1.0,
+                                gradientColors: [
+                                  colorScheme.surface.withValues(alpha: 0.4),
+                                  colorScheme.surface.withValues(alpha: 0.3),
+                                ],
+                                borderColor: project.color.withValues(
+                                  alpha: 0.3,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: BoxDecoration(
-                                        color: status.color,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        status.displayName,
-                                        style: TextStyle(
-                                          color: colorScheme.onSurface,
-                                          fontWeight: FontWeight.w600,
+                                    // ?꾨줈?앺듃 ?ㅻ뜑
+                                    Row(
+                                      children: [
+                                        Container(
+                                          width: 4,
+                                          height: 24,
+                                          decoration: BoxDecoration(
+                                            color: project.color,
+                                            borderRadius: BorderRadius.circular(
+                                              2,
+                                            ),
+                                          ),
                                         ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            project.name,
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                        ),
+                                        Text(
+                                          '${(progress * 100).toInt()}%',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: project.color,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    // 吏꾪뻾瑜?諛?
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: LinearProgressIndicator(
+                                        value: progress,
+                                        minHeight: 12,
+                                        backgroundColor: const Color(
+                                          0xFFF3DECA,
+                                        ),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              project.color,
+                                            ),
                                       ),
                                     ),
-                                    Text(
-                                      '$count',
-                                      style: TextStyle(
-                                        color: colorScheme.onSurface.withValues(alpha: 0.75),
-                                        fontSize: 12,
-                                      ),
+                                    const SizedBox(height: 12),
+                                    // ?쒖뒪???듦퀎
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.task,
+                                          size: 16,
+                                          color: colorScheme.onSurface
+                                              .withValues(alpha: 0.6),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '전체: $taskCount개',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.7),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Icon(
+                                          Icons.check_circle,
+                                          size: 16,
+                                          color: TaskStatus.done.color,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '완료: $doneCount개',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.7),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 6),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: LinearProgressIndicator(
-                                    value: ratio,
-                                    minHeight: 6,
-                                    backgroundColor: status.color.withValues(alpha: 0.15),
-                                    valueColor: AlwaysStoppedAnimation<Color>(status.color),
-                                  ),
-                                ),
-                              ],
+                              ),
+                            );
+                          }).toList(),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.stacked_bar_chart_outlined,
+                              color: colorScheme.primary,
+                              size: 22,
                             ),
-                          );
-                        }).toList(),
-                      ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '상태별 태스크 통계',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        GlassContainer(
+                          padding: const EdgeInsets.all(16),
+                          borderRadius: 14.0,
+                          blur: 18.0,
+                          gradientColors: [
+                            colorScheme.surface.withValues(alpha: 0.45),
+                            colorScheme.surface.withValues(alpha: 0.35),
+                          ],
+                          child: Column(
+                            children:
+                                [
+                                  TaskStatus.backlog,
+                                  TaskStatus.ready,
+                                  TaskStatus.inProgress,
+                                  TaskStatus.inReview,
+                                  TaskStatus.done,
+                                ].map((status) {
+                                  final count = statusCounts[status] ?? 0;
+                                  final ratio = totalTaskCount == 0
+                                      ? 0.0
+                                      : count / totalTaskCount;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Container(
+                                              width: 8,
+                                              height: 8,
+                                              decoration: BoxDecoration(
+                                                color: status.color,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                status.displayName,
+                                                style: TextStyle(
+                                                  color: colorScheme.onSurface,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                            Text(
+                                              '$count',
+                                              style: TextStyle(
+                                                color: colorScheme.onSurface
+                                                    .withValues(alpha: 0.75),
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 6),
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                          child: LinearProgressIndicator(
+                                            value: ratio,
+                                            minHeight: 6,
+                                            backgroundColor: status.color
+                                                .withValues(alpha: 0.15),
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  status.color,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                          ),
+                        ),
+                      ],
                     ),
-                ],
-              ),
-            ),
-          ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1215,8 +1505,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     if (authProvider.isAdmin) ...[
                       const SizedBox(width: 12),
                       GlassContainer(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         borderRadius: 12.0,
                         blur: 15.0,
                         gradientColors: [
@@ -1374,10 +1666,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             color: colorScheme.onSurface,
           ),
         ),
-        if (trailing != null) ...[
-          const SizedBox(width: 10),
-          trailing,
-        ],
+        if (trailing != null) ...[const SizedBox(width: 10), trailing],
       ],
     );
   }
@@ -1455,10 +1744,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           showGeneralDialog(
                             context: context,
                             transitionDuration: Duration.zero,
-                            pageBuilder: (context, animation, secondaryAnimation) =>
-                                TaskDetailScreen(task: task),
+                            pageBuilder:
+                                (context, animation, secondaryAnimation) =>
+                                    TaskDetailScreen(task: task),
                             transitionBuilder:
-                                (context, animation, secondaryAnimation, child) => child,
+                                (
+                                  context,
+                                  animation,
+                                  secondaryAnimation,
+                                  child,
+                                ) => child,
                           );
                         },
                         borderRadius: BorderRadius.circular(12),
@@ -1502,7 +1797,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: colorScheme.onSurface.withValues(alpha: 0.68),
+                                        color: colorScheme.onSurface.withValues(
+                                          alpha: 0.68,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -1637,9 +1934,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       final progress = _calculateProgress(project, allTasks);
                       final taskCount = taskCountsByProject[project.id] ?? 0;
                       final doneCount = allTasks
-                          .where((task) =>
-                              task.projectId == project.id &&
-                              task.status == TaskStatus.done)
+                          .where(
+                            (task) =>
+                                task.projectId == project.id &&
+                                task.status == TaskStatus.done,
+                          )
                           .length;
 
                       return Container(
@@ -1691,8 +1990,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               child: LinearProgressIndicator(
                                 value: progress,
                                 minHeight: 10,
-                                backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
-                                valueColor: AlwaysStoppedAnimation<Color>(project.color),
+                                backgroundColor: colorScheme.primary.withValues(
+                                  alpha: 0.1,
+                                ),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  project.color,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -1700,7 +2003,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               '전체 $taskCount개 · 완료 $doneCount개',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: colorScheme.onSurface.withValues(alpha: 0.68),
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.68,
+                                ),
                               ),
                             ),
                           ],
@@ -1752,7 +2057,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               itemBuilder: (context, index) {
                 final status = statuses[index];
                 final count = statusCounts[status] ?? 0;
-                final ratio = totalTaskCount == 0 ? 0.0 : count / totalTaskCount;
+                final ratio = totalTaskCount == 0
+                    ? 0.0
+                    : count / totalTaskCount;
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1780,7 +2087,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Text(
                           '$count',
                           style: TextStyle(
-                            color: colorScheme.onSurface.withValues(alpha: 0.75),
+                            color: colorScheme.onSurface.withValues(
+                              alpha: 0.75,
+                            ),
                             fontSize: 12,
                           ),
                         ),

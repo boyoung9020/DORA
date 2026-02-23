@@ -557,9 +557,74 @@ class _KanbanScreenState extends State<KanbanScreen> {
   ) {
     final statusColor = task.status.color;
 
-    return ReorderableDragStartListener(
-      index: index,
-      child: _buildTaskCardContainer(context, task, statusColor, taskProvider, reorderable: true),
+    return Dismissible(
+      key: ValueKey('dismiss_${task.id}'),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (direction) async {
+        return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) {
+            final cs = Theme.of(dialogContext).colorScheme;
+            return AlertDialog(
+              title: Text('태스크 삭제', style: TextStyle(color: cs.onSurface)),
+              content: Text('${task.title}을(를) 삭제하시겠습니까?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('취소'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  child: const Text('삭제'),
+                ),
+              ],
+            );
+          },
+        ) ?? false;
+      },
+      onDismissed: (direction) {
+        taskProvider.deleteTask(task.id);
+      },
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: Colors.red.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: const Icon(Icons.delete_outline, color: Colors.red, size: 28),
+      ),
+      child: Draggable<Task>(
+        data: task,
+        feedback: Material(
+          elevation: 8,
+          borderRadius: BorderRadius.circular(15),
+          color: Colors.transparent,
+          child: Container(
+            width: 280,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: statusColor, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: _buildTaskCardContent(context, task, statusColor),
+          ),
+        ),
+        childWhenDragging: Opacity(
+          opacity: 0.3,
+          child: _buildTaskCardContainer(context, task, statusColor, taskProvider, reorderable: true),
+        ),
+        child: _buildTaskCardContainer(context, task, statusColor, taskProvider, reorderable: true),
+      ),
     );
   }
 
@@ -1198,10 +1263,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
 
   /// 태스크 컨텍스트 메뉴 표시
   void _showTaskContextMenu(BuildContext context, Task task, TaskProvider taskProvider, Offset position) {
-    final colorScheme = Theme.of(context).colorScheme;
     final size = MediaQuery.of(context).size;
-    
-    showMenu(
+    final navContext = Navigator.of(context).context;
+
+    showMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(
         position.dx,
@@ -1210,7 +1275,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
         size.height - position.dy,
       ),
       items: [
-        PopupMenuItem(
+        PopupMenuItem<String>(
+          value: 'delete',
           child: Row(
             children: [
               Icon(
@@ -1228,15 +1294,13 @@ class _KanbanScreenState extends State<KanbanScreen> {
               ),
             ],
           ),
-          onTap: () {
-            // 메뉴가 닫힌 후에 다이얼로그 표시
-            Future.delayed(const Duration(milliseconds: 100), () {
-              _showDeleteConfirmDialog(context, task, taskProvider);
-            });
-          },
         ),
       ],
-    );
+    ).then((value) {
+      if (value == 'delete' && mounted) {
+        _showDeleteConfirmDialog(navContext, task, taskProvider);
+      }
+    });
   }
 
   /// 삭제 확인 다이얼로그

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -13,6 +13,7 @@ import '../services/websocket_service.dart';
 import '../services/upload_service.dart';
 import '../providers/notification_provider.dart';
 import '../providers/chat_provider.dart';
+import '../utils/api_client.dart';
 import '../providers/workspace_provider.dart';
 import '../providers/sprint_provider.dart';
 import '../models/notification.dart' as models;
@@ -135,41 +136,58 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     if (!authProvider.isAuthenticated) {
       return;
     }
-    
+
     _webSocketService = WebSocketService();
-    
+
     // 이벤트 핸들러 설정
     _webSocketService!.onEvent = (eventType, data) {
       print('[WebSocket] 이벤트 수신: $eventType');
       _handleWebSocketEvent(eventType, data);
     };
-    
+
     await _webSocketService!.connect();
   }
-  
+
   /// 알림 서비스 초기화 및 알림 로드
   Future<void> _initializeNotificationService() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+    final notificationProvider = Provider.of<NotificationProvider>(
+      context,
+      listen: false,
+    );
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+    final wsProvider = Provider.of<WorkspaceProvider>(context, listen: false);
     if (authProvider.isAuthenticated && authProvider.currentUser != null) {
-      await notificationProvider.loadNotifications(userId: authProvider.currentUser!.id);
+      await notificationProvider.loadNotifications(
+        userId: authProvider.currentUser!.id,
+      );
+      await chatProvider.loadRooms(workspaceId: wsProvider.currentWorkspaceId);
     }
   }
 
   /// WebSocket 이벤트 처리
-  Future<void> _handleWebSocketEvent(String eventType, Map<String, dynamic> data) async {
+  Future<void> _handleWebSocketEvent(
+    String eventType,
+    Map<String, dynamic> data,
+  ) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
+    final projectProvider = Provider.of<ProjectProvider>(
+      context,
+      listen: false,
+    );
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
     final sprintProvider = Provider.of<SprintProvider>(context, listen: false);
-    final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
-    
+    final notificationProvider = Provider.of<NotificationProvider>(
+      context,
+      listen: false,
+    );
+
     if (!authProvider.isAuthenticated || authProvider.currentUser == null) {
       return;
     }
-    
+
     final user = authProvider.currentUser!;
-    
+
     switch (eventType) {
       case 'project_created':
       case 'project_updated':
@@ -180,12 +198,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           isAdmin: authProvider.isAdmin,
           isPM: authProvider.isPM,
         );
-        
+
         // 팀원 추가 시 인앱 토스트 표시
         if (eventType == 'team_member_added' && data['user_id'] == user.id) {
           final projectId = data['project_id'] as String?;
           try {
-            final project = projectProvider.projects.firstWhere((p) => p.id == projectId);
+            final project = projectProvider.projects.firstWhere(
+              (p) => p.id == projectId,
+            );
             _showInAppToast(
               title: '팀원으로 추가되었습니다',
               message: '${project.name} 프로젝트에 팀원으로 추가되었습니다',
@@ -196,21 +216,21 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           }
         }
         break;
-        
+
       case 'task_created':
       case 'task_updated':
         // 태스크 목록 새로고침
         await taskProvider.loadTasks(
           projectId: projectProvider.currentProject?.id,
         );
-        
+
         // 태스크 관련 알림 처리
         final taskId = data['task_id'] as String?;
         if (taskId != null) {
           try {
             final task = taskProvider.tasks.firstWhere((t) => t.id == taskId);
             final isAssigned = task.assignedMemberIds.contains(user.id);
-            
+
             if (eventType == 'task_created' && isAssigned) {
               _showInAppToast(
                 title: '새 작업이 할당되었습니다',
@@ -231,7 +251,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           }
         }
         break;
-        
+
       case 'comment_created':
         final taskId = data['task_id'] as String?;
         if (taskId != null) {
@@ -263,7 +283,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         if (senderUsername != null && content != null) {
           _showInAppToast(
             title: '$senderUsername님의 메시지',
-            message: content.length > 50 ? '${content.substring(0, 50)}...' : content,
+            message: content.length > 50
+                ? '${content.substring(0, 50)}...'
+                : content,
             type: models.NotificationType.taskCommentAdded,
           );
         }
@@ -282,7 +304,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         break;
 
       case 'notification_created':
-        notificationProvider.addNotification(models.Notification.fromJson(data));
+        notificationProvider.addNotification(
+          models.Notification.fromJson(data),
+        );
         break;
     }
   }
@@ -295,9 +319,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     String? taskId,
   }) {
     if (!mounted) return;
-    
+
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     // 알림 타입별 색상
     Color accentColor;
     IconData icon;
@@ -323,7 +347,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         icon = Icons.alternate_email;
         break;
     }
-    
+
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -391,31 +415,35 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     );
   }
 
-
   /// ProjectProvider에 사용자 정보 업데이트
   void _updateProjectProviderUserInfo() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
+    final projectProvider = Provider.of<ProjectProvider>(
+      context,
+      listen: false,
+    );
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
     final sprintProvider = Provider.of<SprintProvider>(context, listen: false);
-    
+
     if (authProvider.isAuthenticated && authProvider.currentUser != null) {
       final user = authProvider.currentUser!;
-      
+
       // 이전 사용자 데이터 초기화
       projectProvider.setUserInfo(
         user.id,
         authProvider.isAdmin,
         authProvider.isPM,
       );
-      
-      // 프로젝트 목록 다시 로드 (필터링 적용)
+
+      // 프로젝트 목록 다시 로드 (현재 워크스페이스 기준 필터링)
+      final wsProvider = Provider.of<WorkspaceProvider>(context, listen: false);
       await projectProvider.loadProjects(
         userId: user.id,
         isAdmin: authProvider.isAdmin,
         isPM: authProvider.isPM,
+        workspaceId: wsProvider.currentWorkspaceId,
       );
-      
+
       // 태스크 목록도 다시 로드
       await taskProvider.loadTasks(
         projectId: projectProvider.currentProject?.id,
@@ -424,6 +452,46 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         projectId: projectProvider.currentProject?.id,
       );
     }
+  }
+
+  /// 워크스페이스 변경 시 데이터 새로고침
+  Future<void> _onWorkspaceChanged(
+    WorkspaceProvider wsProvider,
+    Workspace ws,
+  ) async {
+    if (ws.id == wsProvider.currentWorkspaceId) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final projectProvider = Provider.of<ProjectProvider>(
+      context,
+      listen: false,
+    );
+    final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+    final sprintProvider = Provider.of<SprintProvider>(context, listen: false);
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+
+    await wsProvider.selectWorkspace(ws);
+
+    if (!authProvider.isAuthenticated || authProvider.currentUser == null)
+      return;
+    final user = authProvider.currentUser!;
+
+    // 새 워크스페이스의 프로젝트 로드
+    await projectProvider.loadProjects(
+      userId: user.id,
+      isAdmin: authProvider.isAdmin,
+      isPM: authProvider.isPM,
+      workspaceId: ws.id,
+    );
+
+    // 태스크 & 스프린트 새로고침
+    await taskProvider.loadTasks(projectId: projectProvider.currentProject?.id);
+    await sprintProvider.loadSprints(
+      projectId: projectProvider.currentProject?.id,
+    );
+
+    // 채팅 새로고침
+    chatProvider.loadRooms(workspaceId: ws.id);
   }
 
   /// 메뉴 아이템 로드 (저장된 순서가 있으면 사용, 없으면 기본 순서)
@@ -543,7 +611,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final shellColor = isDarkMode
         ? const Color(0xFF1F2937)
         : const Color(0xFFF7E9DC);
-    
+
     return Scaffold(
       backgroundColor: shellColor,
       body: Column(
@@ -587,7 +655,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                             padding: const EdgeInsets.fromLTRB(0, 0, 0, 0),
                             child: Container(
                               decoration: BoxDecoration(
-                                color: isDarkMode ? const Color(0xFF161B2E) : Colors.white,
+                                color: isDarkMode
+                                    ? const Color(0xFF161B2E)
+                                    : Colors.white,
                                 gradient: null,
                                 borderRadius: const BorderRadius.only(
                                   topLeft: Radius.circular(28),
@@ -595,19 +665,25 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                 boxShadow: isDarkMode
                                     ? [
                                         BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.25),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.25,
+                                          ),
                                           blurRadius: 30,
                                           offset: const Offset(0, 18),
                                         ),
                                       ]
                                     : [
                                         BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.05),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.05,
+                                          ),
                                           blurRadius: 28,
                                           offset: const Offset(0, 12),
                                         ),
                                         BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.03),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.03,
+                                          ),
                                           blurRadius: 16,
                                           offset: const Offset(0, 4),
                                         ),
@@ -619,24 +695,40 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                 ),
                                 child: _isDashboardSelected()
                                     ? Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           // 팀원 사이드바 (왼쪽)
-                                          _buildTeamMemberSidebar(context, colorScheme, isDarkMode),
+                                          _buildTeamMemberSidebar(
+                                            context,
+                                            colorScheme,
+                                            isDarkMode,
+                                          ),
                                           // 구분선 (그림자 효과 포함 - 왼쪽으로만)
                                           Container(
                                             width: 1,
                                             decoration: BoxDecoration(
-                                              color: colorScheme.outline.withValues(alpha: 0.1),
+                                              color: colorScheme.outline
+                                                  .withValues(alpha: 0.1),
                                               boxShadow: [
                                                 BoxShadow(
-                                                  color: Colors.black.withValues(alpha: isDarkMode ? 0.45 : 0.14),
+                                                  color: Colors.black
+                                                      .withValues(
+                                                        alpha: isDarkMode
+                                                            ? 0.45
+                                                            : 0.14,
+                                                      ),
                                                   blurRadius: 8,
                                                   offset: const Offset(-1, 0),
                                                   spreadRadius: 0,
                                                 ),
                                                 BoxShadow(
-                                                  color: Colors.black.withValues(alpha: isDarkMode ? 0.2 : 0.08),
+                                                  color: Colors.black
+                                                      .withValues(
+                                                        alpha: isDarkMode
+                                                            ? 0.2
+                                                            : 0.08,
+                                                      ),
                                                   blurRadius: 4,
                                                   offset: const Offset(-2, 0),
                                                   spreadRadius: 0,
@@ -719,7 +811,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               // 구분선
               Padding(
                 padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                child: Divider(height: 1, thickness: 1, color: railForeground.withValues(alpha: 0.15)),
+                child: Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: railForeground.withValues(alpha: 0.15),
+                ),
               ),
               // ② 워크스페이스 아이콘 목록
               ...wsProvider.workspaces.map((ws) {
@@ -738,10 +834,15 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(8),
-                        onTap: () => WorkspaceSettingsScreen.showAsDialog(context),
+                        onTap: () =>
+                            WorkspaceSettingsScreen.showAsDialog(context),
                         child: Padding(
                           padding: const EdgeInsets.all(6),
-                          child: Icon(Icons.more_horiz, color: railForeground.withValues(alpha: 0.72), size: 20),
+                          child: Icon(
+                            Icons.more_horiz,
+                            color: railForeground.withValues(alpha: 0.72),
+                            size: 20,
+                          ),
                         ),
                       ),
                     ),
@@ -765,9 +866,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final railAccent = isDarkMode ? Colors.white : const Color(0xFF8A5731);
 
     const avatarColors = [
-      Color(0xFF5C6BC0), Color(0xFF26A69A), Color(0xFF42A5F5),
-      Color(0xFFEC407A), Color(0xFF66BB6A), Color(0xFFAB47BC),
-      Color(0xFF26C6DA), Color(0xFF8D6E63),
+      Color(0xFF5C6BC0),
+      Color(0xFF26A69A),
+      Color(0xFF42A5F5),
+      Color(0xFFEC407A),
+      Color(0xFF66BB6A),
+      Color(0xFFAB47BC),
+      Color(0xFF26C6DA),
+      Color(0xFF8D6E63),
     ];
     final color = avatarColors[ws.name.hashCode.abs() % avatarColors.length];
     final initial = ws.name.isNotEmpty ? ws.name[0].toUpperCase() : '?';
@@ -794,7 +900,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             message: ws.name,
             preferBelow: false,
             child: GestureDetector(
-              onTap: () => wsProvider.selectWorkspace(ws),
+              onTap: () => _onWorkspaceChanged(wsProvider, ws),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 width: 36,
@@ -845,99 +951,113 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         boxShadow: const [],
       ),
       child: Column(
-          children: [
-            // 유저 프로필 (상단)
-            Padding(
-              padding: const EdgeInsets.only(top: 16.0, bottom: 8.0, left: 8.0, right: 8.0),
-              child: _buildUserProfile(context, colorScheme, authProvider),
+        children: [
+          // 유저 프로필 (상단)
+          Padding(
+            padding: const EdgeInsets.only(
+              top: 16.0,
+              bottom: 8.0,
+              left: 8.0,
+              right: 8.0,
             ),
-            Expanded(
-              child: ReorderableListView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                buildDefaultDragHandles: false, // 기본 드래그 핸들 비활성화
-                onReorder: (oldIndex, newIndex) {
-                  setState(() {
-                    if (newIndex > oldIndex) {
-                      newIndex -= 1;
-                    }
-                    final item = _menuItems.removeAt(oldIndex);
-                    _menuItems.insert(newIndex, item);
-                    // index 업데이트
-                    for (int i = 0; i < _menuItems.length; i++) {
-                      _menuItems[i] = MenuItem(
-                        icon: _menuItems[i].icon,
-                        selectedIcon: _menuItems[i].selectedIcon,
-                        label: _menuItems[i].label,
-                        index: i,
-                      );
-                    }
-                    // 선택된 인덱스가 변경된 경우 업데이트
-                    if (_selectedIndex == oldIndex) {
-                      _selectedIndex = newIndex;
-                    } else if (_selectedIndex == newIndex && oldIndex < newIndex) {
-                      _selectedIndex = newIndex - 1;
-                    } else if (_selectedIndex == newIndex && oldIndex > newIndex) {
-                      _selectedIndex = newIndex + 1;
-                    } else if (_selectedIndex > oldIndex && _selectedIndex <= newIndex) {
-                      _selectedIndex -= 1;
-                    } else if (_selectedIndex < oldIndex && _selectedIndex >= newIndex) {
-                      _selectedIndex += 1;
-                    }
-                  });
-                  _saveMenuItemsOrder();
-                },
-                children: _menuItems.map((item) {
-                  return _buildMenuItem(context, item, colorScheme, key: ValueKey(item.label));
-                }).toList(),
-              ),
+            child: _buildUserProfile(context, colorScheme, authProvider),
+          ),
+          Expanded(
+            child: ReorderableListView(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              buildDefaultDragHandles: false, // 기본 드래그 핸들 비활성화
+              onReorder: (oldIndex, newIndex) {
+                setState(() {
+                  if (newIndex > oldIndex) {
+                    newIndex -= 1;
+                  }
+                  final item = _menuItems.removeAt(oldIndex);
+                  _menuItems.insert(newIndex, item);
+                  // index 업데이트
+                  for (int i = 0; i < _menuItems.length; i++) {
+                    _menuItems[i] = MenuItem(
+                      icon: _menuItems[i].icon,
+                      selectedIcon: _menuItems[i].selectedIcon,
+                      label: _menuItems[i].label,
+                      index: i,
+                    );
+                  }
+                  // 선택된 인덱스가 변경된 경우 업데이트
+                  if (_selectedIndex == oldIndex) {
+                    _selectedIndex = newIndex;
+                  } else if (_selectedIndex == newIndex &&
+                      oldIndex < newIndex) {
+                    _selectedIndex = newIndex - 1;
+                  } else if (_selectedIndex == newIndex &&
+                      oldIndex > newIndex) {
+                    _selectedIndex = newIndex + 1;
+                  } else if (_selectedIndex > oldIndex &&
+                      _selectedIndex <= newIndex) {
+                    _selectedIndex -= 1;
+                  } else if (_selectedIndex < oldIndex &&
+                      _selectedIndex >= newIndex) {
+                    _selectedIndex += 1;
+                  }
+                });
+                _saveMenuItemsOrder();
+              },
+              children: _menuItems.map((item) {
+                return _buildMenuItem(
+                  context,
+                  item,
+                  colorScheme,
+                  key: ValueKey(item.label),
+                );
+              }).toList(),
             ),
-            // 설정 버튼 및 로그아웃
-            Column(
-              children: [
-                const SizedBox(height: 8),
-                // 설정 버튼 - 메뉴 아이템과 동일한 구조
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => _showSettingsDialog(context),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        width: double.infinity,
-                        height: 56, // 고정 높이로 정렬 일관성 확보
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: Colors.transparent,
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.settings,
+          ),
+          // 설정 버튼 및 로그아웃
+          Column(
+            children: [
+              const SizedBox(height: 8),
+              // 설정 버튼 - 메뉴 아이템과 동일한 구조
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _showSettingsDialog(context),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: double.infinity,
+                      height: 56, // 고정 높이로 정렬 일관성 확보
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.transparent,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.settings,
+                            color: sidebarTextColor,
+                            size: 24,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '설정',
+                            style: TextStyle(
+                              fontSize: 11,
                               color: sidebarTextColor,
-                              size: 24,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '설정',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: sidebarTextColor,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ],
-        ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -948,10 +1068,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     AuthProvider authProvider,
   ) {
     final user = authProvider.currentUser;
-    
+
     if (user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty) {
       final url = user.profileImageUrl!.startsWith('/')
-          ? 'http://localhost:8000${user.profileImageUrl!}'
+          ? '${ApiClient.baseUrl}${user.profileImageUrl!}'
           : user.profileImageUrl!;
       return Center(
         child: CircleAvatar(
@@ -964,7 +1084,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     return Center(
       child: CircleAvatar(
         radius: 18,
-        backgroundColor: AvatarColor.getColorForUser(user?.id ?? user?.username ?? 'U'),
+        backgroundColor: AvatarColor.getColorForUser(
+          user?.id ?? user?.username ?? 'U',
+        ),
         child: Text(
           AvatarColor.getInitial(user?.username ?? 'U'),
           style: const TextStyle(
@@ -981,7 +1103,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   Widget _buildMemberAvatar(User member, {double radius = 18}) {
     if (member.profileImageUrl != null && member.profileImageUrl!.isNotEmpty) {
       final url = member.profileImageUrl!.startsWith('/')
-          ? 'http://localhost:8000${member.profileImageUrl!}'
+          ? '${ApiClient.baseUrl}${member.profileImageUrl!}'
           : member.profileImageUrl!;
       return CircleAvatar(
         radius: radius,
@@ -1015,9 +1137,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
       decoration: BoxDecoration(
-        color: isDarkMode
-            ? const Color(0xFF1F2937)
-            : const Color(0xFFF7E9DC),
+        color: isDarkMode ? const Color(0xFF1F2937) : const Color(0xFFF7E9DC),
       ),
       child: Row(
         children: [
@@ -1029,7 +1149,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               child: InkWell(
                 borderRadius: BorderRadius.circular(8),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -1048,7 +1171,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: isDarkMode ? colorScheme.onSurface : const Color(0xFF8A5731),
+                            color: isDarkMode
+                                ? colorScheme.onSurface
+                                : const Color(0xFF8A5731),
                           ),
                         ),
                       ] else ...[
@@ -1066,7 +1191,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                             fontSize: 16,
                             color: isDarkMode
                                 ? colorScheme.onSurface.withValues(alpha: 0.7)
-                                : const Color(0xFF8A5731).withValues(alpha: 0.75),
+                                : const Color(
+                                    0xFF8A5731,
+                                  ).withValues(alpha: 0.75),
                           ),
                         ),
                       ],
@@ -1085,7 +1212,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ),
             itemBuilder: (BuildContext context) {
               final items = <PopupMenuEntry<String>>[];
-              
+
               // 프로젝트 목록
               for (var project in projectProvider.projects) {
                 items.add(
@@ -1143,7 +1270,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   ),
                 );
               }
-              
+
               // 구분선과 새 프로젝트 버튼 (모든 워크스페이스 멤버)
               if (true) {
                 items.add(const PopupMenuDivider());
@@ -1170,7 +1297,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   ),
                 );
               }
-              
+
               return items;
             },
             onSelected: (String value) {
@@ -1194,14 +1321,15 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             onPressed: () => _showSearchDialog(context),
             icon: Icon(
               Icons.search,
-              color: isDarkMode ? colorScheme.onSurface : const Color(0xFF8A5731),
+              color: isDarkMode
+                  ? colorScheme.onSurface
+                  : const Color(0xFF8A5731),
             ),
           ),
         ],
       ),
     );
   }
-
 
   /// 프로젝트 컨텍스트 메뉴 표시 (오른쪽 클릭)
   void _showProjectContextMenu(
@@ -1214,11 +1342,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final size = MediaQuery.of(context).size;
 
     // 프로젝트 PM(creator) 또는 Admin만 삭제 가능
-    final isProjectPM = project.creatorId == authProvider.currentUser?.id || authProvider.isAdmin;
+    final isProjectPM =
+        project.creatorId == authProvider.currentUser?.id ||
+        authProvider.isAdmin;
     if (!isProjectPM) {
       return;
     }
-    
+
     showMenu(
       context: context,
       position: RelativeRect.fromLTRB(
@@ -1231,11 +1361,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         PopupMenuItem(
           child: Row(
             children: [
-              Icon(
-                Icons.delete_outline,
-                size: 20,
-                color: Colors.red,
-              ),
+              Icon(Icons.delete_outline, size: 20, color: Colors.red),
               const SizedBox(width: 12),
               Text(
                 '프로젝트 삭제',
@@ -1264,7 +1390,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     ProjectProvider projectProvider,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     showDialog(
       context: context,
       builder: (context) {
@@ -1281,10 +1407,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                '취소',
-                style: TextStyle(color: colorScheme.onSurface),
-              ),
+              child: Text('취소', style: TextStyle(color: colorScheme.onSurface)),
             ),
             TextButton(
               onPressed: () async {
@@ -1310,10 +1433,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   }
                 }
               },
-              child: Text(
-                '삭제',
-                style: TextStyle(color: Colors.red),
-              ),
+              child: Text('삭제', style: TextStyle(color: Colors.red)),
             ),
           ],
         );
@@ -1324,11 +1444,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   /// 프로젝트 생성 다이얼로그
   void _showCreateProjectDialog(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
+    final projectProvider = Provider.of<ProjectProvider>(
+      context,
+      listen: false,
+    );
     final nameController = TextEditingController();
     Future<void> submitCreateProject(BuildContext dialogContext) async {
       if (nameController.text.trim().isEmpty) return;
-      final wsProvider = Provider.of<WorkspaceProvider>(dialogContext, listen: false);
+      final wsProvider = Provider.of<WorkspaceProvider>(
+        dialogContext,
+        listen: false,
+      );
       final success = await projectProvider.createProject(
         name: nameController.text.trim(),
         workspaceId: wsProvider.currentWorkspaceId,
@@ -1425,14 +1551,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final unreadCount = isNotificationItem
         ? notificationProvider.unreadCount
         : isChatItem
-            ? chatProvider.totalUnreadCount
-            : 0;
+        ? chatProvider.totalUnreadCount
+        : 0;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final sidebarColor = isDarkMode
         ? const Color(0xFF1F2937)
         : const Color(0xFFF7E9DC);
-    final menuTextColor = isDarkMode ? const Color(0xFFE5E7EB) : const Color(0xFF8A5731);
-    
+    final menuTextColor = isDarkMode
+        ? const Color(0xFFE5E7EB)
+        : const Color(0xFF8A5731);
+
     return Padding(
       key: key,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1455,8 +1583,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 borderRadius: BorderRadius.circular(12),
                 color: isSelected
                     ? (isDarkMode
-                        ? Colors.white.withValues(alpha: 0.16)
-                        : const Color(0xFFDCBA9F).withValues(alpha: 0.28))
+                          ? Colors.white.withValues(alpha: 0.16)
+                          : const Color(0xFFDCBA9F).withValues(alpha: 0.28))
                     : Colors.transparent,
               ),
               child: Column(
@@ -1478,8 +1606,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                           right: -8,
                           top: -6,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 1,
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFEF4444),
                               borderRadius: BorderRadius.circular(10),
@@ -1508,7 +1642,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     item.label,
                     style: TextStyle(
                       fontSize: 11,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.normal,
                       color: isSelected
                           ? menuTextColor
                           : menuTextColor.withValues(alpha: 0.82),
@@ -1525,7 +1661,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       ),
     );
   }
-
 
   /// 팀원 관리 사이드바
   Widget _buildTeamMemberSidebar(
@@ -1550,11 +1685,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             // 헤더
             Row(
               children: [
-                Icon(
-                  Icons.people,
-                  color: colorScheme.primary,
-                  size: 20,
-                ),
+                Icon(Icons.people, color: colorScheme.primary, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1566,30 +1697,32 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     ),
                   ),
                 ),
-                    Consumer2<AuthProvider, ProjectProvider>(
-                      builder: (context, authProvider, projProvider, _) {
-                        final proj = projProvider.currentProject;
-                        final isProjectPM = proj?.creatorId == authProvider.currentUser?.id || authProvider.isAdmin;
-                        if (isProjectPM) {
-                          return IconButton(
-                            icon: Icon(
-                              Icons.add_circle_outline,
-                              color: colorScheme.primary,
-                              size: 20,
-                            ),
-                            onPressed: () => _showAddTeamMemberDialog(
-                              context,
-                              currentProject,
-                              projectProvider,
-                            ),
-                            tooltip: '팀원 추가',
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
+                Consumer2<AuthProvider, ProjectProvider>(
+                  builder: (context, authProvider, projProvider, _) {
+                    final proj = projProvider.currentProject;
+                    final isProjectPM =
+                        proj?.creatorId == authProvider.currentUser?.id ||
+                        authProvider.isAdmin;
+                    if (isProjectPM) {
+                      return IconButton(
+                        icon: Icon(
+                          Icons.add_circle_outline,
+                          color: colorScheme.primary,
+                          size: 20,
+                        ),
+                        onPressed: () => _showAddTeamMemberDialog(
+                          context,
+                          currentProject,
+                          projectProvider,
+                        ),
+                        tooltip: '팀원 추가',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -1600,8 +1733,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               child: Consumer<ProjectProvider>(
                 builder: (context, provider, _) {
                   // currentProject를 provider에서 가져와서 최신 데이터 사용
-                  final latestProject = provider.currentProject ?? currentProject;
-                  return _buildTeamMemberList(context, latestProject, colorScheme, projectProvider);
+                  final latestProject =
+                      provider.currentProject ?? currentProject;
+                  return _buildTeamMemberList(
+                    context,
+                    latestProject,
+                    colorScheme,
+                    projectProvider,
+                  );
                 },
               ),
             ),
@@ -1620,7 +1759,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   ) {
     // currentProject.teamMemberIds를 키로 사용하여 변경 감지
     return FutureBuilder<List<dynamic>>(
-      key: ValueKey('team_members_${currentProject?.id}_${currentProject?.teamMemberIds?.length ?? 0}'),
+      key: ValueKey(
+        'team_members_${currentProject?.id}_${(currentProject?.teamMemberIds ?? []).join(',')}',
+      ),
       future: _loadTeamMembers(currentProject),
       builder: (context, snapshot) {
         final teamMembers = snapshot.data ?? [];
@@ -1646,7 +1787,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 Consumer2<AuthProvider, ProjectProvider>(
                   builder: (context, authProvider, projProvider, _) {
                     final proj = projProvider.currentProject;
-                    final isProjectPM = proj?.creatorId == authProvider.currentUser?.id || authProvider.isAdmin;
+                    final isProjectPM =
+                        proj?.creatorId == authProvider.currentUser?.id ||
+                        authProvider.isAdmin;
                     if (isProjectPM) {
                       return Column(
                         children: [
@@ -1655,7 +1798,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                             '+ 버튼을 눌러\n팀원을 추가하세요',
                             style: TextStyle(
                               fontSize: 12,
-                              color: colorScheme.onSurface.withValues(alpha: 0.5),
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -1682,7 +1827,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   onTap: () {},
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
                       color: colorScheme.surface.withValues(alpha: 0.3),
@@ -1710,12 +1858,19 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                   if (member.isPM) ...[
                                     const SizedBox(width: 6),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: colorScheme.primary.withValues(alpha: 0.2),
+                                        color: colorScheme.primary.withValues(
+                                          alpha: 0.2,
+                                        ),
                                         borderRadius: BorderRadius.circular(4),
                                         border: Border.all(
-                                          color: colorScheme.primary.withValues(alpha: 0.5),
+                                          color: colorScheme.primary.withValues(
+                                            alpha: 0.5,
+                                          ),
                                           width: 1,
                                         ),
                                       ),
@@ -1735,7 +1890,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                 member.email,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: colorScheme.onSurface.withValues(alpha: 0.6),
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1745,7 +1902,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                         Consumer2<AuthProvider, ProjectProvider>(
                           builder: (context, authProvider, projProvider, _) {
                             final proj = projProvider.currentProject;
-                            final isProjectPM = proj?.creatorId == authProvider.currentUser?.id || authProvider.isAdmin;
+                            final isProjectPM =
+                                proj?.creatorId ==
+                                    authProvider.currentUser?.id ||
+                                authProvider.isAdmin;
                             if (isProjectPM) {
                               return IconButton(
                                 icon: Icon(
@@ -1783,20 +1943,25 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   Future<List<dynamic>> _loadTeamMembers(currentProject) async {
     try {
       final authService = AuthService();
-      // 승인된 사용자 목록 가져오기 (PM도 사용 가능)
-      final approvedUsers = await authService.getApprovedUsers();
+      final workspaceId = (currentProject as Project).workspaceId;
+      // 워크스페이스 프로젝트는 워크스페이스 멤버 기준으로 조회
+      // (승인 상태와 무관하게 실제 프로젝트 팀원 ID와 매칭되도록)
+      final candidates = workspaceId != null
+          ? await authService.getUsersByWorkspace(workspaceId)
+          : await authService.getApprovedUsers();
+
       // 프로젝트 팀원에 포함된 사용자만 필터링
-      final teamMembers = approvedUsers
+      final teamMembers = candidates
           .where((u) => currentProject.teamMemberIds.contains(u.id))
           .toList();
-      
+
       // PM을 먼저 정렬
       teamMembers.sort((a, b) {
         if (a.isPM && !b.isPM) return -1;
         if (!a.isPM && b.isPM) return 1;
         return 0;
       });
-      
+
       return teamMembers;
     } catch (e) {
       print('[MainLayout] 팀원 목록 로드 실패: $e');
@@ -1830,7 +1995,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     colorScheme.surface.withValues(alpha: 0.5),
                   ],
                   child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      colorScheme.primary,
+                    ),
                   ),
                 ),
               );
@@ -1860,7 +2027,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   colorScheme.surface.withValues(alpha: 0.5),
                 ],
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+                  constraints: const BoxConstraints(
+                    maxWidth: 500,
+                    maxHeight: 600,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1892,7 +2062,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                               subtitle: Text(
                                 user.email,
                                 style: TextStyle(
-                                  color: colorScheme.onSurface.withValues(alpha: 0.7),
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.7,
+                                  ),
                                 ),
                               ),
                               trailing: IconButton(
@@ -1903,22 +2075,44 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                 onPressed: () async {
                                   try {
                                     // 팀원 추가 API 사용 (내부에서 이미 loadProjects 호출함)
-                                    await projectProvider.addTeamMember(
+                                    final added = await projectProvider
+                                        .addTeamMember(
                                       currentProject.id,
                                       user.id,
                                     );
+                                    if (!added) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: const Text(
+                                              '팀원 추가에 실패했습니다. 워크스페이스 멤버인지 확인해 주세요.',
+                                            ),
+                                            backgroundColor: colorScheme.error,
+                                          ),
+                                        );
+                                      }
+                                      return;
+                                    }
                                     Navigator.of(context).pop();
                                     if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         SnackBar(
-                                          content: Text('${user.username}님이 팀에 추가되었습니다'),
+                                          content: Text(
+                                            '${user.username}님이 팀에 추가되었습니다',
+                                          ),
                                           backgroundColor: colorScheme.primary,
                                         ),
                                       );
                                     }
                                   } catch (e) {
                                     if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         SnackBar(
                                           content: Text('팀원 추가 실패: $e'),
                                           backgroundColor: colorScheme.error,
@@ -1986,7 +2180,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     ProjectProvider projectProvider,
   ) async {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     final user = await _getUserById(userId);
     if (user == null) return;
 
@@ -2038,7 +2232,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(true),
                       style: TextButton.styleFrom(
-                        backgroundColor: colorScheme.error.withValues(alpha: 0.2),
+                        backgroundColor: colorScheme.error.withValues(
+                          alpha: 0.2,
+                        ),
                       ),
                       child: Text(
                         '제거',
@@ -2055,8 +2251,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     );
 
     if (confirmed == true) {
-      final updatedMemberIds =
-          currentProject.teamMemberIds.where((id) => id != userId).toList();
+      final updatedMemberIds = currentProject.teamMemberIds
+          .where((id) => id != userId)
+          .toList();
       await projectProvider.updateProject(
         currentProject.copyWith(
           teamMemberIds: updatedMemberIds,
@@ -2165,10 +2362,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     showDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.2),
-      builder: (_) => SearchScreen(
-        workspaceId: workspaceId,
-        projectId: projectId,
-      ),
+      builder: (_) =>
+          SearchScreen(workspaceId: workspaceId, projectId: projectId),
     );
   }
 
@@ -2227,13 +2422,15 @@ class _ProfileImageButtonState extends State<_ProfileImageButton> {
                       radius: 30,
                       backgroundImage: NetworkImage(
                         widget.currentUser.profileImageUrl!.startsWith('/')
-                            ? 'http://localhost:8000${widget.currentUser.profileImageUrl!}'
+                            ? '${ApiClient.baseUrl}${widget.currentUser.profileImageUrl!}'
                             : widget.currentUser.profileImageUrl!,
                       ),
                     )
                   : CircleAvatar(
                       radius: 30,
-                      backgroundColor: AvatarColor.getColorForUser(widget.currentUser.id),
+                      backgroundColor: AvatarColor.getColorForUser(
+                        widget.currentUser.id,
+                      ),
                       child: Text(
                         AvatarColor.getInitial(widget.currentUser.username),
                         style: const TextStyle(
@@ -2268,16 +2465,22 @@ class _ProfileImageButtonState extends State<_ProfileImageButton> {
                             ),
                           ]
                         : _hovered
-                            ? [
-                                BoxShadow(
-                                  color: widget.colorScheme.primary.withValues(alpha: 0.5),
-                                  blurRadius: 6,
-                                  spreadRadius: 0.5,
-                                ),
-                              ]
-                            : null,
+                        ? [
+                            BoxShadow(
+                              color: widget.colorScheme.primary.withValues(
+                                alpha: 0.5,
+                              ),
+                              blurRadius: 6,
+                              spreadRadius: 0.5,
+                            ),
+                          ]
+                        : null,
                   ),
-                  child: const Icon(Icons.camera_alt, size: 12, color: Colors.white),
+                  child: const Icon(
+                    Icons.camera_alt,
+                    size: 12,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ],
@@ -2379,20 +2582,26 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                           padding: const EdgeInsets.fromLTRB(16, 20, 16, 14),
                           child: Row(
                             children: [
-                              user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty
+                              user?.profileImageUrl != null &&
+                                      user!.profileImageUrl!.isNotEmpty
                                   ? CircleAvatar(
                                       radius: 18,
                                       backgroundImage: NetworkImage(
                                         user.profileImageUrl!.startsWith('/')
-                                            ? 'http://localhost:8000${user.profileImageUrl!}'
+                                            ? '${ApiClient.baseUrl}${user.profileImageUrl!}'
                                             : user.profileImageUrl!,
                                       ),
                                     )
                                   : CircleAvatar(
                                       radius: 18,
-                                      backgroundColor: AvatarColor.getColorForUser(user?.id ?? ''),
+                                      backgroundColor:
+                                          AvatarColor.getColorForUser(
+                                            user?.id ?? '',
+                                          ),
                                       child: Text(
-                                        AvatarColor.getInitial(user?.username ?? 'U'),
+                                        AvatarColor.getInitial(
+                                          user?.username ?? 'U',
+                                        ),
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
@@ -2418,7 +2627,9 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                                       user?.email ?? '',
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color: colorScheme.onSurface.withValues(alpha: 0.55),
+                                        color: colorScheme.onSurface.withValues(
+                                          alpha: 0.55,
+                                        ),
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -2428,7 +2639,10 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                             ],
                           ),
                         ),
-                        Divider(height: 1, color: colorScheme.outline.withValues(alpha: 0.15)),
+                        Divider(
+                          height: 1,
+                          color: colorScheme.outline.withValues(alpha: 0.15),
+                        ),
                         const SizedBox(height: 8),
                         // 네비게이션 아이템
                         for (int i = 0; i < sections.length; i++)
@@ -2453,21 +2667,37 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                             },
                           ),
                         const Spacer(),
-                        Divider(height: 1, color: colorScheme.outline.withValues(alpha: 0.15)),
+                        Divider(
+                          height: 1,
+                          color: colorScheme.outline.withValues(alpha: 0.15),
+                        ),
                         // 로그아웃 버튼
                         Padding(
                           padding: const EdgeInsets.all(10),
                           child: TextButton.icon(
-                            onPressed: () => _handleLogout(context, authProvider),
-                            icon: Icon(Icons.logout, color: colorScheme.error, size: 18),
+                            onPressed: () =>
+                                _handleLogout(context, authProvider),
+                            icon: Icon(
+                              Icons.logout,
+                              color: colorScheme.error,
+                              size: 18,
+                            ),
                             label: Text(
                               '로그아웃',
-                              style: TextStyle(color: colorScheme.error, fontSize: 14),
+                              style: TextStyle(
+                                color: colorScheme.error,
+                                fontSize: 14,
+                              ),
                             ),
                             style: TextButton.styleFrom(
                               alignment: Alignment.centerLeft,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                           ),
                         ),
@@ -2501,14 +2731,19 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                               IconButton(
                                 icon: Icon(
                                   Icons.close,
-                                  color: colorScheme.onSurface.withValues(alpha: 0.6),
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
                                 ),
                                 onPressed: () => Navigator.of(context).pop(),
                               ),
                             ],
                           ),
                         ),
-                        Divider(height: 1, color: colorScheme.outline.withValues(alpha: 0.15)),
+                        Divider(
+                          height: 1,
+                          color: colorScheme.outline.withValues(alpha: 0.15),
+                        ),
                         // 섹션 컨텐츠
                         Expanded(
                           child: SingleChildScrollView(
@@ -2555,7 +2790,9 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: isSelected ? colorScheme.primary.withValues(alpha: 0.12) : Colors.transparent,
+              color: isSelected
+                  ? colorScheme.primary.withValues(alpha: 0.12)
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -2572,7 +2809,9 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                   label,
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    fontWeight: isSelected
+                        ? FontWeight.w600
+                        : FontWeight.normal,
                     color: isSelected
                         ? colorScheme.primary
                         : colorScheme.onSurface.withValues(alpha: 0.85),
@@ -2666,9 +2905,14 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: colorScheme.outline.withValues(alpha: 0.25)),
+            border: Border.all(
+              color: colorScheme.outline.withValues(alpha: 0.25),
+            ),
           ),
-          child: Text(value, style: TextStyle(fontSize: 14, color: colorScheme.onSurface)),
+          child: Text(
+            value,
+            style: TextStyle(fontSize: 14, color: colorScheme.onSurface),
+          ),
         ),
       ],
     );
@@ -2684,7 +2928,11 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: color,
+        ),
       ),
     );
   }
@@ -2700,11 +2948,17 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
               padding: const EdgeInsets.symmetric(vertical: 40),
               child: Column(
                 children: [
-                  Icon(Icons.group_outlined, size: 48, color: colorScheme.onSurface.withValues(alpha: 0.35)),
+                  Icon(
+                    Icons.group_outlined,
+                    size: 48,
+                    color: colorScheme.onSurface.withValues(alpha: 0.35),
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     '선택된 워크스페이스가 없습니다',
-                    style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.55)),
+                    style: TextStyle(
+                      color: colorScheme.onSurface.withValues(alpha: 0.55),
+                    ),
                   ),
                 ],
               ),
@@ -2714,7 +2968,8 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
 
         final authProvider = context.read<AuthProvider>();
         final isOwner =
-            ws.ownerId == (authProvider.currentUser?.id ?? '') || authProvider.isAdmin;
+            ws.ownerId == (authProvider.currentUser?.id ?? '') ||
+            authProvider.isAdmin;
         final inviteLink = wsProvider.buildInviteLink(ws.inviteToken);
 
         return Column(
@@ -2748,7 +3003,10 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                     children: [
                       Text(
                         ws.name,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
                       ),
                       if (ws.description != null && ws.description!.isNotEmpty)
                         Text(
@@ -2778,18 +3036,29 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                color: colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.4,
+                ),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: colorScheme.outline.withValues(alpha: 0.25)),
+                border: Border.all(
+                  color: colorScheme.outline.withValues(alpha: 0.25),
+                ),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.link, size: 16, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                  Icon(
+                    Icons.link,
+                    size: 16,
+                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       inviteLink,
-                      style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -2830,10 +3099,13 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                 if (isOwner) ...[
                   const SizedBox(width: 8),
                   OutlinedButton.icon(
-                    onPressed: () => _handleRegenerateToken(context, wsProvider),
+                    onPressed: () =>
+                        _handleRegenerateToken(context, wsProvider),
                     icon: const Icon(Icons.refresh, size: 16),
                     label: const Text('코드 재발급'),
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.orange),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.orange,
+                    ),
                   ),
                 ],
               ],
@@ -2857,15 +3129,20 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
               )
             else
               ...wsProvider.currentMembers.map((member) {
-                final isMe = member.userId == (authProvider.currentUser?.id ?? '');
+                final isMe =
+                    member.userId == (authProvider.currentUser?.id ?? '');
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                   leading: CircleAvatar(
                     radius: 16,
-                    backgroundColor: AvatarColor.getColorForUser(member.username),
+                    backgroundColor: AvatarColor.getColorForUser(
+                      member.username,
+                    ),
                     child: Text(
-                      member.username.isNotEmpty ? member.username[0].toUpperCase() : '?',
+                      member.username.isNotEmpty
+                          ? member.username[0].toUpperCase()
+                          : '?',
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
@@ -2877,19 +3154,28 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                     children: [
                       Text(
                         member.username,
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
                       ),
                       if (isMe) ...[
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: colorScheme.primaryContainer,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             '나',
-                            style: TextStyle(fontSize: 10, color: colorScheme.primary),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: colorScheme.primary,
+                            ),
                           ),
                         ),
                       ],
@@ -2906,10 +3192,14 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                   ),
                   trailing: isOwner && !isMe && !member.isOwner
                       ? IconButton(
-                          icon: const Icon(Icons.person_remove_outlined,
-                              color: Colors.red, size: 18),
+                          icon: const Icon(
+                            Icons.person_remove_outlined,
+                            color: Colors.red,
+                            size: 18,
+                          ),
                           tooltip: '강퇴',
-                          onPressed: () => _handleRemoveMember(context, wsProvider, member),
+                          onPressed: () =>
+                              _handleRemoveMember(context, wsProvider, member),
                         )
                       : null,
                 );
@@ -2924,9 +3214,15 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () => _handleLeaveWorkspace(context, wsProvider),
-                  icon: const Icon(Icons.exit_to_app, color: Colors.red, size: 18),
-                  label: const Text('워크스페이스 탈퇴',
-                      style: TextStyle(color: Colors.red)),
+                  icon: const Icon(
+                    Icons.exit_to_app,
+                    color: Colors.red,
+                    size: 18,
+                  ),
+                  label: const Text(
+                    '워크스페이스 탈퇴',
+                    style: TextStyle(color: Colors.red),
+                  ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red,
                     side: const BorderSide(color: Colors.red),
@@ -2941,7 +3237,10 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
   }
 
   // ── 섹션: 테마 ──────────────────────────────
-  Widget _buildThemeSection(ColorScheme colorScheme, ThemeProvider themeProvider) {
+  Widget _buildThemeSection(
+    ColorScheme colorScheme,
+    ThemeProvider themeProvider,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3052,7 +3351,10 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
 
   // ── 액션 핸들러 ──────────────────────────────
 
-  Future<void> _handleLogout(BuildContext context, AuthProvider authProvider) async {
+  Future<void> _handleLogout(
+    BuildContext context,
+    AuthProvider authProvider,
+  ) async {
     // root navigator를 미리 캡처 (pop 이전에 반드시 호출해야 함)
     final nav = Navigator.of(context, rootNavigator: true);
 
@@ -3092,7 +3394,10 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                     const SizedBox(height: 12),
                     Text(
                       '로그아웃하시겠습니까?',
-                      style: TextStyle(fontSize: 15, color: cs.onSurface.withValues(alpha: 0.8)),
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: cs.onSurface.withValues(alpha: 0.8),
+                      ),
                     ),
                     const SizedBox(height: 20),
                     Row(
@@ -3102,7 +3407,9 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                           onPressed: () => Navigator.of(ctx).pop(false),
                           child: Text(
                             '취소',
-                            style: TextStyle(color: cs.onSurface.withValues(alpha: 0.7)),
+                            style: TextStyle(
+                              color: cs.onSurface.withValues(alpha: 0.7),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -3111,7 +3418,9 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                           style: TextButton.styleFrom(
                             backgroundColor: cs.primary.withValues(alpha: 0.15),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                           ),
                           child: Text(
                             '로그아웃',
@@ -3143,15 +3452,23 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
   }
 
   Future<void> _handleRegenerateToken(
-      BuildContext context, WorkspaceProvider wsProvider) async {
+    BuildContext context,
+    WorkspaceProvider wsProvider,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('초대 코드 재발급'),
         content: const Text('기존 초대 링크는 더 이상 사용할 수 없게 됩니다. 계속할까요?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('재발급')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('재발급'),
+          ),
         ],
       ),
     );
@@ -3160,14 +3477,20 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
   }
 
   Future<void> _handleRemoveMember(
-      BuildContext context, WorkspaceProvider wsProvider, WorkspaceMember member) async {
+    BuildContext context,
+    WorkspaceProvider wsProvider,
+    WorkspaceMember member,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('멤버 강퇴'),
         content: Text('${member.username}님을 워크스페이스에서 강퇴하시겠습니까?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
@@ -3181,14 +3504,19 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
   }
 
   Future<void> _handleLeaveWorkspace(
-      BuildContext context, WorkspaceProvider wsProvider) async {
+    BuildContext context,
+    WorkspaceProvider wsProvider,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('워크스페이스 탈퇴'),
         content: const Text('워크스페이스에서 탈퇴하시겠습니까?\n이 작업은 되돌릴 수 없습니다.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
@@ -3202,4 +3530,3 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
     if (context.mounted) Navigator.of(context).pop();
   }
 }
-

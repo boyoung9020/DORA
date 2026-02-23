@@ -1,14 +1,25 @@
 /// API 클라이언트 유틸리티
 /// HTTP 요청을 보내고 응답을 처리하는 공통 함수들
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiClient {
   // API 베이스 URL
-  // 로컬 개발: http://localhost
-  // 프로덕션: 실제 서버 주소로 변경
-  static const String baseUrl = 'http://localhost:8000';
+  // 프로덕션(nginx): 브라우저 origin 사용 (같은 서버)
+  // 로컬 개발(flutter run): localhost:4000
+  static final String baseUrl = _resolveBaseUrl();
+
+  static String _resolveBaseUrl() {
+    const env = String.fromEnvironment('API_BASE_URL');
+    if (env.isNotEmpty) return env;
+    if (kIsWeb) {
+      final origin = Uri.base.origin;
+      if (!origin.contains('localhost')) return origin;
+    }
+    return 'http://localhost:4000';
+  }
   
   // JWT 토큰 저장 키
   static const String _tokenKey = 'auth_token';

@@ -4,6 +4,7 @@ import '../providers/notification_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/task_provider.dart';
 import '../models/notification.dart' as app_notification;
+import '../services/task_service.dart';
 import '../widgets/glass_container.dart';
 import 'task_detail_screen.dart';
 
@@ -140,7 +141,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   /// 알림 클릭 시 해당 항목으로 네비게이션
   void _handleNotificationTap(app_notification.Notification notification) async {
     final notificationProvider = context.read<NotificationProvider>();
-    
+
     // 읽음 표시
     if (!notification.isRead) {
       await notificationProvider.markAsRead(notification.id);
@@ -149,27 +150,28 @@ class _NotificationScreenState extends State<NotificationScreen> {
     // taskId가 있으면 TaskDetailScreen으로 이동
     if (notification.taskId != null && mounted) {
       final taskProvider = context.read<TaskProvider>();
-      try {
-        final task = taskProvider.tasks.firstWhere((t) => t.id == notification.taskId);
-        if (mounted) {
-          showDialog(
-            context: context,
-            barrierColor: Colors.black.withValues(alpha: 0.2),
-            builder: (context) => TaskDetailScreen(task: task),
-          );
-        }
-      } catch (e) {
-        // 태스크를 찾을 수 없는 경우
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('해당 작업을 찾을 수 없습니다'),
-              backgroundColor: Theme.of(context).colorScheme.error,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-          );
-        }
+
+      // 로컬 목록에서 먼저 찾고, 없으면 API에서 직접 조회
+      var task = taskProvider.tasks.where((t) => t.id == notification.taskId).firstOrNull;
+      task ??= await TaskService().getTaskById(notification.taskId!);
+
+      if (!mounted) return;
+
+      if (task != null) {
+        showDialog(
+          context: context,
+          barrierColor: Colors.black.withValues(alpha: 0.2),
+          builder: (context) => TaskDetailScreen(task: task!),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('해당 작업을 찾을 수 없습니다'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
       }
     }
   }

@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
+import '../utils/api_client.dart';
 import '../utils/file_download.dart';
 import '../providers/chat_provider.dart';
 import '../providers/auth_provider.dart';
@@ -944,7 +945,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: message.imageUrls.map((url) {
-                      final imageUrl = url.startsWith('/') ? 'http://localhost:8000$url' : url;
+                      final imageUrl = url.startsWith('/') ? '${ApiClient.baseUrl}$url' : url;
                       return GestureDetector(
                         onTap: () => _showImageViewer(context, imageUrl),
                         child: ClipRRect(
@@ -972,7 +973,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   if (hasContent || message.imageUrls.isNotEmpty) const SizedBox(height: 6),
                   ...message.fileUrls.map((fileUrl) {
                     final info = _parseFileUrl(fileUrl);
-                    final downloadUrl = info.url.startsWith('/') ? 'http://localhost:8000${info.url}' : info.url;
+                    final downloadUrl = info.url.startsWith('/') ? '${ApiClient.baseUrl}${info.url}' : info.url;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 4),
                       child: InkWell(
@@ -1039,7 +1040,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildUserAvatar(User user, {double radius = 16}) {
     if (user.profileImageUrl != null && user.profileImageUrl!.isNotEmpty) {
-      final url = user.profileImageUrl!.startsWith('/') ? 'http://localhost:8000${user.profileImageUrl!}' : user.profileImageUrl!;
+      final url = user.profileImageUrl!.startsWith('/') ? '${ApiClient.baseUrl}${user.profileImageUrl!}' : user.profileImageUrl!;
       return CircleAvatar(radius: radius, backgroundImage: NetworkImage(url), onBackgroundImageError: (_, __) {});
     }
     return CircleAvatar(
@@ -1143,12 +1144,13 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
               const SizedBox(width: 4),
               Expanded(
-                child: KeyboardListener(
-                  focusNode: FocusNode(),
-                  onKeyEvent: (event) {
+                child: Focus(
+                  onKeyEvent: (node, event) {
                     if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter && !HardwareKeyboard.instance.isShiftPressed) {
                       _sendMessage();
+                      return KeyEventResult.handled;
                     }
+                    return KeyEventResult.ignored;
                   },
                   child: TextField(
                     controller: _messageController,

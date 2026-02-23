@@ -380,12 +380,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
     final mentionStyle = TextStyle(
       fontSize: 14,
-      color: colorScheme.primary,
-      fontWeight: FontWeight.bold,
+      color: const Color(0xFF2563EB),
+      fontWeight: FontWeight.w600,
+      decoration: TextDecoration.underline,
+      decorationColor: const Color(0xFF2563EB),
       height: 1.6,
     );
 
-    final regex = RegExp(r'@([A-Za-z0-9_]+)');
+    // 한글/영문/숫자/특수문자(공백 제외)가 포함된 멘션을 하이라이트한다.
+    final regex = RegExp(r'@([^\s@]+)');
     final spans = <TextSpan>[];
     int start = 0;
 
@@ -3192,6 +3195,4 @@ class _XFileImage extends StatelessWidget {
     );
   }
 }
-
-
 

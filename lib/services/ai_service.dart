@@ -24,7 +24,10 @@ class AiService {
     bool forceRefresh = false,
   }) async {
     if (!forceRefresh) {
-      final cached = await _getCachedSummary(userId: userId);
+      final cached = await _getCachedSummary(
+        userId: userId,
+        workspaceId: workspaceId,
+      );
       if (cached != null) return cached;
     }
 
@@ -45,21 +48,24 @@ class AiService {
           ? DateTime.tryParse(data['generated_at'].toString())?.toLocal()
           : null,
     );
-    await _saveSummaryToCache(result, userId: userId);
+    await _saveSummaryToCache(result, userId: userId, workspaceId: workspaceId);
     return result;
   }
 
-  Future<void> clearCache({String? userId}) async {
+  Future<void> clearCache({String? userId, String? workspaceId}) async {
     final prefs = await SharedPreferences.getInstance();
-    final suffix = userId != null ? '_$userId' : '';
+    final suffix = _scopeSuffix(userId: userId, workspaceId: workspaceId);
     await prefs.remove('$_summaryDateKey$suffix');
     await prefs.remove('$_summaryTextKey$suffix');
     await prefs.remove('$_summaryGeneratedAtKey$suffix');
   }
 
-  Future<AiSummaryResult?> _getCachedSummary({String? userId}) async {
+  Future<AiSummaryResult?> _getCachedSummary({
+    String? userId,
+    String? workspaceId,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
-    final suffix = userId != null ? '_$userId' : '';
+    final suffix = _scopeSuffix(userId: userId, workspaceId: workspaceId);
     final cachedDate = prefs.getString('$_summaryDateKey$suffix');
     if (cachedDate != _todayString()) return null;
 
@@ -78,10 +84,14 @@ class AiService {
     );
   }
 
-  Future<void> _saveSummaryToCache(AiSummaryResult result, {String? userId}) async {
+  Future<void> _saveSummaryToCache(
+    AiSummaryResult result, {
+    String? userId,
+    String? workspaceId,
+  }) async {
     if (result.summary.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
-    final suffix = userId != null ? '_$userId' : '';
+    final suffix = _scopeSuffix(userId: userId, workspaceId: workspaceId);
     await prefs.setString('$_summaryDateKey$suffix', _todayString());
     await prefs.setString('$_summaryTextKey$suffix', result.summary);
     await prefs.setString(
@@ -96,5 +106,15 @@ class AiService {
     final month = now.month.toString().padLeft(2, '0');
     final day = now.day.toString().padLeft(2, '0');
     return '$year-$month-$day';
+  }
+
+  String _scopeSuffix({String? userId, String? workspaceId}) {
+    final userScope = (userId != null && userId.isNotEmpty)
+        ? userId
+        : '__anonymous__';
+    final workspaceScope = (workspaceId != null && workspaceId.isNotEmpty)
+        ? workspaceId
+        : '__no_workspace__';
+    return '_${userScope}_$workspaceScope';
   }
 }

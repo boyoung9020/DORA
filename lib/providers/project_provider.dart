@@ -83,13 +83,13 @@ class ProjectProvider extends ChangeNotifier {
   }
 
   /// 프로젝트 목록 로드
-  Future<void> loadProjects({String? userId, bool isAdmin = false, bool isPM = false}) async {
+  Future<void> loadProjects({String? userId, bool isAdmin = false, bool isPM = false, String? workspaceId}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      _allProjects = await _projectService.getAllProjects();
+      _allProjects = await _projectService.getAllProjects(workspaceId: workspaceId);
       
       // 사용자 정보 업데이트
       if (userId != null) {

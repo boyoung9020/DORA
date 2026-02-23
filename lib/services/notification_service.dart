@@ -13,7 +13,7 @@ class NotificationService {
       }
 
       final response = await ApiClient.get(
-        '/api/notifications',
+        '/api/notifications/',
         queryParams: queryParams.isNotEmpty ? queryParams : null,
       );
 
