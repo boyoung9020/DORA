@@ -17,14 +17,20 @@ class SprintScreen extends StatefulWidget {
 class _SprintScreenState extends State<SprintScreen> {
   SprintStatus _filter = SprintStatus.planning;
   String? _selectedSprintId;
+  String? _lastLoadedProjectId;
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final projectId = context.read<ProjectProvider>().currentProject?.id;
-      context.read<SprintProvider>().loadSprints(projectId: projectId);
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final projectId = context.read<ProjectProvider>().currentProject?.id;
+    if (_lastLoadedProjectId != projectId) {
+      _lastLoadedProjectId = projectId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.read<SprintProvider>().loadSprints(projectId: projectId);
+        }
+      });
+    }
   }
 
   @override

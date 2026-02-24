@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.comment import Comment
+from app.models.notification import Notification
 from app.models.project import Project
 from app.models.task import Task
 from app.models.user import User
@@ -223,6 +224,11 @@ async def delete_comment(
                 task.comment_ids = [cid for cid in comment_ids_list if cid != comment_id]
         except Exception as e:
             print(f"[ERROR] failed to update task.comment_ids on delete: {e}")
+
+    # 댓글을 참조하는 알림의 comment_id를 NULL로 설정 (FK 제약 위반 방지)
+    db.query(Notification).filter(Notification.comment_id == comment_id).update(
+        {"comment_id": None}
+    )
 
     db.delete(comment)
     db.commit()

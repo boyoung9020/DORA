@@ -39,6 +39,12 @@ class _ChatScreenState extends State<ChatScreen> {
   List<_PendingAttachment> _pendingAttachments = [];
   bool _isUploading = false;
   String? _workspaceScopeId;
+
+  // @mention 자동완성 상태
+  List<User> _filteredMentionUsers = [];
+  bool _showMentionSuggestions = false;
+  int _mentionStartIndex = -1;
+  int _selectedMentionIndex = -1;
   bool _workspaceScopeInitialized = false;
 
   @override
@@ -202,6 +208,66 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       _pendingAttachments.removeAt(index);
     });
+  }
+
+  void _handleMentionChanged(String text) {
+    final cursor = _messageController.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) {
+      if (_showMentionSuggestions) {
+        setState(() {
+          _showMentionSuggestions = false;
+          _filteredMentionUsers = [];
+          _mentionStartIndex = -1;
+          _selectedMentionIndex = -1;
+        });
+      }
+      return;
+    }
+    final prefix = text.substring(0, cursor);
+    final match = RegExp(r'@([A-Za-z0-9_]*)$').firstMatch(prefix);
+    if (match == null) {
+      if (_showMentionSuggestions) {
+        setState(() {
+          _showMentionSuggestions = false;
+          _filteredMentionUsers = [];
+          _mentionStartIndex = -1;
+          _selectedMentionIndex = -1;
+        });
+      }
+      return;
+    }
+    final query = (match.group(1) ?? '').toLowerCase();
+    final filtered = _allUsers
+        .where((u) => u.username.toLowerCase().contains(query))
+        .take(6)
+        .toList();
+    setState(() {
+      _mentionStartIndex = match.start;
+      _filteredMentionUsers = filtered;
+      _showMentionSuggestions = filtered.isNotEmpty;
+      _selectedMentionIndex = filtered.isNotEmpty ? 0 : -1;
+    });
+  }
+
+  void _insertMention(User user) {
+    if (_mentionStartIndex < 0) return;
+    final text = _messageController.text;
+    final cursor = _messageController.selection.baseOffset;
+    if (cursor < _mentionStartIndex || cursor > text.length) return;
+    final mention = '@${user.username} ';
+    final updated = text.replaceRange(_mentionStartIndex, cursor, mention);
+    final offset = _mentionStartIndex + mention.length;
+    _messageController.value = TextEditingValue(
+      text: updated,
+      selection: TextSelection.collapsed(offset: offset),
+    );
+    setState(() {
+      _showMentionSuggestions = false;
+      _filteredMentionUsers = [];
+      _mentionStartIndex = -1;
+      _selectedMentionIndex = -1;
+    });
+    _messageFocusNode.requestFocus();
   }
 
   Future<void> _sendMessage() async {
@@ -912,10 +978,24 @@ class _ChatScreenState extends State<ChatScreen> {
                 // 마크다운 텍스트
                 if (hasContent)
                   MarkdownBody(
-                    data: message.content,
+                    data: message.content.replaceAllMapped(
+                      RegExp(r'@([^\s@]+)'),
+                      (m) {
+                        final name = m.group(1)!;
+                        final known = _allUsers.any((u) => u.username.toLowerCase() == name.toLowerCase());
+                        return known ? '[${m.group(0)}](#)' : m.group(0)!;
+                      },
+                    ),
                     selectable: true,
+                    onTapLink: (text, href, title) {},
                     styleSheet: MarkdownStyleSheet(
                       p: TextStyle(fontSize: 14, color: colorScheme.onSurface, height: 1.5),
+                      a: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF2563EB),
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.none,
+                      ),
                       code: TextStyle(
                         fontSize: 13,
                         color: colorScheme.primary,
@@ -1117,6 +1197,71 @@ class _ChatScreenState extends State<ChatScreen> {
               ],
             ),
           ),
+        // @mention 자동완성 드롭다운 (입력창 바로 위)
+        if (_showMentionSuggestions && _filteredMentionUsers.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(bottom: 4),
+            constraints: const BoxConstraints(maxHeight: 260),
+            decoration: BoxDecoration(
+              color: isDarkMode ? colorScheme.surfaceContainerHighest : Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: colorScheme.primary.withValues(alpha: 0.2)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 10,
+                  offset: const Offset(0, -3),
+                ),
+              ],
+            ),
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              itemCount: _filteredMentionUsers.length,
+              itemBuilder: (context, index) {
+                final u = _filteredMentionUsers[index];
+                final isSelected = index == _selectedMentionIndex;
+                return InkWell(
+                  onTap: () => _insertMention(u),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? colorScheme.primary.withValues(alpha: 0.12)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 14,
+                          backgroundColor: AvatarColor.getColorForUser(u.id),
+                          child: Text(
+                            AvatarColor.getInitial(u.username),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          '@${u.username}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: colorScheme.onSurface,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
@@ -1146,7 +1291,39 @@ class _ChatScreenState extends State<ChatScreen> {
               Expanded(
                 child: Focus(
                   onKeyEvent: (node, event) {
-                    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter && !HardwareKeyboard.instance.isShiftPressed) {
+                    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                    // mention 활성 시 키보드 네비게이션
+                    if (_showMentionSuggestions && _filteredMentionUsers.isNotEmpty) {
+                      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                        setState(() {
+                          _selectedMentionIndex = (_selectedMentionIndex + 1) % _filteredMentionUsers.length;
+                        });
+                        return KeyEventResult.handled;
+                      }
+                      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                        setState(() {
+                          _selectedMentionIndex = (_selectedMentionIndex - 1 + _filteredMentionUsers.length) % _filteredMentionUsers.length;
+                        });
+                        return KeyEventResult.handled;
+                      }
+                      if (event.logicalKey == LogicalKeyboardKey.enter) {
+                        if (_selectedMentionIndex >= 0 && _selectedMentionIndex < _filteredMentionUsers.length) {
+                          _insertMention(_filteredMentionUsers[_selectedMentionIndex]);
+                        }
+                        return KeyEventResult.handled;
+                      }
+                      if (event.logicalKey == LogicalKeyboardKey.escape) {
+                        setState(() {
+                          _showMentionSuggestions = false;
+                          _filteredMentionUsers = [];
+                          _mentionStartIndex = -1;
+                          _selectedMentionIndex = -1;
+                        });
+                        return KeyEventResult.handled;
+                      }
+                    }
+                    // 기본 Enter: 메시지 전송
+                    if (event.logicalKey == LogicalKeyboardKey.enter && !HardwareKeyboard.instance.isShiftPressed) {
                       _sendMessage();
                       return KeyEventResult.handled;
                     }
@@ -1155,6 +1332,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: TextField(
                     controller: _messageController,
                     focusNode: _messageFocusNode,
+                    onChanged: _handleMentionChanged,
                     decoration: InputDecoration(
                       hintText: '${user.username}님에게 메시지 보내기',
                       border: InputBorder.none,

@@ -112,6 +112,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   List<User> _filteredMentionUsers = [];
   bool _showMentionSuggestions = false;
   int _mentionStartIndex = -1;
+  int _selectedMentionIndex = -1;
 
   @override
   void initState() {
@@ -317,6 +318,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           _showMentionSuggestions = false;
           _filteredMentionUsers = [];
           _mentionStartIndex = -1;
+          _selectedMentionIndex = -1;
         });
       }
       return;
@@ -330,6 +332,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           _showMentionSuggestions = false;
           _filteredMentionUsers = [];
           _mentionStartIndex = -1;
+          _selectedMentionIndex = -1;
         });
       }
       return;
@@ -345,6 +348,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       _mentionStartIndex = match.start;
       _filteredMentionUsers = filtered;
       _showMentionSuggestions = filtered.isNotEmpty;
+      _selectedMentionIndex = filtered.isNotEmpty ? 0 : -1;
     });
   }
 
@@ -367,43 +371,65 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       _showMentionSuggestions = false;
       _filteredMentionUsers = [];
       _mentionStartIndex = -1;
+      _selectedMentionIndex = -1;
     });
 
     _commentFocusNode.requestFocus();
   }
 
+  /// 설명/댓글 공통 마크다운 스타일시트
+  MarkdownStyleSheet _buildMarkdownStyleSheet(ColorScheme colorScheme) {
+    return MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+      p: TextStyle(
+        fontSize: 14,
+        color: colorScheme.onSurface.withValues(alpha: 0.85),
+        height: 1.6,
+      ),
+      a: const TextStyle(
+        fontSize: 14,
+        color: Color(0xFF2563EB),
+        fontWeight: FontWeight.w600,
+        decoration: TextDecoration.underline,
+        decorationColor: Color(0xFF2563EB),
+      ),
+      code: TextStyle(
+        fontSize: 13,
+        backgroundColor: colorScheme.surfaceContainerHighest,
+        color: colorScheme.onSurface,
+      ),
+      codeblockDecoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      del: TextStyle(
+        fontSize: 14,
+        color: colorScheme.onSurface.withValues(alpha: 0.45),
+        decoration: TextDecoration.lineThrough,
+        height: 1.6,
+      ),
+    );
+  }
+
   Widget _buildMentionRichText(String content, ColorScheme colorScheme) {
-    final baseStyle = TextStyle(
-      fontSize: 14,
-      color: colorScheme.onSurface.withValues(alpha: 0.85),
-      height: 1.6,
+    // 실제 유저 목록에 있는 @mention만 링크로 변환해 파란색 표시
+    final knownUsernames = _mentionCandidates.map((u) => u.username.toLowerCase()).toSet();
+    final processed = _normalizeMarkdownNewlines(content).replaceAllMapped(
+      RegExp(r'@([^\s@]+)'),
+      (m) {
+        final name = m.group(1)!;
+        if (knownUsernames.contains(name.toLowerCase())) {
+          return '[${m.group(0)}](#)';
+        }
+        return m.group(0)!;
+      },
     );
-    final mentionStyle = TextStyle(
-      fontSize: 14,
-      color: const Color(0xFF2563EB),
-      fontWeight: FontWeight.w600,
-      decoration: TextDecoration.underline,
-      decorationColor: const Color(0xFF2563EB),
-      height: 1.6,
+
+    return MarkdownBody(
+      data: processed,
+      selectable: true,
+      onTapLink: (text, href, title) {},
+      styleSheet: _buildMarkdownStyleSheet(colorScheme),
     );
-
-    // 한글/영문/숫자/특수문자(공백 제외)가 포함된 멘션을 하이라이트한다.
-    final regex = RegExp(r'@([^\s@]+)');
-    final spans = <TextSpan>[];
-    int start = 0;
-
-    for (final m in regex.allMatches(content)) {
-      if (m.start > start) {
-        spans.add(TextSpan(text: content.substring(start, m.start), style: baseStyle));
-      }
-      spans.add(TextSpan(text: m.group(0), style: mentionStyle));
-      start = m.end;
-    }
-    if (start < content.length) {
-      spans.add(TextSpan(text: content.substring(start), style: baseStyle));
-    }
-
-    return SelectableText.rich(TextSpan(children: spans));
   }
 
   /// ???袁⑥뵬???袁⑹뵠??嚥≪뮆諭?(??쎄쾿嚥??袁⑺뒄 ?醫?)
@@ -2126,6 +2152,53 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
+  /// 단일 줄바꿈을 이중 줄바꿈으로 변환해 Markdown 개행 보존
+  /// 단, 리스트 항목(-/*/+/숫자.) 앞 개행은 건드리지 않아 tight list 구조 유지
+  /// (loose list가 되면 flutter_markdown이 - [ ] 를 체크박스로 인식 못 함)
+  String _normalizeMarkdownNewlines(String text) {
+    return text.replaceAllMapped(
+      RegExp(r'\n(?!\n)(?![ \t]*(?:[-*+]|\d+\.)[ \t])'),
+      (m) => '\n\n',
+    );
+  }
+
+  /// 체크된 항목에 취소선 마크다운 추가
+  String _addCheckboxStrikethrough(String markdown) {
+    return markdown.replaceAllMapped(
+      RegExp(r'^([ \t]*- \[x\] )(.+)$', multiLine: true, caseSensitive: false),
+      (m) {
+        final text = m.group(2)!;
+        if (text.startsWith('~~') && text.endsWith('~~')) return m.group(0)!;
+        return '${m.group(1)}~~$text~~';
+      },
+    );
+  }
+
+  /// 마크다운 텍스트에서 n번째 체크박스 토글
+  String _toggleNthCheckbox(String markdown, int index, bool newValue) {
+    final regex = RegExp(r'([ \t]*)- \[([ xX])\]', multiLine: true);
+    int count = -1;
+    return markdown.replaceAllMapped(regex, (match) {
+      count++;
+      if (count == index) {
+        return '${match.group(1)!}- [${newValue ? 'x' : ' '}]';
+      }
+      return match.group(0)!;
+    });
+  }
+
+  /// 체크박스 클릭 시 토글 후 저장
+  Future<void> _onDetailCheckboxTap(Task task, int index, bool currentValue) async {
+    final newDetail = _toggleNthCheckbox(task.detail, index, !currentValue);
+    _detailController.text = newDetail;
+    final taskProvider = context.read<TaskProvider>();
+    await taskProvider.updateTask(task.copyWith(
+      detail: newDetail,
+      updatedAt: DateTime.now(),
+    ));
+    if (mounted) setState(() {});
+  }
+
   /// ??살구 ???袁⑥뵬???袁⑹뵠??
   Widget _buildDescriptionTimelineItem(
     BuildContext context,
@@ -2147,13 +2220,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               Colors.white.withValues(alpha: 0.8),
               Colors.white.withValues(alpha: 0.7),
             ],
-            child: Text(
-              description,
-              style: TextStyle(
-                fontSize: 14,
-                color: colorScheme.onSurface.withValues(alpha: 0.8),
-                height: 1.5,
-              ),
+            child: MarkdownBody(
+              data: _normalizeMarkdownNewlines(description),
+              selectable: true,
+              styleSheet: _buildMarkdownStyleSheet(colorScheme),
             ),
           ),
         ),
@@ -2276,16 +2346,36 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (task.detail.isNotEmpty)
-                              MarkdownBody(
-                                data: task.detail,
-                                selectable: true,
-                                styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                                  p: TextStyle(
-                                    fontSize: 14,
-                                    color: colorScheme.onSurface.withValues(alpha: 0.85),
-                                    height: 1.6,
-                                  ),
-                                ),
+                              Builder(
+                                builder: (context) {
+                                  int cbIdx = 0;
+                                  return MarkdownBody(
+                                    data: _addCheckboxStrikethrough(_normalizeMarkdownNewlines(task.detail)),
+                                    selectable: true,
+                                    checkboxBuilder: (bool value) {
+                                      final idx = cbIdx++;
+                                      return GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () => _onDetailCheckboxTap(task, idx, value),
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(right: 4, top: 2),
+                                          child: SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: Checkbox(
+                                              value: value,
+                                              onChanged: null,
+                                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                              side: BorderSide(color: colorScheme.primary),
+                                              activeColor: colorScheme.primary,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    styleSheet: _buildMarkdownStyleSheet(colorScheme),
+                                  );
+                                },
                               )
                             else
                               Text(
@@ -2605,6 +2695,73 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // @mention 자동완성 드롭다운 (입력창 바로 위)
+              if (_showMentionSuggestions && _filteredMentionUsers.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 4),
+                  constraints: const BoxConstraints(maxHeight: 260),
+                  decoration: BoxDecoration(
+                    color: colorScheme.brightness == Brightness.dark
+                        ? colorScheme.surfaceContainerHighest
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: colorScheme.primary.withValues(alpha: 0.2)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 10,
+                        offset: const Offset(0, -3),
+                      ),
+                    ],
+                  ),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: _filteredMentionUsers.length,
+                    itemBuilder: (context, index) {
+                      final user = _filteredMentionUsers[index];
+                      final isSelected = index == _selectedMentionIndex;
+                      return InkWell(
+                        onTap: () => _insertMention(user),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? colorScheme.primary.withValues(alpha: 0.12)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 14,
+                                backgroundColor: AvatarColor.getColorForUser(user.id),
+                                child: Text(
+                                  AvatarColor.getInitial(user.username),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                '@${user.username}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: colorScheme.onSurface,
+                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
               DropTarget(
                 onDragEntered: (_) {
                   setState(() => _isCommentDropHover = true);
@@ -2653,9 +2810,39 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       child: KeyboardListener(
                         focusNode: FocusNode(),
                         onKeyEvent: (event) {
-                          // Shift+Enter??餓κ쑬而?퐛? Enter筌??袁ⓥ뀮筌??袁⑸꽊
-                          if (event is KeyDownEvent &&
-                              event.logicalKey == LogicalKeyboardKey.enter &&
+                          if (event is! KeyDownEvent) return;
+                          // 멘션 목록이 열려있을 때: 방향키/Enter로 선택
+                          if (_showMentionSuggestions && _filteredMentionUsers.isNotEmpty) {
+                            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                              setState(() {
+                                _selectedMentionIndex = (_selectedMentionIndex + 1) % _filteredMentionUsers.length;
+                              });
+                              return;
+                            }
+                            if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                              setState(() {
+                                _selectedMentionIndex = (_selectedMentionIndex - 1 + _filteredMentionUsers.length) % _filteredMentionUsers.length;
+                              });
+                              return;
+                            }
+                            if (event.logicalKey == LogicalKeyboardKey.enter) {
+                              if (_selectedMentionIndex >= 0 && _selectedMentionIndex < _filteredMentionUsers.length) {
+                                _insertMention(_filteredMentionUsers[_selectedMentionIndex]);
+                              }
+                              return;
+                            }
+                            if (event.logicalKey == LogicalKeyboardKey.escape) {
+                              setState(() {
+                                _showMentionSuggestions = false;
+                                _filteredMentionUsers = [];
+                                _mentionStartIndex = -1;
+                                _selectedMentionIndex = -1;
+                              });
+                              return;
+                            }
+                          }
+                          // Shift+Enter 제외 Enter로 댓글 제출
+                          if (event.logicalKey == LogicalKeyboardKey.enter &&
                               !HardwareKeyboard.instance.isShiftPressed &&
                               _commentFocusNode.hasFocus) {
                             if (_commentController.text.trim().isNotEmpty || _selectedCommentImages.isNotEmpty) {
@@ -2707,56 +2894,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 ),
                                 // onSubmitted ??볤탢 - KeyboardListener揶쎛 Enter ??? 筌ｌ꼶???
                               ),
-                              if (_showMentionSuggestions) ...[
-                                const SizedBox(height: 8),
-                                Container(
-                                  constraints: const BoxConstraints(maxHeight: 180),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.92),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: colorScheme.primary.withValues(alpha: 0.2),
-                                    ),
-                                  ),
-                                  child: ListView.builder(
-                                    shrinkWrap: true,
-                                    itemCount: _filteredMentionUsers.length,
-                                    itemBuilder: (context, index) {
-                                      final user = _filteredMentionUsers[index];
-                                      return ListTile(
-                                        dense: true,
-                                        leading: CircleAvatar(
-                                          radius: 12,
-                                          backgroundColor: AvatarColor.getColorForUser(user.id),
-                                          child: Text(
-                                            AvatarColor.getInitial(user.username),
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        title: Text(
-                                          user.username,
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: colorScheme.onSurface,
-                                          ),
-                                        ),
-                                        subtitle: Text(
-                                          '@${user.username}',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: colorScheme.onSurface.withValues(alpha: 0.6),
-                                          ),
-                                        ),
-                                        onTap: () => _insertMention(user),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
                               // ?醫뤾문?????筌왖 沃섎챶?곮퉪?용┛
                               if (_selectedCommentImages.isNotEmpty) ...[
                                 const SizedBox(height: 8),

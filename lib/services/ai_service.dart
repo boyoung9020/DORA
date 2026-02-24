@@ -20,6 +20,7 @@ class AiService {
 
   Future<AiSummaryResult> getSummary({
     String? workspaceId,
+    String? projectId,
     String? userId,
     bool forceRefresh = false,
   }) async {
@@ -27,6 +28,7 @@ class AiService {
       final cached = await _getCachedSummary(
         userId: userId,
         workspaceId: workspaceId,
+        projectId: projectId,
       );
       if (cached != null) return cached;
     }
@@ -34,6 +36,9 @@ class AiService {
     final queryParams = <String, String>{};
     if (workspaceId != null && workspaceId.isNotEmpty) {
       queryParams['workspace_id'] = workspaceId;
+    }
+    if (projectId != null && projectId.isNotEmpty) {
+      queryParams['project_id'] = projectId;
     }
 
     final response = await ApiClient.get(
@@ -48,13 +53,16 @@ class AiService {
           ? DateTime.tryParse(data['generated_at'].toString())?.toLocal()
           : null,
     );
-    await _saveSummaryToCache(result, userId: userId, workspaceId: workspaceId);
+    await _saveSummaryToCache(result,
+        userId: userId, workspaceId: workspaceId, projectId: projectId);
     return result;
   }
 
-  Future<void> clearCache({String? userId, String? workspaceId}) async {
+  Future<void> clearCache(
+      {String? userId, String? workspaceId, String? projectId}) async {
     final prefs = await SharedPreferences.getInstance();
-    final suffix = _scopeSuffix(userId: userId, workspaceId: workspaceId);
+    final suffix =
+        _scopeSuffix(userId: userId, workspaceId: workspaceId, projectId: projectId);
     await prefs.remove('$_summaryDateKey$suffix');
     await prefs.remove('$_summaryTextKey$suffix');
     await prefs.remove('$_summaryGeneratedAtKey$suffix');
@@ -63,9 +71,11 @@ class AiService {
   Future<AiSummaryResult?> _getCachedSummary({
     String? userId,
     String? workspaceId,
+    String? projectId,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    final suffix = _scopeSuffix(userId: userId, workspaceId: workspaceId);
+    final suffix =
+        _scopeSuffix(userId: userId, workspaceId: workspaceId, projectId: projectId);
     final cachedDate = prefs.getString('$_summaryDateKey$suffix');
     if (cachedDate != _todayString()) return null;
 
@@ -88,10 +98,12 @@ class AiService {
     AiSummaryResult result, {
     String? userId,
     String? workspaceId,
+    String? projectId,
   }) async {
     if (result.summary.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
-    final suffix = _scopeSuffix(userId: userId, workspaceId: workspaceId);
+    final suffix =
+        _scopeSuffix(userId: userId, workspaceId: workspaceId, projectId: projectId);
     await prefs.setString('$_summaryDateKey$suffix', _todayString());
     await prefs.setString('$_summaryTextKey$suffix', result.summary);
     await prefs.setString(
@@ -108,13 +120,15 @@ class AiService {
     return '$year-$month-$day';
   }
 
-  String _scopeSuffix({String? userId, String? workspaceId}) {
-    final userScope = (userId != null && userId.isNotEmpty)
-        ? userId
-        : '__anonymous__';
+  String _scopeSuffix(
+      {String? userId, String? workspaceId, String? projectId}) {
+    final userScope =
+        (userId != null && userId.isNotEmpty) ? userId : '__anonymous__';
     final workspaceScope = (workspaceId != null && workspaceId.isNotEmpty)
         ? workspaceId
         : '__no_workspace__';
-    return '_${userScope}_$workspaceScope';
+    final projectScope =
+        (projectId != null && projectId.isNotEmpty) ? projectId : '__no_project__';
+    return '_${userScope}_${workspaceScope}_$projectScope';
   }
 }

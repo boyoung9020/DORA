@@ -35,9 +35,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _usersFuture = AuthService().getAllUsers();
-    // ?붾㈃ 濡쒕뱶 ???쒖뒪??遺덈윭?ㅺ린
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TaskProvider>().loadTasks();
+      final projectId = context.read<ProjectProvider>().currentProject?.id;
+      context.read<TaskProvider>().loadTasks(projectId: projectId);
       _lastAiScopeKey = _currentAiScopeKey();
       _loadAISummary();
     });
@@ -49,13 +49,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final workspaceId =
         Provider.of<WorkspaceProvider>(context).currentWorkspaceId ?? '';
     final userId = Provider.of<AuthProvider>(context).currentUser?.id ?? '';
-    final currentScopeKey = '$userId|$workspaceId';
+    final projectId =
+        Provider.of<ProjectProvider>(context).currentProject?.id ?? '';
+    final currentScopeKey = '$userId|$workspaceId|$projectId';
     if (_lastAiScopeKey == null) {
       _lastAiScopeKey = currentScopeKey;
       return;
     }
     if (currentScopeKey != _lastAiScopeKey) {
       _lastAiScopeKey = currentScopeKey;
+      // 프로젝트가 바뀌면 태스크도 다시 로드
+      context.read<TaskProvider>().loadTasks(projectId: projectId.isEmpty ? null : projectId);
       _loadAISummary();
     }
   }
@@ -70,8 +74,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       final workspaceId = context.read<WorkspaceProvider>().currentWorkspaceId;
       final userId = context.read<AuthProvider>().currentUser?.id;
+      final projectId = context.read<ProjectProvider>().currentProject?.id;
       final result = await _aiService.getSummary(
         workspaceId: workspaceId,
+        projectId: projectId,
         userId: userId,
         forceRefresh: forceRefresh,
       );
@@ -106,7 +112,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final workspaceId =
         context.read<WorkspaceProvider>().currentWorkspaceId ?? '';
     final userId = context.read<AuthProvider>().currentUser?.id ?? '';
-    return '$userId|$workspaceId';
+    final projectId =
+        context.read<ProjectProvider>().currentProject?.id ?? '';
+    return '$userId|$workspaceId|$projectId';
   }
 
   Widget _buildAISummaryCard(
@@ -118,79 +126,99 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ? const [Color(0xFF232840), Color(0xFF1D2236)]
         : const [Color(0xFFF3EDFF), Color(0xFFE9F0FF)];
 
-    return GlassContainer(
+    return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      borderRadius: 18.0,
-      blur: 22.0,
-      gradientColors: gradientColors,
-      borderColor: colorScheme.primary.withValues(alpha: 0.25),
-      borderWidth: 1.0,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_aiLoading) ...[
-            const LinearProgressIndicator(minHeight: 3),
-            const SizedBox(height: 12),
-            Container(
-              height: 12,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: colorScheme.onSurface.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(6),
+      padding: const EdgeInsets.all(1.6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFF3B30),
+            Color(0xFFFF9500),
+            Color(0xFFFFCC00),
+            Color(0xFF34C759),
+            Color(0xFF007AFF),
+            Color(0xFF5856D6),
+            Color(0xFFFF2D55),
+          ],
+        ),
+      ),
+      child: GlassContainer(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        borderRadius: 17.0,
+        blur: 22.0,
+        gradientColors: gradientColors,
+        borderColor: Colors.transparent,
+        borderWidth: 0,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_aiLoading) ...[
+              const LinearProgressIndicator(minHeight: 3),
+              const SizedBox(height: 12),
+              Container(
+                height: 12,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: colorScheme.onSurface.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(6),
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              height: 12,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: colorScheme.onSurface.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(6),
+              const SizedBox(height: 8),
+              Container(
+                height: 12,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: colorScheme.onSurface.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(6),
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              height: 12,
-              width: 220,
-              decoration: BoxDecoration(
-                color: colorScheme.onSurface.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(6),
+              const SizedBox(height: 8),
+              Container(
+                height: 12,
+                width: 220,
+                decoration: BoxDecoration(
+                  color: colorScheme.onSurface.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(6),
+                ),
               ),
-            ),
-          ] else if (_aiError != null) ...[
-            Text(
-              _aiError!,
-              style: TextStyle(
-                color: colorScheme.error,
-                fontWeight: FontWeight.w600,
+            ] else if (_aiError != null) ...[
+              Text(
+                _aiError!,
+                style: TextStyle(
+                  color: colorScheme.error,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: _loadAISummary,
-              icon: const Icon(Icons.replay),
-              label: const Text('다시 시도'),
-            ),
-          ] else ...[
-            ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: maxBodyHeight ?? 260),
-              child: Scrollbar(
-                child: SingleChildScrollView(
-                  child: SelectableText(
-                    _aiSummary ?? '요약 내용이 없습니다.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      height: 1.5,
-                      color: colorScheme.onSurface,
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: _loadAISummary,
+                icon: const Icon(Icons.replay),
+                label: const Text('다시 시도'),
+              ),
+            ] else ...[
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: maxBodyHeight ?? 260),
+                child: Scrollbar(
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      _aiSummary ?? '요약 내용이 없습니다.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.5,
+                        color: colorScheme.onSurface,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -201,40 +229,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final todayStart = DateTime(today.year, today.month, today.day);
 
     return allTasks.where((task) {
-      // ?꾩옱 ?ъ슜?먯뿉寃??좊떦???쒖뒪?щ쭔 ?꾪꽣留?
       if (currentUserId == null ||
           !task.assignedMemberIds.contains(currentUserId)) {
         return false;
       }
 
-      // In review ?먮뒗 In progress ?곹깭留??꾪꽣留?
-      if (task.status != TaskStatus.inReview &&
-          task.status != TaskStatus.inProgress) {
+      // 백로그/완료는 제외
+      if (task.status == TaskStatus.backlog || task.status == TaskStatus.done) {
         return false;
       }
 
-      // ?쒖옉?쇱씠 ?덉쑝硫??쒖옉??湲곗?, ?놁쑝硫??앹꽦??湲곗?
       final startDate = task.startDate;
       final endDate = task.endDate;
 
-      // 鍮꾧탳???좎쭨 寃곗젙: ?쒖옉?쇱씠 ?덉쑝硫??쒖옉?? ?놁쑝硫??앹꽦??
-      DateTime dateToCheck;
-      if (startDate != null) {
-        dateToCheck = DateTime(startDate.year, startDate.month, startDate.day);
-      } else {
-        dateToCheck = DateTime(
-          task.createdAt.year,
-          task.createdAt.month,
-          task.createdAt.day,
-        );
-      }
-
-      // ?좎쭨媛 ?ㅻ뒛??寃쎌슦
-      if (dateToCheck.isAtSameMomentAs(todayStart)) {
-        return true;
-      }
-
-      // ?쒖옉?쇨낵 醫낅즺?쇱씠 紐⑤몢 ?덇퀬, ?ㅻ뒛??洹??ъ씠???덈뒗 寃쎌슦
+      // 시작/종료가 모두 있으면 기간 포함 여부로 판단
       if (startDate != null && endDate != null) {
         final startDateOnly = DateTime(
           startDate.year,
@@ -248,7 +256,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             todayStart.isBefore(endDateOnly.add(const Duration(days: 1))));
       }
 
-      return false;
+      // 한쪽 날짜만 있으면 해당 날짜 기준, 둘 다 없으면 생성일 기준
+      final dateToCheck = startDate ?? endDate ?? task.createdAt;
+      final dateOnly = DateTime(
+        dateToCheck.year,
+        dateToCheck.month,
+        dateToCheck.day,
+      );
+      return dateOnly.isAtSameMomentAs(todayStart);
     }).toList();
   }
 

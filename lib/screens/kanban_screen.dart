@@ -23,20 +23,30 @@ class _KanbanScreenState extends State<KanbanScreen> {
   final ScrollController _horizontalScrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  String? _lastLoadedProjectId;
 
   @override
   void initState() {
     super.initState();
-    // 화면 로드 시 태스크 불러오기
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final projectId = context.read<ProjectProvider>().currentProject?.id;
-      context.read<TaskProvider>().loadTasks(projectId: projectId);
-    });
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text;
       });
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final projectId = context.read<ProjectProvider>().currentProject?.id;
+    if (_lastLoadedProjectId != projectId) {
+      _lastLoadedProjectId = projectId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.read<TaskProvider>().loadTasks(projectId: projectId);
+        }
+      });
+    }
   }
 
   @override
@@ -334,25 +344,23 @@ class _KanbanScreenState extends State<KanbanScreen> {
           // 태스크 카드들 - 고정 높이로 하단까지 드래그 가능
           Expanded(
             child: DragTarget<Task>(
-              onWillAccept: (data) {
+              onWillAcceptWithDetails: (details) {
                 // 같은 상태로는 이동 불가
-                return data != null && data.status != status;
+                return details.data.status != status;
               },
-              onAccept: (task) {
+              onAcceptWithDetails: (details) {
+                final task = details.data;
                 if (task.status != status) {
                   // 상태 변경
                   final authProvider = context.read<AuthProvider>();
                   final currentUser = authProvider.currentUser;
                   taskProvider.changeTaskStatus(
-                    task.id, 
+                    task.id,
                     status,
                     userId: currentUser?.id,
                     username: currentUser?.username,
                   );
                 }
-              },
-              onLeave: (data) {
-                // 드래그가 떠날 때 아무것도 하지 않음
               },
               builder: (context, candidateData, rejectedData) {
                 // candidateData를 사용하여 드래그 오버 상태 확인
@@ -378,52 +386,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     children: [
                       tasks.isEmpty
                           ? _buildEmptyColumn(context, status)
-                          : ReorderableListView(
-                              buildDefaultDragHandles: false,
-                              proxyDecorator: (child, index, animation) {
-                                return Material(
-                                  color: Colors.transparent,
-                                  elevation: 4,
-                                  borderRadius: BorderRadius.circular(15),
-                                  child: child,
-                                );
-                              },
-                              onReorder: (oldIndex, newIndex) {
-                                // spacer 아이템 무시
-                                if (oldIndex >= tasks.length || newIndex > tasks.length) return;
-                                if (oldIndex < newIndex) {
-                                  newIndex -= 1;
-                                }
-                                if (newIndex >= tasks.length) newIndex = tasks.length - 1;
-                                if (oldIndex == newIndex) return;
-                                final taskIds = tasks.map((t) => t.id).toList();
-                                final movedId = taskIds.removeAt(oldIndex);
-                                taskIds.insert(newIndex, movedId);
-                                taskProvider.reorderTasks(taskIds);
-                              },
-                              padding: const EdgeInsets.all(6.0),
-                              children: [
-                                ...tasks.asMap().entries.map((entry) {
-                                  final index = entry.key;
-                                  final task = entry.value;
-                                  return Padding(
-                                    key: ValueKey(task.id),
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: _buildReorderableTaskCard(
-                                      context,
-                                      task,
-                                      taskProvider,
-                                      index,
-                                    ),
-                                  );
-                                }),
-                                // 하단 여백
-                                SizedBox(
-                                  key: const ValueKey('_spacer'),
-                                  height: 100,
-                                ),
-                              ],
-                            ),
+                          : _buildTaskList(context, status, tasks, taskProvider, statusColor),
                       // 하단 오른쪽 구석에 + 버튼
                       Positioned(
                         bottom: 8,
@@ -500,6 +463,73 @@ class _KanbanScreenState extends State<KanbanScreen> {
     );
   }
 
+  /// 컬럼 내 태스크 목록 (삽입구역 포함)
+  Widget _buildTaskList(
+    BuildContext context,
+    TaskStatus status,
+    List<Task> tasks,
+    TaskProvider taskProvider,
+    Color statusColor,
+  ) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(6, 6, 6, 100),
+      itemCount: tasks.length * 2 + 1,
+      itemBuilder: (context, i) {
+        if (i.isEven) {
+          return _buildInsertZone(status, tasks, i ~/ 2, statusColor, taskProvider);
+        } else {
+          final task = tasks[i ~/ 2];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildDraggableTaskCard(context, task, taskProvider),
+          );
+        }
+      },
+    );
+  }
+
+  /// 카드 사이 삽입 구역 (같은 컬럼 내 순서변경용 DragTarget)
+  Widget _buildInsertZone(
+    TaskStatus status,
+    List<Task> tasks,
+    int insertIndex,
+    Color statusColor,
+    TaskProvider taskProvider,
+  ) {
+    return DragTarget<Task>(
+      onWillAcceptWithDetails: (details) => details.data.status == status,
+      onAcceptWithDetails: (details) {
+        final task = details.data;
+        final currentIdx = tasks.indexWhere((t) => t.id == task.id);
+        if (currentIdx == -1) return;
+        final ids = tasks.map((t) => t.id).toList();
+        ids.removeAt(currentIdx);
+        final insertAt = insertIndex > currentIdx ? insertIndex - 1 : insertIndex;
+        if (insertAt == currentIdx) return;
+        ids.insert(insertAt, task.id);
+        taskProvider.reorderTasks(ids);
+      },
+      builder: (context, candidateData, _) {
+        final isHovered = candidateData.isNotEmpty;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          height: isHovered ? 72 : 8,
+          margin: isHovered ? const EdgeInsets.only(bottom: 12) : EdgeInsets.zero,
+          decoration: isHovered
+              ? BoxDecoration(
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(
+                    color: statusColor.withValues(alpha: 0.6),
+                    width: 2,
+                  ),
+                  color: statusColor.withValues(alpha: 0.08),
+                )
+              : null,
+        );
+      },
+    );
+  }
+
   /// 태스크 카드 위젯 생성
   Widget _buildTaskCard(
     BuildContext context,
@@ -548,12 +578,11 @@ class _KanbanScreenState extends State<KanbanScreen> {
     );
   }
 
-  /// 리오더 가능한 태스크 카드 (카드 자체를 드래그)
-  Widget _buildReorderableTaskCard(
+  /// 드래그 가능한 태스크 카드 (롱프레스 → 순서변경 또는 컬럼 이동)
+  Widget _buildDraggableTaskCard(
     BuildContext context,
     Task task,
     TaskProvider taskProvider,
-    int index,
   ) {
     final statusColor = task.status.color;
 
@@ -595,8 +624,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
         ),
         child: const Icon(Icons.delete_outline, color: Colors.red, size: 28),
       ),
-      child: Draggable<Task>(
+      child: LongPressDraggable<Task>(
         data: task,
+        delay: const Duration(milliseconds: 500),
         feedback: Material(
           elevation: 8,
           borderRadius: BorderRadius.circular(15),
