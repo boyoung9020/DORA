@@ -228,6 +228,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   TaskStatus.backlog,
                   _filterTasks(taskProvider.getTasksByStatus(TaskStatus.backlog, projectId: currentProjectId), currentProjectId),
                   taskProvider,
+                  currentProjectId: currentProjectId,
                   columnWidth: columnWidth,
                 ),
                 SizedBox(width: spacing),
@@ -236,6 +237,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   TaskStatus.ready,
                   _filterTasks(taskProvider.getTasksByStatus(TaskStatus.ready, projectId: currentProjectId), currentProjectId),
                   taskProvider,
+                  currentProjectId: currentProjectId,
                   columnWidth: columnWidth,
                 ),
                 SizedBox(width: spacing),
@@ -244,6 +246,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   TaskStatus.inProgress,
                   _filterTasks(taskProvider.getTasksByStatus(TaskStatus.inProgress, projectId: currentProjectId), currentProjectId),
                   taskProvider,
+                  currentProjectId: currentProjectId,
                   columnWidth: columnWidth,
                 ),
                 SizedBox(width: spacing),
@@ -252,6 +255,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   TaskStatus.inReview,
                   _filterTasks(taskProvider.getTasksByStatus(TaskStatus.inReview, projectId: currentProjectId), currentProjectId),
                   taskProvider,
+                  currentProjectId: currentProjectId,
                   columnWidth: columnWidth,
                 ),
                 SizedBox(width: spacing),
@@ -260,6 +264,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   TaskStatus.done,
                   _filterTasks(taskProvider.getTasksByStatus(TaskStatus.done, projectId: currentProjectId), currentProjectId),
                   taskProvider,
+                  currentProjectId: currentProjectId,
                   columnWidth: columnWidth,
                 ),
               ],
@@ -276,6 +281,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     TaskStatus status,
     List<Task> tasks,
     TaskProvider taskProvider, {
+    String? currentProjectId,
     double columnWidth = 300,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -344,26 +350,37 @@ class _KanbanScreenState extends State<KanbanScreen> {
           // 태스크 카드들 - 고정 높이로 하단까지 드래그 가능
           Expanded(
             child: DragTarget<Task>(
-              onWillAcceptWithDetails: (details) {
-                // 같은 상태로는 이동 불가
-                return details.data.status != status;
-              },
-              onAcceptWithDetails: (details) {
+              onWillAcceptWithDetails: (details) => details.data.status != status,
+              onAcceptWithDetails: (details) async {
                 final task = details.data;
-                if (task.status != status) {
-                  // 상태 변경
-                  final authProvider = context.read<AuthProvider>();
-                  final currentUser = authProvider.currentUser;
-                  taskProvider.changeTaskStatus(
-                    task.id,
-                    status,
-                    userId: currentUser?.id,
-                    username: currentUser?.username,
+                final authProvider = context.read<AuthProvider>();
+                final currentUser = authProvider.currentUser;
+                if (task.status == status) return;
+
+                final changed = await taskProvider.changeTaskStatus(
+                  task.id,
+                  status,
+                  userId: currentUser?.id,
+                  username: currentUser?.username,
+                );
+                if (!changed) return;
+
+                // 다른 컬럼으로 이동한 태스크를 대상 컬럼의 맨 끝으로 정렬
+                final updatedStatusTasks = taskProvider.getTasksByStatus(
+                  status,
+                  projectId: currentProjectId,
+                );
+                final newOrder = [
+                  ...updatedStatusTasks.where((t) => t.id != task.id),
+                  ...updatedStatusTasks.where((t) => t.id == task.id),
+                ];
+                if (newOrder.isNotEmpty) {
+                  await taskProvider.reorderTasks(
+                    newOrder.map((t) => t.id).toList(),
                   );
                 }
               },
               builder: (context, candidateData, rejectedData) {
-                // candidateData를 사용하여 드래그 오버 상태 확인
                 final isDraggingOver = candidateData.isNotEmpty;
                 final colorScheme = Theme.of(context).colorScheme;
                 final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -463,7 +480,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
     );
   }
 
-  /// 컬럼 내 태스크 목록 (삽입구역 포함)
+  /// 컬럼 내 태스크 목록
+  /// - 각 카드가 DragTarget<Task> (같은 컬럼 drops → 그 카드 앞에 삽입)
+  /// - 리스트 하단 end-drop-zone (같은 컬럼 drops → 맨 끝으로 이동)
+  /// - 컬럼 DragTarget (다른 컬럼 drops → changeTaskStatus)
   Widget _buildTaskList(
     BuildContext context,
     TaskStatus status,
@@ -473,56 +493,47 @@ class _KanbanScreenState extends State<KanbanScreen> {
   ) {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(6, 6, 6, 100),
-      itemCount: tasks.length * 2 + 1,
+      itemCount: tasks.length + 1, // +1: 리스트 하단 end-drop-zone
       itemBuilder: (context, i) {
-        if (i.isEven) {
-          return _buildInsertZone(status, tasks, i ~/ 2, statusColor, taskProvider);
-        } else {
-          final task = tasks[i ~/ 2];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _buildDraggableTaskCard(context, task, taskProvider),
-          );
+        if (i == tasks.length) {
+          return _buildEndDropZone(context, status, tasks, taskProvider);
         }
+        return _buildDraggableTaskCard(
+          context, tasks[i], tasks, status, taskProvider, statusColor,
+        );
       },
     );
   }
 
-  /// 카드 사이 삽입 구역 (같은 컬럼 내 순서변경용 DragTarget)
-  Widget _buildInsertZone(
+  /// 리스트 하단 end-drop-zone: 같은 컬럼 드롭 시 맨 끝으로 이동
+  Widget _buildEndDropZone(
+    BuildContext context,
     TaskStatus status,
     List<Task> tasks,
-    int insertIndex,
-    Color statusColor,
     TaskProvider taskProvider,
   ) {
     return DragTarget<Task>(
-      onWillAcceptWithDetails: (details) => details.data.status == status,
+      onWillAcceptWithDetails: (d) => d.data.status == status,
       onAcceptWithDetails: (details) {
-        final task = details.data;
-        final currentIdx = tasks.indexWhere((t) => t.id == task.id);
-        if (currentIdx == -1) return;
-        final ids = tasks.map((t) => t.id).toList();
-        ids.removeAt(currentIdx);
-        final insertAt = insertIndex > currentIdx ? insertIndex - 1 : insertIndex;
-        if (insertAt == currentIdx) return;
-        ids.insert(insertAt, task.id);
-        taskProvider.reorderTasks(ids);
+        final dragged = details.data;
+        final newOrder = List<Task>.from(tasks)
+          ..removeWhere((t) => t.id == dragged.id)
+          ..add(dragged);
+        taskProvider.reorderTasks(newOrder.map((t) => t.id).toList());
       },
-      builder: (context, candidateData, _) {
-        final isHovered = candidateData.isNotEmpty;
+      builder: (context, candidates, _) {
+        final isHovering = candidates.isNotEmpty;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          height: isHovered ? 72 : 8,
-          margin: isHovered ? const EdgeInsets.only(bottom: 12) : EdgeInsets.zero,
-          decoration: isHovered
+          height: isHovering ? 60 : 20,
+          margin: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: isHovering
               ? BoxDecoration(
-                  borderRadius: BorderRadius.circular(15),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: statusColor.withValues(alpha: 0.6),
-                    width: 2,
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
                   ),
-                  color: statusColor.withValues(alpha: 0.08),
                 )
               : null,
         );
@@ -530,130 +541,102 @@ class _KanbanScreenState extends State<KanbanScreen> {
     );
   }
 
-  /// 태스크 카드 위젯 생성
-  Widget _buildTaskCard(
-    BuildContext context,
-    Task task,
-    TaskProvider taskProvider, {
-    Key? key,
-  }) {
-    final statusColor = task.status.color;
-
-    return Draggable<Task>(
-      key: key ?? ValueKey(task.id),
-      data: task,
-      feedback: Material(
-        elevation: 8,
-        borderRadius: BorderRadius.circular(15),
-        color: Colors.transparent,
-        child: Container(
-          width: 280,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: statusColor, width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 10,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          child: _buildTaskCardContent(context, task, statusColor),
-        ),
-      ),
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: _buildTaskCardContainer(context, task, statusColor, taskProvider),
-      ),
-      onDragStarted: () {
-        // 드래그 시작
-      },
-      onDragEnd: (details) {
-        // 드래그 종료
-      },
-      child: _buildTaskCardContainer(context, task, statusColor, taskProvider),
-    );
-  }
-
-  /// 드래그 가능한 태스크 카드 (롱프레스 → 순서변경 또는 컬럼 이동)
+  /// 드래그 가능한 태스크 카드
+  /// - DragTarget: 같은 컬럼 카드가 드롭되면 이 카드 바로 앞에 삽입
+  /// - Draggable: 카드를 드래그해서 다른 위치/컬럼으로 이동
   Widget _buildDraggableTaskCard(
     BuildContext context,
     Task task,
+    List<Task> columnTasks,
+    TaskStatus status,
     TaskProvider taskProvider,
+    Color statusColor,
   ) {
-    final statusColor = task.status.color;
-
-    return Dismissible(
-      key: ValueKey('dismiss_${task.id}'),
-      direction: DismissDirection.endToStart,
-      confirmDismiss: (direction) async {
-        return await showDialog<bool>(
-          context: context,
-          builder: (dialogContext) {
-            final cs = Theme.of(dialogContext).colorScheme;
-            return AlertDialog(
-              title: Text('태스크 삭제', style: TextStyle(color: cs.onSurface)),
-              content: Text('${task.title}을(를) 삭제하시겠습니까?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('취소'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(true),
-                  style: TextButton.styleFrom(foregroundColor: Colors.red),
-                  child: const Text('삭제'),
-                ),
-              ],
-            );
-          },
-        ) ?? false;
+    return DragTarget<Task>(
+      onWillAcceptWithDetails: (d) =>
+          d.data.status == status && d.data.id != task.id,
+      onAcceptWithDetails: (details) {
+        final dragged = details.data;
+        final fromIdx = columnTasks.indexWhere((t) => t.id == dragged.id);
+        final toIdx = columnTasks.indexWhere((t) => t.id == task.id);
+        if (fromIdx == -1 || toIdx == -1) return;
+        final newOrder = List<Task>.from(columnTasks);
+        newOrder.removeAt(fromIdx);
+        final adjusted = (fromIdx < toIdx ? toIdx - 1 : toIdx)
+            .clamp(0, newOrder.length);
+        newOrder.insert(adjusted, dragged);
+        taskProvider.reorderTasks(newOrder.map((t) => t.id).toList());
       },
-      onDismissed: (direction) {
-        taskProvider.deleteTask(task.id);
-      },
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        decoration: BoxDecoration(
-          color: Colors.red.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: const Icon(Icons.delete_outline, color: Colors.red, size: 28),
-      ),
-      child: LongPressDraggable<Task>(
-        data: task,
-        delay: const Duration(milliseconds: 500),
-        feedback: Material(
-          elevation: 8,
-          borderRadius: BorderRadius.circular(15),
-          color: Colors.transparent,
-          child: Container(
-            width: 280,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: statusColor, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 10,
-                  spreadRadius: 2,
-                ),
-              ],
+      builder: (context, candidates, _) {
+        final isHovering = candidates.isNotEmpty;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 드롭 위치 인디케이터 (이 카드 앞에 삽입됨을 표시)
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              height: isHovering ? 4 : 0,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: isHovering
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-            child: _buildTaskCardContent(context, task, statusColor),
-          ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: LongPressDraggable<Task>(
+                data: task,
+                delay: const Duration(milliseconds: 350),
+                feedback: _buildDragFeedback(context, task, statusColor),
+                childWhenDragging: Opacity(
+                  opacity: 0.3,
+                  child: _buildTaskCardContainer(
+                    context,
+                    task,
+                    statusColor,
+                    taskProvider,
+                    reorderable: true,
+                  ),
+                ),
+                child: _buildTaskCardContainer(
+                  context,
+                  task,
+                  statusColor,
+                  taskProvider,
+                  reorderable: true,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 드래그 중 표시되는 플로팅 카드 피드백
+  Widget _buildDragFeedback(BuildContext context, Task task, Color statusColor) {
+    return Material(
+      elevation: 8,
+      borderRadius: BorderRadius.circular(15),
+      color: Colors.transparent,
+      child: Container(
+        width: 280,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: statusColor, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 10,
+              spreadRadius: 2,
+            ),
+          ],
         ),
-        childWhenDragging: Opacity(
-          opacity: 0.3,
-          child: _buildTaskCardContainer(context, task, statusColor, taskProvider, reorderable: true),
-        ),
-        child: _buildTaskCardContainer(context, task, statusColor, taskProvider, reorderable: true),
+        child: _buildTaskCardContent(context, task, statusColor),
       ),
     );
   }
@@ -1419,4 +1402,3 @@ class _KanbanScreenState extends State<KanbanScreen> {
     );
   }
 }
-

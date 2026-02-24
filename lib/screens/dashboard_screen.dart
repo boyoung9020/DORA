@@ -30,14 +30,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _aiError;
   DateTime? _aiGeneratedAt;
   String? _lastAiScopeKey;
+  String? _lastTaskRefreshKey;
 
   @override
   void initState() {
     super.initState();
     _usersFuture = AuthService().getAllUsers();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final projectId = context.read<ProjectProvider>().currentProject?.id;
-      context.read<TaskProvider>().loadTasks(projectId: projectId);
+      context.read<TaskProvider>().loadTasks();
       _lastAiScopeKey = _currentAiScopeKey();
       _loadAISummary();
     });
@@ -51,15 +51,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final userId = Provider.of<AuthProvider>(context).currentUser?.id ?? '';
     final projectId =
         Provider.of<ProjectProvider>(context).currentProject?.id ?? '';
-    final currentScopeKey = '$userId|$workspaceId|$projectId';
+    final currentScopeKey = '$userId|$workspaceId';
+    final taskRefreshKey = '$userId|$workspaceId|$projectId';
+
+    if (_lastTaskRefreshKey == null || _lastTaskRefreshKey != taskRefreshKey) {
+      _lastTaskRefreshKey = taskRefreshKey;
+      context.read<TaskProvider>().loadTasks();
+    }
+
     if (_lastAiScopeKey == null) {
       _lastAiScopeKey = currentScopeKey;
       return;
     }
     if (currentScopeKey != _lastAiScopeKey) {
       _lastAiScopeKey = currentScopeKey;
-      // 프로젝트가 바뀌면 태스크도 다시 로드
-      context.read<TaskProvider>().loadTasks(projectId: projectId.isEmpty ? null : projectId);
+      context.read<TaskProvider>().loadTasks();
       _loadAISummary();
     }
   }
@@ -74,10 +80,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       final workspaceId = context.read<WorkspaceProvider>().currentWorkspaceId;
       final userId = context.read<AuthProvider>().currentUser?.id;
-      final projectId = context.read<ProjectProvider>().currentProject?.id;
       final result = await _aiService.getSummary(
         workspaceId: workspaceId,
-        projectId: projectId,
+        projectId: null,
         userId: userId,
         forceRefresh: forceRefresh,
       );
@@ -112,9 +117,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final workspaceId =
         context.read<WorkspaceProvider>().currentWorkspaceId ?? '';
     final userId = context.read<AuthProvider>().currentUser?.id ?? '';
-    final projectId =
-        context.read<ProjectProvider>().currentProject?.id ?? '';
-    return '$userId|$workspaceId|$projectId';
+    return '$userId|$workspaceId';
   }
 
   Widget _buildAISummaryCard(
@@ -1599,10 +1602,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 왼쪽: 오늘 할 일 + AI 매니저 (통합)
                 Expanded(
                   flex: 1,
                   child: Column(
                     children: [
+                      Expanded(
+                        flex: 2,
+                        child: _buildAiSummarySection(
+                          context: context,
+                          colorScheme: colorScheme,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                       Expanded(
                         flex: 3,
                         child: _buildTodayTasksSection(
@@ -1610,14 +1622,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           colorScheme: colorScheme,
                           todayTasks: todayTasks,
                           projectsById: projectsById,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        flex: 2,
-                        child: _buildAiSummarySection(
-                          context: context,
-                          colorScheme: colorScheme,
                         ),
                       ),
                     ],
@@ -1628,6 +1632,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   margin: const EdgeInsets.symmetric(horizontal: 24),
                   color: colorScheme.onSurface.withValues(alpha: 0.12),
                 ),
+                // 가운데: 프로젝트 진행률 + 상태별 통계 (통합)
                 Expanded(
                   flex: 1,
                   child: Column(
@@ -1920,8 +1925,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               colorScheme.surface.withValues(alpha: 0.45),
               colorScheme.surface.withValues(alpha: 0.35),
             ],
-            child: allProjects.isEmpty
-                ? Center(
+            child: FutureBuilder<List<User>>(
+              future: _usersFuture,
+              builder: (context, snapshot) {
+                final users = snapshot.data ?? const <User>[];
+                if (allProjects.isEmpty) {
+                  return Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -1940,98 +1949,225 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ],
                     ),
-                  )
-                : ListView.separated(
-                    itemCount: allProjects.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final project = allProjects[index];
-                      final progress = _calculateProgress(project, allTasks);
-                      final taskCount = taskCountsByProject[project.id] ?? 0;
-                      final doneCount = allTasks
-                          .where(
-                            (task) =>
-                                task.projectId == project.id &&
-                                task.status == TaskStatus.done,
-                          )
-                          .length;
+                  );
+                }
 
-                      return Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surface.withValues(alpha: 0.45),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: project.color.withValues(alpha: 0.35),
-                          ),
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    users.isEmpty) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                return ListView.separated(
+                  itemCount: allProjects.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final project = allProjects[index];
+                    final progress = _calculateProgress(project, allTasks);
+                    final taskCount = taskCountsByProject[project.id] ?? 0;
+                    final doneCount = allTasks
+                        .where(
+                          (task) =>
+                              task.projectId == project.id &&
+                              task.status == TaskStatus.done,
+                        )
+                        .length;
+                    final memberProgress = _getMemberProgressByProject(
+                      projectId: project.id,
+                      allTasks: allTasks,
+                      users: users,
+                    );
+
+                    return Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surface.withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: project.color.withValues(alpha: 0.35),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  width: 4,
-                                  height: 20,
-                                  decoration: BoxDecoration(
-                                    color: project.color,
-                                    borderRadius: BorderRadius.circular(2),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    project.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: colorScheme.onSurface,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  '${(progress * 100).toInt()}%',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: project.color,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: LinearProgressIndicator(
-                                value: progress,
-                                minHeight: 10,
-                                backgroundColor: colorScheme.primary.withValues(
-                                  alpha: 0.1,
-                                ),
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  project.color,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 4,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: project.color,
+                                  borderRadius: BorderRadius.circular(2),
                                 ),
                               ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  project.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '${(progress * 100).toInt()}%',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: project.color,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 10,
+                              backgroundColor: colorScheme.primary.withValues(
+                                alpha: 0.1,
+                              ),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                project.color,
+                              ),
                             ),
-                            const SizedBox(height: 8),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '전체 $taskCount개 · 완료 $doneCount개',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.68,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            '팀원별 진행률',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.78,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          if (memberProgress.isEmpty)
                             Text(
-                              '전체 $taskCount개 · 완료 $doneCount개',
+                              '진행률을 표시할 팀원 데이터가 없습니다',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: colorScheme.onSurface.withValues(
-                                  alpha: 0.68,
+                                  alpha: 0.62,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                            )
+                          else
+                            ...memberProgress.map((entry) {
+                              final ratio = entry.total == 0
+                                  ? 0.0
+                                  : entry.done / entry.total;
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            entry.username,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                        ),
+                                        Text(
+                                          '${(ratio * 100).toInt()}% (${entry.done}/${entry.total})',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.68),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: LinearProgressIndicator(
+                                        value: ratio,
+                                        minHeight: 6,
+                                        backgroundColor: colorScheme.primary
+                                            .withValues(alpha: 0.12),
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          project.color,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ),
       ],
     );
+  }
+
+  List<_MemberProgressEntry> _getMemberProgressByProject({
+    required String projectId,
+    required List<Task> allTasks,
+    required List<User> users,
+  }) {
+    final usernameById = {for (final user in users) user.id: user.username};
+    final stats = <String, _MemberProgressEntry>{};
+
+    for (final task in allTasks) {
+      if (task.projectId != projectId) continue;
+      for (final memberId in task.assignedMemberIds) {
+        final current = stats[memberId];
+        if (current == null) {
+          stats[memberId] = _MemberProgressEntry(
+            memberId: memberId,
+            username: usernameById[memberId] ?? memberId,
+            done: task.status == TaskStatus.done ? 1 : 0,
+            total: 1,
+          );
+        } else {
+          stats[memberId] = _MemberProgressEntry(
+            memberId: memberId,
+            username: current.username,
+            done: current.done + (task.status == TaskStatus.done ? 1 : 0),
+            total: current.total + 1,
+          );
+        }
+      }
+    }
+
+    final entries = stats.values.toList()
+      ..sort((a, b) {
+        final ratioA = a.total == 0 ? 0.0 : a.done / a.total;
+        final ratioB = b.total == 0 ? 0.0 : b.done / b.total;
+        final ratioCompare = ratioB.compareTo(ratioA);
+        if (ratioCompare != 0) return ratioCompare;
+        return b.total.compareTo(a.total);
+      });
+    return entries.take(4).toList();
   }
 
   Widget _buildStatusStatsSection({
@@ -2140,4 +2276,219 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return [];
     }
   }
+
+  Widget _buildTeamMembersSection({
+    required BuildContext context,
+    required ColorScheme colorScheme,
+    required List<Task> allTasks,
+  }) {
+    final currentProject =
+        Provider.of<ProjectProvider>(context).currentProject;
+
+    final projectColor = currentProject?.color ?? colorScheme.primary;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader(
+          colorScheme: colorScheme,
+          icon: Icons.people_alt_outlined,
+          title: '팀원별 현황',
+          trailing: currentProject != null
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: currentProject.color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      currentProject.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: currentProject.color,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                )
+              : null,
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: GlassContainer(
+            padding: const EdgeInsets.all(16),
+            borderRadius: 16.0,
+            blur: 20.0,
+            borderWidth: currentProject != null ? 1.0 : 0,
+            gradientColors: [
+              colorScheme.surface.withValues(alpha: 0.45),
+              colorScheme.surface.withValues(alpha: 0.35),
+            ],
+            borderColor: projectColor.withValues(alpha: 0.35),
+            child: currentProject == null
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.folder_open_outlined,
+                          size: 48,
+                          color: colorScheme.onSurface.withValues(alpha: 0.4),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '프로젝트를 선택하면\n팀원 현황을 볼 수 있습니다',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color:
+                                colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : FutureBuilder<List<User>>(
+                    future: _usersFuture,
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const Center(
+                            child: CircularProgressIndicator());
+                      }
+                      final users = snapshot.data!;
+                      final projectTasks = allTasks
+                          .where((t) => t.projectId == currentProject.id)
+                          .toList();
+                      final workload = _buildWorkload(projectTasks, users);
+
+                      if (workload.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.person_off_outlined,
+                                size: 40,
+                                color: colorScheme.onSurface
+                                    .withValues(alpha: 0.4),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                '담당자가 지정된\n태스크가 없습니다',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: colorScheme.onSurface
+                                      .withValues(alpha: 0.6),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      final maxCount = workload.first.value;
+                      return ListView.separated(
+                        itemCount: workload.length,
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final entry = workload[index];
+                          final ratio =
+                              maxCount == 0 ? 0.0 : entry.value / maxCount;
+                          return Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 14,
+                                backgroundColor:
+                                    AvatarColor.getColorForUser(entry.key),
+                                child: Text(
+                                  AvatarColor.getInitial(entry.key),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            entry.key,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                        ),
+                                        Text(
+                                          '${entry.value}개',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.7),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 5),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: LinearProgressIndicator(
+                                        value: ratio,
+                                        minHeight: 6,
+                                        backgroundColor:
+                                            currentProject.color.withValues(
+                                                alpha: 0.15),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                                currentProject.color),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MemberProgressEntry {
+  final String memberId;
+  final String username;
+  final int done;
+  final int total;
+
+  const _MemberProgressEntry({
+    required this.memberId,
+    required this.username,
+    required this.done,
+    required this.total,
+  });
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' show pow;
 
+import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../utils/api_client.dart';
@@ -44,9 +45,14 @@ class WebSocketService {
         wsBaseUrl = 'ws://${ApiClient.baseUrl}';
       }
 
+      // 웹에서 HTTPS로 서빙되는 경우 ws:// → wss:// 강제 업그레이드
+      if (kIsWeb && Uri.base.scheme == 'https') {
+        wsBaseUrl = wsBaseUrl.replaceFirst('ws://', 'wss://');
+      }
+
       final uri = Uri.parse(wsBaseUrl);
       final wsUrl = Uri(
-        scheme: uri.scheme == 'https' ? 'wss' : 'ws',
+        scheme: uri.scheme, // 이미 ws 또는 wss로 변환됨
         host: uri.host,
         port: uri.port,
         path: '/api/ws',

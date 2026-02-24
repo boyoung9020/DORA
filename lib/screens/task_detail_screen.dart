@@ -90,6 +90,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   DateTime? _startDate;
   DateTime? _endDate;
   bool _isEditing = false;
+  bool _isTitleEditing = false;
+  final FocusNode _titleFocusNode = FocusNode();
   final CommentService _commentService = CommentService();
   final UploadService _uploadService = UploadService();
   final ImagePicker _imagePicker = ImagePicker();
@@ -165,6 +167,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     taskProvider.removeCommentListener(widget.task.id, _onCommentCreated);
 
     _titleController.dispose();
+    _titleFocusNode.dispose();
     _descriptionController.dispose();
     _detailController.dispose();
     _commentController.dispose();
@@ -427,6 +430,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return MarkdownBody(
       data: processed,
       selectable: true,
+      softLineBreak: true,
       onTapLink: (text, href, title) {},
       styleSheet: _buildMarkdownStyleSheet(colorScheme),
     );
@@ -872,14 +876,54 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      currentTask.title,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
+                    child: _isTitleEditing
+                        ? TextField(
+                            controller: _titleController,
+                            focusNode: _titleFocusNode,
+                            autofocus: true,
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                            onSubmitted: (_) => _saveTitle(),
+                            onEditingComplete: _saveTitle,
+                          )
+                        : GestureDetector(
+                            onTap: () {
+                              _titleController.text = currentTask.title;
+                              setState(() => _isTitleEditing = true);
+                              WidgetsBinding.instance.addPostFrameCallback(
+                                  (_) => _titleFocusNode.requestFocus());
+                            },
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    currentTask.title,
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.edit_outlined,
+                                  size: 16,
+                                  color: colorScheme.onSurface
+                                      .withValues(alpha: 0.35),
+                                ),
+                              ],
+                            ),
+                          ),
                   ),
                   // 餓λ쵐???獄쏄퀣?
                   GlassContainer(
@@ -1530,6 +1574,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       ),
         ),
       ),
+    );
+  }
+
+  Future<void> _saveTitle() async {
+    final newTitle = _titleController.text.trim();
+    if (!mounted) return;
+    final taskProvider = context.read<TaskProvider>();
+    final currentTask = taskProvider.tasks.firstWhere(
+      (t) => t.id == widget.task.id,
+      orElse: () => widget.task,
+    );
+    setState(() => _isTitleEditing = false);
+    if (newTitle.isEmpty || newTitle == currentTask.title) return;
+    await taskProvider.updateTask(
+      currentTask.copyWith(title: newTitle, updatedAt: DateTime.now()),
     );
   }
 
@@ -2223,6 +2282,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             child: MarkdownBody(
               data: _normalizeMarkdownNewlines(description),
               selectable: true,
+              softLineBreak: true,
               styleSheet: _buildMarkdownStyleSheet(colorScheme),
             ),
           ),
@@ -2352,6 +2412,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   return MarkdownBody(
                                     data: _addCheckboxStrikethrough(_normalizeMarkdownNewlines(task.detail)),
                                     selectable: true,
+                                    softLineBreak: true,
                                     checkboxBuilder: (bool value) {
                                       final idx = cbIdx++;
                                       return GestureDetector(
