@@ -1,9 +1,8 @@
-import 'package:http/http.dart' as http;
 import '../models/task.dart';
 import '../utils/api_client.dart';
 
 /// 태스크 서비스 클래스
-/// 
+///
 /// 이 클래스는 태스크 데이터 관리 기능을 담당합니다:
 /// - 태스크 생성
 /// - 태스크 수정
@@ -11,7 +10,10 @@ import '../utils/api_client.dart';
 /// - 태스크 조회
 class TaskService {
   /// 모든 태스크 가져오기
-  Future<List<Task>> getAllTasks({String? projectId, TaskStatus? status}) async {
+  Future<List<Task>> getAllTasks({
+    String? projectId,
+    TaskStatus? status,
+  }) async {
     try {
       final queryParams = <String, String>{};
       if (projectId != null) {
@@ -20,14 +22,16 @@ class TaskService {
       if (status != null) {
         queryParams['status'] = status.name;
       }
-      
+
       final response = await ApiClient.get(
         '/api/tasks/',
         queryParams: queryParams.isEmpty ? null : queryParams,
       );
-      
+
       final tasksData = ApiClient.handleListResponse(response);
-      return tasksData.map((json) => Task.fromJson(json as Map<String, dynamic>)).toList();
+      return tasksData
+          .map((json) => Task.fromJson(json as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       throw Exception('태스크 목록 가져오기 실패: $e');
     }
@@ -64,7 +68,7 @@ class TaskService {
           'sprint_id': sprintId,
         },
       );
-      
+
       final taskData = ApiClient.handleResponse(response);
       return Task.fromJson(taskData);
     } catch (e) {
@@ -87,12 +91,12 @@ class TaskService {
         'assigned_member_ids': task.assignedMemberIds,
         'sprint_id': task.sprintId,
       };
-      
+
       final response = await ApiClient.patch(
         '/api/tasks/${task.id}',
         body: body,
       );
-      
+
       final taskData = ApiClient.handleResponse(response);
       return Task.fromJson(taskData);
     } catch (e) {
@@ -111,7 +115,10 @@ class TaskService {
   }
 
   /// 상태별 태스크 가져오기
-  Future<List<Task>> getTasksByStatus(TaskStatus status, {String? projectId}) async {
+  Future<List<Task>> getTasksByStatus(
+    TaskStatus status, {
+    String? projectId,
+  }) async {
     return getAllTasks(projectId: projectId, status: status);
   }
 
@@ -133,21 +140,11 @@ class TaskService {
   /// 태스크 상태 변경
   Future<Task> changeTaskStatus(String taskId, TaskStatus newStatus) async {
     try {
-      // FastAPI는 쿼리 파라미터로 new_status를 받음
-      final uri = Uri.parse('${ApiClient.baseUrl}/api/tasks/$taskId/status')
-          .replace(queryParameters: {'new_status': newStatus.name});
-      
-      final headers = <String, String>{
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      };
-      
-      final token = await ApiClient.getToken();
-      if (token != null) {
-        headers['Authorization'] = 'Bearer $token';
-      }
-      
-      final response = await http.patch(uri, headers: headers);
+      final encodedStatus = Uri.encodeQueryComponent(newStatus.name);
+      final response = await ApiClient.patch(
+        '/api/tasks/$taskId/status?new_status=$encodedStatus',
+        body: const {},
+      );
       final taskData = ApiClient.handleResponse(response);
       return Task.fromJson(taskData);
     } catch (e) {
@@ -158,9 +155,10 @@ class TaskService {
   /// 태스크 순서 변경
   Future<void> reorderTasks(List<String> taskIds) async {
     try {
-      final response = await ApiClient.patch('/api/tasks/reorder', body: {
-        'task_ids': taskIds,
-      });
+      final response = await ApiClient.patch(
+        '/api/tasks/reorder',
+        body: {'task_ids': taskIds},
+      );
       ApiClient.handleResponse(response);
     } catch (e) {
       throw Exception('태스크 순서 변경 실패: $e');

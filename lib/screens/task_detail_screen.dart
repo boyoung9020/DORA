@@ -1802,8 +1802,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   userId: currentUser.id,
                                   username: currentUser.username,
                                 );
-                                // 筌롫뗄??遺얇늺 ??낅쑓??꾨뱜???袁る퉸 ??뽯뮞??筌뤴뫖以???쇰뻻 嚥≪뮆諭?
-                                await taskProvider.loadTasks();
                               }
                               Navigator.of(context).pop();
                               // ?醫딅뼣??????筌뤴뫖以???쇰뻻 嚥≪뮆諭?

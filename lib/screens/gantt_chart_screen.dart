@@ -62,13 +62,18 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 30));
   DateTime _endDate = DateTime.now().add(const Duration(days: 30));
   final Map<String, Future<List<User>>> _assignedMembersCache = {};
+  String? _lastLoadedProjectId;
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TaskProvider>().loadTasks();
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final projectId = context.read<ProjectProvider>().currentProject?.id;
+    if (_lastLoadedProjectId != projectId) {
+      _lastLoadedProjectId = projectId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.read<TaskProvider>().loadTasks(projectId: projectId);
+      });
+    }
   }
 
   @override

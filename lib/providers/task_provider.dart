@@ -3,7 +3,7 @@ import '../models/task.dart';
 import '../services/task_service.dart';
 
 /// 태스크 상태 관리 Provider
-/// 
+///
 /// 칸반 보드의 태스크 상태를 관리합니다.
 class TaskProvider extends ChangeNotifier {
   final TaskService _taskService = TaskService();
@@ -46,7 +46,9 @@ class TaskProvider extends ChangeNotifier {
   List<Task> getTasksByStatus(TaskStatus status, {String? projectId}) {
     var filteredTasks = _tasks.where((task) => task.status == status);
     if (projectId != null) {
-      filteredTasks = filteredTasks.where((task) => task.projectId == projectId);
+      filteredTasks = filteredTasks.where(
+        (task) => task.projectId == projectId,
+      );
     }
     final result = filteredTasks.toList();
     result.sort((a, b) {
@@ -64,9 +66,22 @@ class TaskProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _tasks = await _taskService.getAllTasks(projectId: projectId);
+      final scopedTasks = await _taskService.getAllTasks(projectId: projectId);
+
+      // 일부 환경에서 project_id 필터 조회가 비정상적으로 0건을 반환하는 경우가 있어
+      // 전체 조회로 한 번 더 확인해 실제 데이터 누락 표시를 방지한다.
+      if (projectId != null && scopedTasks.isEmpty) {
+        final allTasks = await _taskService.getAllTasks();
+        final hasProjectTasks = allTasks.any(
+          (task) => task.projectId == projectId,
+        );
+        _tasks = hasProjectTasks ? allTasks : scopedTasks;
+      } else {
+        _tasks = scopedTasks;
+      }
       _errorMessage = null;
     } catch (e) {
+      _tasks = [];
       _errorMessage = '태스크를 불러오는 중 오류가 발생했습니다: $e';
     } finally {
       _isLoading = false;
@@ -115,10 +130,10 @@ class TaskProvider extends ChangeNotifier {
   Future<bool> updateTask(Task task, {String? userId, String? username}) async {
     try {
       final index = _tasks.indexWhere((t) => t.id == task.id);
-      
+
       // 백엔드에 업데이트 요청 (히스토리는 백엔드에서 자동으로 추가됨)
       final updatedTask = await _taskService.updateTask(task);
-      
+
       if (index != -1) {
         // 백엔드에서 반환된 히스토리를 포함한 태스크로 업데이트
         _tasks[index] = updatedTask;
@@ -172,11 +187,19 @@ class TaskProvider extends ChangeNotifier {
 
   /// 태스크 상태 변경
   /// 히스토리는 백엔드에서 관리하므로 프론트엔드에서는 추가하지 않음
-  Future<bool> changeTaskStatus(String taskId, TaskStatus newStatus, {String? userId, String? username}) async {
+  Future<bool> changeTaskStatus(
+    String taskId,
+    TaskStatus newStatus, {
+    String? userId,
+    String? username,
+  }) async {
     try {
       // 백엔드에 상태 변경 요청 (히스토리는 백엔드에서 자동으로 추가됨)
-      final updatedTask = await _taskService.changeTaskStatus(taskId, newStatus);
-      
+      final updatedTask = await _taskService.changeTaskStatus(
+        taskId,
+        newStatus,
+      );
+
       final index = _tasks.indexWhere((t) => t.id == taskId);
       if (index != -1) {
         // 백엔드에서 반환된 히스토리를 포함한 태스크로 업데이트
@@ -195,4 +218,3 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 }
-

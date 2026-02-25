@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/task.dart';
 import '../models/project.dart';
@@ -73,7 +74,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
             children: [
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: colorScheme.brightness == Brightness.dark
                         ? colorScheme.surfaceContainerHighest
@@ -143,27 +147,45 @@ class _KanbanScreenState extends State<KanbanScreen> {
     );
   }
 
+  bool get _disableBoardDragScroll {
+    if (kIsWeb) return true;
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+      case TargetPlatform.linux:
+        return true;
+      case TargetPlatform.android:
+      case TargetPlatform.iOS:
+      case TargetPlatform.fuchsia:
+        return false;
+    }
+  }
+
   /// 태스크 필터링
   List<Task> _filterTasks(List<Task> tasks, String? currentProjectId) {
     if (_searchQuery.trim().isEmpty) {
       return tasks;
     }
-    
+
     final query = _searchQuery.toLowerCase();
     return tasks.where((task) {
       if (currentProjectId != null && task.projectId != currentProjectId) {
         return false;
       }
       return task.title.toLowerCase().contains(query) ||
-             task.description.toLowerCase().contains(query) ||
-             task.detail.toLowerCase().contains(query) ||
-             task.status.displayName.toLowerCase().contains(query) ||
-             task.priority.displayName.toLowerCase().contains(query);
+          task.description.toLowerCase().contains(query) ||
+          task.detail.toLowerCase().contains(query) ||
+          task.status.displayName.toLowerCase().contains(query) ||
+          task.priority.displayName.toLowerCase().contains(query);
     }).toList();
   }
 
   /// 칸반 보드 UI 구성
-  Widget _buildKanbanBoard(BuildContext context, TaskProvider taskProvider, String? currentProjectId) {
+  Widget _buildKanbanBoard(
+    BuildContext context,
+    TaskProvider taskProvider,
+    String? currentProjectId,
+  ) {
     // 프로젝트가 없으면 빈 상태 표시
     if (currentProjectId == null) {
       return Center(
@@ -173,14 +195,18 @@ class _KanbanScreenState extends State<KanbanScreen> {
             Icon(
               Icons.folder_open,
               size: 64,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
               '프로젝트가 없습니다',
               style: TextStyle(
                 fontSize: 18,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
             const SizedBox(height: 8),
@@ -188,14 +214,16 @@ class _KanbanScreenState extends State<KanbanScreen> {
               '관리자에게 프로젝트 참여를 요청하세요',
               style: TextStyle(
                 fontSize: 14,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.4),
               ),
             ),
           ],
         ),
       );
     }
-    
+
     return LayoutBuilder(
       builder: (context, constraints) {
         // 화면 너비에 따라 컬럼 너비 계산
@@ -203,13 +231,14 @@ class _KanbanScreenState extends State<KanbanScreen> {
         final columnCount = 5; // 컬럼 개수
         final spacing = 16.0; // 컬럼 간 간격
         final padding = 32.0; // 양쪽 패딩
-        
+
         // 사용 가능한 너비 계산
-        final availableWidth = screenWidth - padding - (spacing * (columnCount - 1));
+        final availableWidth =
+            screenWidth - padding - (spacing * (columnCount - 1));
         // 컬럼 너비 계산 (최소 180px로 낮춤, 최대 300px)
         // 화면이 작아도 모든 컬럼이 보이도록 최소값을 낮춤
         final columnWidth = (availableWidth / columnCount).clamp(180.0, 300.0);
-        
+
         return Scrollbar(
           controller: _horizontalScrollController,
           thumbVisibility: true,
@@ -218,6 +247,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
           child: SingleChildScrollView(
             controller: _horizontalScrollController,
             scrollDirection: Axis.horizontal,
+            physics: _disableBoardDragScroll
+                ? const NeverScrollableScrollPhysics()
+                : const ClampingScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.start,
@@ -226,7 +258,13 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 _buildColumn(
                   context,
                   TaskStatus.backlog,
-                  _filterTasks(taskProvider.getTasksByStatus(TaskStatus.backlog, projectId: currentProjectId), currentProjectId),
+                  _filterTasks(
+                    taskProvider.getTasksByStatus(
+                      TaskStatus.backlog,
+                      projectId: currentProjectId,
+                    ),
+                    currentProjectId,
+                  ),
                   taskProvider,
                   currentProjectId: currentProjectId,
                   columnWidth: columnWidth,
@@ -235,7 +273,13 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 _buildColumn(
                   context,
                   TaskStatus.ready,
-                  _filterTasks(taskProvider.getTasksByStatus(TaskStatus.ready, projectId: currentProjectId), currentProjectId),
+                  _filterTasks(
+                    taskProvider.getTasksByStatus(
+                      TaskStatus.ready,
+                      projectId: currentProjectId,
+                    ),
+                    currentProjectId,
+                  ),
                   taskProvider,
                   currentProjectId: currentProjectId,
                   columnWidth: columnWidth,
@@ -244,7 +288,13 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 _buildColumn(
                   context,
                   TaskStatus.inProgress,
-                  _filterTasks(taskProvider.getTasksByStatus(TaskStatus.inProgress, projectId: currentProjectId), currentProjectId),
+                  _filterTasks(
+                    taskProvider.getTasksByStatus(
+                      TaskStatus.inProgress,
+                      projectId: currentProjectId,
+                    ),
+                    currentProjectId,
+                  ),
                   taskProvider,
                   currentProjectId: currentProjectId,
                   columnWidth: columnWidth,
@@ -253,7 +303,13 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 _buildColumn(
                   context,
                   TaskStatus.inReview,
-                  _filterTasks(taskProvider.getTasksByStatus(TaskStatus.inReview, projectId: currentProjectId), currentProjectId),
+                  _filterTasks(
+                    taskProvider.getTasksByStatus(
+                      TaskStatus.inReview,
+                      projectId: currentProjectId,
+                    ),
+                    currentProjectId,
+                  ),
                   taskProvider,
                   currentProjectId: currentProjectId,
                   columnWidth: columnWidth,
@@ -262,7 +318,13 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 _buildColumn(
                   context,
                   TaskStatus.done,
-                  _filterTasks(taskProvider.getTasksByStatus(TaskStatus.done, projectId: currentProjectId), currentProjectId),
+                  _filterTasks(
+                    taskProvider.getTasksByStatus(
+                      TaskStatus.done,
+                      projectId: currentProjectId,
+                    ),
+                    currentProjectId,
+                  ),
                   taskProvider,
                   currentProjectId: currentProjectId,
                   columnWidth: columnWidth,
@@ -350,7 +412,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
           // 태스크 카드들 - 고정 높이로 하단까지 드래그 가능
           Expanded(
             child: DragTarget<Task>(
-              onWillAcceptWithDetails: (details) => details.data.status != status,
+              onWillAcceptWithDetails: (details) =>
+                  details.data.status != status,
               onAcceptWithDetails: (details) async {
                 final task = details.data;
                 final authProvider = context.read<AuthProvider>();
@@ -363,9 +426,16 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   userId: currentUser?.id,
                   username: currentUser?.username,
                 );
-                if (!changed) return;
+                if (!changed) {
+                  if (!context.mounted) return;
+                  final message =
+                      taskProvider.errorMessage ?? '카드 상태를 변경하지 못했습니다.';
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(message)));
+                  return;
+                }
 
-                // 다른 컬럼으로 이동한 태스크를 대상 컬럼의 맨 끝으로 정렬
                 final updatedStatusTasks = taskProvider.getTasksByStatus(
                   status,
                   projectId: currentProjectId,
@@ -383,19 +453,22 @@ class _KanbanScreenState extends State<KanbanScreen> {
               builder: (context, candidateData, rejectedData) {
                 final isDraggingOver = candidateData.isNotEmpty;
                 final colorScheme = Theme.of(context).colorScheme;
-                final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-                
+                final isDarkMode =
+                    Theme.of(context).brightness == Brightness.dark;
+
                 return Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: isDarkMode ? Colors.transparent : const Color(0xFFFAFBFD),
+                    color: isDarkMode
+                        ? Colors.transparent
+                        : const Color(0xFFFAFBFD),
                     borderRadius: BorderRadius.circular(15),
                     border: Border.all(
                       color: isDraggingOver
                           ? colorScheme.primary
                           : isDarkMode
-                              ? colorScheme.onSurface.withValues(alpha: 0.1)
-                              : const Color(0xFFE0E7FF),
+                          ? colorScheme.onSurface.withValues(alpha: 0.1)
+                          : const Color(0xFFE0E7FF),
                       width: isDraggingOver ? 2 : 1,
                     ),
                   ),
@@ -403,15 +476,21 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     children: [
                       tasks.isEmpty
                           ? _buildEmptyColumn(context, status)
-                          : _buildTaskList(context, status, tasks, taskProvider, statusColor),
-                      // 하단 오른쪽 구석에 + 버튼
+                          : _buildTaskList(
+                              context,
+                              status,
+                              tasks,
+                              taskProvider,
+                              statusColor,
+                            ),
                       Positioned(
                         bottom: 8,
                         right: 8,
                         child: Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            onTap: () => _showAddTaskDialogForStatus(context, status),
+                            onTap: () =>
+                                _showAddTaskDialogForStatus(context, status),
                             borderRadius: BorderRadius.circular(20.0),
                             child: GlassContainer(
                               padding: EdgeInsets.zero,
@@ -421,7 +500,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                 colorScheme.surface.withValues(alpha: 0.6),
                                 colorScheme.surface.withValues(alpha: 0.5),
                               ],
-                              borderColor: Theme.of(context).brightness == Brightness.dark
+                              borderColor:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
                                   ? colorScheme.onSurface.withValues(alpha: 0.2)
                                   : const Color(0xFFE0E7FF),
                               borderWidth: 1.0,
@@ -454,7 +535,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
   Widget _buildEmptyColumn(BuildContext context, TaskStatus status) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       width: double.infinity,
       height: double.infinity,
@@ -481,9 +562,6 @@ class _KanbanScreenState extends State<KanbanScreen> {
   }
 
   /// 컬럼 내 태스크 목록
-  /// - 각 카드가 DragTarget<Task> (같은 컬럼 drops → 그 카드 앞에 삽입)
-  /// - 리스트 하단 end-drop-zone (같은 컬럼 drops → 맨 끝으로 이동)
-  /// - 컬럼 DragTarget (다른 컬럼 drops → changeTaskStatus)
   Widget _buildTaskList(
     BuildContext context,
     TaskStatus status,
@@ -493,130 +571,53 @@ class _KanbanScreenState extends State<KanbanScreen> {
   ) {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(6, 6, 6, 100),
-      itemCount: tasks.length + 1, // +1: 리스트 하단 end-drop-zone
+      itemCount: tasks.length,
       itemBuilder: (context, i) {
-        if (i == tasks.length) {
-          return _buildEndDropZone(context, status, tasks, taskProvider);
-        }
         return _buildDraggableTaskCard(
-          context, tasks[i], tasks, status, taskProvider, statusColor,
+          context,
+          tasks[i],
+          taskProvider,
+          statusColor,
         );
       },
     );
   }
 
-  /// 리스트 하단 end-drop-zone: 같은 컬럼 드롭 시 맨 끝으로 이동
-  Widget _buildEndDropZone(
-    BuildContext context,
-    TaskStatus status,
-    List<Task> tasks,
-    TaskProvider taskProvider,
-  ) {
-    return DragTarget<Task>(
-      onWillAcceptWithDetails: (d) => d.data.status == status,
-      onAcceptWithDetails: (details) {
-        final dragged = details.data;
-        final newOrder = List<Task>.from(tasks)
-          ..removeWhere((t) => t.id == dragged.id)
-          ..add(dragged);
-        taskProvider.reorderTasks(newOrder.map((t) => t.id).toList());
-      },
-      builder: (context, candidates, _) {
-        final isHovering = candidates.isNotEmpty;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          height: isHovering ? 60 : 20,
-          margin: const EdgeInsets.symmetric(horizontal: 6),
-          decoration: isHovering
-              ? BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
-                  ),
-                )
-              : null,
-        );
-      },
-    );
-  }
-
-  /// 드래그 가능한 태스크 카드
-  /// - DragTarget: 같은 컬럼 카드가 드롭되면 이 카드 바로 앞에 삽입
-  /// - Draggable: 카드를 드래그해서 다른 위치/컬럼으로 이동
+  /// 드래그 가능한 태스크 카드 (다른 컬럼으로 이동)
   Widget _buildDraggableTaskCard(
     BuildContext context,
     Task task,
-    List<Task> columnTasks,
-    TaskStatus status,
     TaskProvider taskProvider,
     Color statusColor,
   ) {
-    return DragTarget<Task>(
-      onWillAcceptWithDetails: (d) =>
-          d.data.status == status && d.data.id != task.id,
-      onAcceptWithDetails: (details) {
-        final dragged = details.data;
-        final fromIdx = columnTasks.indexWhere((t) => t.id == dragged.id);
-        final toIdx = columnTasks.indexWhere((t) => t.id == task.id);
-        if (fromIdx == -1 || toIdx == -1) return;
-        final newOrder = List<Task>.from(columnTasks);
-        newOrder.removeAt(fromIdx);
-        final adjusted = (fromIdx < toIdx ? toIdx - 1 : toIdx)
-            .clamp(0, newOrder.length);
-        newOrder.insert(adjusted, dragged);
-        taskProvider.reorderTasks(newOrder.map((t) => t.id).toList());
-      },
-      builder: (context, candidates, _) {
-        final isHovering = candidates.isNotEmpty;
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 드롭 위치 인디케이터 (이 카드 앞에 삽입됨을 표시)
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              height: isHovering ? 4 : 0,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: isHovering
-                    ? Theme.of(context).colorScheme.primary
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: LongPressDraggable<Task>(
-                data: task,
-                delay: const Duration(milliseconds: 350),
-                feedback: _buildDragFeedback(context, task, statusColor),
-                childWhenDragging: Opacity(
-                  opacity: 0.3,
-                  child: _buildTaskCardContainer(
-                    context,
-                    task,
-                    statusColor,
-                    taskProvider,
-                    reorderable: true,
-                  ),
-                ),
-                child: _buildTaskCardContainer(
-                  context,
-                  task,
-                  statusColor,
-                  taskProvider,
-                  reorderable: true,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+    final card = _buildTaskCardContainer(
+      context,
+      task,
+      statusColor,
+      taskProvider,
+      reorderable: true,
+    );
+    final draggingCard = Opacity(opacity: 0.3, child: card);
+
+    final draggable = Draggable<Task>(
+      data: task,
+      feedback: _buildDragFeedback(context, task, statusColor),
+      childWhenDragging: draggingCard,
+      child: card,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: draggable,
     );
   }
 
   /// 드래그 중 표시되는 플로팅 카드 피드백
-  Widget _buildDragFeedback(BuildContext context, Task task, Color statusColor) {
+  Widget _buildDragFeedback(
+    BuildContext context,
+    Task task,
+    Color statusColor,
+  ) {
     return Material(
       elevation: 8,
       borderRadius: BorderRadius.circular(15),
@@ -653,8 +654,20 @@ class _KanbanScreenState extends State<KanbanScreen> {
     return GestureDetector(
       onTap: () => _showTaskDetailScreen(context, task, taskProvider),
       // reorderable 모드: 롱프레스는 드래그 리오더용이므로 컨텍스트 메뉴는 우클릭만
-      onLongPressStart: reorderable ? null : (details) => _showTaskContextMenu(context, task, taskProvider, details.globalPosition),
-      onSecondaryTapDown: (details) => _showTaskContextMenu(context, task, taskProvider, details.globalPosition),
+      onLongPressStart: reorderable
+          ? null
+          : (details) => _showTaskContextMenu(
+              context,
+              task,
+              taskProvider,
+              details.globalPosition,
+            ),
+      onSecondaryTapDown: (details) => _showTaskContextMenu(
+        context,
+        task,
+        taskProvider,
+        details.globalPosition,
+      ),
       child: GlassContainer(
         padding: const EdgeInsets.all(16),
         borderRadius: 15.0,
@@ -672,9 +685,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
           children: [
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildTaskCardContent(context, task, statusColor),
-              ],
+              children: [_buildTaskCardContent(context, task, statusColor)],
             ),
             // 오른쪽 상단 할당자 프로필 아이콘
             if (task.assignedMemberIds.isNotEmpty)
@@ -712,9 +723,16 @@ class _KanbanScreenState extends State<KanbanScreen> {
   }
 
   /// 태스크 카드 내용
-  Widget _buildTaskCardContent(BuildContext context, Task task, Color statusColor) {
+  Widget _buildTaskCardContent(
+    BuildContext context,
+    Task task,
+    Color statusColor,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
-    final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
+    final projectProvider = Provider.of<ProjectProvider>(
+      context,
+      listen: false,
+    );
     Project? project;
     try {
       project = projectProvider.projects.firstWhere(
@@ -723,7 +741,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     } catch (e) {
       project = projectProvider.currentProject;
     }
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -833,7 +851,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
   }
 
   /// 특정 상태로 태스크 추가 다이얼로그
-  void _showAddTaskDialogForStatus(BuildContext context, TaskStatus initialStatus) {
+  void _showAddTaskDialogForStatus(
+    BuildContext context,
+    TaskStatus initialStatus,
+  ) {
     final titleController = TextEditingController();
     TaskStatus selectedStatus = initialStatus;
     TaskPriority selectedPriority = TaskPriority.p1;
@@ -862,9 +883,13 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 });
               }
             }
+
             return Dialog(
               backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 24,
+              ),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: 500,
@@ -882,237 +907,266 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                        Text(
-                          '새 태스크 추가',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
+                      Text(
+                        '새 태스크 추가',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    GlassTextField(
-                      controller: titleController,
-                      labelText: '제목',
-                      prefixIcon: const Icon(Icons.title),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      '상태',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.onSurface,
+                      const SizedBox(height: 20),
+                      GlassTextField(
+                        controller: titleController,
+                        labelText: '제목',
+                        prefixIcon: const Icon(Icons.title),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: TaskStatus.values.map((status) {
-                        return Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: ChoiceChip(
-                              label: Text(status.displayName),
-                              selected: selectedStatus == status,
-                              onSelected: (selected) {
-                                if (selected) {
-                                  setState(() {
-                                    selectedStatus = status;
-                                  });
-                                }
-                              },
-                              selectedColor: status.color.withValues(alpha: 0.3),
-                              labelStyle: TextStyle(
-                                color: selectedStatus == status
-                                    ? status.color
-                                    : colorScheme.onSurface,
-                                fontWeight: selectedStatus == status
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
+                      const SizedBox(height: 20),
+                      Text(
+                        '상태',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: TaskStatus.values.map((status) {
+                          return Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              child: ChoiceChip(
+                                label: Text(status.displayName),
+                                selected: selectedStatus == status,
+                                onSelected: (selected) {
+                                  if (selected) {
+                                    setState(() {
+                                      selectedStatus = status;
+                                    });
+                                  }
+                                },
+                                selectedColor: status.color.withValues(
+                                  alpha: 0.3,
+                                ),
+                                labelStyle: TextStyle(
+                                  color: selectedStatus == status
+                                      ? status.color
+                                      : colorScheme.onSurface,
+                                  fontWeight: selectedStatus == status
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      '중요도',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.onSurface,
+                          );
+                        }).toList(),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: TaskPriority.values.map((priority) {
-                        return Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: ChoiceChip(
-                              label: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: BoxDecoration(
-                                      color: priority.color,
-                                      shape: BoxShape.circle,
+                      const SizedBox(height: 20),
+                      Text(
+                        '중요도',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: TaskPriority.values.map((priority) {
+                          return Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              child: ChoiceChip(
+                                label: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: priority.color,
+                                        shape: BoxShape.circle,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(priority.displayName),
-                                ],
-                              ),
-                              selected: selectedPriority == priority,
-                              onSelected: (selected) {
-                                if (selected) {
-                                  setState(() {
-                                    selectedPriority = priority;
-                                  });
-                                }
-                              },
-                              selectedColor: priority.color.withValues(alpha: 0.3),
-                              labelStyle: TextStyle(
-                                color: selectedPriority == priority
-                                    ? priority.color
-                                    : colorScheme.onSurface,
-                                fontWeight: selectedPriority == priority
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                                fontSize: 12,
+                                    const SizedBox(width: 4),
+                                    Text(priority.displayName),
+                                  ],
+                                ),
+                                selected: selectedPriority == priority,
+                                onSelected: (selected) {
+                                  if (selected) {
+                                    setState(() {
+                                      selectedPriority = priority;
+                                    });
+                                  }
+                                },
+                                selectedColor: priority.color.withValues(
+                                  alpha: 0.3,
+                                ),
+                                labelStyle: TextStyle(
+                                  color: selectedPriority == priority
+                                      ? priority.color
+                                      : colorScheme.onSurface,
+                                  fontWeight: selectedPriority == priority
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 20),
-                    // 시작일
-                    Text(
-                      '시작일',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.onSurface,
+                          );
+                        }).toList(),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    InkWell(
-                      onTap: pickDateRange,
-                      child: GlassContainer(
-                        padding: const EdgeInsets.all(16),
-                        borderRadius: 12.0,
-                        blur: 20.0,
-                        gradientColors: [
-                          colorScheme.surface.withValues(alpha: 0.3),
-                          colorScheme.surface.withValues(alpha: 0.2),
-                        ],
-                        child: Row(
-                          children: [
-                            Icon(Icons.calendar_today, size: 20, color: colorScheme.onSurface.withValues(alpha: 0.7)),
-                            const SizedBox(width: 12),
-                            Text(
-                              startDate != null
-                                  ? '${startDate!.year}-${startDate!.month.toString().padLeft(2, '0')}-${startDate!.day.toString().padLeft(2, '0')}'
-                                  : '날짜 선택',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: startDate != null
-                                    ? colorScheme.onSurface
-                                    : colorScheme.onSurface.withValues(alpha: 0.5),
-                              ),
-                            ),
+                      const SizedBox(height: 20),
+                      // 시작일
+                      Text(
+                        '시작일',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: pickDateRange,
+                        child: GlassContainer(
+                          padding: const EdgeInsets.all(16),
+                          borderRadius: 12.0,
+                          blur: 20.0,
+                          gradientColors: [
+                            colorScheme.surface.withValues(alpha: 0.3),
+                            colorScheme.surface.withValues(alpha: 0.2),
                           ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    // 종료일
-                    Text(
-                      '종료일',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    InkWell(
-                      onTap: pickDateRange,
-                      child: GlassContainer(
-                        padding: const EdgeInsets.all(16),
-                        borderRadius: 12.0,
-                        blur: 20.0,
-                        gradientColors: [
-                          colorScheme.surface.withValues(alpha: 0.3),
-                          colorScheme.surface.withValues(alpha: 0.2),
-                        ],
-                        child: Row(
-                          children: [
-                            Icon(Icons.calendar_today, size: 20, color: colorScheme.onSurface.withValues(alpha: 0.7)),
-                            const SizedBox(width: 12),
-                            Text(
-                              endDate != null
-                                  ? '${endDate!.year}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')}'
-                                  : '날짜 선택',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: endDate != null
-                                    ? colorScheme.onSurface
-                                    : colorScheme.onSurface.withValues(alpha: 0.5),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.calendar_today,
+                                size: 20,
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.7,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: Text(
-                            '취소',
-                            style: TextStyle(color: colorScheme.onSurface),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: GlassButton(
-                            text: '추가',
-                            onPressed: () {
-                              if (titleController.text.trim().isNotEmpty) {
-                                final projectProvider = context.read<ProjectProvider>();
-                                final currentProjectId = projectProvider.currentProject?.id;
-                                final authProvider = context.read<AuthProvider>();
-                                final currentUserId = authProvider.currentUser?.id;
-                                if (currentProjectId != null && currentUserId != null) {
-                                  context.read<TaskProvider>().createTask(
-                                        title: titleController.text.trim(),
-                                        description: '',
-                                        status: selectedStatus,
-                                        projectId: currentProjectId,
-                                        startDate: startDate,
-                                        endDate: endDate,
-                                        priority: selectedPriority,
-                                        assignedMemberIds: [currentUserId],
-                                      );
-                                }
-                                Navigator.of(context).pop();
-                              }
-                            },
-                            gradientColors: [
-                              colorScheme.primary.withValues(alpha: 0.5),
-                              colorScheme.primary.withValues(alpha: 0.4),
+                              const SizedBox(width: 12),
+                              Text(
+                                startDate != null
+                                    ? '${startDate!.year}-${startDate!.month.toString().padLeft(2, '0')}-${startDate!.day.toString().padLeft(2, '0')}'
+                                    : '날짜 선택',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: startDate != null
+                                      ? colorScheme.onSurface
+                                      : colorScheme.onSurface.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 16),
+                      // 종료일
+                      Text(
+                        '종료일',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: pickDateRange,
+                        child: GlassContainer(
+                          padding: const EdgeInsets.all(16),
+                          borderRadius: 12.0,
+                          blur: 20.0,
+                          gradientColors: [
+                            colorScheme.surface.withValues(alpha: 0.3),
+                            colorScheme.surface.withValues(alpha: 0.2),
+                          ],
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.calendar_today,
+                                size: 20,
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.7,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                endDate != null
+                                    ? '${endDate!.year}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')}'
+                                    : '날짜 선택',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: endDate != null
+                                      ? colorScheme.onSurface
+                                      : colorScheme.onSurface.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: Text(
+                              '취소',
+                              style: TextStyle(color: colorScheme.onSurface),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: GlassButton(
+                              text: '추가',
+                              onPressed: () {
+                                if (titleController.text.trim().isNotEmpty) {
+                                  final projectProvider = context
+                                      .read<ProjectProvider>();
+                                  final currentProjectId =
+                                      projectProvider.currentProject?.id;
+                                  final authProvider = context
+                                      .read<AuthProvider>();
+                                  final currentUserId =
+                                      authProvider.currentUser?.id;
+                                  if (currentProjectId != null &&
+                                      currentUserId != null) {
+                                    context.read<TaskProvider>().createTask(
+                                      title: titleController.text.trim(),
+                                      description: '',
+                                      status: selectedStatus,
+                                      projectId: currentProjectId,
+                                      startDate: startDate,
+                                      endDate: endDate,
+                                      priority: selectedPriority,
+                                      assignedMemberIds: [currentUserId],
+                                    );
+                                  }
+                                  Navigator.of(context).pop();
+                                }
+                              },
+                              gradientColors: [
+                                colorScheme.primary.withValues(alpha: 0.5),
+                                colorScheme.primary.withValues(alpha: 0.4),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -1125,7 +1179,11 @@ class _KanbanScreenState extends State<KanbanScreen> {
   }
 
   /// 태스크 상세 화면 표시
-  void _showTaskDetailScreen(BuildContext context, Task task, TaskProvider taskProvider) {
+  void _showTaskDetailScreen(
+    BuildContext context,
+    Task task,
+    TaskProvider taskProvider,
+  ) {
     showDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.2),
@@ -1148,7 +1206,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
           builder: (context, setState) {
             return Dialog(
               backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 24,
+              ),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(
                   maxWidth: 500,
@@ -1169,99 +1230,104 @@ class _KanbanScreenState extends State<KanbanScreen> {
                       children: [
                         Text(
                           '태스크 수정',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    GlassTextField(
-                      controller: titleController,
-                      labelText: '제목',
-                      prefixIcon: const Icon(Icons.title),
-                    ),
-                    const SizedBox(height: 16),
-                    GlassTextField(
-                      controller: descriptionController,
-                      labelText: '설명 (선택사항)',
-                      prefixIcon: const Icon(Icons.description),
-                      keyboardType: TextInputType.multiline,
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      '상태',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: TaskStatus.values.map((status) {
-                        return Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: ChoiceChip(
-                              label: Text(status.displayName),
-                              selected: selectedStatus == status,
-                              onSelected: (selected) {
-                                if (selected) {
-                                  setState(() {
-                                    selectedStatus = status;
-                                  });
-                                }
-                              },
-                              selectedColor: status.color.withValues(alpha: 0.3),
-                              labelStyle: TextStyle(
-                                color: selectedStatus == status
-                                    ? status.color
-                                    : colorScheme.onSurface,
-                                fontWeight: selectedStatus == status
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: Text(
-                            '취소',
-                            style: TextStyle(color: colorScheme.onSurface),
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: GlassButton(
-                            text: '저장',
-                            onPressed: () {
-                              if (titleController.text.trim().isNotEmpty) {
-                                context.read<TaskProvider>().updateTask(
+                        const SizedBox(height: 20),
+                        GlassTextField(
+                          controller: titleController,
+                          labelText: '제목',
+                          prefixIcon: const Icon(Icons.title),
+                        ),
+                        const SizedBox(height: 16),
+                        GlassTextField(
+                          controller: descriptionController,
+                          labelText: '설명 (선택사항)',
+                          prefixIcon: const Icon(Icons.description),
+                          keyboardType: TextInputType.multiline,
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          '상태',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: TaskStatus.values.map((status) {
+                            return Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                                child: ChoiceChip(
+                                  label: Text(status.displayName),
+                                  selected: selectedStatus == status,
+                                  onSelected: (selected) {
+                                    if (selected) {
+                                      setState(() {
+                                        selectedStatus = status;
+                                      });
+                                    }
+                                  },
+                                  selectedColor: status.color.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                  labelStyle: TextStyle(
+                                    color: selectedStatus == status
+                                        ? status.color
+                                        : colorScheme.onSurface,
+                                    fontWeight: selectedStatus == status
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: Text(
+                                '취소',
+                                style: TextStyle(color: colorScheme.onSurface),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: GlassButton(
+                                text: '저장',
+                                onPressed: () {
+                                  if (titleController.text.trim().isNotEmpty) {
+                                    context.read<TaskProvider>().updateTask(
                                       task.copyWith(
                                         title: titleController.text.trim(),
-                                        description: descriptionController.text.trim(),
+                                        description: descriptionController.text
+                                            .trim(),
                                         status: selectedStatus,
                                       ),
                                     );
-                                Navigator.of(context).pop();
-                              }
-                            },
-                            gradientColors: [
-                              colorScheme.primary.withValues(alpha: 0.5),
-                              colorScheme.primary.withValues(alpha: 0.4),
-                            ],
-                          ),
+                                    Navigator.of(context).pop();
+                                  }
+                                },
+                                gradientColors: [
+                                  colorScheme.primary.withValues(alpha: 0.5),
+                                  colorScheme.primary.withValues(alpha: 0.4),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
                       ],
                     ),
                   ),
@@ -1275,7 +1341,12 @@ class _KanbanScreenState extends State<KanbanScreen> {
   }
 
   /// 태스크 컨텍스트 메뉴 표시
-  void _showTaskContextMenu(BuildContext context, Task task, TaskProvider taskProvider, Offset position) {
+  void _showTaskContextMenu(
+    BuildContext context,
+    Task task,
+    TaskProvider taskProvider,
+    Offset position,
+  ) {
     final size = MediaQuery.of(context).size;
     final navContext = Navigator.of(context).context;
 
@@ -1292,11 +1363,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
           value: 'delete',
           child: Row(
             children: [
-              Icon(
-                Icons.delete_outline,
-                size: 20,
-                color: Colors.red,
-              ),
+              Icon(Icons.delete_outline, size: 20, color: Colors.red),
               const SizedBox(width: 12),
               Text(
                 '삭제',
@@ -1380,7 +1447,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
                         },
                         style: TextButton.styleFrom(
                           backgroundColor: Colors.red.withValues(alpha: 0.2),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                         ),
                         child: Text(
                           '삭제',

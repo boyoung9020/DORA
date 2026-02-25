@@ -37,7 +37,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _usersFuture = AuthService().getAllUsers();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TaskProvider>().loadTasks();
+      if (!mounted) return;
       _lastAiScopeKey = _currentAiScopeKey();
       _loadAISummary();
     });
@@ -46,26 +46,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // 대시보드는 전체 태스크를 표시하므로 user/workspace 변경 시에만 재로드
+    // ProjectProvider는 의존성으로 등록하지 않음 (프로젝트 전환마다 불필요한 재로드 방지)
     final workspaceId =
         Provider.of<WorkspaceProvider>(context).currentWorkspaceId ?? '';
     final userId = Provider.of<AuthProvider>(context).currentUser?.id ?? '';
-    final projectId =
-        Provider.of<ProjectProvider>(context).currentProject?.id ?? '';
-    final currentScopeKey = '$userId|$workspaceId';
-    final taskRefreshKey = '$userId|$workspaceId|$projectId';
+    final scopeKey = '$userId|$workspaceId';
 
-    if (_lastTaskRefreshKey == null || _lastTaskRefreshKey != taskRefreshKey) {
-      _lastTaskRefreshKey = taskRefreshKey;
-      context.read<TaskProvider>().loadTasks();
+    if (_lastTaskRefreshKey != scopeKey) {
+      _lastTaskRefreshKey = scopeKey;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.read<TaskProvider>().loadTasks();
+      });
     }
 
-    if (_lastAiScopeKey == null) {
-      _lastAiScopeKey = currentScopeKey;
-      return;
-    }
-    if (currentScopeKey != _lastAiScopeKey) {
-      _lastAiScopeKey = currentScopeKey;
-      context.read<TaskProvider>().loadTasks();
+    if (_lastAiScopeKey != null && _lastAiScopeKey != scopeKey) {
+      _lastAiScopeKey = scopeKey;
       _loadAISummary();
     }
   }

@@ -28,7 +28,13 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TaskProvider>().loadTasks();
+      if (!mounted) return;
+      final taskProvider = context.read<TaskProvider>();
+      // 태스크가 없을 때만 초기 로드 (이미 로드된 경우 레이스 컨디션 방지)
+      if (taskProvider.tasks.isEmpty) {
+        final projectId = context.read<ProjectProvider>().currentProject?.id;
+        taskProvider.loadTasks(projectId: projectId);
+      }
     });
   }
 

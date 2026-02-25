@@ -19,6 +19,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _selectedDate = DateTime.now();
   DateTime _currentMonth = DateTime.now();
   bool _isLocaleReady = false;
+  String? _lastLoadedProjectId;
 
   @override
   void initState() {
@@ -30,9 +31,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
         });
       }
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TaskProvider>().loadTasks();
-    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final projectId = context.read<ProjectProvider>().currentProject?.id;
+    if (_lastLoadedProjectId != projectId) {
+      _lastLoadedProjectId = projectId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.read<TaskProvider>().loadTasks(projectId: projectId);
+      });
+    }
   }
 
   @override

@@ -1132,6 +1132,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final projectProvider = Provider.of<ProjectProvider>(context);
     final currentProject = projectProvider.currentProject;
     final authProvider = Provider.of<AuthProvider>(context);
+    final taskProvider = context.read<TaskProvider>();
+    final sprintProvider = context.read<SprintProvider>();
 
     return Container(
       width: double.infinity,
@@ -1300,18 +1302,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
               return items;
             },
-            onSelected: (String value) {
+            onSelected: (String value) async {
               if (value == '__create_new__') {
                 _showCreateProjectDialog(context);
               } else {
-                projectProvider.setCurrentProject(value);
-                final selectedProjectId = projectProvider.currentProject?.id;
-                context.read<TaskProvider>().loadTasks(
-                  projectId: selectedProjectId,
-                );
-                context.read<SprintProvider>().loadSprints(
-                  projectId: selectedProjectId,
-                );
+                await projectProvider.setCurrentProject(value);
+                if (!mounted) return;
+                await taskProvider.loadTasks(projectId: value);
+                await sprintProvider.loadSprints(projectId: value);
               }
             },
           ),
@@ -2077,9 +2075,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                     // 팀원 추가 API 사용 (내부에서 이미 loadProjects 호출함)
                                     final added = await projectProvider
                                         .addTeamMember(
-                                      currentProject.id,
-                                      user.id,
-                                    );
+                                          currentProject.id,
+                                          user.id,
+                                        );
                                     if (!added) {
                                       if (context.mounted) {
                                         ScaffoldMessenger.of(
