@@ -8,6 +8,7 @@ import '../services/task_service.dart';
 class TaskProvider extends ChangeNotifier {
   final TaskService _taskService = TaskService();
   List<Task> _tasks = [];
+  List<Task> _allTasks = [];
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -15,6 +16,7 @@ class TaskProvider extends ChangeNotifier {
   final Map<String, List<void Function()>> _commentListeners = {};
 
   List<Task> get tasks => _tasks;
+  List<Task> get allTasks => _allTasks;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
@@ -89,6 +91,17 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
+  /// 대시보드용 전체 태스크 로드 (프로젝트 필터 없음)
+  Future<void> loadAllTasks() async {
+    try {
+      _allTasks = await _taskService.getAllTasks();
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = '전체 태스크를 불러오는 중 오류가 발생했습니다: $e';
+      notifyListeners();
+    }
+  }
+
   /// 새 태스크 생성
   Future<bool> createTask({
     required String title,
@@ -116,6 +129,7 @@ class TaskProvider extends ChangeNotifier {
         sprintId: sprintId,
       );
       _tasks.add(task);
+      _allTasks.add(task);
       notifyListeners();
       return true;
     } catch (e) {
@@ -130,6 +144,7 @@ class TaskProvider extends ChangeNotifier {
   Future<bool> updateTask(Task task, {String? userId, String? username}) async {
     try {
       final index = _tasks.indexWhere((t) => t.id == task.id);
+      final allIndex = _allTasks.indexWhere((t) => t.id == task.id);
 
       // 백엔드에 업데이트 요청 (히스토리는 백엔드에서 자동으로 추가됨)
       final updatedTask = await _taskService.updateTask(task);
@@ -137,12 +152,16 @@ class TaskProvider extends ChangeNotifier {
       if (index != -1) {
         // 백엔드에서 반환된 히스토리를 포함한 태스크로 업데이트
         _tasks[index] = updatedTask;
-        notifyListeners();
       } else {
         // 태스크가 목록에 없으면 추가
         _tasks.add(updatedTask);
-        notifyListeners();
       }
+      if (allIndex != -1) {
+        _allTasks[allIndex] = updatedTask;
+      } else {
+        _allTasks.add(updatedTask);
+      }
+      notifyListeners();
       return true;
     } catch (e) {
       _errorMessage = '태스크 업데이트 중 오류가 발생했습니다: $e';
@@ -156,6 +175,7 @@ class TaskProvider extends ChangeNotifier {
     try {
       await _taskService.deleteTask(taskId);
       _tasks.removeWhere((task) => task.id == taskId);
+      _allTasks.removeWhere((task) => task.id == taskId);
       notifyListeners();
       return true;
     } catch (e) {
@@ -172,8 +192,12 @@ class TaskProvider extends ChangeNotifier {
       // 로컬 리스트에서도 displayOrder 업데이트
       for (int i = 0; i < taskIds.length; i++) {
         final index = _tasks.indexWhere((t) => t.id == taskIds[i]);
+        final allIndex = _allTasks.indexWhere((t) => t.id == taskIds[i]);
         if (index != -1) {
           _tasks[index] = _tasks[index].copyWith(displayOrder: i);
+        }
+        if (allIndex != -1) {
+          _allTasks[allIndex] = _allTasks[allIndex].copyWith(displayOrder: i);
         }
       }
       notifyListeners();
@@ -201,15 +225,20 @@ class TaskProvider extends ChangeNotifier {
       );
 
       final index = _tasks.indexWhere((t) => t.id == taskId);
+      final allIndex = _allTasks.indexWhere((t) => t.id == taskId);
       if (index != -1) {
         // 백엔드에서 반환된 히스토리를 포함한 태스크로 업데이트
         _tasks[index] = updatedTask;
-        notifyListeners();
       } else {
         // 태스크가 목록에 없으면 추가
         _tasks.add(updatedTask);
-        notifyListeners();
       }
+      if (allIndex != -1) {
+        _allTasks[allIndex] = updatedTask;
+      } else {
+        _allTasks.add(updatedTask);
+      }
+      notifyListeners();
       return true;
     } catch (e) {
       _errorMessage = '태스크 상태 변경 중 오류가 발생했습니다: $e';

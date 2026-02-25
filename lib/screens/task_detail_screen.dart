@@ -1537,7 +1537,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                                     Text(
                                                       _startDate != null
                                                           ? '${_startDate!.year}-${_startDate!.month.toString().padLeft(2, '0')}-${_startDate!.day.toString().padLeft(2, '0')}'
-                                                          : '?醫롮? ?醫뤾문',
+                                                          : '날짜 미설정',
                                                       style: TextStyle(
                                                         fontSize: 14,
                                                         color:
@@ -1607,7 +1607,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                                     Text(
                                                       _endDate != null
                                                           ? '${_endDate!.year}-${_endDate!.month.toString().padLeft(2, '0')}-${_endDate!.day.toString().padLeft(2, '0')}'
-                                                          : '?醫롮? ?醫뤾문',
+                                                          : '날짜 미설정',
                                                       style: TextStyle(
                                                         fontSize: 14,
                                                         color: _endDate != null

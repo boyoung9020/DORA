@@ -56,7 +56,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_lastTaskRefreshKey != scopeKey) {
       _lastTaskRefreshKey = scopeKey;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) context.read<TaskProvider>().loadTasks();
+        if (mounted) context.read<TaskProvider>().loadAllTasks();
       });
     }
 
@@ -382,7 +382,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final user = authProvider.currentUser;
     final allProjects = projectProvider.projects;
-    final allTasks = taskProvider.tasks;
+    final allTasks = taskProvider.allTasks;
     final statusCounts = _getStatusCounts(allTasks);
     final totalTaskCount = allTasks.length;
 
@@ -2103,9 +2103,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         minHeight: 6,
                                         backgroundColor: colorScheme.primary
                                             .withValues(alpha: 0.12),
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          project.color,
-                                        ),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              project.color,
+                                            ),
                                       ),
                                     ),
                                   ],
@@ -2278,8 +2279,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required ColorScheme colorScheme,
     required List<Task> allTasks,
   }) {
-    final currentProject =
-        Provider.of<ProjectProvider>(context).currentProject;
+    final currentProject = Provider.of<ProjectProvider>(context).currentProject;
 
     final projectColor = currentProject?.color ?? colorScheme.primary;
 
@@ -2345,8 +2345,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 14,
-                            color:
-                                colorScheme.onSurface.withValues(alpha: 0.6),
+                            color: colorScheme.onSurface.withValues(alpha: 0.6),
                           ),
                         ),
                       ],
@@ -2356,8 +2355,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     future: _usersFuture,
                     builder: (context, snapshot) {
                       if (!snapshot.hasData) {
-                        return const Center(
-                            child: CircularProgressIndicator());
+                        return const Center(child: CircularProgressIndicator());
                       }
                       final users = snapshot.data!;
                       final projectTasks = allTasks
@@ -2373,8 +2371,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Icon(
                                 Icons.person_off_outlined,
                                 size: 40,
-                                color: colorScheme.onSurface
-                                    .withValues(alpha: 0.4),
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.4,
+                                ),
                               ),
                               const SizedBox(height: 10),
                               Text(
@@ -2382,8 +2381,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: colorScheme.onSurface
-                                      .withValues(alpha: 0.6),
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
                                 ),
                               ),
                             ],
@@ -2394,18 +2394,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       final maxCount = workload.first.value;
                       return ListView.separated(
                         itemCount: workload.length,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(height: 12),
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
                         itemBuilder: (context, index) {
                           final entry = workload[index];
-                          final ratio =
-                              maxCount == 0 ? 0.0 : entry.value / maxCount;
+                          final ratio = maxCount == 0
+                              ? 0.0
+                              : entry.value / maxCount;
                           return Row(
                             children: [
                               CircleAvatar(
                                 radius: 14,
-                                backgroundColor:
-                                    AvatarColor.getColorForUser(entry.key),
+                                backgroundColor: AvatarColor.getColorForUser(
+                                  entry.key,
+                                ),
                                 child: Text(
                                   AvatarColor.getInitial(entry.key),
                                   style: const TextStyle(
@@ -2418,8 +2419,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
                                       children: [
@@ -2451,12 +2451,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       child: LinearProgressIndicator(
                                         value: ratio,
                                         minHeight: 6,
-                                        backgroundColor:
-                                            currentProject.color.withValues(
-                                                alpha: 0.15),
+                                        backgroundColor: currentProject.color
+                                            .withValues(alpha: 0.15),
                                         valueColor:
                                             AlwaysStoppedAnimation<Color>(
-                                                currentProject.color),
+                                              currentProject.color,
+                                            ),
                                       ),
                                     ),
                                   ],

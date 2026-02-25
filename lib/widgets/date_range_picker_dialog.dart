@@ -104,10 +104,7 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: 500,
-          maxHeight: 640,
-        ),
+        constraints: const BoxConstraints(maxWidth: 500, maxHeight: 640),
         child: GlassContainer(
           padding: const EdgeInsets.all(24),
           borderRadius: 20.0,
@@ -186,7 +183,7 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
   Widget _buildCalendarNavigation(ColorScheme colorScheme) {
     return Row(
       children: [
-      Text(
+        Text(
           '${_visibleMonth.year}년 ${_visibleMonth.month}월',
           style: TextStyle(
             fontSize: 20,
@@ -210,7 +207,7 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
   }
 
   Widget _buildWeekdayHeader(ColorScheme colorScheme) {
-    const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
     return Row(
       children: List.generate(7, (index) {
         return Expanded(
@@ -220,7 +217,9 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: colorScheme.onSurface.withValues(alpha: 0.7),
+                color: index == 0
+                    ? const Color(0xFFEF5350)
+                    : colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
           ),
@@ -231,11 +230,16 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
 
   Widget _buildCalendarGrid(ColorScheme colorScheme) {
     final today = DateTime.now();
-    final firstDayOfMonth = DateTime(_visibleMonth.year, _visibleMonth.month, 1);
+    final firstDayOfMonth = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month,
+      1,
+    );
     final firstWeekday = firstDayOfMonth.weekday; // Monday=1 ... Sunday=7
-    final leadingDays = (firstWeekday + 6) % 7; // shift so Monday starts column
-    final firstVisibleDay =
-        firstDayOfMonth.subtract(Duration(days: leadingDays));
+    final leadingDays = firstWeekday % 7; // Sunday starts column (Sun=0)
+    final firstVisibleDay = firstDayOfMonth.subtract(
+      Duration(days: leadingDays),
+    );
     final days = List.generate(
       42,
       (index) => firstVisibleDay.add(Duration(days: index)),
@@ -253,14 +257,17 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
         final date = days[index];
         final isCurrentMonth = date.month == _visibleMonth.month;
         final isToday = _isSameDay(date, today);
-        final isDisabled = !isCurrentMonth ||
+        final isSunday = date.weekday == DateTime.sunday;
+        final isDisabled =
+            !isCurrentMonth ||
             date.isBefore(widget.minDate) ||
             date.isAfter(widget.maxDate);
         final isSelectedStart =
             _selectedStartDate != null && _isSameDay(date, _selectedStartDate!);
         final isSelectedEnd =
             _selectedEndDate != null && _isSameDay(date, _selectedEndDate!);
-        final isRange = _selectedStartDate != null &&
+        final isRange =
+            _selectedStartDate != null &&
             _selectedEndDate != null &&
             date.isAfter(_selectedStartDate!) &&
             date.isBefore(_selectedEndDate!);
@@ -268,10 +275,12 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
         final textColor = isSelectedStart || isSelectedEnd
             ? Colors.white
             : isDisabled
-                ? colorScheme.onSurface.withValues(alpha: 0.25)
-                : colorScheme.onSurface.withValues(alpha: 
-                    isCurrentMonth ? 0.9 : 0.4,
-                  );
+            ? colorScheme.onSurface.withValues(alpha: 0.25)
+            : isSunday && isCurrentMonth
+            ? const Color(0xFFEF5350)
+            : colorScheme.onSurface.withValues(
+                alpha: isCurrentMonth ? 0.9 : 0.4,
+              );
 
         return GestureDetector(
           onTap: isDisabled ? null : () => _handleDateTap(date),
@@ -284,8 +293,8 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
                     child: Container(
                       margin: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
-                        color: colorScheme.primary.withValues(alpha: 
-                          isRange ? 0.15 : 0.2,
+                        color: colorScheme.primary.withValues(
+                          alpha: isRange ? 0.15 : 0.2,
                         ),
                         borderRadius: BorderRadius.horizontal(
                           left: isSelectedStart && !isSelectedEnd
@@ -435,4 +444,3 @@ class _SelectionChip extends StatelessWidget {
     );
   }
 }
-

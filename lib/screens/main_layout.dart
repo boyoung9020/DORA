@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -1464,6 +1465,15 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       context,
       listen: false,
     );
+    const projectColorPalette = [
+      Color(0xFFEC407A), // Pink
+      Color(0xFF26C6DA), // Cyan
+      Color(0xFF26A69A), // Teal
+      Color(0xFFFF7043), // Deep Orange
+      Color(0xFF8D6E63), // Brown
+      Color(0xFF5C6BC0), // Indigo
+      Color(0xFFEF5350), // Red
+    ];
     final nameController = TextEditingController();
     Future<void> submitCreateProject(BuildContext dialogContext) async {
       if (nameController.text.trim().isEmpty) return;
@@ -1471,9 +1481,18 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         dialogContext,
         listen: false,
       );
+      final usedColors = projectProvider.projects
+          .map((project) => project.color.value)
+          .toSet();
+      final available = projectColorPalette
+          .where((color) => !usedColors.contains(color.value))
+          .toList();
+      final palette = available.isNotEmpty ? available : projectColorPalette;
+      final randomColor = palette[Random().nextInt(palette.length)];
       final success = await projectProvider.createProject(
         name: nameController.text.trim(),
         workspaceId: wsProvider.currentWorkspaceId,
+        color: randomColor,
       );
       if (dialogContext.mounted) {
         if (success) {

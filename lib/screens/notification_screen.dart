@@ -106,25 +106,27 @@ class _NotificationScreenState extends State<NotificationScreen> {
           Icon(icon, size: 14, color: iconColor),
           const SizedBox(width: 6),
           Text(label, style: TextStyle(fontSize: 12, color: textColor)),
-          const SizedBox(width: 6),
-          Container(
-            constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: const BoxDecoration(
-              color: Color(0xFFEF4444),
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              '$count',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                height: 1.0,
+          if (count > 0) ...[
+            const SizedBox(width: 6),
+            Container(
+              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: const BoxDecoration(
+                color: Color(0xFFEF4444),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '$count',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  height: 1.0,
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
       selectedColor: colorScheme.primary,
@@ -299,7 +301,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final notificationProvider = context.watch<NotificationProvider>();
     final authProvider = context.watch<AuthProvider>();
-    final notifications = notificationProvider.notifications;
+    final notifications = notificationProvider.unreadNotifications;
     final totalCount = notifications.length;
     final taskAssignedCount = notifications
         .where((n) => n.type == app_notification.NotificationType.taskAssigned)
