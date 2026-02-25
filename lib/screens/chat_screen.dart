@@ -56,6 +56,7 @@ class _ChatScreenState extends State<ChatScreen> {
   double? _hoverToolbarTop;
   bool _isHoveringToolbar = false;
   bool _isEmojiPickerOpen = false;
+  bool _isHoveringMessageMenu = false;
   static const List<String> _reactionPresets = [
     '✅',
     '👍',
@@ -182,6 +183,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _hoverToolbarMessage = null;
         _hoverToolbarTop = null;
         _isHoveringToolbar = false;
+        _isHoveringMessageMenu = false;
       });
     }
 
@@ -221,7 +223,10 @@ class _ChatScreenState extends State<ChatScreen> {
   void _scheduleHideHoverToolbar() {
     Future.delayed(const Duration(milliseconds: 80), () {
       if (!mounted) return;
-      if (_hoveredMessageId != null || _isHoveringToolbar || _isEmojiPickerOpen) {
+      if (_hoveredMessageId != null ||
+          _isHoveringToolbar ||
+          _isEmojiPickerOpen ||
+          _isHoveringMessageMenu) {
         return;
       }
       setState(() {
@@ -637,9 +642,16 @@ class _ChatScreenState extends State<ChatScreen> {
               color: colorScheme.onSurface.withValues(alpha: 0.45),
             ),
             tooltip: '메시지 옵션',
+            onOpened: () => setState(() => _isHoveringMessageMenu = true),
+            onCanceled: () {
+              setState(() => _isHoveringMessageMenu = false);
+              _scheduleHideHoverToolbar();
+            },
             onSelected: (value) {
+              setState(() => _isHoveringMessageMenu = false);
               if (value == 'edit') _startEditMessage(message);
               if (value == 'delete') _deleteMessage(message);
+              _scheduleHideHoverToolbar();
             },
             itemBuilder: (context) => [
               if (canEdit)
@@ -1254,17 +1266,50 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        user.username,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: unreadCount > 0
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: colorScheme.onSurface,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              user.username,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: unreadCount > 0
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: colorScheme.onSurface,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (unreadCount > 0) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              constraints: const BoxConstraints(
+                                minWidth: 18,
+                                minHeight: 18,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1,
+                              ),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFEF4444),
+                                shape: BoxShape.circle,
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                unreadCount > 99 ? '99+' : '$unreadCount',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  height: 1.0,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       if (room?.lastMessageContent != null &&
                           room!.lastMessageContent!.trim().isNotEmpty) ...[
@@ -1293,27 +1338,6 @@ class _ChatScreenState extends State<ChatScreen> {
                           color: colorScheme.onSurface.withValues(alpha: 0.4),
                         ),
                       ),
-                    if (unreadCount > 0) ...[
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '$unreadCount',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ],

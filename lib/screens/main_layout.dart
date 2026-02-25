@@ -289,18 +289,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       case 'chat_message_sent':
         final chatProvider = Provider.of<ChatProvider>(context, listen: false);
         chatProvider.handleIncomingMessage(data);
-
-        final senderUsername = data['sender_username'] as String?;
-        final content = data['content'] as String?;
-        if (senderUsername != null && content != null) {
-          _showInAppToast(
-            title: '$senderUsername님의 메시지',
-            message: content.length > 50
-                ? '${content.substring(0, 50)}...'
-                : content,
-            type: models.NotificationType.taskCommentAdded,
-          );
-        }
         break;
 
       case 'chat_message_updated':
@@ -344,6 +332,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     required String message,
     required models.NotificationType type,
     String? taskId,
+    bool showViewAction = true,
   }) {
     if (!mounted) return;
 
@@ -425,20 +414,24 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
         duration: const Duration(seconds: 4),
-        action: SnackBarAction(
-          label: '보기',
-          textColor: accentColor,
-          onPressed: () {
-            // 알림 화면으로 이동
-            final notifIndex = _menuItems.indexWhere((m) => m.label == '알림');
-            if (notifIndex != -1) {
-              setState(() {
-                _selectedIndex = notifIndex;
-              });
-              unawaited(_saveSelectedMenuIndex());
-            }
-          },
-        ),
+        action: showViewAction
+            ? SnackBarAction(
+                label: '보기',
+                textColor: accentColor,
+                onPressed: () {
+                  // 알림 화면으로 이동
+                  final notifIndex = _menuItems.indexWhere(
+                    (m) => m.label == '알림',
+                  );
+                  if (notifIndex != -1) {
+                    setState(() {
+                      _selectedIndex = notifIndex;
+                    });
+                    unawaited(_saveSelectedMenuIndex());
+                  }
+                },
+              )
+            : null,
       ),
     );
   }
