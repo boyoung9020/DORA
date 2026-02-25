@@ -24,6 +24,8 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   Future<List<User>>? _usersFuture;
+  final PageController _projectProgressPageController = PageController();
+  int _projectProgressPage = 0;
   final AiService _aiService = AiService();
   String? _aiSummary;
   bool _aiLoading = false;
@@ -41,6 +43,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _lastAiScopeKey = _currentAiScopeKey();
       _loadAISummary();
     });
+  }
+
+  @override
+  void dispose() {
+    _projectProgressPageController.dispose();
+    super.dispose();
   }
 
   @override
@@ -1953,40 +1961,123 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                return GridView.builder(
-                  itemCount: allProjects.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisExtent: 160,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                  ),
-                  itemBuilder: (context, index) {
-                    final project = allProjects[index];
-                    final progress = _calculateProgress(project, allTasks);
-                    final taskCount = taskCountsByProject[project.id] ?? 0;
-                    final doneCount = allTasks
-                        .where(
-                          (task) =>
-                              task.projectId == project.id &&
-                              task.status == TaskStatus.done,
-                        )
-                        .length;
-                    final memberProgress = _getMemberProgressByProject(
-                      projectId: project.id,
-                      allTasks: allTasks,
-                      users: users,
-                    );
+                const pageSize = 4;
+                final totalPages = (allProjects.length / pageSize).ceil();
 
-                    return _buildProjectProgressCard(
-                      colorScheme: colorScheme,
-                      project: project,
-                      progress: progress,
-                      taskCount: taskCount,
-                      doneCount: doneCount,
-                      memberProgress: memberProgress,
-                    );
-                  },
+                if (totalPages > 0 && _projectProgressPage >= totalPages) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    final targetPage = totalPages - 1;
+                    setState(() => _projectProgressPage = targetPage);
+                    _projectProgressPageController.jumpToPage(targetPage);
+                  });
+                }
+
+                return Stack(
+                  children: [
+                    PageView.builder(
+                      controller: _projectProgressPageController,
+                      onPageChanged: (page) {
+                        if (_projectProgressPage != page) {
+                          setState(() => _projectProgressPage = page);
+                        }
+                      },
+                      itemCount: totalPages,
+                      itemBuilder: (context, pageIndex) {
+                        final start = pageIndex * pageSize;
+                        final end = (start + pageSize > allProjects.length)
+                            ? allProjects.length
+                            : start + pageSize;
+                        final pageProjects = allProjects.sublist(start, end);
+
+                        return GridView.builder(
+                          padding: EdgeInsets.only(
+                            right:
+                                (totalPages > 1 && pageIndex < totalPages - 1)
+                                ? 44
+                                : 0,
+                          ),
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: pageProjects.length,
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                mainAxisExtent: 160,
+                                mainAxisSpacing: 12,
+                                crossAxisSpacing: 12,
+                              ),
+                          itemBuilder: (context, index) {
+                            final project = pageProjects[index];
+                            final progress = _calculateProgress(project, allTasks);
+                            final taskCount = taskCountsByProject[project.id] ?? 0;
+                            final doneCount = allTasks
+                                .where(
+                                  (task) =>
+                                      task.projectId == project.id &&
+                                      task.status == TaskStatus.done,
+                                )
+                                .length;
+                            final memberProgress = _getMemberProgressByProject(
+                              projectId: project.id,
+                              allTasks: allTasks,
+                              users: users,
+                            );
+
+                            return _buildProjectProgressCard(
+                              colorScheme: colorScheme,
+                              project: project,
+                              progress: progress,
+                              taskCount: taskCount,
+                              doneCount: doneCount,
+                              memberProgress: memberProgress,
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    if (totalPages > 1 && _projectProgressPage < totalPages - 1)
+                      Positioned(
+                        right: 2,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(999),
+                              onTap: () {
+                                _projectProgressPageController.nextPage(
+                                  duration: const Duration(milliseconds: 220),
+                                  curve: Curves.easeOutCubic,
+                                );
+                              },
+                              child: Container(
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surface.withValues(
+                                    alpha: 0.92,
+                                  ),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: colorScheme.outline.withValues(
+                                      alpha: 0.25,
+                                    ),
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 22,
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.8,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 );
               },
             ),

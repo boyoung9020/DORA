@@ -875,10 +875,27 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     String commentId,
     Map<String, List<String>> reactions,
   ) {
-    final index = _comments.indexWhere((c) => c.id == commentId);
-    if (index == -1) return;
     setState(() {
-      _comments[index] = _comments[index].copyWith(reactions: reactions);
+      final index = _comments.indexWhere((c) => c.id == commentId);
+      if (index != -1) {
+        _comments[index] = _comments[index].copyWith(reactions: reactions);
+      }
+
+      if (_timelineItems != null) {
+        _timelineItems = _timelineItems!.map((item) {
+          if (item.type == TimelineItemType.comment) {
+            final itemComment = item.data as Comment;
+            if (itemComment.id == commentId) {
+              return TimelineItem(
+                type: item.type,
+                date: item.date,
+                data: itemComment.copyWith(reactions: reactions),
+              );
+            }
+          }
+          return item;
+        }).toList();
+      }
     });
   }
 
