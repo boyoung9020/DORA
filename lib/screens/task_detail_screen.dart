@@ -33,11 +33,7 @@ class _SubmitCommentIntent extends Intent {
 }
 
 /// ???袁⑥뵬???袁⑹뵠??????
-enum TimelineItemType {
-  history,
-  comment,
-  detail,
-}
+enum TimelineItemType { history, comment, detail }
 
 /// ???袁⑥뵬???袁⑹뵠???怨쀬뵠???????
 class TimelineItem {
@@ -45,11 +41,7 @@ class TimelineItem {
   final DateTime date;
   final dynamic data; // HistoryEvent ?癒?뮉 Comment
 
-  TimelineItem({
-    required this.type,
-    required this.date,
-    required this.data,
-  });
+  TimelineItem({required this.type, required this.date, required this.data});
 }
 
 /// ??됰뮞?醫듼봺 ??源???怨쀬뵠???????
@@ -71,10 +63,7 @@ class HistoryEvent {
 class TaskDetailScreen extends StatefulWidget {
   final Task task;
 
-  const TaskDetailScreen({
-    super.key,
-    required this.task,
-  });
+  const TaskDetailScreen({super.key, required this.task});
 
   @override
   State<TaskDetailScreen> createState() => _TaskDetailScreenState();
@@ -91,6 +80,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   DateTime? _endDate;
   bool _isEditing = false;
   bool _isTitleEditing = false;
+  bool _isTitleHovering = false;
   final FocusNode _titleFocusNode = FocusNode();
   final CommentService _commentService = CommentService();
   final UploadService _uploadService = UploadService();
@@ -100,16 +90,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   bool _isCommentDropHover = false;
   List<Comment> _comments = [];
   bool _isLoadingComments = false;
-  List<TimelineItem>? _timelineItems;  // ???袁⑥뵬???袁⑹뵠??筌?Ŋ??
-  String? _editingCommentId;  // ?紐꾩춿 餓λ쵐???꾨뗀李??ID
-  late TextEditingController _editCommentController;  // ?紐꾩춿???뚢뫂?껅에?살쑎
-  List<XFile> _selectedCommentImages = [];  // ?蹂????醫뤾문?????筌왖 (???怨쀫뮞?????⑤벏??
-  List<XFile> _selectedDetailImages = [];    // ?怨멸쉭 ??곸뒠???醫뤾문?????筌왖
-  List<String> _uploadedCommentImageUrls = [];  // ??낆쨮??뺣쭆 ?蹂? ???筌왖 URL
-  List<String> _uploadedDetailImageUrls = [];   // ??낆쨮??뺣쭆 ?怨멸쉭 ??곸뒠 ???筌왖 URL
-  List<User>? _assignedMembers;  // ?醫딅뼣??????筌?Ŋ??
-  bool _isInitialLoad = true;  // ?λ뜃由?嚥≪뮆諭????
-  List<String>? _lastAssignedMemberIds;  // ??곸읈 ?醫딅뼣??????ID (??녿┛???類ㅼ뵥??
+  List<TimelineItem>? _timelineItems; // ???袁⑥뵬???袁⑹뵠??筌?Ŋ??
+  String? _editingCommentId; // ?紐꾩춿 餓λ쵐???꾨뗀李??ID
+  late TextEditingController _editCommentController; // ?紐꾩춿???뚢뫂?껅에?살쑎
+  List<XFile> _selectedCommentImages =
+      []; // ?蹂????醫뤾문?????筌왖 (???怨쀫뮞?????⑤벏??
+  List<XFile> _selectedDetailImages = []; // ?怨멸쉭 ??곸뒠???醫뤾문?????筌왖
+  List<String> _uploadedCommentImageUrls = []; // ??낆쨮??뺣쭆 ?蹂? ???筌왖 URL
+  List<String> _uploadedDetailImageUrls = []; // ??낆쨮??뺣쭆 ?怨멸쉭 ??곸뒠 ???筌왖 URL
+  List<User>? _assignedMembers; // ?醫딅뼣??????筌?Ŋ??
+  bool _isInitialLoad = true; // ?λ뜃由?嚥≪뮆諭????
+  List<String>? _lastAssignedMemberIds; // ??곸읈 ?醫딅뼣??????ID (??녿┛???類ㅼ뵥??
   List<User> _mentionCandidates = [];
   List<User> _filteredMentionUsers = [];
   bool _showMentionSuggestions = false;
@@ -120,7 +111,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.task.title);
-    _descriptionController = TextEditingController(text: widget.task.description);
+    _descriptionController = TextEditingController(
+      text: widget.task.description,
+    );
     _detailController = TextEditingController(text: widget.task.detail);
     _commentController = TextEditingController();
     _editCommentController = TextEditingController();
@@ -195,30 +188,31 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     setState(() {
       _isLoadingComments = true;
     });
-    
+
     try {
       // ?蹂????醫딅뼣?????癒?뱽 ??덈뻻??嚥≪뮆諭?
       final results = await Future.wait([
         _commentService.getCommentsByTaskId(widget.task.id),
         _loadAssignedMembersData(),
       ]);
-      
+
       final comments = results[0] as List<Comment>;
       final members = results[1] as List<User>?;
-      
+
       // ??甕곕뜄彛?setState ?紐꾪뀱
       setState(() {
         _comments = comments;
         _assignedMembers = members;
         _isLoadingComments = false;
       });
-      
+
       // ???袁⑥뵬???袁⑹뵠????낅쑓??꾨뱜 (setState??_loadTimelineItems ????癒?퐣 ?紐꾪뀱)
       await _loadTimelineItems();
       await _loadMentionCandidates();
-      
+
       // ?醫딅뼣??????筌뤴뫖以????쑴堉???筌???뽯뮞??肉??醫딅뼣?????癒?뵠 ??덈뼄筌???쇰뻻 嚥≪뮆諭?
-      if ((members == null || members.isEmpty) && widget.task.assignedMemberIds.isNotEmpty) {
+      if ((members == null || members.isEmpty) &&
+          widget.task.assignedMemberIds.isNotEmpty) {
         await _loadAssignedMembers();
       }
     } catch (e) {
@@ -234,7 +228,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       _isLoadingComments = true;
     });
     try {
-      final comments = await _commentService.getCommentsByTaskId(widget.task.id);
+      final comments = await _commentService.getCommentsByTaskId(
+        widget.task.id,
+      );
       setState(() {
         _comments = comments;
         _isLoadingComments = false;
@@ -249,7 +245,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       });
     }
   }
-  
+
   /// ?醫딅뼣???????怨쀬뵠??嚥≪뮆諭?(獄쏆꼹?싧첎???됱벉)
   Future<List<User>?> _loadAssignedMembersData() async {
     final taskProvider = context.read<TaskProvider>();
@@ -258,22 +254,26 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       (t) => t.id == widget.task.id,
       orElse: () => widget.task,
     );
-    
+
     // ?醫딅뼣?????癒?뵠 ??곸몵筌????귐딅뮞??獄쏆꼹??
     if (currentTask.assignedMemberIds.isEmpty) {
       return [];
     }
-    
+
     try {
       final authService = AuthService();
       final allUsers = await authService.getAllUsers();
-      final members = allUsers.where((user) => currentTask.assignedMemberIds.contains(user.id)).toList();
-      
+      final members = allUsers
+          .where((user) => currentTask.assignedMemberIds.contains(user.id))
+          .toList();
+
       // ?醫딅뼣??????ID揶쎛 ???筌?????癒? 筌≪뼚? 筌륁궢釉?野껋럩??????귐딅뮞??獄쏆꼹???? ??꾪?嚥≪뮄???곗뮆??
       if (members.isEmpty && currentTask.assignedMemberIds.isNotEmpty) {
-        print('[TaskDetailScreen] Assigned member IDs: ${currentTask.assignedMemberIds}, found users: ${members.length}');
+        print(
+          '[TaskDetailScreen] Assigned member IDs: ${currentTask.assignedMemberIds}, found users: ${members.length}',
+        );
       }
-      
+
       return members;
     } catch (e) {
       print('[TaskDetailScreen] ?醫딅뼣??????嚥≪뮆諭???쎈솭: $e');
@@ -413,9 +413,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  Widget _buildMentionRichText(String content, ColorScheme colorScheme) {
+  Widget _buildMentionRichText(
+    Comment comment,
+    String content,
+    ColorScheme colorScheme,
+  ) {
     // 실제 유저 목록에 있는 @mention만 링크로 변환해 파란색 표시
-    final knownUsernames = _mentionCandidates.map((u) => u.username.toLowerCase()).toSet();
+    final knownUsernames = _mentionCandidates
+        .map((u) => u.username.toLowerCase())
+        .toSet();
     final processed = _normalizeMarkdownNewlines(content).replaceAllMapped(
       RegExp(r'@([^\s@]+)'),
       (m) {
@@ -427,12 +433,38 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       },
     );
 
-    return MarkdownBody(
-      data: processed,
-      selectable: true,
-      softLineBreak: true,
-      onTapLink: (text, href, title) {},
-      styleSheet: _buildMarkdownStyleSheet(colorScheme),
+    return Builder(
+      builder: (context) {
+        int cbIdx = 0;
+        return MarkdownBody(
+          data: _addCheckboxStrikethrough(processed),
+          selectable: true,
+          softLineBreak: true,
+          onTapLink: (text, href, title) {},
+          checkboxBuilder: (bool value) {
+            final idx = cbIdx++;
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _onCommentCheckboxTap(comment, idx, value),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4, top: 2),
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: Checkbox(
+                    value: value,
+                    onChanged: null,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    side: BorderSide(color: colorScheme.primary),
+                    activeColor: colorScheme.primary,
+                  ),
+                ),
+              ),
+            );
+          },
+          styleSheet: _buildMarkdownStyleSheet(colorScheme),
+        );
+      },
     );
   }
 
@@ -443,26 +475,26 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       (t) => t.id == widget.task.id,
       orElse: () => widget.task,
     );
-    
+
     // ?λ뜃由?嚥≪뮆諭???뽯퓠????쎄쾿嚥▲끉??筌??袁⑥쨮 ?醫???곷튊 ???嚥????館釉?쭪? ??놁벉
     double? savedScrollPosition;
     final bool hadClients = _timelineScrollController.hasClients;
     if (!scrollToBottom && hadClients && !_isInitialLoad) {
       savedScrollPosition = _timelineScrollController.offset;
     }
-    
-      final timelineItems = _buildTimelineItems(currentTask);
-    
+
+    final timelineItems = _buildTimelineItems(currentTask);
+
     if (mounted) {
       // setState???紐꾪뀱??띾┛ ?袁⑸퓠 ??쎄쾿嚥??袁⑺뒄??沃섎챶??????
-      final maxScrollBefore = hadClients 
-          ? _timelineScrollController.position.maxScrollExtent 
+      final maxScrollBefore = hadClients
+          ? _timelineScrollController.position.maxScrollExtent
           : 0.0;
-      
+
       setState(() {
         _timelineItems = timelineItems;
       });
-      
+
       // setState ????쎄쾿嚥??袁⑺뒄 癰귣벊???癒?뮉 筌??袁⑥삋嚥???猷?
       if (scrollToBottom) {
         // ?꾨뗀李???곕떽? ??筌??袁⑥삋嚥???猷?- ????甕???뺣즲??뤿연 ?類ㅻ뼄??띿쓺
@@ -474,11 +506,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       } else if (savedScrollPosition != null && !_isInitialLoad) {
         // ???貫留??袁⑺뒄嚥?癰귣벊??(?λ뜃由?嚥≪뮆諭뜹첎? ?袁⑤빜 ???춸)
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
-          final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
+          if (!mounted ||
+              !_timelineScrollController.hasClients ||
+              _isInitialLoad)
+            return;
+          final maxScrollAfter =
+              _timelineScrollController.position.maxScrollExtent;
           final scrollDelta = maxScrollAfter - maxScrollBefore;
           final adjustedPosition = savedScrollPosition! + scrollDelta;
-          
+
           _timelineScrollController.jumpTo(
             adjustedPosition.clamp(0.0, maxScrollAfter),
           );
@@ -493,23 +529,35 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         });
         // ?곕떽? ??뺣즲: ??됱뵠?袁⑹뜍 ?袁⑥┷ ????쇰뻻 ?類ㅼ뵥
         Future.delayed(const Duration(milliseconds: 50), () {
-          if (!mounted || !_timelineScrollController.hasClients || !_isInitialLoad) return;
+          if (!mounted ||
+              !_timelineScrollController.hasClients ||
+              !_isInitialLoad)
+            return;
           _timelineScrollController.jumpTo(0.0);
         });
         Future.delayed(const Duration(milliseconds: 150), () {
-          if (!mounted || !_timelineScrollController.hasClients || !_isInitialLoad) return;
+          if (!mounted ||
+              !_timelineScrollController.hasClients ||
+              !_isInitialLoad)
+            return;
           if (_timelineScrollController.offset > 0) {
             _timelineScrollController.jumpTo(0.0);
           }
         });
         Future.delayed(const Duration(milliseconds: 300), () {
-          if (!mounted || !_timelineScrollController.hasClients || !_isInitialLoad) return;
+          if (!mounted ||
+              !_timelineScrollController.hasClients ||
+              !_isInitialLoad)
+            return;
           if (_timelineScrollController.offset > 0) {
             _timelineScrollController.jumpTo(0.0);
           }
         });
         Future.delayed(const Duration(milliseconds: 500), () {
-          if (!mounted || !_timelineScrollController.hasClients || !_isInitialLoad) return;
+          if (!mounted ||
+              !_timelineScrollController.hasClients ||
+              !_isInitialLoad)
+            return;
           if (_timelineScrollController.offset > 0) {
             _timelineScrollController.jumpTo(0.0);
           }
@@ -523,15 +571,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   /// 筌??袁⑥삋嚥???쎄쾿嚥?(????甕???뺣즲??뤿연 ?類ㅻ뼄??띿쓺)
   void _scrollToBottom() {
-    if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
-    
+    if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad)
+      return;
+
     // 筌앸맩????뺣즲
     final maxScroll = _timelineScrollController.position.maxScrollExtent;
     _timelineScrollController.jumpTo(maxScroll);
-    
+
     // ??꾩퍢??筌왖??????쇰뻻 ??뺣즲 (??됱뵠?袁⑹뜍???袁⑹읈???袁⑥┷????
     Future.delayed(const Duration(milliseconds: 100), () {
-      if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
+      if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad)
+        return;
       final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
       _timelineScrollController.animateTo(
         maxScrollAfter,
@@ -539,10 +589,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         curve: Curves.easeOut,
       );
     });
-    
+
     // ?곕떽? 筌왖??????甕?????뺣즲 (???筌왖 嚥≪뮆逾??源놁몵嚥??誘れ뵠揶쎛 癰궰野껋럥留?????됱벉)
     Future.delayed(const Duration(milliseconds: 300), () {
-      if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
+      if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad)
+        return;
       final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
       _timelineScrollController.jumpTo(maxScrollAfter);
     });
@@ -550,8 +601,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   /// ?봔??뺤쓦野?筌??袁⑥삋嚥???쎄쾿嚥?(燁삳똻萸??쎈꽊 ?????
   void _scrollToBottomSmooth() {
-    if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
-    
+    if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad)
+      return;
+
     // 筌앸맩????뺣즲 (??됱뵠?袁⑹뜍????? ?袁⑥┷??野껋럩??
     final maxScroll = _timelineScrollController.position.maxScrollExtent;
     if (maxScroll > 0) {
@@ -561,10 +613,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         curve: Curves.easeOutCubic,
       );
     }
-    
+
     // ??됱뵠?袁⑹뜍 ?袁⑥┷ ????쇰뻻 ??뺣즲
     Future.delayed(const Duration(milliseconds: 100), () {
-      if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
+      if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad)
+        return;
       final maxScrollAfter = _timelineScrollController.position.maxScrollExtent;
       if (maxScrollAfter > 0) {
         _timelineScrollController.animateTo(
@@ -574,10 +627,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         );
       }
     });
-    
+
     // ???筌왖 嚥≪뮆逾??源놁몵嚥??誘れ뵠揶쎛 癰궰野껋럥留?????됱몵沃샕嚥???甕?????뺣즲
     Future.delayed(const Duration(milliseconds: 400), () {
-      if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad) return;
+      if (!mounted || !_timelineScrollController.hasClients || _isInitialLoad)
+        return;
       final maxScrollFinal = _timelineScrollController.position.maxScrollExtent;
       if (maxScrollFinal > 0) {
         _timelineScrollController.jumpTo(maxScrollFinal);
@@ -629,21 +683,25 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   /// ?蹂? ?곕떽?
   Future<void> _addComment() async {
-    if (_commentController.text.trim().isEmpty && _selectedCommentImages.isEmpty) return;
+    if (_commentController.text.trim().isEmpty &&
+        _selectedCommentImages.isEmpty)
+      return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.currentUser == null) return;
 
     final user = authProvider.currentUser!;
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
-    
+
     try {
       // ???筌왖 ??낆쨮??
       List<String> imageUrls = [];
       if (_selectedCommentImages.isNotEmpty) {
-        imageUrls = await _uploadService.uploadImagesFromXFiles(_selectedCommentImages);
+        imageUrls = await _uploadService.uploadImagesFromXFiles(
+          _selectedCommentImages,
+        );
       }
-      
+
       final comment = await _commentService.createComment(
         taskId: widget.task.id,
         userId: user.id,
@@ -657,7 +715,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         (t) => t.id == widget.task.id,
         orElse: () => widget.task,
       );
-      
+
       // commentIds揶쎛 null??욧탢????롢걵??????놁뵥 野껋럩??몴?????
       List<String> updatedCommentIds;
       try {
@@ -666,10 +724,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         // commentIds揶쎛 null??욧탢????롢걵??????놁뵥 野껋럩?????귐딅뮞?紐껋쨮 ??뽰삂
         updatedCommentIds = [];
       }
-      
+
       updatedCommentIds.add(comment.id);
-      
-      
+
       await taskProvider.updateTask(
         currentTask.copyWith(
           commentIds: updatedCommentIds,
@@ -684,15 +741,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       _showMentionSuggestions = false;
       _filteredMentionUsers = [];
       _mentionStartIndex = -1;
-      
+
       // ???????낅쑓??꾨뱜: 筌앸맩??嚥≪뮇類??怨밴묶???蹂? ?곕떽? (燁삳똻萸??쎈꽊筌ｌ꼶???봔??뺤쓦野?
       setState(() {
         _comments.add(comment);
       });
-      
+
       // ???袁⑥뵬?紐꾨퓠 ???蹂?筌??봔??뺤쓦野??곕떽?
       await _addCommentToTimeline(comment);
-      
+
       // 獄쏄퉫???깆뒲??뽯퓠????뺤쒔 ??녿┛??(?????野껋?肉???怨밸샨 ??곸벉)
       _loadComments(updateTimeline: false).catchError((e) {
         // ??녿┛????쎈솭??猷???? 嚥≪뮇類???곕떽???뤿선 ??됱몵沃샕嚥??얜똻??
@@ -738,31 +795,65 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
 
     try {
-      final comment = _comments.firstWhere((c) => c.id == commentId);
-      final updatedComment = comment.copyWith(
-        content: _editCommentController.text.trim(),
-        updatedAt: DateTime.now(),
+      await _updateCommentContent(
+        commentId,
+        _editCommentController.text.trim(),
+        clearEditingState: true,
       );
-
-      await _commentService.updateComment(updatedComment);
-      
-      // 嚥≪뮇類??꾨뗀李???귐딅뮞????낅쑓??꾨뱜
-      final index = _comments.indexWhere((c) => c.id == commentId);
-      if (index != -1) {
-        setState(() {
-          _comments[index] = updatedComment;
-          _editingCommentId = null;
-          _editCommentController.clear();
-        });
-      }
-
-      // ???袁⑥뵬????낅쑓??꾨뱜
-      await _loadTimelineItems();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('댓글 수정 중 오류가 발생했습니다: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateCommentContent(
+    String commentId,
+    String newContent, {
+    bool clearEditingState = false,
+  }) async {
+    final comment = _comments.firstWhere((c) => c.id == commentId);
+    final updatedComment = comment.copyWith(
+      content: newContent,
+      updatedAt: DateTime.now(),
+    );
+
+    await _commentService.updateComment(updatedComment);
+
+    if (!mounted) return;
+    final index = _comments.indexWhere((c) => c.id == commentId);
+    if (index != -1) {
+      setState(() {
+        _comments[index] = updatedComment;
+        if (clearEditingState) {
+          _editingCommentId = null;
+          _editCommentController.clear();
+        }
+      });
+    }
+
+    await _loadTimelineItems();
+  }
+
+  Future<void> _onCommentCheckboxTap(
+    Comment comment,
+    int index,
+    bool currentValue,
+  ) async {
+    try {
+      final toggled = _toggleNthCheckbox(comment.content, index, !currentValue);
+      final newContent = _addCheckboxStrikethrough(toggled);
+      await _updateCommentContent(comment.id, newContent);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('댓글 체크박스 업데이트 중 오류가 발생했습니다: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -776,7 +867,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     if (authProvider.currentUser == null) return;
 
     final comment = _comments.firstWhere((c) => c.id == commentId);
-    
+
     // 癰귣챷???蹂?筌?????揶쎛??
     if (comment.userId != authProvider.currentUser!.id) {
       if (mounted) {
@@ -792,14 +883,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
     try {
       await _commentService.deleteComment(commentId);
-      
+
       // Task?癒?퐣 ?蹂? ID ??볤탢
       final taskProvider = Provider.of<TaskProvider>(context, listen: false);
       final currentTask = taskProvider.tasks.firstWhere(
         (t) => t.id == widget.task.id,
         orElse: () => widget.task,
       );
-      final updatedCommentIds = currentTask.commentIds.where((id) => id != commentId).toList();
+      final updatedCommentIds = currentTask.commentIds
+          .where((id) => id != commentId)
+          .toList();
       await taskProvider.updateTask(
         currentTask.copyWith(
           commentIds: updatedCommentIds,
@@ -827,16 +920,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final taskProvider = context.read<TaskProvider>();
     final projectProvider = context.read<ProjectProvider>();
     final currentProject = projectProvider.currentProject;
-    
+
     // 筌ㅼ뮇????뽯뮞???類ｋ궖 揶쎛?紐꾩궎疫?
     final currentTask = taskProvider.tasks.firstWhere(
       (t) => t.id == widget.task.id,
       orElse: () => widget.task,
     );
-    
+
     // ?醫딅뼣??????ID揶쎛 癰궰野껋럥由??덈뮉筌왖 ?類ㅼ뵥??랁???녿┛??
     final currentAssignedIds = currentTask.assignedMemberIds;
-    if (_lastAssignedMemberIds == null || 
+    if (_lastAssignedMemberIds == null ||
         !listEquals(_lastAssignedMemberIds!, currentAssignedIds)) {
       _lastAssignedMemberIds = List.from(currentAssignedIds);
       // ??쇱벉 ?袁⑥쟿?袁⑸퓠???醫딅뼣??????筌뤴뫖以???쇰뻻 嚥≪뮆諭?
@@ -856,722 +949,885 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         child: GestureDetector(
           onTap: () {}, // ??? ??????源?紐? 筌띾맩釉??獄쏅떽臾??怨몃열 ???껓쭕?揶쏅Ŋ???롫즲嚥?
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 1200,
-              maxHeight: 800,
-            ),
+            constraints: const BoxConstraints(maxWidth: 1200, maxHeight: 800),
             child: GlassContainer(
-          padding: const EdgeInsets.all(24.0),
-          borderRadius: 20.0,
-          blur: 25.0,
-          gradientColors: [
-            Colors.white.withValues(alpha: 0.9),
-            Colors.white.withValues(alpha: 0.85),
-          ],
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ??삳쐭
-              Row(
+              padding: const EdgeInsets.all(24.0),
+              borderRadius: 20.0,
+              blur: 25.0,
+              gradientColors: [
+                Colors.white.withValues(alpha: 0.9),
+                Colors.white.withValues(alpha: 0.85),
+              ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: _isTitleEditing
-                        ? TextField(
-                            controller: _titleController,
-                            focusNode: _titleFocusNode,
-                            autofocus: true,
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.onSurface,
-                            ),
-                            decoration: const InputDecoration(
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            onSubmitted: (_) => _saveTitle(),
-                            onEditingComplete: _saveTitle,
-                          )
-                        : GestureDetector(
-                            onTap: () {
-                              _titleController.text = currentTask.title;
-                              setState(() => _isTitleEditing = true);
-                              WidgetsBinding.instance.addPostFrameCallback(
-                                  (_) => _titleFocusNode.requestFocus());
-                            },
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    currentTask.title,
-                                    style: TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                      color: colorScheme.onSurface,
+                  // ??삳쐭
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _isTitleEditing
+                            ? TextField(
+                                controller: _titleController,
+                                focusNode: _titleFocusNode,
+                                autofocus: true,
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onSurface,
+                                ),
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                onSubmitted: (_) => _saveTitle(),
+                                onEditingComplete: _saveTitle,
+                              )
+                            : MouseRegion(
+                                onEnter: (_) =>
+                                    setState(() => _isTitleHovering = true),
+                                onExit: (_) =>
+                                    setState(() => _isTitleHovering = false),
+                                child: GestureDetector(
+                                  onTap: () {
+                                    _titleController.text = currentTask.title;
+                                    setState(() => _isTitleEditing = true);
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback(
+                                          (_) => _titleFocusNode.requestFocus(),
+                                        );
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 140),
+                                    curve: Curves.easeOut,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _isTitleHovering
+                                          ? colorScheme.primary.withValues(
+                                              alpha: 0.08,
+                                            )
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            currentTask.title,
+                                            style: TextStyle(
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.bold,
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Icon(
+                                          Icons.edit_outlined,
+                                          size: 16,
+                                          color: colorScheme.onSurface
+                                              .withValues(alpha: 0.55),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.edit_outlined,
-                                  size: 16,
-                                  color: colorScheme.onSurface
-                                      .withValues(alpha: 0.35),
+                              ),
+                      ),
+                      // 餓λ쵐???獄쏄퀣?
+                      GlassContainer(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        borderRadius: 20.0,
+                        blur: 20.0,
+                        gradientColors: [
+                          currentTask.priority.color.withValues(alpha: 0.3),
+                          currentTask.priority.color.withValues(alpha: 0.2),
+                        ],
+                        borderColor: currentTask.priority.color.withValues(
+                          alpha: 0.5,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: currentTask.priority.color,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              currentTask.priority.displayName,
+                              style: TextStyle(
+                                color: currentTask.priority.color,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // ?怨밴묶 獄쏄퀣?
+                      GlassContainer(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        borderRadius: 20.0,
+                        blur: 20.0,
+                        gradientColors: [
+                          currentTask.status.color.withValues(alpha: 0.3),
+                          currentTask.status.color.withValues(alpha: 0.2),
+                        ],
+                        borderColor: currentTask.status.color.withValues(
+                          alpha: 0.5,
+                        ),
+                        child: Text(
+                          currentTask.status.displayName,
+                          style: TextStyle(
+                            color: currentTask.status.color,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // ??る┛ 甕곌쑵??
+                      IconButton(
+                        icon: Icon(Icons.close, color: colorScheme.onSurface),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  // 筌롫뗄???뚢뫂?쀯㎘?
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ??긱걹: ???袁⑥뵬??
+                        Expanded(
+                          flex: 2,
+                          child: SingleChildScrollView(
+                            controller: _timelineScrollController,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // ?怨멸쉭 ??곸뒠 (??湲?筌???
+                                _buildDetailTimelineItem(
+                                  context,
+                                  currentTask,
+                                  _isEditing,
+                                  () {
+                                    if (_isEditing) {
+                                      _saveTask(context, taskProvider);
+                                    } else {
+                                      setState(() {
+                                        _isEditing = true;
+                                      });
+                                    }
+                                  },
+                                  colorScheme,
                                 ),
+                                const SizedBox(height: 16),
+                                // ???袁⑥뵬???袁⑹뵠??뺣굶 (??볦퍢???類ｌ졊)
+                                if (_timelineItems == null)
+                                  const SizedBox.shrink()
+                                else
+                                  Column(
+                                    children: _timelineItems!.map((item) {
+                                      if (item.type ==
+                                          TimelineItemType.history) {
+                                        final event = item.data as HistoryEvent;
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 8,
+                                          ),
+                                          child: _buildHistoryItem(
+                                            context,
+                                            item.date,
+                                            event.username,
+                                            event.action,
+                                            event.target,
+                                            event.icon,
+                                            colorScheme,
+                                          ),
+                                        );
+                                      } else if (item.type ==
+                                          TimelineItemType.comment) {
+                                        final comment = item.data as Comment;
+                                        return TweenAnimationBuilder<double>(
+                                          tween: Tween(begin: 0.0, end: 1.0),
+                                          duration: const Duration(
+                                            milliseconds: 300,
+                                          ),
+                                          curve: Curves.easeOut,
+                                          builder: (context, opacity, child) {
+                                            return Opacity(
+                                              opacity: opacity,
+                                              child: Transform.translate(
+                                                offset: Offset(
+                                                  0,
+                                                  20 * (1 - opacity),
+                                                ),
+                                                child:
+                                                    _buildCommentTimelineItem(
+                                                      context,
+                                                      comment,
+                                                      colorScheme,
+                                                    ),
+                                              ),
+                                            );
+                                          },
+                                        );
+                                      }
+                                      return const SizedBox.shrink();
+                                    }).toList(),
+                                  ),
+                                // ?蹂? ??낆젾
+                                const SizedBox(height: 16),
+                                _buildCommentInput(context, colorScheme),
                               ],
                             ),
                           ),
-                  ),
-                  // 餓λ쵐???獄쏄퀣?
-                  GlassContainer(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    borderRadius: 20.0,
-                    blur: 20.0,
-                    gradientColors: [
-                      currentTask.priority.color.withValues(alpha: 0.3),
-                      currentTask.priority.color.withValues(alpha: 0.2),
-                    ],
-                    borderColor: currentTask.priority.color.withValues(alpha: 0.5),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: currentTask.priority.color,
-                            shape: BoxShape.circle,
-                          ),
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          currentTask.priority.displayName,
-                          style: TextStyle(
-                            color: currentTask.priority.color,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                        const SizedBox(width: 24),
+                        // ??삘뀲筌? ?????뺤뺍
+                        SizedBox(
+                          width: 280,
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // ?袁⑥쨮??븍뱜
+                                if (currentProject != null)
+                                  GlassContainer(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 16,
+                                    ),
+                                    borderRadius: 15.0,
+                                    blur: 20.0,
+                                    gradientColors: [
+                                      Colors.white.withValues(alpha: 0.8),
+                                      Colors.white.withValues(alpha: 0.7),
+                                    ],
+                                    shadowBlurRadius: 6,
+                                    shadowOffset: const Offset(0, 2),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              '프로젝트',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: colorScheme.onSurface,
+                                              ),
+                                            ),
+                                            const Spacer(),
+                                            Icon(
+                                              Icons.settings,
+                                              size: 16,
+                                              color: colorScheme.onSurface
+                                                  .withValues(alpha: 0.5),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            Container(
+                                              width: 8,
+                                              height: 8,
+                                              decoration: BoxDecoration(
+                                                color: currentProject.color,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                currentProject.name,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: colorScheme.onSurface
+                                                      .withValues(alpha: 0.8),
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                const SizedBox(height: 12),
+                                // ?怨밴묶
+                                GlassContainer(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 16,
+                                  ),
+                                  borderRadius: 15.0,
+                                  blur: 20.0,
+                                  gradientColors: [
+                                    Colors.white.withValues(alpha: 0.8),
+                                    Colors.white.withValues(alpha: 0.7),
+                                  ],
+                                  shadowBlurRadius: 6,
+                                  shadowOffset: const Offset(0, 2),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            '상태',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Icon(
+                                            Icons.settings,
+                                            size: 16,
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.5),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      DropdownButton<TaskStatus>(
+                                        value: _selectedStatus,
+                                        isExpanded: true,
+                                        items: TaskStatus.values.map((status) {
+                                          return DropdownMenuItem(
+                                            value: status,
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  width: 8,
+                                                  height: 8,
+                                                  decoration: BoxDecoration(
+                                                    color: status.color,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(status.displayName),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
+                                        onChanged: (value) async {
+                                          if (value != null) {
+                                            setState(() {
+                                              _selectedStatus = value;
+                                            });
+                                            final authProvider = context
+                                                .read<AuthProvider>();
+                                            final currentUser =
+                                                authProvider.currentUser;
+                                            await taskProvider.changeTaskStatus(
+                                              currentTask.id,
+                                              value,
+                                              userId: currentUser?.id,
+                                              username: currentUser?.username,
+                                            );
+                                            // ?怨밴묶 癰궰野??????袁⑥뵬????낅쑓??꾨뱜
+                                            await _loadTimelineItems();
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                // 餓λ쵐???
+                                GlassContainer(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 16,
+                                  ),
+                                  borderRadius: 15.0,
+                                  blur: 20.0,
+                                  gradientColors: [
+                                    Colors.white.withValues(alpha: 0.8),
+                                    Colors.white.withValues(alpha: 0.7),
+                                  ],
+                                  shadowBlurRadius: 6,
+                                  shadowOffset: const Offset(0, 2),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            '우선순위',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Icon(
+                                            Icons.priority_high,
+                                            size: 16,
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.5),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      DropdownButton<TaskPriority>(
+                                        value: _selectedPriority,
+                                        isExpanded: true,
+                                        items: TaskPriority.values.map((
+                                          priority,
+                                        ) {
+                                          return DropdownMenuItem(
+                                            value: priority,
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  width: 8,
+                                                  height: 8,
+                                                  decoration: BoxDecoration(
+                                                    color: priority.color,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  '${priority.displayName} - ${priority.description}',
+                                                  style: TextStyle(
+                                                    color: priority.color,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
+                                        onChanged: (value) async {
+                                          if (value != null) {
+                                            setState(() {
+                                              _selectedPriority = value;
+                                            });
+                                            final authProvider = context
+                                                .read<AuthProvider>();
+                                            final currentUser =
+                                                authProvider.currentUser;
+                                            await taskProvider.updateTask(
+                                              currentTask.copyWith(
+                                                priority: value,
+                                                updatedAt: DateTime.now(),
+                                              ),
+                                              userId: currentUser?.id,
+                                              username: currentUser?.username,
+                                            );
+                                            // 餓λ쵐???癰궰野??????袁⑥뵬????낅쑓??꾨뱜
+                                            await _loadTimelineItems();
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                // 疫꿸퀗而?(??뽰삂??~ ?ル굝利??
+                                GlassContainer(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 16,
+                                  ),
+                                  borderRadius: 15.0,
+                                  blur: 20.0,
+                                  gradientColors: [
+                                    Colors.white.withValues(alpha: 0.8),
+                                    Colors.white.withValues(alpha: 0.7),
+                                  ],
+                                  shadowBlurRadius: 6,
+                                  shadowOffset: const Offset(0, 2),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            '옵션',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Icon(
+                                            Icons.settings,
+                                            size: 16,
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.5),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        children: [
+                                          // ??뽰삂??
+                                          Expanded(
+                                            child: InkWell(
+                                              onTap: () => _openDateRangePicker(
+                                                context,
+                                                currentTask,
+                                                taskProvider,
+                                              ),
+                                              child: Container(
+                                                padding: const EdgeInsets.all(
+                                                  12,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.7),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  border: Border.all(
+                                                    color: colorScheme.onSurface
+                                                        .withValues(alpha: 0.1),
+                                                  ),
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      '시작일',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: colorScheme
+                                                            .onSurface
+                                                            .withValues(
+                                                              alpha: 0.6,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      _startDate != null
+                                                          ? '${_startDate!.year}-${_startDate!.month.toString().padLeft(2, '0')}-${_startDate!.day.toString().padLeft(2, '0')}'
+                                                          : '?醫롮? ?醫뤾문',
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color:
+                                                            _startDate != null
+                                                            ? colorScheme
+                                                                  .onSurface
+                                                            : colorScheme
+                                                                  .onSurface
+                                                                  .withValues(
+                                                                    alpha: 0.5,
+                                                                  ),
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Icon(
+                                            Icons.arrow_forward,
+                                            size: 16,
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.5),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          // ?ル굝利??
+                                          Expanded(
+                                            child: InkWell(
+                                              onTap: () => _openDateRangePicker(
+                                                context,
+                                                currentTask,
+                                                taskProvider,
+                                              ),
+                                              child: Container(
+                                                padding: const EdgeInsets.all(
+                                                  12,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.7),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  border: Border.all(
+                                                    color: colorScheme.onSurface
+                                                        .withValues(alpha: 0.1),
+                                                  ),
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      '종료일',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: colorScheme
+                                                            .onSurface
+                                                            .withValues(
+                                                              alpha: 0.6,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      _endDate != null
+                                                          ? '${_endDate!.year}-${_endDate!.month.toString().padLeft(2, '0')}-${_endDate!.day.toString().padLeft(2, '0')}'
+                                                          : '?醫롮? ?醫뤾문',
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: _endDate != null
+                                                            ? colorScheme
+                                                                  .onSurface
+                                                            : colorScheme
+                                                                  .onSurface
+                                                                  .withValues(
+                                                                    alpha: 0.5,
+                                                                  ),
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                // ?醫딅뼣??????
+                                GlassContainer(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 16,
+                                  ),
+                                  borderRadius: 15.0,
+                                  blur: 20.0,
+                                  gradientColors: [
+                                    Colors.white.withValues(alpha: 0.8),
+                                    Colors.white.withValues(alpha: 0.7),
+                                  ],
+                                  shadowBlurRadius: 6,
+                                  shadowOffset: const Offset(0, 2),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            '담당자',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          IconButton(
+                                            icon: Icon(
+                                              Icons.person_add,
+                                              size: 16,
+                                              color: colorScheme.primary,
+                                            ),
+                                            onPressed: () =>
+                                                _showAssignMemberDialog(
+                                                  context,
+                                                  currentTask,
+                                                  taskProvider,
+                                                  currentProject,
+                                                ),
+                                            tooltip: '담당자 추가',
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      if (currentTask.assignedMemberIds.isEmpty)
+                                        Text(
+                                          '담당자가 지정되지 않았습니다',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.5),
+                                          ),
+                                        )
+                                      else if (_assignedMembers == null)
+                                        const SizedBox.shrink()
+                                      else
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: _assignedMembers!.map((
+                                            member,
+                                          ) {
+                                            return RepaintBoundary(
+                                              child: GlassContainer(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4,
+                                                    ),
+                                                borderRadius: 8.0,
+                                                blur: 15.0,
+                                                gradientColors: [
+                                                  colorScheme.primary
+                                                      .withValues(alpha: 0.2),
+                                                  colorScheme.primary
+                                                      .withValues(alpha: 0.1),
+                                                ],
+                                                borderColor: colorScheme.primary
+                                                    .withValues(alpha: 0.3),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    CircleAvatar(
+                                                      radius: 8,
+                                                      backgroundColor:
+                                                          AvatarColor.getColorForUser(
+                                                            member.id,
+                                                          ),
+                                                      child: Text(
+                                                        AvatarColor.getInitial(
+                                                          member.username,
+                                                        ),
+                                                        style: const TextStyle(
+                                                          fontSize: 10,
+                                                          color: Colors.white,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      member.username,
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: colorScheme
+                                                            .onSurface,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    GestureDetector(
+                                                      onTap: () =>
+                                                          _removeAssignedMember(
+                                                            context,
+                                                            currentTask,
+                                                            member.id,
+                                                            taskProvider,
+                                                          ),
+                                                      child: Icon(
+                                                        Icons.close,
+                                                        size: 14,
+                                                        color: colorScheme
+                                                            .onSurface
+                                                            .withValues(
+                                                              alpha: 0.5,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            );
+                                          }).toList(),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                // ??밴쉐??
+                                GlassContainer(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 16,
+                                  ),
+                                  borderRadius: 15.0,
+                                  blur: 20.0,
+                                  gradientColors: [
+                                    Colors.white.withValues(alpha: 0.8),
+                                    Colors.white.withValues(alpha: 0.7),
+                                  ],
+                                  shadowBlurRadius: 6,
+                                  shadowOffset: const Offset(0, 2),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '생성일',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '${currentTask.createdAt.year}-${currentTask.createdAt.month.toString().padLeft(2, '0')}-${currentTask.createdAt.day.toString().padLeft(2, '0')}',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: colorScheme.onSurface
+                                              .withValues(alpha: 0.7),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  // ?怨밴묶 獄쏄퀣?
-                  GlassContainer(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    borderRadius: 20.0,
-                    blur: 20.0,
-                    gradientColors: [
-                      currentTask.status.color.withValues(alpha: 0.3),
-                      currentTask.status.color.withValues(alpha: 0.2),
-                    ],
-                    borderColor: currentTask.status.color.withValues(alpha: 0.5),
-                    child: Text(
-                      currentTask.status.displayName,
-                      style: TextStyle(
-                        color: currentTask.status.color,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // ??る┛ 甕곌쑵??
-                  IconButton(
-                    icon: Icon(Icons.close, color: colorScheme.onSurface),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
                 ],
               ),
-              const SizedBox(height: 24),
-              // 筌롫뗄???뚢뫂?쀯㎘?
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ??긱걹: ???袁⑥뵬??
-                    Expanded(
-                      flex: 2,
-                      child: SingleChildScrollView(
-                        controller: _timelineScrollController,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // ?怨멸쉭 ??곸뒠 (??湲?筌???
-                            _buildDetailTimelineItem(
-                              context,
-                              currentTask,
-                              _isEditing,
-                              () {
-                                          if (_isEditing) {
-                                            _saveTask(context, taskProvider);
-                                          } else {
-                                            setState(() {
-                                              _isEditing = true;
-                                            });
-                                          }
-                                        },
-                              colorScheme,
-                            ),
-                            const SizedBox(height: 16),
-                            // ???袁⑥뵬???袁⑹뵠??뺣굶 (??볦퍢???類ｌ졊)
-                                  if (_timelineItems == null)
-                              const SizedBox.shrink()
-                                  else
-                              Column(
-                                children: _timelineItems!.map((item) {
-                                  if (item.type == TimelineItemType.history) {
-                                    final event = item.data as HistoryEvent;
-                                    return Padding(
-                                      padding: const EdgeInsets.only(bottom: 8),
-                                      child: _buildHistoryItem(
-                                        context,
-                                        item.date,
-                                        event.username,
-                                        event.action,
-                                        event.target,
-                                        event.icon,
-                                        colorScheme,
-                                      ),
-                                    );
-                                  } else if (item.type == TimelineItemType.comment) {
-                                    final comment = item.data as Comment;
-                                    return TweenAnimationBuilder<double>(
-                                      tween: Tween(begin: 0.0, end: 1.0),
-                                      duration: const Duration(milliseconds: 300),
-                                      curve: Curves.easeOut,
-                                      builder: (context, opacity, child) {
-                                        return Opacity(
-                                          opacity: opacity,
-                                          child: Transform.translate(
-                                            offset: Offset(0, 20 * (1 - opacity)),
-                                            child: _buildCommentTimelineItem(
-                                              context,
-                                              comment,
-                                              colorScheme,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    );
-                                  }
-                                  return const SizedBox.shrink();
-                                }).toList(),
-                              ),
-                            // ?蹂? ??낆젾
-                            const SizedBox(height: 16),
-                            _buildCommentInput(context, colorScheme),
-                          ],
-                        ),
-                      ),
-                    ),
-                      const SizedBox(width: 24),
-                      // ??삘뀲筌? ?????뺤뺍
-                      SizedBox(
-                        width: 280,
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                            // ?袁⑥쨮??븍뱜
-                            if (currentProject != null)
-                              GlassContainer(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-                                borderRadius: 15.0,
-                                blur: 20.0,
-                                gradientColors: [
-                                  Colors.white.withValues(alpha: 0.8),
-                                  Colors.white.withValues(alpha: 0.7),
-                                ],
-                              shadowBlurRadius: 6,
-                              shadowOffset: const Offset(0, 2),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(
-                                          '프로젝트',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            color: colorScheme.onSurface,
-                                          ),
-                                        ),
-                                        const Spacer(),
-                                        Icon(Icons.settings, size: 16, color: colorScheme.onSurface.withValues(alpha: 0.5)),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Container(
-                                          width: 8,
-                                          height: 8,
-                                          decoration: BoxDecoration(
-                                            color: currentProject.color,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            currentProject.name,
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: colorScheme.onSurface.withValues(alpha: 0.8),
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            const SizedBox(height: 12),
-                            // ?怨밴묶
-                            GlassContainer(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-                              borderRadius: 15.0,
-                              blur: 20.0,
-                              gradientColors: [
-                                Colors.white.withValues(alpha: 0.8),
-                                Colors.white.withValues(alpha: 0.7),
-                              ],
-                              shadowBlurRadius: 6,
-                              shadowOffset: const Offset(0, 2),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '상태',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: colorScheme.onSurface,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      Icon(Icons.settings, size: 16, color: colorScheme.onSurface.withValues(alpha: 0.5)),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  DropdownButton<TaskStatus>(
-                                    value: _selectedStatus,
-                                    isExpanded: true,
-                                    items: TaskStatus.values.map((status) {
-                                      return DropdownMenuItem(
-                                        value: status,
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              width: 8,
-                                              height: 8,
-                                              decoration: BoxDecoration(
-                                                color: status.color,
-                                                shape: BoxShape.circle,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(status.displayName),
-                                          ],
-                                        ),
-                                      );
-                                    }).toList(),
-                                    onChanged: (value) async {
-                                      if (value != null) {
-                                        setState(() {
-                                          _selectedStatus = value;
-                                        });
-                                        final authProvider = context.read<AuthProvider>();
-                                        final currentUser = authProvider.currentUser;
-                                        await taskProvider.changeTaskStatus(
-                                          currentTask.id, 
-                                          value,
-                                          userId: currentUser?.id,
-                                          username: currentUser?.username,
-                                        );
-                                        // ?怨밴묶 癰궰野??????袁⑥뵬????낅쑓??꾨뱜
-                                        await _loadTimelineItems();
-                                      }
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            // 餓λ쵐???
-                            GlassContainer(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-                              borderRadius: 15.0,
-                              blur: 20.0,
-                              gradientColors: [
-                                Colors.white.withValues(alpha: 0.8),
-                                Colors.white.withValues(alpha: 0.7),
-                              ],
-                              shadowBlurRadius: 6,
-                              shadowOffset: const Offset(0, 2),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '우선순위',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: colorScheme.onSurface,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      Icon(Icons.priority_high, size: 16, color: colorScheme.onSurface.withValues(alpha: 0.5)),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  DropdownButton<TaskPriority>(
-                                    value: _selectedPriority,
-                                    isExpanded: true,
-                                    items: TaskPriority.values.map((priority) {
-                                      return DropdownMenuItem(
-                                        value: priority,
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              width: 8,
-                                              height: 8,
-                                              decoration: BoxDecoration(
-                                                color: priority.color,
-                                                shape: BoxShape.circle,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              '${priority.displayName} - ${priority.description}',
-                                              style: TextStyle(
-                                                color: priority.color,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    }).toList(),
-                                    onChanged: (value) async {
-                                      if (value != null) {
-                                        setState(() {
-                                          _selectedPriority = value;
-                                        });
-                                        final authProvider = context.read<AuthProvider>();
-                                        final currentUser = authProvider.currentUser;
-                                        await taskProvider.updateTask(
-                                          currentTask.copyWith(
-                                            priority: value,
-                                            updatedAt: DateTime.now(),
-                                          ),
-                                          userId: currentUser?.id,
-                                          username: currentUser?.username,
-                                        );
-                                        // 餓λ쵐???癰궰野??????袁⑥뵬????낅쑓??꾨뱜
-                                        await _loadTimelineItems();
-                                      }
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            // 疫꿸퀗而?(??뽰삂??~ ?ル굝利??
-                            GlassContainer(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-                              borderRadius: 15.0,
-                              blur: 20.0,
-                              gradientColors: [
-                                Colors.white.withValues(alpha: 0.8),
-                                Colors.white.withValues(alpha: 0.7),
-                              ],
-                              shadowBlurRadius: 6,
-                              shadowOffset: const Offset(0, 2),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '옵션',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: colorScheme.onSurface,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      Icon(Icons.settings, size: 16, color: colorScheme.onSurface.withValues(alpha: 0.5)),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      // ??뽰삂??
-                                      Expanded(
-                                        child: InkWell(
-                                          onTap: () => _openDateRangePicker(
-                                            context,
-                                            currentTask,
-                                            taskProvider,
-                                          ),
-                                          child: Container(
-                                            padding: const EdgeInsets.all(12),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white.withValues(alpha: 0.7),
-                                              borderRadius: BorderRadius.circular(8),
-                                              border: Border.all(
-                                                color: colorScheme.onSurface.withValues(alpha: 0.1),
-                                              ),
-                                            ),
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  '시작일',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    color: colorScheme.onSurface.withValues(alpha: 0.6),
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                      _startDate != null
-                                          ? '${_startDate!.year}-${_startDate!.month.toString().padLeft(2, '0')}-${_startDate!.day.toString().padLeft(2, '0')}'
-                                          : '?醫롮? ?醫뤾문',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: _startDate != null
-                                            ? colorScheme.onSurface
-                                            : colorScheme.onSurface.withValues(alpha: 0.5),
-                                                    fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Icon(
-                                        Icons.arrow_forward,
-                                        size: 16,
-                                        color: colorScheme.onSurface.withValues(alpha: 0.5),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      // ?ル굝利??
-                                      Expanded(
-                                        child: InkWell(
-                                          onTap: () => _openDateRangePicker(
-                                            context,
-                                            currentTask,
-                                            taskProvider,
-                                          ),
-                                          child: Container(
-                                            padding: const EdgeInsets.all(12),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white.withValues(alpha: 0.7),
-                                              borderRadius: BorderRadius.circular(8),
-                                              border: Border.all(
-                                                color: colorScheme.onSurface.withValues(alpha: 0.1),
-                                              ),
-                                            ),
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  '종료일',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    color: colorScheme.onSurface.withValues(alpha: 0.6),
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                      _endDate != null
-                                          ? '${_endDate!.year}-${_endDate!.month.toString().padLeft(2, '0')}-${_endDate!.day.toString().padLeft(2, '0')}'
-                                          : '?醫롮? ?醫뤾문',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: _endDate != null
-                                            ? colorScheme.onSurface
-                                            : colorScheme.onSurface.withValues(alpha: 0.5),
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            // ?醫딅뼣??????
-                            GlassContainer(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-                              borderRadius: 15.0,
-                              blur: 20.0,
-                              gradientColors: [
-                                Colors.white.withValues(alpha: 0.8),
-                                Colors.white.withValues(alpha: 0.7),
-                              ],
-                              shadowBlurRadius: 6,
-                              shadowOffset: const Offset(0, 2),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '담당자',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: colorScheme.onSurface,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      IconButton(
-                                        icon: Icon(
-                                          Icons.person_add,
-                                          size: 16,
-                                          color: colorScheme.primary,
-                                        ),
-                                        onPressed: () => _showAssignMemberDialog(context, currentTask, taskProvider, currentProject),
-                                        tooltip: '담당자 추가',
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  if (currentTask.assignedMemberIds.isEmpty)
-                                    Text(
-                                      '담당자가 지정되지 않았습니다',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: colorScheme.onSurface.withValues(alpha: 0.5),
-                                      ),
-                                    )
-                                  else if (_assignedMembers == null)
-                                    const SizedBox.shrink()
-                                  else
-                                    Wrap(
-                                          spacing: 8,
-                                          runSpacing: 8,
-                                          children: _assignedMembers!.map((member) {
-                                            return RepaintBoundary(
-                                              child: GlassContainer(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              borderRadius: 8.0,
-                                              blur: 15.0,
-                                              gradientColors: [
-                                                colorScheme.primary.withValues(alpha: 0.2),
-                                                colorScheme.primary.withValues(alpha: 0.1),
-                                              ],
-                                              borderColor: colorScheme.primary.withValues(alpha: 0.3),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  CircleAvatar(
-                                                    radius: 8,
-                                                    backgroundColor: AvatarColor.getColorForUser(member.id),
-                                                    child: Text(
-                                                      AvatarColor.getInitial(member.username),
-                                                      style: const TextStyle(
-                                                        fontSize: 10,
-                                                        color: Colors.white,
-                                                        fontWeight: FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 6),
-                                                  Text(
-                                                    member.username,
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: colorScheme.onSurface,
-                                                      fontWeight: FontWeight.w500,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  GestureDetector(
-                                                    onTap: () => _removeAssignedMember(context, currentTask, member.id, taskProvider),
-                                                    child: Icon(
-                                                      Icons.close,
-                                                      size: 14,
-                                                      color: colorScheme.onSurface.withValues(alpha: 0.5),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            );
-                                          }).toList(),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            // ??밴쉐??
-                            GlassContainer(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-                              borderRadius: 15.0,
-                              blur: 20.0,
-                              gradientColors: [
-                                Colors.white.withValues(alpha: 0.8),
-                                Colors.white.withValues(alpha: 0.7),
-                              ],
-                              shadowBlurRadius: 6,
-                              shadowOffset: const Offset(0, 2),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '생성일',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: colorScheme.onSurface,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    '${currentTask.createdAt.year}-${currentTask.createdAt.month.toString().padLeft(2, '0')}-${currentTask.createdAt.day.toString().padLeft(2, '0')}',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: colorScheme.onSurface.withValues(alpha: 0.7),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
+            ),
           ),
-        ),
-      ),
         ),
       ),
     );
@@ -1602,7 +1858,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       // ???筌왖 ??낆쨮??
       List<String> imageUrls = List<String>.from(currentTask.detailImageUrls);
       if (_selectedDetailImages.isNotEmpty) {
-        final uploadedUrls = await _uploadService.uploadImagesFromXFiles(_selectedDetailImages);
+        final uploadedUrls = await _uploadService.uploadImagesFromXFiles(
+          _selectedDetailImages,
+        );
         imageUrls.addAll(uploadedUrls);
       }
 
@@ -1638,18 +1896,20 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       (t) => t.id == widget.task.id,
       orElse: () => widget.task,
     );
-    
+
     if (currentTask.assignedMemberIds.isEmpty) {
       setState(() {
         _assignedMembers = [];
       });
       return;
     }
-    
+
     try {
       final authService = AuthService();
       final allUsers = await authService.getAllUsers();
-      final members = allUsers.where((user) => currentTask.assignedMemberIds.contains(user.id)).toList();
+      final members = allUsers
+          .where((user) => currentTask.assignedMemberIds.contains(user.id))
+          .toList();
       if (mounted) {
         setState(() {
           _assignedMembers = members;
@@ -1701,16 +1961,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     currentProject,
   ) async {
     if (currentProject == null) return;
-    
+
     final colorScheme = Theme.of(context).colorScheme;
     final authService = AuthService();
-    
+
     try {
       final allUsers = await authService.getAllUsers();
       final projectMembers = allUsers.where((user) {
         return currentProject.teamMemberIds.contains(user.id);
       }).toList();
-      
+
       if (projectMembers.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1720,7 +1980,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         );
         return;
       }
-      
+
       showDialog(
         context: context,
         builder: (context) {
@@ -1735,7 +1995,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 colorScheme.surface.withValues(alpha: 0.5),
               ],
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400, maxHeight: 500),
+                constraints: const BoxConstraints(
+                  maxWidth: 400,
+                  maxHeight: 500,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1755,10 +2018,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         itemCount: projectMembers.length,
                         itemBuilder: (context, index) {
                           final user = projectMembers[index];
-                          final isAssigned = task.assignedMemberIds.contains(user.id);
+                          final isAssigned = task.assignedMemberIds.contains(
+                            user.id,
+                          );
                           return ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: AvatarColor.getColorForUser(user.id),
+                              backgroundColor: AvatarColor.getColorForUser(
+                                user.id,
+                              ),
                               child: Text(
                                 AvatarColor.getInitial(user.username),
                                 style: const TextStyle(
@@ -1777,7 +2044,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             subtitle: Text(
                               user.email,
                               style: TextStyle(
-                                color: colorScheme.onSurface.withValues(alpha: 0.7),
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.7,
+                                ),
                               ),
                             ),
                             trailing: isAssigned
@@ -1787,11 +2056,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   )
                                 : Icon(
                                     Icons.radio_button_unchecked,
-                                    color: colorScheme.onSurface.withValues(alpha: 0.3),
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.3,
+                                    ),
                                   ),
                             onTap: () async {
                               // ??筌뤿굝彛??醫뤾문 揶쎛?館釉?袁⑥쨯 疫꿸퀣???醫딅뼣????筌?
-                              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                              final authProvider = Provider.of<AuthProvider>(
+                                context,
+                                listen: false,
+                              );
                               final currentUser = authProvider.currentUser;
                               if (currentUser != null) {
                                 await taskProvider.updateTask(
@@ -1848,7 +2122,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     String userId,
     TaskProvider taskProvider,
   ) async {
-    final updatedMemberIds = task.assignedMemberIds.where((id) => id != userId).toList();
+    final updatedMemberIds = task.assignedMemberIds
+        .where((id) => id != userId)
+        .toList();
     await taskProvider.updateTask(
       task.copyWith(
         assignedMemberIds: updatedMemberIds,
@@ -1870,18 +2146,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   Future<void> _addCommentToTimeline(Comment comment) async {
     // ?袁⑹삺 ???袁⑥뵬???袁⑹뵠??揶쎛?紐꾩궎疫?
     final currentItems = _timelineItems ?? [];
-    
+
     // ???蹂? ?袁⑹뵠????밴쉐
     final newCommentItem = TimelineItem(
       type: TimelineItemType.comment,
       date: comment.createdAt,
       data: comment,
     );
-    
+
     // 疫꿸퀣???袁⑹뵠??뽯퓠 ???蹂? ?곕떽?
     final updatedItems = List<TimelineItem>.from(currentItems);
     updatedItems.add(newCommentItem);
-    
+
     // ??볦퍢??뽰몵嚥??類ｌ졊
     updatedItems.sort((a, b) {
       final aUtc = a.date.isUtc ? a.date : a.date.toUtc();
@@ -1890,17 +2166,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       final bMs = bUtc.millisecondsSinceEpoch;
       return aMs.compareTo(bMs);
     });
-    
+
     if (mounted) {
       setState(() {
         _timelineItems = updatedItems;
       });
-      
+
       // ?봔??뺤쓦野?筌??袁⑥삋嚥???쎄쾿嚥?- ????甕???뺣즲??뤿연 ?類ㅻ뼄??띿쓺
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollToBottomSmooth();
       });
-      
+
       // ?곕떽? ??뺣즲: ?醫딅빍筌롫뗄????袁⑥┷ ????쇰뻻 ??쎄쾿嚥?
       Future.delayed(const Duration(milliseconds: 350), () {
         if (mounted) {
@@ -1916,123 +2192,133 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     // ??곷뭼 ??밴쉐 疫꿸퀡以?
-    items.add(TimelineItem(
-      type: TimelineItemType.history,
-      date: task.createdAt,
-      data: HistoryEvent(
-        username: _getCreatorUsername(task),
-        action: 'opened this',
-        icon: Icons.circle_outlined,
+    items.add(
+      TimelineItem(
+        type: TimelineItemType.history,
+        date: task.createdAt,
+        data: HistoryEvent(
+          username: _getCreatorUsername(task),
+          action: 'opened this',
+          icon: Icons.circle_outlined,
+        ),
       ),
-    ));
+    );
 
     // ?醫딅뼣 ??됰뮞?醫듼봺 (??쇱젫 ?醫딅뼣 疫꿸퀡以?????
     for (final history in task.assignmentHistory) {
-      items.add(TimelineItem(
-        type: TimelineItemType.history,
-        date: history.assignedAt,
-        data: HistoryEvent(
-          username: history.assignedByUsername,
-          action: 'assigned',
-          target: Text(
-            history.assignedUsername,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.primary,
+      items.add(
+        TimelineItem(
+          type: TimelineItemType.history,
+          date: history.assignedAt,
+          data: HistoryEvent(
+            username: history.assignedByUsername,
+            action: 'assigned',
+            target: Text(
+              history.assignedUsername,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.primary,
+              ),
             ),
+            icon: Icons.person_outline,
           ),
-          icon: Icons.person_outline,
         ),
-      ));
+      );
     }
 
     // ?꾨뗀李???곕떽?
     for (final comment in _comments) {
-      items.add(TimelineItem(
-        type: TimelineItemType.comment,
-        date: comment.createdAt,
-        data: comment,
-      ));
+      items.add(
+        TimelineItem(
+          type: TimelineItemType.comment,
+          date: comment.createdAt,
+          data: comment,
+        ),
+      );
     }
 
     // ?怨밴묶 癰궰野???됰뮞?醫듼봺 (??쇱젫 ?怨밴묶 癰궰野?疫꿸퀡以?????
     for (final history in task.statusHistory) {
-      items.add(TimelineItem(
-        type: TimelineItemType.history,
-        date: history.changedAt,
-        data: HistoryEvent(
-          username: history.username,
-          action: 'moved this to',
-          target: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: history.toStatus.color,
-                  shape: BoxShape.circle,
+      items.add(
+        TimelineItem(
+          type: TimelineItemType.history,
+          date: history.changedAt,
+          data: HistoryEvent(
+            username: history.username,
+            action: 'moved this to',
+            target: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: history.toStatus.color,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                history.toStatus.displayName,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: history.toStatus.color,
+                const SizedBox(width: 6),
+                Text(
+                  history.toStatus.displayName,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: history.toStatus.color,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
+            icon: Icons.view_kanban_outlined,
           ),
-          icon: Icons.view_kanban_outlined,
         ),
-      ));
+      );
     }
-    
+
     // 餓λ쵐???癰궰野???됰뮞?醫듼봺
     for (final history in task.priorityHistory) {
-      items.add(TimelineItem(
-        type: TimelineItemType.history,
-        date: history.changedAt,
-        data: HistoryEvent(
-          username: history.username,
-          action: 'changed priority to',
-          target: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: history.toPriority.color,
-                  shape: BoxShape.circle,
+      items.add(
+        TimelineItem(
+          type: TimelineItemType.history,
+          date: history.changedAt,
+          data: HistoryEvent(
+            username: history.username,
+            action: 'changed priority to',
+            target: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: history.toPriority.color,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '${history.toPriority.displayName} - ${history.toPriority.description}',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: history.toPriority.color,
+                const SizedBox(width: 6),
+                Text(
+                  '${history.toPriority.displayName} - ${history.toPriority.description}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: history.toPriority.color,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
+            icon: Icons.priority_high,
           ),
-          icon: Icons.priority_high,
         ),
-      ));
+      );
     }
-    
+
     // ??볦퍢??뽰몵嚥??類ｌ졊 (??살삋??野껉퍓???- 筌ㅼ뮇????????袁⑥삋????뽯뻻??
     // 筌뤴뫀諭??醫롮???UTC嚥?癰궰??묐릭?????袁⒲?筌△뫁???얜챷????욧퍙
     items.sort((a, b) {
       // Local ???袁⒲??UTC嚥?癰궰??
       final aUtc = a.date.isUtc ? a.date : a.date.toUtc();
       final bUtc = b.date.isUtc ? b.date : b.date.toUtc();
-      
+
       // UTC嚥?癰궰??묐립 ??millisecondsSinceEpoch ??쑨??
       final aMs = aUtc.millisecondsSinceEpoch;
       final bMs = bUtc.millisecondsSinceEpoch;
@@ -2164,10 +2450,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   ),
                 ],
               ),
-              if (content != null) ...[
-                const SizedBox(height: 8),
-                content,
-              ],
+              if (content != null) ...[const SizedBox(height: 8), content],
             ],
           ),
         ),
@@ -2182,7 +2465,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final localDate = date.isUtc ? date.toLocal() : date;
     final now = DateTime.now(); // ??? 嚥≪뮇類???볦퍢
     final difference = now.difference(localDate);
-    
+
     if (difference.inDays == 0) {
       if (difference.inHours == 0) {
         if (difference.inMinutes == 0) {
@@ -2245,14 +2528,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   /// 체크박스 클릭 시 토글 후 저장
-  Future<void> _onDetailCheckboxTap(Task task, int index, bool currentValue) async {
+  Future<void> _onDetailCheckboxTap(
+    Task task,
+    int index,
+    bool currentValue,
+  ) async {
     final newDetail = _toggleNthCheckbox(task.detail, index, !currentValue);
     _detailController.text = newDetail;
     final taskProvider = context.read<TaskProvider>();
-    await taskProvider.updateTask(task.copyWith(
-      detail: newDetail,
-      updatedAt: DateTime.now(),
-    ));
+    await taskProvider.updateTask(
+      task.copyWith(detail: newDetail, updatedAt: DateTime.now()),
+    );
     if (mounted) setState(() {});
   }
 
@@ -2314,7 +2600,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               children: [
                 // 筌롫뗄???뚢뫂?쀯㎘?(筌ㅼ뮇湲??獄쏄퀣??
                 Padding(
-                  padding: const EdgeInsets.only(right: 36), // ?怨좊툡 ?袁⑹뵠???⑤벀而??類ｋ궖
+                  padding: const EdgeInsets.only(
+                    right: 36,
+                  ), // ?怨좊툡 ?袁⑹뵠???⑤벀而??類ｋ궖
                   child: isEditing
                       ? Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2352,9 +2640,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       child: Stack(
                                         children: [
                                           ClipRRect(
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                             child: _XFileImage(
-                                              xfile: _selectedDetailImages[index],
+                                              xfile:
+                                                  _selectedDetailImages[index],
                                               width: 100,
                                               height: 100,
                                             ),
@@ -2365,13 +2656,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                             child: GestureDetector(
                                               onTap: () {
                                                 setState(() {
-                                                  _selectedDetailImages.removeAt(index);
+                                                  _selectedDetailImages
+                                                      .removeAt(index);
                                                 });
                                               },
                                               child: Container(
-                                                padding: const EdgeInsets.all(4),
+                                                padding: const EdgeInsets.all(
+                                                  4,
+                                                ),
                                                 decoration: BoxDecoration(
-                                                  color: Colors.black.withValues(alpha: 0.6),
+                                                  color: Colors.black
+                                                      .withValues(alpha: 0.6),
                                                   shape: BoxShape.circle,
                                                 ),
                                                 child: const Icon(
@@ -2408,31 +2703,46 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 builder: (context) {
                                   int cbIdx = 0;
                                   return MarkdownBody(
-                                    data: _addCheckboxStrikethrough(_normalizeMarkdownNewlines(task.detail)),
+                                    data: _addCheckboxStrikethrough(
+                                      _normalizeMarkdownNewlines(task.detail),
+                                    ),
                                     selectable: true,
                                     softLineBreak: true,
                                     checkboxBuilder: (bool value) {
                                       final idx = cbIdx++;
                                       return GestureDetector(
                                         behavior: HitTestBehavior.opaque,
-                                        onTap: () => _onDetailCheckboxTap(task, idx, value),
+                                        onTap: () => _onDetailCheckboxTap(
+                                          task,
+                                          idx,
+                                          value,
+                                        ),
                                         child: Padding(
-                                          padding: const EdgeInsets.only(right: 4, top: 2),
+                                          padding: const EdgeInsets.only(
+                                            right: 4,
+                                            top: 2,
+                                          ),
                                           child: SizedBox(
                                             width: 18,
                                             height: 18,
                                             child: Checkbox(
                                               value: value,
                                               onChanged: null,
-                                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                              side: BorderSide(color: colorScheme.primary),
+                                              materialTapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                              side: BorderSide(
+                                                color: colorScheme.primary,
+                                              ),
                                               activeColor: colorScheme.primary,
                                             ),
                                           ),
                                         ),
                                       );
                                     },
-                                    styleSheet: _buildMarkdownStyleSheet(colorScheme),
+                                    styleSheet: _buildMarkdownStyleSheet(
+                                      colorScheme,
+                                    ),
                                   );
                                 },
                               )
@@ -2441,13 +2751,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 '상세 설명이 없습니다. 수정 버튼을 클릭하여 추가하세요.',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: colorScheme.onSurface.withValues(alpha: 0.5),
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.5,
+                                  ),
                                   height: 1.5,
                                 ),
                               ),
                             // ???筌왖 ??뽯뻻
                             if (task.detailImageUrls.isNotEmpty) ...[
-                              if (task.detail.isNotEmpty) const SizedBox(height: 12),
+                              if (task.detail.isNotEmpty)
+                                const SizedBox(height: 12),
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
@@ -2457,7 +2770,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       .toList();
                                   return allImageUrls.map((imageUrl) {
                                     return GestureDetector(
-                                      onTap: () => _showImageDialog(context, imageUrl, allImageUrls),
+                                      onTap: () => _showImageDialog(
+                                        context,
+                                        imageUrl,
+                                        allImageUrls,
+                                      ),
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(8),
                                         child: Image.network(
@@ -2465,17 +2782,20 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           width: 200,
                                           height: 200,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) {
-                                            return Container(
-                                              width: 200,
-                                              height: 200,
-                                              color: Colors.white.withValues(alpha: 0.7),
-                                              child: Icon(
-                                                Icons.broken_image,
-                                                color: colorScheme.onSurface.withValues(alpha: 0.5),
-                                              ),
-                                            );
-                                          },
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
+                                                return Container(
+                                                  width: 200,
+                                                  height: 200,
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.7),
+                                                  child: Icon(
+                                                    Icons.broken_image,
+                                                    color: colorScheme.onSurface
+                                                        .withValues(alpha: 0.5),
+                                                  ),
+                                                );
+                                              },
                                         ),
                                       ),
                                     );
@@ -2562,7 +2882,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     if (isMyComment) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: colorScheme.primary.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(4),
@@ -2659,7 +2982,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   onPressed: _cancelEditComment,
                                   child: Text(
                                     '취소',
-                                    style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.7)),
+                                    style: TextStyle(
+                                      color: colorScheme.onSurface.withValues(
+                                        alpha: 0.7,
+                                      ),
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -2679,10 +3006,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (comment.content.isNotEmpty)
-                              _buildMentionRichText(comment.content, colorScheme),
+                              _buildMentionRichText(
+                                comment,
+                                comment.content,
+                                colorScheme,
+                              ),
                             // ???筌왖 ??뽯뻻
                             if (comment.imageUrls.isNotEmpty) ...[
-                              if (comment.content.isNotEmpty) const SizedBox(height: 8),
+                              if (comment.content.isNotEmpty)
+                                const SizedBox(height: 8),
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
@@ -2692,7 +3024,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       .toList();
                                   return allImageUrls.map((imageUrl) {
                                     return GestureDetector(
-                                      onTap: () => _showImageDialog(context, imageUrl, allImageUrls),
+                                      onTap: () => _showImageDialog(
+                                        context,
+                                        imageUrl,
+                                        allImageUrls,
+                                      ),
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(8),
                                         child: Image.network(
@@ -2700,17 +3036,20 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           width: 200,
                                           height: 200,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) {
-                                            return Container(
-                                              width: 200,
-                                              height: 200,
-                                              color: Colors.white.withValues(alpha: 0.7),
-                                              child: Icon(
-                                                Icons.broken_image,
-                                                color: colorScheme.onSurface.withValues(alpha: 0.5),
-                                              ),
-                                            );
-                                          },
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
+                                                return Container(
+                                                  width: 200,
+                                                  height: 200,
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.7),
+                                                  child: Icon(
+                                                    Icons.broken_image,
+                                                    color: colorScheme.onSurface
+                                                        .withValues(alpha: 0.5),
+                                                  ),
+                                                );
+                                              },
                                         ),
                                       ),
                                     );
@@ -2737,11 +3076,20 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         CircleAvatar(
           radius: 16,
           backgroundColor: AvatarColor.getColorForUser(
-            Provider.of<AuthProvider>(context, listen: false).currentUser?.id ?? 
-            Provider.of<AuthProvider>(context, listen: false).currentUser?.username ?? 'U'
+            Provider.of<AuthProvider>(context, listen: false).currentUser?.id ??
+                Provider.of<AuthProvider>(
+                  context,
+                  listen: false,
+                ).currentUser?.username ??
+                'U',
           ),
           child: Text(
-            (Provider.of<AuthProvider>(context, listen: false).currentUser?.username ?? 'U')[0].toUpperCase(),
+            (Provider.of<AuthProvider>(
+                      context,
+                      listen: false,
+                    ).currentUser?.username ??
+                    'U')[0]
+                .toUpperCase(),
             style: TextStyle(
               fontSize: 14,
               color: Colors.white,
@@ -2764,7 +3112,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         ? colorScheme.surfaceContainerHighest
                         : Colors.white,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: colorScheme.primary.withValues(alpha: 0.2)),
+                    border: Border.all(
+                      color: colorScheme.primary.withValues(alpha: 0.2),
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.12),
@@ -2784,7 +3134,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         onTap: () => _insertMention(user),
                         borderRadius: BorderRadius.circular(8),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? colorScheme.primary.withValues(alpha: 0.12)
@@ -2795,7 +3148,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             children: [
                               CircleAvatar(
                                 radius: 14,
-                                backgroundColor: AvatarColor.getColorForUser(user.id),
+                                backgroundColor: AvatarColor.getColorForUser(
+                                  user.id,
+                                ),
                                 child: Text(
                                   AvatarColor.getInitial(user.username),
                                   style: const TextStyle(
@@ -2811,7 +3166,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: colorScheme.onSurface,
-                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
                                 ),
                               ),
                             ],
@@ -2831,13 +3188,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 onDragDone: (details) {
                   setState(() => _isCommentDropHover = false);
                   final dropped = details.files
-                      .where((file) => file.path.isNotEmpty && _isSupportedImageFile(file.path))
+                      .where(
+                        (file) =>
+                            file.path.isNotEmpty &&
+                            _isSupportedImageFile(file.path),
+                      )
                       .map((file) => XFile(file.path))
                       .toList();
                   if (dropped.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: const Text('지원하지 않는 이미지 형식입니다. (png, jpg, jpeg, gif, webp)'),
+                        content: const Text(
+                          '지원하지 않는 이미지 형식입니다. (png, jpg, jpeg, gif, webp)',
+                        ),
                         backgroundColor: Theme.of(context).colorScheme.error,
                       ),
                     );
@@ -2848,68 +3211,89 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   });
                 },
                 child: Shortcuts(
-                    shortcuts: {
-                      LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyV): const _PasteIntent(),
-                      LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.enter): const _SubmitCommentIntent(),
-                    },
-                    child: Actions(
-                      actions: {
-                        _PasteIntent: CallbackAction<_PasteIntent>(
-                          onInvoke: (intent) => _handlePaste(),
-                        ),
-                        _SubmitCommentIntent: CallbackAction<_SubmitCommentIntent>(
-                          onInvoke: (intent) {
-                            if (_commentController.text.trim().isNotEmpty || _selectedCommentImages.isNotEmpty) {
-                              _addComment();
-                            }
-                            return null;
-                          },
-                        ),
-                      },
-                      child: KeyboardListener(
-                        focusNode: FocusNode(),
-                        onKeyEvent: (event) {
-                          if (event is! KeyDownEvent) return;
-                          // 멘션 목록이 열려있을 때: 방향키/Enter로 선택
-                          if (_showMentionSuggestions && _filteredMentionUsers.isNotEmpty) {
-                            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                              setState(() {
-                                _selectedMentionIndex = (_selectedMentionIndex + 1) % _filteredMentionUsers.length;
-                              });
-                              return;
-                            }
-                            if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                              setState(() {
-                                _selectedMentionIndex = (_selectedMentionIndex - 1 + _filteredMentionUsers.length) % _filteredMentionUsers.length;
-                              });
-                              return;
-                            }
-                            if (event.logicalKey == LogicalKeyboardKey.enter) {
-                              if (_selectedMentionIndex >= 0 && _selectedMentionIndex < _filteredMentionUsers.length) {
-                                _insertMention(_filteredMentionUsers[_selectedMentionIndex]);
+                  shortcuts: {
+                    LogicalKeySet(
+                      LogicalKeyboardKey.control,
+                      LogicalKeyboardKey.keyV,
+                    ): const _PasteIntent(),
+                    LogicalKeySet(
+                      LogicalKeyboardKey.control,
+                      LogicalKeyboardKey.enter,
+                    ): const _SubmitCommentIntent(),
+                  },
+                  child: Actions(
+                    actions: {
+                      _PasteIntent: CallbackAction<_PasteIntent>(
+                        onInvoke: (intent) => _handlePaste(),
+                      ),
+                      _SubmitCommentIntent:
+                          CallbackAction<_SubmitCommentIntent>(
+                            onInvoke: (intent) {
+                              if (_commentController.text.trim().isNotEmpty ||
+                                  _selectedCommentImages.isNotEmpty) {
+                                _addComment();
                               }
-                              return;
-                            }
-                            if (event.logicalKey == LogicalKeyboardKey.escape) {
-                              setState(() {
-                                _showMentionSuggestions = false;
-                                _filteredMentionUsers = [];
-                                _mentionStartIndex = -1;
-                                _selectedMentionIndex = -1;
-                              });
-                              return;
-                            }
+                              return null;
+                            },
+                          ),
+                    },
+                    child: KeyboardListener(
+                      focusNode: FocusNode(),
+                      onKeyEvent: (event) {
+                        if (event is! KeyDownEvent) return;
+                        // 멘션 목록이 열려있을 때: 방향키/Enter로 선택
+                        if (_showMentionSuggestions &&
+                            _filteredMentionUsers.isNotEmpty) {
+                          if (event.logicalKey ==
+                              LogicalKeyboardKey.arrowDown) {
+                            setState(() {
+                              _selectedMentionIndex =
+                                  (_selectedMentionIndex + 1) %
+                                  _filteredMentionUsers.length;
+                            });
+                            return;
                           }
-                          // Shift+Enter 제외 Enter로 댓글 제출
-                          if (event.logicalKey == LogicalKeyboardKey.enter &&
-                              !HardwareKeyboard.instance.isShiftPressed &&
-                              _commentFocusNode.hasFocus) {
-                            if (_commentController.text.trim().isNotEmpty || _selectedCommentImages.isNotEmpty) {
-                              _addComment();
-                            }
+                          if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                            setState(() {
+                              _selectedMentionIndex =
+                                  (_selectedMentionIndex -
+                                      1 +
+                                      _filteredMentionUsers.length) %
+                                  _filteredMentionUsers.length;
+                            });
+                            return;
                           }
-                        },
-                        child: AnimatedContainer(
+                          if (event.logicalKey == LogicalKeyboardKey.enter) {
+                            if (_selectedMentionIndex >= 0 &&
+                                _selectedMentionIndex <
+                                    _filteredMentionUsers.length) {
+                              _insertMention(
+                                _filteredMentionUsers[_selectedMentionIndex],
+                              );
+                            }
+                            return;
+                          }
+                          if (event.logicalKey == LogicalKeyboardKey.escape) {
+                            setState(() {
+                              _showMentionSuggestions = false;
+                              _filteredMentionUsers = [];
+                              _mentionStartIndex = -1;
+                              _selectedMentionIndex = -1;
+                            });
+                            return;
+                          }
+                        }
+                        // Shift+Enter 제외 Enter로 댓글 제출
+                        if (event.logicalKey == LogicalKeyboardKey.enter &&
+                            !HardwareKeyboard.instance.isShiftPressed &&
+                            _commentFocusNode.hasFocus) {
+                          if (_commentController.text.trim().isNotEmpty ||
+                              _selectedCommentImages.isNotEmpty) {
+                            _addComment();
+                          }
+                        }
+                      },
+                      child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
@@ -2940,10 +3324,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 keyboardType: TextInputType.multiline,
                                 onChanged: _handleCommentChanged,
                                 decoration: InputDecoration(
-                                  hintText: '댓글을 입력하세요... (Enter로 제출, Shift+Enter로 줄바꿈, 이미지는 드래그 또는 Ctrl+V로 붙여넣기)',
+                                  hintText:
+                                      '댓글을 입력하세요... (Enter로 제출, Shift+Enter로 줄바꿈, 이미지는 드래그 또는 Ctrl+V로 붙여넣기)',
                                   border: InputBorder.none,
                                   hintStyle: TextStyle(
-                                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.5,
+                                    ),
                                   ),
                                 ),
                                 style: TextStyle(
@@ -2963,13 +3350,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                     itemCount: _selectedCommentImages.length,
                                     itemBuilder: (context, index) {
                                       return Padding(
-                                        padding: const EdgeInsets.only(right: 8),
+                                        padding: const EdgeInsets.only(
+                                          right: 8,
+                                        ),
                                         child: Stack(
                                           children: [
                                             ClipRRect(
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                               child: _XFileImage(
-                                                xfile: _selectedCommentImages[index],
+                                                xfile:
+                                                    _selectedCommentImages[index],
                                                 width: 100,
                                                 height: 100,
                                               ),
@@ -2980,13 +3371,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                               child: GestureDetector(
                                                 onTap: () {
                                                   setState(() {
-                                                    _selectedCommentImages.removeAt(index);
+                                                    _selectedCommentImages
+                                                        .removeAt(index);
                                                   });
                                                 },
                                                 child: Container(
-                                                  padding: const EdgeInsets.all(4),
+                                                  padding: const EdgeInsets.all(
+                                                    4,
+                                                  ),
                                                   decoration: BoxDecoration(
-                                                    color: Colors.black.withValues(alpha: 0.6),
+                                                    color: Colors.black
+                                                        .withValues(alpha: 0.6),
                                                     shape: BoxShape.circle,
                                                   ),
                                                   child: const Icon(
@@ -3006,7 +3401,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               ],
                               const SizedBox(height: 8),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   IconButton(
                                     icon: Icon(
@@ -3032,9 +3428,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           ),
                         ),
                       ),
-                        ),
                     ),
                   ),
+                ),
               ),
             ],
           ),
@@ -3055,16 +3451,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   /// ?븐늿肉?節딅┛ 筌ｌ꼶??
   Future<void> _handlePaste() async {
     if (!_commentFocusNode.hasFocus) return;
-    
+
     try {
       // ?믪눘? ??용뮞?????계퉪?諭??類ㅼ뵥
       final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
-      if (clipboardData != null && clipboardData.text != null && clipboardData.text!.isNotEmpty) {
+      if (clipboardData != null &&
+          clipboardData.text != null &&
+          clipboardData.text!.isNotEmpty) {
         // ??용뮞?硫? ??됱몵筌?TextField???븐늿肉?節딅┛
         final text = clipboardData.text!;
         final currentText = _commentController.text;
         final selection = _commentController.selection;
-        
+
         if (selection.isValid) {
           // ?醫뤾문????용뮞?硫? ??됱몵筌??대Ŋ猿? ??곸몵筌??뚣끉苑??袁⑺뒄????뚯뿯
           final newText = currentText.replaceRange(
@@ -3074,7 +3472,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           );
           _commentController.value = TextEditingValue(
             text: newText,
-            selection: TextSelection.collapsed(offset: selection.start + text.length),
+            selection: TextSelection.collapsed(
+              offset: selection.start + text.length,
+            ),
           );
         } else {
           // ?뚣끉苑뚦첎? ??곸몵筌???밸퓠 ?곕떽?
@@ -3085,7 +3485,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         }
         return;
       }
-      
+
       // ??용뮞?硫? ??곸몵筌????筌왖 ?類ㅼ뵥 (Windows?癒?퐣筌?
       if (Platform.isWindows) {
         const platform = MethodChannel('com.sync/clipboard');
@@ -3100,7 +3500,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   final imageBytes = base64Decode(data);
                   final xfile = XFile.fromData(
                     imageBytes,
-                    name: 'pasted_image_${DateTime.now().millisecondsSinceEpoch}.png',
+                    name:
+                        'pasted_image_${DateTime.now().millisecondsSinceEpoch}.png',
                   );
                   setState(() {
                     _selectedCommentImages.add(xfile);
@@ -3108,7 +3509,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   return;
                 }
               } else if (type == 'paths') {
-                final List<dynamic>? rawPaths = result['data'] as List<dynamic>?;
+                final List<dynamic>? rawPaths =
+                    result['data'] as List<dynamic>?;
                 if (rawPaths != null && rawPaths.isNotEmpty) {
                   final dropped = rawPaths
                       .whereType<String>()
@@ -3119,7 +3521,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   if (dropped.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: const Text('지원하지 않는 이미지 형식은 붙여넣을 수 없습니다. (png, jpg, jpeg, gif, webp)'),
+                        content: const Text(
+                          '지원하지 않는 이미지 형식은 붙여넣을 수 없습니다. (png, jpg, jpeg, gif, webp)',
+                        ),
                         backgroundColor: Theme.of(context).colorScheme.error,
                       ),
                     );
@@ -3136,7 +3540,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               final imageBytes = base64Decode(result);
               final xfile = XFile.fromData(
                 imageBytes,
-                name: 'pasted_image_${DateTime.now().millisecondsSinceEpoch}.png',
+                name:
+                    'pasted_image_${DateTime.now().millisecondsSinceEpoch}.png',
               );
               setState(() {
                 _selectedCommentImages.add(xfile);
@@ -3148,7 +3553,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           // ???삸??筌?쑬瑗????얘탢????쎈솭??野껋럩???얜똻??
         }
       }
-      
+
       // ??용뮞?紐껊즲 ???筌왖????곸몵筌??袁ⓓ℡칰猿딅즲 ??? ??놁벉 (?癒?쑎 筌롫뗄?놅쭪? ??볤탢)
     } catch (e) {
       // ?癒?쑎 獄쏆뮇源????얜똻??
@@ -3171,13 +3576,30 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     } else if (difference.inDays < 7) {
       return '${difference.inDays}d ago';
     } else {
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       return '${months[date.month - 1]} ${date.day}';
     }
   }
 
   /// ???筌왖 ?類? ??쇱뵠??곗쨮域???뽯뻻
-  void _showImageDialog(BuildContext context, String imageUrl, List<String> allImageUrls) {
+  void _showImageDialog(
+    BuildContext context,
+    String imageUrl,
+    List<String> allImageUrls,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
     final resolvedImageUrl = _resolveImageUrl(imageUrl);
     final resolvedAllImageUrls = allImageUrls.map(_resolveImageUrl).toList();
@@ -3186,14 +3608,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final screenSize = MediaQuery.of(context).size;
     final maxWidth = screenSize.width * 0.85;
     final maxHeight = screenSize.height * 0.75;
-    
+
     showDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.7),
       builder: (context) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 40,
+            vertical: 60,
+          ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: maxWidth,
@@ -3224,13 +3649,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   Icon(
                                     Icons.broken_image,
                                     size: 64,
-                                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.5,
+                                    ),
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
                                     '이미지를 불러올 수 없습니다',
                                     style: TextStyle(
-                                      color: colorScheme.onSurface.withValues(alpha: 0.7),
+                                      color: colorScheme.onSurface.withValues(
+                                        alpha: 0.7,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -3283,7 +3712,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             );
                           },
                           style: IconButton.styleFrom(
-                            backgroundColor: Colors.black.withValues(alpha: 0.6),
+                            backgroundColor: Colors.black.withValues(
+                              alpha: 0.6,
+                            ),
                             padding: const EdgeInsets.all(10),
                           ),
                         ),
@@ -3311,7 +3742,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             );
                           },
                           style: IconButton.styleFrom(
-                            backgroundColor: Colors.black.withValues(alpha: 0.6),
+                            backgroundColor: Colors.black.withValues(
+                              alpha: 0.6,
+                            ),
                             padding: const EdgeInsets.all(10),
                           ),
                         ),
@@ -3324,7 +3757,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     right: 0,
                     child: Center(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.6),
                           borderRadius: BorderRadius.circular(20),
@@ -3379,16 +3815,25 @@ class _XFileImage extends StatelessWidget {
           return SizedBox(
             width: width,
             height: height,
-            child: Icon(Icons.broken_image, size: width * 0.5, color: Colors.grey),
+            child: Icon(
+              Icons.broken_image,
+              size: width * 0.5,
+              color: Colors.grey,
+            ),
           );
         }
         return SizedBox(
           width: width,
           height: height,
-          child: const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))),
+          child: const Center(
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
         );
       },
     );
   }
 }
-

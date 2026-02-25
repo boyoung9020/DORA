@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/notification_provider.dart';
 import '../providers/auth_provider.dart';
@@ -27,7 +27,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
       final authProvider = context.read<AuthProvider>();
       final notificationProvider = context.read<NotificationProvider>();
       if (authProvider.isAuthenticated && authProvider.currentUser != null) {
-        notificationProvider.loadNotifications(userId: authProvider.currentUser!.id);
+        notificationProvider.loadNotifications(
+          userId: authProvider.currentUser!.id,
+        );
       }
     });
   }
@@ -80,21 +82,60 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   /// 필터 칩 빌더
-  Widget _buildFilterChip(app_notification.NotificationType? type, String label, IconData icon, ColorScheme colorScheme) {
+  Widget _buildFilterChip(
+    app_notification.NotificationType? type,
+    String label,
+    IconData icon,
+    int count,
+    ColorScheme colorScheme,
+  ) {
     final isSelected = _selectedFilter == type;
+    final isEmpty = count == 0;
+    final textColor = isSelected
+        ? Colors.white
+        : colorScheme.onSurface.withValues(alpha: isEmpty ? 0.45 : 0.7);
+    final iconColor = isSelected
+        ? Colors.white
+        : colorScheme.onSurface.withValues(alpha: isEmpty ? 0.4 : 0.6);
+
     return FilterChip(
       selected: isSelected,
       label: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: isSelected ? Colors.white : colorScheme.onSurface.withValues(alpha: 0.6)),
+          Icon(icon, size: 14, color: iconColor),
           const SizedBox(width: 6),
-          Text(label, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : colorScheme.onSurface.withValues(alpha: 0.7))),
+          Text(label, style: TextStyle(fontSize: 12, color: textColor)),
+          const SizedBox(width: 6),
+          Container(
+            constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: const BoxDecoration(
+              color: Color(0xFFEF4444),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '$count',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                height: 1.0,
+              ),
+            ),
+          ),
         ],
       ),
       selectedColor: colorScheme.primary,
-      backgroundColor: colorScheme.surface,
-      side: BorderSide(color: isSelected ? colorScheme.primary : colorScheme.outline.withValues(alpha: 0.3)),
+      backgroundColor: isEmpty
+          ? colorScheme.surface.withValues(alpha: 0.7)
+          : colorScheme.surface,
+      side: BorderSide(
+        color: isSelected
+            ? colorScheme.primary
+            : colorScheme.outline.withValues(alpha: 0.3),
+      ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       showCheckmark: false,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -139,7 +180,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   /// 알림 클릭 시 해당 항목으로 네비게이션
-  void _handleNotificationTap(app_notification.Notification notification) async {
+  void _handleNotificationTap(
+    app_notification.Notification notification,
+  ) async {
     final notificationProvider = context.read<NotificationProvider>();
 
     // 읽음 표시
@@ -152,7 +195,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
       final taskProvider = context.read<TaskProvider>();
 
       // 로컬 목록에서 먼저 찾고, 없으면 API에서 직접 조회
-      var task = taskProvider.tasks.where((t) => t.id == notification.taskId).firstOrNull;
+      var task = taskProvider.tasks
+          .where((t) => t.id == notification.taskId)
+          .firstOrNull;
       task ??= await TaskService().getTaskById(notification.taskId!);
 
       if (!mounted) return;
@@ -169,7 +214,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
             content: const Text('해당 작업을 찾을 수 없습니다'),
             backgroundColor: Theme.of(context).colorScheme.error,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       }
@@ -198,7 +245,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: colorScheme.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
@@ -249,6 +299,29 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final notificationProvider = context.watch<NotificationProvider>();
     final authProvider = context.watch<AuthProvider>();
+    final notifications = notificationProvider.notifications;
+    final totalCount = notifications.length;
+    final taskAssignedCount = notifications
+        .where((n) => n.type == app_notification.NotificationType.taskAssigned)
+        .length;
+    final taskCommentAddedCount = notifications
+        .where(
+          (n) => n.type == app_notification.NotificationType.taskCommentAdded,
+        )
+        .length;
+    final taskOptionChangedCount = notifications
+        .where(
+          (n) => n.type == app_notification.NotificationType.taskOptionChanged,
+        )
+        .length;
+    final projectMemberAddedCount = notifications
+        .where(
+          (n) => n.type == app_notification.NotificationType.projectMemberAdded,
+        )
+        .length;
+    final taskMentionedCount = notifications
+        .where((n) => n.type == app_notification.NotificationType.taskMentioned)
+        .length;
 
     return Container(
       padding: const EdgeInsets.all(24.0),
@@ -272,7 +345,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   if (notificationProvider.unreadCount > 0) ...[
                     const SizedBox(width: 12),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEF4444),
                         borderRadius: BorderRadius.circular(12),
@@ -295,7 +371,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   if (notificationProvider.unreadCount > 0)
                     TextButton.icon(
                       onPressed: () async {
-                        if (authProvider.isAuthenticated && authProvider.currentUser != null) {
+                        if (authProvider.isAuthenticated &&
+                            authProvider.currentUser != null) {
                           await notificationProvider.markAllAsRead(
                             userId: authProvider.currentUser!.id,
                           );
@@ -310,7 +387,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   // 새로고침 버튼
                   IconButton(
                     onPressed: () {
-                      if (authProvider.isAuthenticated && authProvider.currentUser != null) {
+                      if (authProvider.isAuthenticated &&
+                          authProvider.currentUser != null) {
                         notificationProvider.loadNotifications(
                           userId: authProvider.currentUser!.id,
                         );
@@ -329,17 +407,53 @@ class _NotificationScreenState extends State<NotificationScreen> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _buildFilterChip(null, '전체', Icons.notifications_none, colorScheme),
+                _buildFilterChip(
+                  null,
+                  '전체',
+                  Icons.notifications_none,
+                  totalCount,
+                  colorScheme,
+                ),
                 const SizedBox(width: 8),
-                _buildFilterChip(app_notification.NotificationType.taskAssigned, '태스크 배정', Icons.assignment_ind, colorScheme),
+                _buildFilterChip(
+                  app_notification.NotificationType.taskAssigned,
+                  '태스크 배정',
+                  Icons.assignment_ind,
+                  taskAssignedCount,
+                  colorScheme,
+                ),
                 const SizedBox(width: 8),
-                _buildFilterChip(app_notification.NotificationType.taskCommentAdded, '댓글', Icons.comment, colorScheme),
+                _buildFilterChip(
+                  app_notification.NotificationType.taskCommentAdded,
+                  '댓글',
+                  Icons.comment,
+                  taskCommentAddedCount,
+                  colorScheme,
+                ),
                 const SizedBox(width: 8),
-                _buildFilterChip(app_notification.NotificationType.taskOptionChanged, '옵션 변경', Icons.settings, colorScheme),
+                _buildFilterChip(
+                  app_notification.NotificationType.taskOptionChanged,
+                  '옵션 변경',
+                  Icons.settings,
+                  taskOptionChangedCount,
+                  colorScheme,
+                ),
                 const SizedBox(width: 8),
-                _buildFilterChip(app_notification.NotificationType.projectMemberAdded, '멤버 추가', Icons.group_add, colorScheme),
+                _buildFilterChip(
+                  app_notification.NotificationType.projectMemberAdded,
+                  '멤버 추가',
+                  Icons.group_add,
+                  projectMemberAddedCount,
+                  colorScheme,
+                ),
                 const SizedBox(width: 8),
-                _buildFilterChip(app_notification.NotificationType.taskMentioned, '멘션', Icons.alternate_email, colorScheme),
+                _buildFilterChip(
+                  app_notification.NotificationType.taskMentioned,
+                  '멘션',
+                  Icons.alternate_email,
+                  taskMentionedCount,
+                  colorScheme,
+                ),
               ],
             ),
           ),
@@ -353,79 +467,86 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     ),
                   )
                 : notificationProvider.notifications.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                color: colorScheme.primary.withValues(alpha: 0.08),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.notifications_none,
-                                size: 40,
-                                color: colorScheme.primary.withValues(alpha: 0.4),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            Text(
-                              '알림이 없습니다',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '새로운 알림이 도착하면 여기에 표시됩니다',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                              ),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary.withValues(alpha: 0.08),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.notifications_none,
+                            size: 40,
+                            color: colorScheme.primary.withValues(alpha: 0.4),
+                          ),
                         ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: () async {
-                          if (authProvider.isAuthenticated && authProvider.currentUser != null) {
-                            await notificationProvider.loadNotifications(
-                              userId: authProvider.currentUser!.id,
-                            );
-                          }
-                        },
-                        color: colorScheme.primary,
-                        child: Builder(builder: (context) {
-                          final filtered = _selectedFilter == null
-                              ? notificationProvider.notifications
-                              : notificationProvider.notifications
+                        const SizedBox(height: 20),
+                        Text(
+                          '알림이 없습니다',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '새로운 알림이 도착하면 여기에 표시됩니다',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.7,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: () async {
+                      if (authProvider.isAuthenticated &&
+                          authProvider.currentUser != null) {
+                        await notificationProvider.loadNotifications(
+                          userId: authProvider.currentUser!.id,
+                        );
+                      }
+                    },
+                    color: colorScheme.primary,
+                    child: Builder(
+                      builder: (context) {
+                        final filtered = _selectedFilter == null
+                            ? notificationProvider.notifications
+                            : notificationProvider.notifications
                                   .where((n) => n.type == _selectedFilter)
                                   .toList();
-                          if (filtered.isEmpty) {
-                            return Center(
-                              child: Text(
-                                '해당 유형의 알림이 없습니다',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                        if (filtered.isEmpty) {
+                          return Center(
+                            child: Text(
+                              '해당 유형의 알림이 없습니다',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: colorScheme.onSurfaceVariant.withValues(
+                                  alpha: 0.7,
                                 ),
                               ),
-                            );
-                          }
-                          return ListView(
-                            children: _buildGroupedNotificationList(
-                              filtered,
-                              colorScheme,
-                              notificationProvider,
-                              authProvider,
                             ),
                           );
-                        }),
-                      ),
+                        }
+                        return ListView(
+                          children: _buildGroupedNotificationList(
+                            filtered,
+                            colorScheme,
+                            notificationProvider,
+                            authProvider,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
           ),
         ],
       ),
@@ -472,11 +593,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   color: iconColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  icon,
-                  color: iconColor,
-                  size: 22,
-                ),
+                child: Icon(icon, color: iconColor, size: 22),
               ),
               const SizedBox(width: 14),
               // 내용
@@ -492,7 +609,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                             notification.title,
                             style: TextStyle(
                               fontSize: 14,
-                              fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                              fontWeight: isRead
+                                  ? FontWeight.normal
+                                  : FontWeight.bold,
                               color: colorScheme.onSurface,
                             ),
                           ),
@@ -502,7 +621,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           _formatRelativeTime(notification.createdAt),
                           style: TextStyle(
                             fontSize: 11,
-                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                            color: colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.6,
+                            ),
                           ),
                         ),
                       ],
@@ -523,7 +644,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: iconColor.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(6),
@@ -564,11 +688,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                 content: const Text('이 알림을 삭제하시겠습니까?'),
                                 actions: [
                                   TextButton(
-                                    onPressed: () => Navigator.pop(context, false),
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
                                     child: const Text('취소'),
                                   ),
                                   TextButton(
-                                    onPressed: () => Navigator.pop(context, true),
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
                                     child: const Text('삭제'),
                                   ),
                                 ],
@@ -576,7 +702,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                             );
 
                             if (confirmed == true) {
-                              await notificationProvider.deleteNotification(notification.id);
+                              await notificationProvider.deleteNotification(
+                                notification.id,
+                              );
                             }
                           },
                           borderRadius: BorderRadius.circular(6),
@@ -585,7 +713,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                             child: Icon(
                               Icons.close,
                               size: 16,
-                              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                              color: colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.4,
+                              ),
                             ),
                           ),
                         ),

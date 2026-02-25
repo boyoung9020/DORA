@@ -47,6 +47,7 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   int _selectedIndex = 0; // 선택된 메뉴 인덱스
+  bool _isMenuStateReady = false; // 메뉴 순서/선택 탭 복원 완료 여부
   WebSocketService? _webSocketService; // WebSocket 서비스
 
   // 메뉴 항목 정의 (상태로 관리하여 드래그로 순서 변경 가능)
@@ -408,6 +409,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               setState(() {
                 _selectedIndex = notifIndex;
               });
+              unawaited(_saveSelectedMenuIndex());
             }
           },
         ),
@@ -547,10 +549,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       ),
     ];
 
+    var menuItemsToApply = defaultItems;
+    int selectedIndexToApply = 0;
+
     // SharedPreferences에서 저장된 순서 로드
     try {
       final prefs = await SharedPreferences.getInstance();
       final savedOrder = prefs.getStringList('menu_item_order');
+      selectedIndexToApply = prefs.getInt('selected_menu_index') ?? 0;
       if (savedOrder != null && savedOrder.length == defaultItems.length) {
         // 저장된 순서대로 재정렬
         final orderedItems = <MenuItem>[];
@@ -570,12 +576,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             index: i,
           );
         }
-        if (mounted) {
-          setState(() {
-            _menuItems = orderedItems;
-          });
-        }
-        return;
+        menuItemsToApply = orderedItems;
       }
     } catch (e) {
       // 에러 발생 시 기본 순서 사용
@@ -583,7 +584,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
     if (mounted) {
       setState(() {
-        _menuItems = defaultItems;
+        _menuItems = menuItemsToApply;
+        _selectedIndex = selectedIndexToApply.clamp(0, _menuItems.length - 1);
+        _isMenuStateReady = true;
       });
     }
   }
@@ -594,6 +597,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       final prefs = await SharedPreferences.getInstance();
       final order = _menuItems.map((item) => item.label).toList();
       await prefs.setStringList('menu_item_order', order);
+      await prefs.setInt('selected_menu_index', _selectedIndex);
+    } catch (e) {
+      // 에러 무시
+    }
+  }
+
+  Future<void> _saveSelectedMenuIndex() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('selected_menu_index', _selectedIndex);
     } catch (e) {
       // 에러 무시
     }
@@ -1569,6 +1582,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             setState(() {
               _selectedIndex = item.index;
             });
+            unawaited(_saveSelectedMenuIndex());
             // 화면 전환 시에는 WebSocket 이벤트만 사용 (자동 새로고침 제거)
           },
           borderRadius: BorderRadius.circular(12),
@@ -2289,6 +2303,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   /// 컨텐츠 영역
   Widget _buildContent(BuildContext context) {
+    if (!_isMenuStateReady) {
+      // 새로고침 직후 복원 완료 전 화면 플래시 방지
+      return const SizedBox.expand();
+    }
     // 현재 선택된 메뉴 아이템의 label을 기반으로 화면 반환
     if (_selectedIndex >= 0 && _selectedIndex < _menuItems.length) {
       final selectedItem = _menuItems[_selectedIndex];
@@ -2299,6 +2317,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   /// 현재 선택된 화면이 대시보드인지 확인
   bool _isDashboardSelected() {
+    if (!_isMenuStateReady) return false;
     if (_selectedIndex >= 0 && _selectedIndex < _menuItems.length) {
       final selectedItem = _menuItems[_selectedIndex];
       return selectedItem.label == '홈';

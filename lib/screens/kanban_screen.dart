@@ -536,25 +536,28 @@ class _KanbanScreenState extends State<KanbanScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      decoration: BoxDecoration(
-        color: isDarkMode ? Colors.transparent : const Color(0xFFFAFBFD),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: isDarkMode
-              ? colorScheme.onSurface.withValues(alpha: 0.1)
-              : const Color(0xFFE0E7FF),
-          style: BorderStyle.solid,
+    return GestureDetector(
+      onTap: () => _showAddTaskDialogForStatus(context, status),
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          color: isDarkMode ? Colors.transparent : const Color(0xFFFAFBFD),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(
+            color: isDarkMode
+                ? colorScheme.onSurface.withValues(alpha: 0.1)
+                : const Color(0xFFE0E7FF),
+            style: BorderStyle.solid,
+          ),
         ),
-      ),
-      child: Center(
-        child: Text(
-          '태스크를 여기로 드래그하세요',
-          style: TextStyle(
-            color: colorScheme.onSurface.withValues(alpha: 0.5),
-            fontSize: 14,
+        child: Center(
+          child: Text(
+            '태스크를 여기로 드래그하거나 탭하여 추가하세요',
+            style: TextStyle(
+              color: colorScheme.onSurface.withValues(alpha: 0.5),
+              fontSize: 14,
+            ),
           ),
         ),
       ),
