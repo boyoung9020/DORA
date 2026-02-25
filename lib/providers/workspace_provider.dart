@@ -10,12 +10,14 @@ class WorkspaceProvider extends ChangeNotifier {
   Workspace? _currentWorkspace;
   List<WorkspaceMember> _currentMembers = [];
   bool _isLoading = false;
+  bool _hasLoaded = false;
   String? _errorMessage;
 
   List<Workspace> get workspaces => _workspaces;
   Workspace? get currentWorkspace => _currentWorkspace;
   List<WorkspaceMember> get currentMembers => _currentMembers;
   bool get isLoading => _isLoading;
+  bool get hasLoaded => _hasLoaded;
   String? get errorMessage => _errorMessage;
 
   /// 현재 워크스페이스 ID
@@ -49,6 +51,7 @@ class WorkspaceProvider extends ChangeNotifier {
     } catch (e) {
       _errorMessage = '워크스페이스 목록을 불러오는 중 오류: $e';
     } finally {
+      _hasLoaded = true;
       _isLoading = false;
       notifyListeners();
     }
@@ -74,7 +77,10 @@ class WorkspaceProvider extends ChangeNotifier {
   /// 워크스페이스 생성
   Future<bool> createWorkspace(String name, String? description) async {
     try {
-      final ws = await _service.createWorkspace(name: name, description: description);
+      final ws = await _service.createWorkspace(
+        name: name,
+        description: description,
+      );
       _workspaces.add(ws);
       _currentWorkspace = ws;
       await _loadCurrentMembers();
@@ -113,13 +119,16 @@ class WorkspaceProvider extends ChangeNotifier {
   }
 
   /// 초대 링크 생성
-  String buildInviteLink(String inviteToken) => _service.buildInviteLink(inviteToken);
+  String buildInviteLink(String inviteToken) =>
+      _service.buildInviteLink(inviteToken);
 
   /// 초대 토큰 재발급
   Future<bool> regenerateInviteToken() async {
     if (_currentWorkspace == null) return false;
     try {
-      final updated = await _service.regenerateInviteToken(_currentWorkspace!.id);
+      final updated = await _service.regenerateInviteToken(
+        _currentWorkspace!.id,
+      );
       final idx = _workspaces.indexWhere((w) => w.id == updated.id);
       if (idx >= 0) _workspaces[idx] = updated;
       _currentWorkspace = updated;
@@ -177,6 +186,7 @@ class WorkspaceProvider extends ChangeNotifier {
     _workspaces = [];
     _currentWorkspace = null;
     _currentMembers = [];
+    _hasLoaded = false;
     _isLoading = false;
     _errorMessage = null;
     notifyListeners();

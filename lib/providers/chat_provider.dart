@@ -162,6 +162,34 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
+  /// 메시지 수정
+  Future<bool> updateMessage(
+    String roomId,
+    String messageId,
+    String content,
+  ) async {
+    final updated = await _chatService.updateMessage(
+      roomId,
+      messageId,
+      content,
+    );
+    if (updated == null) {
+      _errorMessage = '메시지 수정에 실패했습니다.';
+      notifyListeners();
+      return false;
+    }
+
+    final existing = _messagesByRoom[roomId];
+    if (existing != null) {
+      final idx = existing.indexWhere((m) => m.id == messageId);
+      if (idx != -1) {
+        existing[idx] = updated;
+      }
+    }
+    notifyListeners();
+    return true;
+  }
+
   /// WebSocket으로 수신된 메시지 처리
   void handleIncomingMessage(Map<String, dynamic> data) {
     final roomId = data['room_id'] as String?;
@@ -226,6 +254,30 @@ class ChatProvider extends ChangeNotifier {
   void handleRoomCreated(Map<String, dynamic> data) {
     // 채팅방 목록 새로고침
     loadRooms(workspaceId: _currentWorkspaceId);
+  }
+
+  /// WebSocket으로 수신된 메시지 수정 이벤트 처리
+  void handleMessageUpdated(Map<String, dynamic> data) {
+    final roomId = data['room_id'] as String?;
+    final messageId = data['message_id'] as String?;
+    if (roomId == null || messageId == null) return;
+
+    final existing = _messagesByRoom[roomId];
+    if (existing == null) return;
+
+    final idx = existing.indexWhere((m) => m.id == messageId);
+    if (idx == -1) return;
+
+    final updatedAtRaw = data['updated_at'];
+    final updatedAt = updatedAtRaw != null
+        ? DateTime.tryParse(updatedAtRaw.toString())?.toLocal()
+        : existing[idx].updatedAt;
+
+    existing[idx] = existing[idx].copyWith(
+      content: data['content']?.toString() ?? existing[idx].content,
+      updatedAt: updatedAt,
+    );
+    notifyListeners();
   }
 
   /// 읽음 처리

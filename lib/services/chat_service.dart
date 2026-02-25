@@ -37,10 +37,7 @@ class ChatService {
     String? workspaceId,
   }) async {
     try {
-      final body = <String, dynamic>{
-        'type': type,
-        'member_ids': memberIds,
-      };
+      final body = <String, dynamic>{'type': type, 'member_ids': memberIds};
       if (name != null) body['name'] = name;
       if (projectId != null) body['project_id'] = projectId;
       if (workspaceId != null) body['workspace_id'] = workspaceId;
@@ -64,9 +61,7 @@ class ChatService {
     int limit = 50,
   }) async {
     try {
-      final queryParams = <String, String>{
-        'limit': limit.toString(),
-      };
+      final queryParams = <String, String>{'limit': limit.toString()};
       if (beforeId != null) {
         queryParams['before_id'] = beforeId;
       }
@@ -105,7 +100,10 @@ class ChatService {
         body['file_urls'] = fileUrls;
       }
 
-      final response = await ApiClient.post('/api/chat/rooms/$roomId/messages', body: body);
+      final response = await ApiClient.post(
+        '/api/chat/rooms/$roomId/messages',
+        body: body,
+      );
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = ApiClient.handleResponse(response);
         return ChatMessage.fromJson(data);
@@ -118,9 +116,34 @@ class ChatService {
     }
   }
 
+  Future<ChatMessage?> updateMessage(
+    String roomId,
+    String messageId,
+    String content,
+  ) async {
+    try {
+      final response = await ApiClient.patch(
+        '/api/chat/rooms/$roomId/messages/$messageId',
+        body: {'content': content},
+      );
+      if (response.statusCode == 200) {
+        final data = ApiClient.handleResponse(response);
+        return ChatMessage.fromJson(data);
+      }
+
+      throw Exception('Failed to update message: ${response.statusCode}');
+    } catch (e) {
+      print('[ChatService] updateMessage failed: $e');
+      return null;
+    }
+  }
+
   Future<bool> markAsRead(String roomId) async {
     try {
-      final response = await ApiClient.patch('/api/chat/rooms/$roomId/read', body: {});
+      final response = await ApiClient.patch(
+        '/api/chat/rooms/$roomId/read',
+        body: {},
+      );
       return response.statusCode == 200;
     } catch (e) {
       print('[ChatService] markAsRead failed: $e');

@@ -292,6 +292,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         }
         break;
 
+      case 'chat_message_updated':
+        final chatProvider3 = Provider.of<ChatProvider>(context, listen: false);
+        chatProvider3.handleMessageUpdated(data);
+        break;
+
       case 'chat_room_created':
         final chatProvider2 = Provider.of<ChatProvider>(context, listen: false);
         chatProvider2.handleRoomCreated(data);

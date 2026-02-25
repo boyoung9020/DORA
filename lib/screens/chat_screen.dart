@@ -29,6 +29,7 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
+  final TextEditingController _editMessageController = TextEditingController();
   final ScrollController _messageScrollController = ScrollController();
   final FocusNode _messageFocusNode = FocusNode();
 
@@ -46,6 +47,8 @@ class _ChatScreenState extends State<ChatScreen> {
   int _mentionStartIndex = -1;
   int _selectedMentionIndex = -1;
   bool _workspaceScopeInitialized = false;
+  String? _editingMessageId;
+  bool _isUpdatingMessage = false;
 
   @override
   void initState() {
@@ -60,7 +63,9 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final workspaceId = Provider.of<WorkspaceProvider>(context).currentWorkspaceId;
+    final workspaceId = Provider.of<WorkspaceProvider>(
+      context,
+    ).currentWorkspaceId;
     if (!_workspaceScopeInitialized || _workspaceScopeId != workspaceId) {
       _workspaceScopeInitialized = true;
       _workspaceScopeId = workspaceId;
@@ -76,6 +81,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _messageController.dispose();
+    _editMessageController.dispose();
     _messageScrollController.dispose();
     _messageFocusNode.dispose();
     super.dispose();
@@ -89,12 +95,17 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       final authService = AuthService();
       final wsProvider = Provider.of<WorkspaceProvider>(context, listen: false);
-      final currentUserId =
-          Provider.of<AuthProvider>(context, listen: false).currentUser?.id;
-      String? workspaceId = workspaceIdOverride ?? wsProvider.currentWorkspaceId;
+      final currentUserId = Provider.of<AuthProvider>(
+        context,
+        listen: false,
+      ).currentUser?.id;
+      String? workspaceId =
+          workspaceIdOverride ?? wsProvider.currentWorkspaceId;
 
       // 워크스페이스가 아직 로드되지 않았다면 먼저 로드 시도
-      if (workspaceId == null && wsProvider.workspaces.isEmpty && !wsProvider.isLoading) {
+      if (workspaceId == null &&
+          wsProvider.workspaces.isEmpty &&
+          !wsProvider.isLoading) {
         await wsProvider.loadWorkspaces();
         workspaceId = wsProvider.currentWorkspaceId;
       }
@@ -131,6 +142,8 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       _selectedUser = user;
       _isConnecting = true;
+      _editingMessageId = null;
+      _editMessageController.clear();
     });
 
     final chatProvider = context.read<ChatProvider>();
@@ -178,11 +191,13 @@ class _ChatScreenState extends State<ChatScreen> {
     if (pickedFile == null) return;
     final bytes = await pickedFile.readAsBytes();
     setState(() {
-      _pendingAttachments.add(_PendingAttachment(
-        bytes: bytes,
-        fileName: pickedFile.name,
-        isImage: true,
-      ));
+      _pendingAttachments.add(
+        _PendingAttachment(
+          bytes: bytes,
+          fileName: pickedFile.name,
+          isImage: true,
+        ),
+      );
     });
   }
 
@@ -196,11 +211,13 @@ class _ChatScreenState extends State<ChatScreen> {
     final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext);
 
     setState(() {
-      _pendingAttachments.add(_PendingAttachment(
-        bytes: file.bytes!,
-        fileName: file.name,
-        isImage: isImage,
-      ));
+      _pendingAttachments.add(
+        _PendingAttachment(
+          bytes: file.bytes!,
+          fileName: file.name,
+          isImage: isImage,
+        ),
+      );
     });
   }
 
@@ -285,12 +302,19 @@ class _ChatScreenState extends State<ChatScreen> {
         final uploadService = UploadService();
         for (final att in _pendingAttachments) {
           if (att.isImage) {
-            final url = await uploadService.uploadImageBytes(att.bytes, att.fileName);
+            final url = await uploadService.uploadImageBytes(
+              att.bytes,
+              att.fileName,
+            );
             imageUrls.add(url);
           } else {
-            final data = await uploadService.uploadFileBytes(att.bytes, att.fileName);
+            final data = await uploadService.uploadFileBytes(
+              att.bytes,
+              att.fileName,
+            );
             final url = data['url'] as String;
-            final originalName = data['original_name'] as String? ?? att.fileName;
+            final originalName =
+                data['original_name'] as String? ?? att.fileName;
             final size = data['size'] as int? ?? 0;
             fileUrls.add('$originalName|$url|$size');
           }
@@ -314,6 +338,68 @@ class _ChatScreenState extends State<ChatScreen> {
       _scrollToBottom();
     }
     _messageFocusNode.requestFocus();
+  }
+
+  bool _canEditMessage(ChatMessage message, String? currentUserId) {
+    final hasTextContent =
+        message.content.trim().isNotEmpty && message.content.trim() != ' ';
+    return message.senderId == currentUserId &&
+        hasTextContent &&
+        message.imageUrls.isEmpty &&
+        message.fileUrls.isEmpty;
+  }
+
+  bool _isMessageEdited(ChatMessage message) {
+    if (message.updatedAt == null) return false;
+    return message.updatedAt!.difference(message.createdAt).inSeconds.abs() >=
+        1;
+  }
+
+  void _startEditMessage(ChatMessage message) {
+    setState(() {
+      _editingMessageId = message.id;
+      _editMessageController.text = message.content;
+    });
+  }
+
+  void _cancelEditMessage() {
+    setState(() {
+      _editingMessageId = null;
+      _editMessageController.clear();
+      _isUpdatingMessage = false;
+    });
+  }
+
+  Future<void> _saveEditedMessage(ChatMessage message) async {
+    final content = _editMessageController.text.trim();
+    if (content.isEmpty) return;
+
+    setState(() {
+      _isUpdatingMessage = true;
+    });
+
+    final success = await context.read<ChatProvider>().updateMessage(
+      message.roomId,
+      message.id,
+      content,
+    );
+
+    if (!mounted) return;
+    if (success) {
+      setState(() {
+        _editingMessageId = null;
+        _editMessageController.clear();
+        _isUpdatingMessage = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isUpdatingMessage = false;
+    });
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('메시지 수정에 실패했습니다.')));
   }
 
   String _formatRelativeTime(DateTime date) {
@@ -431,16 +517,16 @@ class _ChatScreenState extends State<ChatScreen> {
       final saved = await saveFileFromBytes(response.bodyBytes, fileName);
       if (!mounted) return;
       if (saved) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$fileName 저장 완료')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$fileName 저장 완료')));
       }
       // 사용자가 저장을 취소한 경우 메시지를 노출하지 않음
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('다운로드 실패: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('다운로드 실패: $e')));
       }
     }
   }
@@ -485,7 +571,11 @@ class _ChatScreenState extends State<ChatScreen> {
                           color: Colors.black54,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.download, color: Colors.white, size: 20),
+                        child: const Icon(
+                          Icons.download,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
                     ),
                     IconButton(
@@ -496,7 +586,11 @@ class _ChatScreenState extends State<ChatScreen> {
                           color: Colors.black54,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.close, color: Colors.white, size: 20),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
                     ),
                   ],
@@ -528,16 +622,18 @@ class _ChatScreenState extends State<ChatScreen> {
                 ? colorScheme.onSurface.withValues(alpha: 0.1)
                 : const Color(0xFFE7D3BF),
           ),
-          Expanded(
-            child: _buildMessagePanel(context, colorScheme, isDarkMode),
-          ),
+          Expanded(child: _buildMessagePanel(context, colorScheme, isDarkMode)),
         ],
       ),
     );
   }
 
   /// 새 대화 시작 다이얼로그 표시
-  void _showNewDMDialog(BuildContext context, ColorScheme colorScheme, bool isDarkMode) {
+  void _showNewDMDialog(
+    BuildContext context,
+    ColorScheme colorScheme,
+    bool isDarkMode,
+  ) {
     // 이미 대화 중인 사용자 ID 수집
     final usersWithMessages = <String>{};
     for (final user in _allUsers) {
@@ -547,14 +643,19 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     }
     // 대화 기록이 없는 사용자만 필터링
-    final availableUsers = _allUsers.where((u) => !usersWithMessages.contains(u.id)).toList();
+    final availableUsers = _allUsers
+        .where((u) => !usersWithMessages.contains(u.id))
+        .toList();
 
     showDialog(
       context: context,
       builder: (dialogContext) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 24,
+          ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 400, maxHeight: 480),
             child: GlassContainer(
@@ -584,7 +685,9 @@ class _ChatScreenState extends State<ChatScreen> {
                             child: Text(
                               '대화를 시작할 유저가 없습니다',
                               style: TextStyle(
-                                color: colorScheme.onSurface.withValues(alpha: 0.5),
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.5,
+                                ),
                               ),
                             ),
                           )
@@ -603,7 +706,10 @@ class _ChatScreenState extends State<ChatScreen> {
                                     },
                                     borderRadius: BorderRadius.circular(8),
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 10,
+                                      ),
                                       child: Row(
                                         children: [
                                           _buildUserAvatar(user, radius: 16),
@@ -634,9 +740,14 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildUserListPanel(BuildContext context, ColorScheme colorScheme, bool isDarkMode) {
+  Widget _buildUserListPanel(
+    BuildContext context,
+    ColorScheme colorScheme,
+    bool isDarkMode,
+  ) {
     context.watch<ChatProvider>();
-    final hasWorkspace = context.watch<WorkspaceProvider>().currentWorkspaceId != null;
+    final hasWorkspace =
+        context.watch<WorkspaceProvider>().currentWorkspaceId != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -676,7 +787,9 @@ class _ChatScreenState extends State<ChatScreen> {
               Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: hasWorkspace ? () => _showGroupChatDialog(context) : null,
+                  onTap: hasWorkspace
+                      ? () => _showGroupChatDialog(context)
+                      : null,
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
                     padding: const EdgeInsets.all(4),
@@ -694,65 +807,109 @@ class _ChatScreenState extends State<ChatScreen> {
         Expanded(
           child: _isLoadingUsers
               ? const Center(child: CircularProgressIndicator())
-              : Builder(builder: (context) {
-                  // 메시지를 주고받은 사용자만 표시 (대화 기록이 있는 사용자)
-                  final usersWithMessages = _allUsers.where((user) {
-                    final room = _getRoomForUser(user.id);
-                    return room?.lastMessageAt != null;
-                  }).toList();
-                  // 현재 선택된 사용자가 목록에 없으면 추가 (새 대화 시작 직후)
-                  if (_selectedUser != null && !usersWithMessages.any((u) => u.id == _selectedUser!.id)) {
-                    usersWithMessages.insert(0, _selectedUser!);
-                  }
-                  // 최근 채팅한 사용자 순으로 정렬
-                  usersWithMessages.sort((a, b) {
-                    final roomA = _getRoomForUser(a.id);
-                    final roomB = _getRoomForUser(b.id);
-                    final timeA = roomA?.lastMessageAt;
-                    final timeB = roomB?.lastMessageAt;
-                    if (timeA == null && timeB == null) return 0;
-                    if (timeA == null) return 1;
-                    if (timeB == null) return -1;
-                    return timeB.compareTo(timeA); // 최신순
-                  });
-                  if (usersWithMessages.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.chat_bubble_outline, size: 48, color: colorScheme.onSurface.withValues(alpha: 0.15)),
-                          const SizedBox(height: 12),
-                          Text(
-                            '대화 기록이 없습니다',
-                            style: TextStyle(fontSize: 14, color: colorScheme.onSurface.withValues(alpha: 0.4)),
-                          ),
-                          const SizedBox(height: 8),
-                          TextButton.icon(
-                            onPressed: () => _showNewDMDialog(context, colorScheme, isDarkMode),
-                            icon: Icon(Icons.edit_outlined, size: 16, color: colorScheme.primary),
-                            label: Text('새 대화 시작', style: TextStyle(color: colorScheme.primary, fontSize: 13)),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                  return ListView.builder(
-                    itemCount: usersWithMessages.length,
-                    itemBuilder: (context, index) {
-                      final user = usersWithMessages[index];
-                      final isSelected = _selectedUser?.id == user.id;
+              : Builder(
+                  builder: (context) {
+                    // 메시지를 주고받은 사용자만 표시 (대화 기록이 있는 사용자)
+                    final usersWithMessages = _allUsers.where((user) {
                       final room = _getRoomForUser(user.id);
-                      final unreadCount = room?.unreadCount ?? 0;
-                      return _buildUserTile(user, isSelected, room, unreadCount, colorScheme, isDarkMode);
-                    },
-                  );
-                }),
+                      return room?.lastMessageAt != null;
+                    }).toList();
+                    // 현재 선택된 사용자가 목록에 없으면 추가 (새 대화 시작 직후)
+                    if (_selectedUser != null &&
+                        !usersWithMessages.any(
+                          (u) => u.id == _selectedUser!.id,
+                        )) {
+                      usersWithMessages.insert(0, _selectedUser!);
+                    }
+                    // 최근 채팅한 사용자 순으로 정렬
+                    usersWithMessages.sort((a, b) {
+                      final roomA = _getRoomForUser(a.id);
+                      final roomB = _getRoomForUser(b.id);
+                      final timeA = roomA?.lastMessageAt;
+                      final timeB = roomB?.lastMessageAt;
+                      if (timeA == null && timeB == null) return 0;
+                      if (timeA == null) return 1;
+                      if (timeB == null) return -1;
+                      return timeB.compareTo(timeA); // 최신순
+                    });
+                    if (usersWithMessages.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.chat_bubble_outline,
+                              size: 48,
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.15,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              '대화 기록이 없습니다',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.4,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextButton.icon(
+                              onPressed: () => _showNewDMDialog(
+                                context,
+                                colorScheme,
+                                isDarkMode,
+                              ),
+                              icon: Icon(
+                                Icons.edit_outlined,
+                                size: 16,
+                                color: colorScheme.primary,
+                              ),
+                              label: Text(
+                                '새 대화 시작',
+                                style: TextStyle(
+                                  color: colorScheme.primary,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      itemCount: usersWithMessages.length,
+                      itemBuilder: (context, index) {
+                        final user = usersWithMessages[index];
+                        final isSelected = _selectedUser?.id == user.id;
+                        final room = _getRoomForUser(user.id);
+                        final unreadCount = room?.unreadCount ?? 0;
+                        return _buildUserTile(
+                          user,
+                          isSelected,
+                          room,
+                          unreadCount,
+                          colorScheme,
+                          isDarkMode,
+                        );
+                      },
+                    );
+                  },
+                ),
         ),
       ],
     );
   }
 
-  Widget _buildUserTile(User user, bool isSelected, ChatRoom? room, int unreadCount, ColorScheme colorScheme, bool isDarkMode) {
+  Widget _buildUserTile(
+    User user,
+    bool isSelected,
+    ChatRoom? room,
+    int unreadCount,
+    ColorScheme colorScheme,
+    bool isDarkMode,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
       child: Material(
@@ -764,7 +921,9 @@ class _ChatScreenState extends State<ChatScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: isSelected
-                  ? (isDarkMode ? colorScheme.primary.withValues(alpha: 0.15) : const Color(0xFFFFF3E6))
+                  ? (isDarkMode
+                        ? colorScheme.primary.withValues(alpha: 0.15)
+                        : const Color(0xFFFFF3E6))
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
             ),
@@ -780,17 +939,23 @@ class _ChatScreenState extends State<ChatScreen> {
                         user.username,
                         style: TextStyle(
                           fontSize: 14,
-                          fontWeight: unreadCount > 0 ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: unreadCount > 0
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                           color: colorScheme.onSurface,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (room?.lastMessageContent != null && room!.lastMessageContent!.trim().isNotEmpty) ...[
+                      if (room?.lastMessageContent != null &&
+                          room!.lastMessageContent!.trim().isNotEmpty) ...[
                         const SizedBox(height: 2),
                         Text(
                           room.lastMessageContent!,
-                          style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.onSurface.withValues(alpha: 0.5),
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -804,14 +969,30 @@ class _ChatScreenState extends State<ChatScreen> {
                     if (room?.lastMessageAt != null)
                       Text(
                         _formatRelativeTime(room!.lastMessageAt!),
-                        style: TextStyle(fontSize: 10, color: colorScheme.onSurface.withValues(alpha: 0.4)),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: colorScheme.onSurface.withValues(alpha: 0.4),
+                        ),
                       ),
                     if (unreadCount > 0) ...[
                       const SizedBox(height: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(color: colorScheme.primary, borderRadius: BorderRadius.circular(10)),
-                        child: Text('$unreadCount', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '$unreadCount',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ],
                   ],
@@ -824,7 +1005,11 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildMessagePanel(BuildContext context, ColorScheme colorScheme, bool isDarkMode) {
+  Widget _buildMessagePanel(
+    BuildContext context,
+    ColorScheme colorScheme,
+    bool isDarkMode,
+  ) {
     final chatProvider = context.watch<ChatProvider>();
 
     if (_selectedUser == null) {
@@ -832,7 +1017,11 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.chat_outlined, size: 64, color: colorScheme.onSurface.withValues(alpha: 0.15)),
+            Icon(
+              Icons.chat_outlined,
+              size: 64,
+              color: colorScheme.onSurface.withValues(alpha: 0.15),
+            ),
             const SizedBox(height: 16),
             Text(
               '대화할 사용자를 선택하세요',
@@ -858,7 +1047,12 @@ class _ChatScreenState extends State<ChatScreen> {
         Expanded(
           child: messages.isEmpty
               ? _buildEmptyProfile(_selectedUser!, colorScheme, isDarkMode)
-              : _buildMessageList(messages, currentUserId, colorScheme, isDarkMode),
+              : _buildMessageList(
+                  messages,
+                  currentUserId,
+                  colorScheme,
+                  isDarkMode,
+                ),
         ),
         const SizedBox(height: 8),
         _buildInputBar(_selectedUser!, colorScheme, isDarkMode),
@@ -870,33 +1064,61 @@ class _ChatScreenState extends State<ChatScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
-        color: isDarkMode ? colorScheme.surface.withValues(alpha: 0.6) : Colors.white,
+        color: isDarkMode
+            ? colorScheme.surface.withValues(alpha: 0.6)
+            : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDarkMode ? colorScheme.onSurface.withValues(alpha: 0.1) : const Color(0xFFE7D3BF)),
+        border: Border.all(
+          color: isDarkMode
+              ? colorScheme.onSurface.withValues(alpha: 0.1)
+              : const Color(0xFFE7D3BF),
+        ),
       ),
       child: Row(
         children: [
           _buildUserAvatar(user, radius: 16),
           const SizedBox(width: 10),
-          Text(user.username, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
+          Text(
+            user.username,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurface,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyProfile(User user, ColorScheme colorScheme, bool isDarkMode) {
+  Widget _buildEmptyProfile(
+    User user,
+    ColorScheme colorScheme,
+    bool isDarkMode,
+  ) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildUserAvatar(user, radius: 48),
           const SizedBox(height: 20),
-          Text(user.username, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: colorScheme.onSurface)),
+          Text(
+            user.username,
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurface,
+            ),
+          ),
           const SizedBox(height: 8),
           Text(
             '${user.username}님과의 개인 메시지가 시작되었습니다.\n여기의 메시지와 파일은 다른 사용자에게 보이지 않습니다.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: colorScheme.onSurface.withValues(alpha: 0.5), height: 1.6),
+            style: TextStyle(
+              fontSize: 14,
+              color: colorScheme.onSurface.withValues(alpha: 0.5),
+              height: 1.6,
+            ),
           ),
         ],
       ),
@@ -904,7 +1126,12 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   /// 메시지 리스트 - Mattermost 스타일
-  Widget _buildMessageList(List<ChatMessage> messages, String? currentUserId, ColorScheme colorScheme, bool isDarkMode) {
+  Widget _buildMessageList(
+    List<ChatMessage> messages,
+    String? currentUserId,
+    ColorScheme colorScheme,
+    bool isDarkMode,
+  ) {
     return ListView.builder(
       controller: _messageScrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -913,30 +1140,61 @@ class _ChatScreenState extends State<ChatScreen> {
         final message = messages[index];
 
         Widget? dateDivider;
-        if (index == 0 || _getDateLabel(messages[index].createdAt) != _getDateLabel(messages[index - 1].createdAt)) {
+        if (index == 0 ||
+            _getDateLabel(messages[index].createdAt) !=
+                _getDateLabel(messages[index - 1].createdAt)) {
           dateDivider = Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: Row(
               children: [
-                Expanded(child: Divider(color: isDarkMode ? colorScheme.onSurface.withValues(alpha: 0.1) : const Color(0xFFE7D3BF))),
+                Expanded(
+                  child: Divider(
+                    color: isDarkMode
+                        ? colorScheme.onSurface.withValues(alpha: 0.1)
+                        : const Color(0xFFE7D3BF),
+                  ),
+                ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(_getDateLabel(message.createdAt), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: colorScheme.onSurface.withValues(alpha: 0.4))),
+                  child: Text(
+                    _getDateLabel(message.createdAt),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
+                  ),
                 ),
-                Expanded(child: Divider(color: isDarkMode ? colorScheme.onSurface.withValues(alpha: 0.1) : const Color(0xFFE7D3BF))),
+                Expanded(
+                  child: Divider(
+                    color: isDarkMode
+                        ? colorScheme.onSurface.withValues(alpha: 0.1)
+                        : const Color(0xFFE7D3BF),
+                  ),
+                ),
               ],
             ),
           );
         }
 
-        final showHeader = index == 0 ||
+        final showHeader =
+            index == 0 ||
             messages[index - 1].senderId != message.senderId ||
-            message.createdAt.difference(messages[index - 1].createdAt).inMinutes > 5;
+            message.createdAt
+                    .difference(messages[index - 1].createdAt)
+                    .inMinutes >
+                5;
 
         return Column(
           children: [
             if (dateDivider != null) dateDivider,
-            _buildMessageItem(message, showHeader, colorScheme, isDarkMode),
+            _buildMessageItem(
+              message,
+              showHeader,
+              currentUserId,
+              colorScheme,
+              isDarkMode,
+            ),
           ],
         );
       },
@@ -944,162 +1202,392 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   /// 메시지 아이템 - Mattermost 스타일 (좌측 정렬, 배경 없음)
-  Widget _buildMessageItem(ChatMessage message, bool showHeader, ColorScheme colorScheme, bool isDarkMode) {
-    final hasContent = message.content.trim().isNotEmpty && message.content.trim() != ' ';
+  Widget _buildMessageItem(
+    ChatMessage message,
+    bool showHeader,
+    String? currentUserId,
+    ColorScheme colorScheme,
+    bool isDarkMode,
+  ) {
+    final hasContent =
+        message.content.trim().isNotEmpty && message.content.trim() != ' ';
+    final canEdit = _canEditMessage(message, currentUserId);
+    final isEditing = _editingMessageId == message.id;
+    final isEdited = _isMessageEdited(message);
 
-    return Padding(
-      padding: EdgeInsets.only(top: showHeader ? 12 : 1, bottom: 1),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (showHeader)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: _buildSenderAvatar(message.senderId, message.senderUsername, radius: 18),
-            )
-          else
-            const SizedBox(width: 36),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (showHeader)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: Row(
-                      children: [
-                        Text(message.senderUsername, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: colorScheme.onSurface)),
-                        const SizedBox(width: 8),
-                        Text(_formatMessageTime(message.createdAt), style: TextStyle(fontSize: 11, color: colorScheme.onSurface.withValues(alpha: 0.35))),
-                      ],
-                    ),
-                  ),
-                // 마크다운 텍스트
-                if (hasContent)
-                  MarkdownBody(
-                    data: message.content.replaceAllMapped(
-                      RegExp(r'@([^\s@]+)'),
-                      (m) {
-                        final name = m.group(1)!;
-                        final known = _allUsers.any((u) => u.username.toLowerCase() == name.toLowerCase());
-                        return known ? '[${m.group(0)}](#)' : m.group(0)!;
-                      },
-                    ),
-                    selectable: true,
-                    onTapLink: (text, href, title) {},
-                    styleSheet: MarkdownStyleSheet(
-                      p: TextStyle(fontSize: 14, color: colorScheme.onSurface, height: 1.5),
-                      a: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF2563EB),
-                        fontWeight: FontWeight.w600,
-                        decoration: TextDecoration.none,
-                      ),
-                      code: TextStyle(
-                        fontSize: 13,
-                        color: colorScheme.primary,
-                        backgroundColor: isDarkMode ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFFFF5EA),
-                        fontFamily: 'monospace',
-                      ),
-                      codeblockDecoration: BoxDecoration(
-                        color: isDarkMode ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFFFF5EA),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: isDarkMode ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE7D3BF)),
-                      ),
-                      blockquoteDecoration: BoxDecoration(
-                        border: Border(left: BorderSide(color: colorScheme.primary.withValues(alpha: 0.5), width: 3)),
-                      ),
-                      h1: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
-                      h2: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
-                      h3: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
-                      strong: TextStyle(fontWeight: FontWeight.w700, color: colorScheme.onSurface),
-                      em: TextStyle(fontStyle: FontStyle.italic, color: colorScheme.onSurface),
-                      listBullet: TextStyle(color: colorScheme.onSurface),
-                    ),
-                  ),
-                // 이미지
-                if (message.imageUrls.isNotEmpty) ...[
-                  if (hasContent) const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: message.imageUrls.map((url) {
-                      final imageUrl = url.startsWith('/') ? '${ApiClient.baseUrl}$url' : url;
-                      return GestureDetector(
-                        onTap: () => _showImageViewer(context, imageUrl),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 300, maxHeight: 250),
-                            child: Image.network(
-                              imageUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                width: 100,
-                                height: 100,
-                                color: colorScheme.onSurface.withValues(alpha: 0.05),
-                                child: const Icon(Icons.broken_image, size: 32),
+    return GestureDetector(
+      onLongPress: canEdit && !isEditing
+          ? () => _startEditMessage(message)
+          : null,
+      child: Padding(
+        padding: EdgeInsets.only(top: showHeader ? 12 : 1, bottom: 1),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (showHeader)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: _buildSenderAvatar(
+                  message.senderId,
+                  message.senderUsername,
+                  radius: 18,
+                ),
+              )
+            else
+              const SizedBox(width: 36),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (showHeader)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Row(
+                        children: [
+                          Text(
+                            message.senderUsername,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _formatMessageTime(message.createdAt),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.35,
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-                // ?뚯씪
-                if (message.fileUrls.isNotEmpty) ...[
-                  if (hasContent || message.imageUrls.isNotEmpty) const SizedBox(height: 6),
-                  ...message.fileUrls.map((fileUrl) {
-                    final info = _parseFileUrl(fileUrl);
-                    final downloadUrl = info.url.startsWith('/') ? '${ApiClient.baseUrl}${info.url}' : info.url;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: InkWell(
-                        onTap: () {
-                          _downloadFile(downloadUrl, info.originalName);
-                        },
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: isDarkMode ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: isDarkMode ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE7D3BF)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(_getFileIcon(info.originalName), size: 28, color: colorScheme.primary),
-                              const SizedBox(width: 10),
-                              Flexible(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(info.originalName, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.primary), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                    if (info.size > 0) Text(_formatFileSize(info.size), style: TextStyle(fontSize: 11, color: colorScheme.onSurface.withValues(alpha: 0.4))),
-                                  ],
+                          if (isEdited) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              '(수정됨)',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.45,
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Icon(Icons.download, size: 18, color: colorScheme.onSurface.withValues(alpha: 0.4)),
-                            ],
-                          ),
+                            ),
+                          ],
+                          const Spacer(),
+                          if (canEdit)
+                            PopupMenuButton<String>(
+                              icon: Icon(
+                                Icons.more_vert,
+                                size: 16,
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.45,
+                                ),
+                              ),
+                              tooltip: '메시지 옵션',
+                              onSelected: (value) {
+                                if (value == 'edit') _startEditMessage(message);
+                              },
+                              itemBuilder: (context) => const [
+                                PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.edit, size: 16),
+                                      SizedBox(width: 8),
+                                      Text('수정'),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                  if (isEditing)
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: isDarkMode
+                            ? Colors.white.withValues(alpha: 0.04)
+                            : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isDarkMode
+                              ? Colors.white.withValues(alpha: 0.1)
+                              : const Color(0xFFE7D3BF),
                         ),
                       ),
-                    );
-                  }),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextField(
+                            controller: _editMessageController,
+                            autofocus: true,
+                            maxLines: null,
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.onSurface,
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                onPressed: _isUpdatingMessage
+                                    ? null
+                                    : _cancelEditMessage,
+                                child: const Text('취소'),
+                              ),
+                              const SizedBox(width: 8),
+                              FilledButton(
+                                onPressed: _isUpdatingMessage
+                                    ? null
+                                    : () => _saveEditedMessage(message),
+                                child: _isUpdatingMessage
+                                    ? const SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Text('저장'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    )
+                  else ...[
+                    if (hasContent)
+                      MarkdownBody(
+                        data: message.content.replaceAllMapped(
+                          RegExp(r'@([^\s@]+)'),
+                          (m) {
+                            final name = m.group(1)!;
+                            final known = _allUsers.any(
+                              (u) =>
+                                  u.username.toLowerCase() ==
+                                  name.toLowerCase(),
+                            );
+                            return known ? '[${m.group(0)}](#)' : m.group(0)!;
+                          },
+                        ),
+                        selectable: true,
+                        onTapLink: (text, href, title) {},
+                        styleSheet: MarkdownStyleSheet(
+                          p: TextStyle(
+                            fontSize: 14,
+                            color: colorScheme.onSurface,
+                            height: 1.5,
+                          ),
+                          a: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF2563EB),
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.none,
+                          ),
+                          code: TextStyle(
+                            fontSize: 13,
+                            color: colorScheme.primary,
+                            backgroundColor: isDarkMode
+                                ? Colors.white.withValues(alpha: 0.08)
+                                : const Color(0xFFFFF5EA),
+                            fontFamily: 'monospace',
+                          ),
+                          codeblockDecoration: BoxDecoration(
+                            color: isDarkMode
+                                ? Colors.white.withValues(alpha: 0.06)
+                                : const Color(0xFFFFF5EA),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: isDarkMode
+                                  ? Colors.white.withValues(alpha: 0.1)
+                                  : const Color(0xFFE7D3BF),
+                            ),
+                          ),
+                          blockquoteDecoration: BoxDecoration(
+                            border: Border(
+                              left: BorderSide(
+                                color: colorScheme.primary.withValues(
+                                  alpha: 0.5,
+                                ),
+                                width: 3,
+                              ),
+                            ),
+                          ),
+                          h1: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.onSurface,
+                          ),
+                          h2: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.onSurface,
+                          ),
+                          h3: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurface,
+                          ),
+                          strong: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.onSurface,
+                          ),
+                          em: TextStyle(
+                            fontStyle: FontStyle.italic,
+                            color: colorScheme.onSurface,
+                          ),
+                          listBullet: TextStyle(color: colorScheme.onSurface),
+                        ),
+                      ),
+                    if (message.imageUrls.isNotEmpty) ...[
+                      if (hasContent) const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: message.imageUrls.map((url) {
+                          final imageUrl = url.startsWith('/')
+                              ? '${ApiClient.baseUrl}$url'
+                              : url;
+                          return GestureDetector(
+                            onTap: () => _showImageViewer(context, imageUrl),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 300,
+                                  maxHeight: 250,
+                                ),
+                                child: Image.network(
+                                  imageUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    width: 100,
+                                    height: 100,
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.05,
+                                    ),
+                                    child: const Icon(
+                                      Icons.broken_image,
+                                      size: 32,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                    if (message.fileUrls.isNotEmpty) ...[
+                      if (hasContent || message.imageUrls.isNotEmpty)
+                        const SizedBox(height: 6),
+                      ...message.fileUrls.map((fileUrl) {
+                        final info = _parseFileUrl(fileUrl);
+                        final downloadUrl = info.url.startsWith('/')
+                            ? '${ApiClient.baseUrl}${info.url}'
+                            : info.url;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: InkWell(
+                            onTap: () {
+                              _downloadFile(downloadUrl, info.originalName);
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isDarkMode
+                                    ? Colors.white.withValues(alpha: 0.05)
+                                    : const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isDarkMode
+                                      ? Colors.white.withValues(alpha: 0.1)
+                                      : const Color(0xFFE7D3BF),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _getFileIcon(info.originalName),
+                                    size: 28,
+                                    color: colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Flexible(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          info.originalName,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: colorScheme.primary,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        if (info.size > 0)
+                                          Text(
+                                            _formatFileSize(info.size),
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: colorScheme.onSurface
+                                                  .withValues(alpha: 0.4),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    Icons.download,
+                                    size: 18,
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildSenderAvatar(String senderId, String senderUsername, {double radius = 18}) {
+  Widget _buildSenderAvatar(
+    String senderId,
+    String senderUsername, {
+    double radius = 18,
+  }) {
     User? user;
     if (_selectedUser?.id == senderId) {
       user = _selectedUser;
@@ -1114,19 +1602,39 @@ class _ChatScreenState extends State<ChatScreen> {
     return CircleAvatar(
       radius: radius,
       backgroundColor: AvatarColor.getColorForUser(senderId),
-      child: Text(AvatarColor.getInitial(senderUsername), style: TextStyle(fontSize: radius * 0.7, color: Colors.white, fontWeight: FontWeight.bold)),
+      child: Text(
+        AvatarColor.getInitial(senderUsername),
+        style: TextStyle(
+          fontSize: radius * 0.7,
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 
   Widget _buildUserAvatar(User user, {double radius = 16}) {
     if (user.profileImageUrl != null && user.profileImageUrl!.isNotEmpty) {
-      final url = user.profileImageUrl!.startsWith('/') ? '${ApiClient.baseUrl}${user.profileImageUrl!}' : user.profileImageUrl!;
-      return CircleAvatar(radius: radius, backgroundImage: NetworkImage(url), onBackgroundImageError: (_, __) {});
+      final url = user.profileImageUrl!.startsWith('/')
+          ? '${ApiClient.baseUrl}${user.profileImageUrl!}'
+          : user.profileImageUrl!;
+      return CircleAvatar(
+        radius: radius,
+        backgroundImage: NetworkImage(url),
+        onBackgroundImageError: (_, __) {},
+      );
     }
     return CircleAvatar(
       radius: radius,
       backgroundColor: AvatarColor.getColorForUser(user.id),
-      child: Text(AvatarColor.getInitial(user.username), style: TextStyle(fontSize: radius * 0.7, color: Colors.white, fontWeight: FontWeight.bold)),
+      child: Text(
+        AvatarColor.getInitial(user.username),
+        style: TextStyle(
+          fontSize: radius * 0.7,
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 
@@ -1147,36 +1655,75 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: Stack(
                     children: [
                       if (att.isImage)
-                        ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.memory(att.bytes, width: 80, height: 80, fit: BoxFit.cover))
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.memory(
+                            att.bytes,
+                            width: 80,
+                            height: 80,
+                            fit: BoxFit.cover,
+                          ),
+                        )
                       else
                         Container(
                           width: 120,
                           height: 80,
                           decoration: BoxDecoration(
-                            color: isDarkMode ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF8FAFC),
+                            color: isDarkMode
+                                ? Colors.white.withValues(alpha: 0.05)
+                                : const Color(0xFFF8FAFC),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: isDarkMode ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE7D3BF)),
+                            border: Border.all(
+                              color: isDarkMode
+                                  ? Colors.white.withValues(alpha: 0.1)
+                                  : const Color(0xFFE7D3BF),
+                            ),
                           ),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(_getFileIcon(att.fileName), size: 24, color: colorScheme.primary),
+                              Icon(
+                                _getFileIcon(att.fileName),
+                                size: 24,
+                                color: colorScheme.primary,
+                              ),
                               const SizedBox(height: 4),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 6),
-                                child: Text(att.fileName, style: TextStyle(fontSize: 10, color: colorScheme.onSurface.withValues(alpha: 0.6)), maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
+                                child: Text(
+                                  att.fileName,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.6,
+                                    ),
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
                             ],
                           ),
                         ),
                       Positioned(
-                        top: 2, right: 2,
+                        top: 2,
+                        right: 2,
                         child: GestureDetector(
                           onTap: () => _removeAttachment(index),
                           child: Container(
                             padding: const EdgeInsets.all(2),
-                            decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                            child: const Icon(Icons.close, size: 14, color: Colors.white),
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              size: 14,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
@@ -1191,9 +1738,19 @@ class _ChatScreenState extends State<ChatScreen> {
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(
               children: [
-                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
                 const SizedBox(width: 8),
-                Text('파일 업로드 중...', style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.5))),
+                Text(
+                  '파일 업로드 중...',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1203,9 +1760,13 @@ class _ChatScreenState extends State<ChatScreen> {
             margin: const EdgeInsets.only(bottom: 4),
             constraints: const BoxConstraints(maxHeight: 260),
             decoration: BoxDecoration(
-              color: isDarkMode ? colorScheme.surfaceContainerHighest : Colors.white,
+              color: isDarkMode
+                  ? colorScheme.surfaceContainerHighest
+                  : Colors.white,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: colorScheme.primary.withValues(alpha: 0.2)),
+              border: Border.all(
+                color: colorScheme.primary.withValues(alpha: 0.2),
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.12),
@@ -1225,7 +1786,10 @@ class _ChatScreenState extends State<ChatScreen> {
                   onTap: () => _insertMention(u),
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? colorScheme.primary.withValues(alpha: 0.12)
@@ -1252,7 +1816,9 @@ class _ChatScreenState extends State<ChatScreen> {
                           style: TextStyle(
                             fontSize: 14,
                             color: colorScheme.onSurface,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.normal,
                           ),
                         ),
                       ],
@@ -1265,9 +1831,15 @@ class _ChatScreenState extends State<ChatScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: isDarkMode ? colorScheme.surface.withValues(alpha: 0.6) : Colors.white,
+            color: isDarkMode
+                ? colorScheme.surface.withValues(alpha: 0.6)
+                : Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isDarkMode ? colorScheme.onSurface.withValues(alpha: 0.1) : const Color(0xFFE7D3BF)),
+            border: Border.all(
+              color: isDarkMode
+                  ? colorScheme.onSurface.withValues(alpha: 0.1)
+                  : const Color(0xFFE7D3BF),
+            ),
           ),
           child: Row(
             children: [
@@ -1277,14 +1849,46 @@ class _ChatScreenState extends State<ChatScreen> {
                   if (value == 'file') _pickFile();
                 },
                 offset: const Offset(0, -100),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 itemBuilder: (context) => [
-                  PopupMenuItem(value: 'image', child: Row(children: [Icon(Icons.image_outlined, size: 18, color: colorScheme.primary), const SizedBox(width: 8), const Text('이미지')])),
-                  PopupMenuItem(value: 'file', child: Row(children: [Icon(Icons.attach_file, size: 18, color: colorScheme.primary), const SizedBox(width: 8), const Text('파일')])),
+                  PopupMenuItem(
+                    value: 'image',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.image_outlined,
+                          size: 18,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('이미지'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'file',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.attach_file,
+                          size: 18,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('파일'),
+                      ],
+                    ),
+                  ),
                 ],
                 child: Padding(
                   padding: const EdgeInsets.all(6),
-                  child: Icon(Icons.add_circle_outline, size: 22, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                  child: Icon(
+                    Icons.add_circle_outline,
+                    size: 22,
+                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
                 ),
               ),
               const SizedBox(width: 4),
@@ -1293,22 +1897,33 @@ class _ChatScreenState extends State<ChatScreen> {
                   onKeyEvent: (node, event) {
                     if (event is! KeyDownEvent) return KeyEventResult.ignored;
                     // mention 활성 시 키보드 네비게이션
-                    if (_showMentionSuggestions && _filteredMentionUsers.isNotEmpty) {
+                    if (_showMentionSuggestions &&
+                        _filteredMentionUsers.isNotEmpty) {
                       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
                         setState(() {
-                          _selectedMentionIndex = (_selectedMentionIndex + 1) % _filteredMentionUsers.length;
+                          _selectedMentionIndex =
+                              (_selectedMentionIndex + 1) %
+                              _filteredMentionUsers.length;
                         });
                         return KeyEventResult.handled;
                       }
                       if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
                         setState(() {
-                          _selectedMentionIndex = (_selectedMentionIndex - 1 + _filteredMentionUsers.length) % _filteredMentionUsers.length;
+                          _selectedMentionIndex =
+                              (_selectedMentionIndex -
+                                  1 +
+                                  _filteredMentionUsers.length) %
+                              _filteredMentionUsers.length;
                         });
                         return KeyEventResult.handled;
                       }
                       if (event.logicalKey == LogicalKeyboardKey.enter) {
-                        if (_selectedMentionIndex >= 0 && _selectedMentionIndex < _filteredMentionUsers.length) {
-                          _insertMention(_filteredMentionUsers[_selectedMentionIndex]);
+                        if (_selectedMentionIndex >= 0 &&
+                            _selectedMentionIndex <
+                                _filteredMentionUsers.length) {
+                          _insertMention(
+                            _filteredMentionUsers[_selectedMentionIndex],
+                          );
                         }
                         return KeyEventResult.handled;
                       }
@@ -1323,7 +1938,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       }
                     }
                     // 기본 Enter: 메시지 전송
-                    if (event.logicalKey == LogicalKeyboardKey.enter && !HardwareKeyboard.instance.isShiftPressed) {
+                    if (event.logicalKey == LogicalKeyboardKey.enter &&
+                        !HardwareKeyboard.instance.isShiftPressed) {
                       _sendMessage();
                       return KeyEventResult.handled;
                     }
@@ -1336,9 +1952,15 @@ class _ChatScreenState extends State<ChatScreen> {
                     decoration: InputDecoration(
                       hintText: '${user.username}님에게 메시지 보내기',
                       border: InputBorder.none,
-                      hintStyle: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 14),
+                      hintStyle: TextStyle(
+                        color: colorScheme.onSurface.withValues(alpha: 0.4),
+                        fontSize: 14,
+                      ),
                     ),
-                    style: TextStyle(fontSize: 14, color: colorScheme.onSurface),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.onSurface,
+                    ),
                     maxLines: null,
                   ),
                 ),
@@ -1351,8 +1973,15 @@ class _ChatScreenState extends State<ChatScreen> {
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
                     padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: colorScheme.primary, borderRadius: BorderRadius.circular(20)),
-                    child: const Icon(Icons.send, size: 18, color: Colors.white),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Icon(
+                      Icons.send,
+                      size: 18,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
@@ -1370,7 +1999,10 @@ class _ChatScreenState extends State<ChatScreen> {
       builder: (dialogContext) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 24,
+          ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 440, maxHeight: 520),
             child: GlassContainer(
@@ -1386,7 +2018,9 @@ class _ChatScreenState extends State<ChatScreen> {
                 onGroupCreated: (name, memberIds) async {
                   Navigator.of(dialogContext).pop();
                   final chatProvider = context.read<ChatProvider>();
-                  final workspaceId = context.read<WorkspaceProvider>().currentWorkspaceId;
+                  final workspaceId = context
+                      .read<WorkspaceProvider>()
+                      .currentWorkspaceId;
                   final room = await chatProvider.createGroupRoom(
                     name: name,
                     memberIds: memberIds,
@@ -1405,10 +2039,15 @@ class _ChatScreenState extends State<ChatScreen> {
 
 class _GroupChatDialogContent extends StatefulWidget {
   final List<User> users;
-  final Future<void> Function(String name, List<String> memberIds) onGroupCreated;
-  const _GroupChatDialogContent({required this.users, required this.onGroupCreated});
+  final Future<void> Function(String name, List<String> memberIds)
+  onGroupCreated;
+  const _GroupChatDialogContent({
+    required this.users,
+    required this.onGroupCreated,
+  });
   @override
-  State<_GroupChatDialogContent> createState() => _GroupChatDialogContentState();
+  State<_GroupChatDialogContent> createState() =>
+      _GroupChatDialogContentState();
 }
 
 class _GroupChatDialogContentState extends State<_GroupChatDialogContent> {
@@ -1439,9 +2078,20 @@ class _GroupChatDialogContentState extends State<_GroupChatDialogContent> {
           ),
         ),
         const SizedBox(height: 16),
-        GlassTextField(controller: _groupNameController, labelText: '그룹 이름', prefixIcon: const Icon(Icons.group)),
+        GlassTextField(
+          controller: _groupNameController,
+          labelText: '그룹 이름',
+          prefixIcon: const Icon(Icons.group),
+        ),
         const SizedBox(height: 12),
-        Text('멤버 선택', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.onSurface.withValues(alpha: 0.7))),
+        Text(
+          '멤버 선택',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
+        ),
         const SizedBox(height: 8),
         Expanded(
           child: ListView.builder(
@@ -1454,28 +2104,72 @@ class _GroupChatDialogContentState extends State<_GroupChatDialogContent> {
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: () => setState(() => isSelected ? _selectedMemberIds.remove(user.id) : _selectedMemberIds.add(user.id)),
+                    onTap: () => setState(
+                      () => isSelected
+                          ? _selectedMemberIds.remove(user.id)
+                          : _selectedMemberIds.add(user.id),
+                    ),
                     borderRadius: BorderRadius.circular(10),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
-                        color: isSelected ? (isDarkMode ? colorScheme.primary.withValues(alpha: 0.15) : const Color(0xFFFFF3E6)) : Colors.transparent,
+                        color: isSelected
+                            ? (isDarkMode
+                                  ? colorScheme.primary.withValues(alpha: 0.15)
+                                  : const Color(0xFFFFF3E6))
+                            : Colors.transparent,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
                         children: [
-                          CircleAvatar(radius: 16, backgroundColor: AvatarColor.getColorForUser(user.id), child: Text(AvatarColor.getInitial(user.username), style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold))),
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: AvatarColor.getColorForUser(
+                              user.id,
+                            ),
+                            child: Text(
+                              AvatarColor.getInitial(user.username),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(user.username, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colorScheme.onSurface)),
-                                Text(user.email, style: TextStyle(fontSize: 11, color: colorScheme.onSurface.withValues(alpha: 0.5))),
+                                Text(
+                                  user.username,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                ),
+                                Text(
+                                  user.email,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
-                          if (isSelected) Icon(Icons.check_circle, size: 20, color: colorScheme.primary),
+                          if (isSelected)
+                            Icon(
+                              Icons.check_circle,
+                              size: 20,
+                              color: colorScheme.primary,
+                            ),
                         ],
                       ),
                     ),
@@ -1490,10 +2184,18 @@ class _GroupChatDialogContentState extends State<_GroupChatDialogContent> {
           width: double.infinity,
           child: GlassButton(
             text: '그룹 채팅 만들기 (${_selectedMemberIds.length}명)',
-            onPressed: _selectedMemberIds.isEmpty || _groupNameController.text.trim().isEmpty
+            onPressed:
+                _selectedMemberIds.isEmpty ||
+                    _groupNameController.text.trim().isEmpty
                 ? null
-                : () => widget.onGroupCreated(_groupNameController.text.trim(), _selectedMemberIds.toList()),
-            gradientColors: [colorScheme.primary.withValues(alpha: 0.5), colorScheme.primary.withValues(alpha: 0.4)],
+                : () => widget.onGroupCreated(
+                    _groupNameController.text.trim(),
+                    _selectedMemberIds.toList(),
+                  ),
+            gradientColors: [
+              colorScheme.primary.withValues(alpha: 0.5),
+              colorScheme.primary.withValues(alpha: 0.4),
+            ],
           ),
         ),
       ],
@@ -1505,13 +2207,20 @@ class _PendingAttachment {
   final Uint8List bytes;
   final String fileName;
   final bool isImage;
-  const _PendingAttachment({required this.bytes, required this.fileName, required this.isImage});
+  const _PendingAttachment({
+    required this.bytes,
+    required this.fileName,
+    required this.isImage,
+  });
 }
 
 class _FileInfo {
   final String originalName;
   final String url;
   final int size;
-  const _FileInfo({required this.originalName, required this.url, required this.size});
+  const _FileInfo({
+    required this.originalName,
+    required this.url,
+    required this.size,
+  });
 }
-

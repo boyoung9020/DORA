@@ -16,6 +16,7 @@ from app.routers.websocket import manager
 from app.schemas.chat import (
     ChatMessageCreate,
     ChatMessageResponse,
+    ChatMessageUpdate,
     ChatRoomCreate,
     ChatRoomResponse,
 )
@@ -307,6 +308,77 @@ async def send_message(
         )
 
     return new_message
+
+
+@router.patch("/rooms/{room_id}/messages/{message_id}", response_model=ChatMessageResponse)
+async def update_message(
+    room_id: str,
+    message_id: str,
+    message_data: ChatMessageUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """메시지 수정 (본인 메시지만 가능)"""
+    room = db.query(ChatRoom).filter(ChatRoom.id == room_id).first()
+    if not room:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="채팅방을 찾을 수 없습니다",
+        )
+
+    if current_user.id not in (room.member_ids or []):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="해당 채팅방에 참여하지 않았습니다",
+        )
+
+    message = db.query(ChatMessage).filter(
+        ChatMessage.id == message_id,
+        ChatMessage.room_id == room_id,
+    ).first()
+    if not message:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="메시지를 찾을 수 없습니다",
+        )
+
+    if message.sender_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="본인이 보낸 메시지만 수정 가능합니다",
+        )
+
+    content = message_data.content.strip()
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="메시지 내용이 비어 있습니다",
+        )
+
+    message.content = content
+    db.commit()
+    db.refresh(message)
+
+    target_users = [uid for uid in (room.member_ids or []) if uid != current_user.id]
+    if target_users:
+        asyncio.create_task(
+            manager.send_to_users(
+                {
+                    "type": "chat_message_updated",
+                    "data": {
+                        "room_id": room_id,
+                        "message_id": message.id,
+                        "content": message.content,
+                        "updated_at": message.updated_at.isoformat()
+                        if message.updated_at
+                        else None,
+                    },
+                },
+                target_users,
+            )
+        )
+
+    return message
 
 
 @router.patch("/rooms/{room_id}/read")

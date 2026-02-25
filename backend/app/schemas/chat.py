@@ -42,6 +42,11 @@ class ChatMessageCreate(BaseModel):
     file_urls: List[str] = []
 
 
+class ChatMessageUpdate(BaseModel):
+    """메시지 수정 요청"""
+    content: str
+
+
 class ChatMessageResponse(BaseModel):
     """메시지 응답"""
     id: str
