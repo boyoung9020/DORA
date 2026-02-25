@@ -47,6 +47,16 @@ class MainLayout extends StatefulWidget {
 }
 
 class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
+  static const _projectColorPalette = [
+    Color(0xFFEC407A), // Pink
+    Color(0xFF26C6DA), // Cyan
+    Color(0xFF26A69A), // Teal
+    Color(0xFFFF7043), // Deep Orange
+    Color(0xFF8D6E63), // Brown
+    Color(0xFF5C6BC0), // Indigo
+    Color(0xFFEF5350), // Red
+  ];
+
   int _selectedIndex = 0; // 선택된 메뉴 인덱스
   bool _isMenuStateReady = false; // 메뉴 순서/선택 탭 복원 완료 여부
   WebSocketService? _webSocketService; // WebSocket 서비스
@@ -298,6 +308,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         chatProvider3.handleMessageUpdated(data);
         break;
 
+      case 'chat_message_deleted':
+        final chatProvider4 = Provider.of<ChatProvider>(context, listen: false);
+        chatProvider4.handleMessageDeleted(data);
+        break;
+
+      case 'chat_reaction_updated':
+        final chatProvider5 = Provider.of<ChatProvider>(context, listen: false);
+        chatProvider5.handleReactionUpdated(data);
+        break;
+
       case 'chat_room_created':
         final chatProvider2 = Provider.of<ChatProvider>(context, listen: false);
         chatProvider2.handleRoomCreated(data);
@@ -451,6 +471,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         isPM: authProvider.isPM,
         workspaceId: wsProvider.currentWorkspaceId,
       );
+      await _migrateProjectColors();
 
       // 태스크 목록도 다시 로드
       await taskProvider.loadTasks(
@@ -459,6 +480,36 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       await sprintProvider.loadSprints(
         projectId: projectProvider.currentProject?.id,
       );
+    }
+  }
+
+  Future<void> _migrateProjectColors() async {
+    final projectProvider = Provider.of<ProjectProvider>(
+      context,
+      listen: false,
+    );
+    const defaultColor = Color(0xFF2196F3);
+
+    final toMigrate = projectProvider.projects
+        .where((project) => project.color.value == defaultColor.value)
+        .toList();
+    if (toMigrate.isEmpty) return;
+
+    final usedColors = projectProvider.projects
+        .where((project) => project.color.value != defaultColor.value)
+        .map((project) => project.color.value)
+        .toSet();
+
+    final rng = Random();
+    for (final project in toMigrate) {
+      final available = _projectColorPalette
+          .where((color) => !usedColors.contains(color.value))
+          .toList();
+      final palette = available.isNotEmpty ? available : _projectColorPalette;
+      final newColor = palette[rng.nextInt(palette.length)];
+      usedColors.add(newColor.value);
+
+      await projectProvider.updateProject(project.copyWith(color: newColor));
     }
   }
 
@@ -1242,18 +1293,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     child: GestureDetector(
                       // 오른쪽 클릭 감지
                       onSecondaryTapDown: (details) {
-                        // 드롭다운 메뉴 닫기
-                        Navigator.of(context).pop();
-                        // 컨텍스트 메뉴 표시
-                        Future.delayed(const Duration(milliseconds: 100), () {
-                          _showProjectContextMenu(
-                            context,
-                            project,
-                            projectProvider,
-                            authProvider,
-                            details.globalPosition,
-                          );
-                        });
+                        // 드롭다운을 닫지 않고 컨텍스트 메뉴를 바로 표시
+                        _showProjectContextMenu(
+                          context,
+                          project,
+                          projectProvider,
+                          authProvider,
+                          details.globalPosition,
+                        );
                       },
                       child: Row(
                         children: [
@@ -1390,9 +1437,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ],
           ),
           onTap: () {
-            // 메뉴가 닫힌 후에 다이얼로그 표시
-            Future.delayed(const Duration(milliseconds: 100), () {
-              _showDeleteProjectDialog(context, project, projectProvider);
+            Future.delayed(const Duration(milliseconds: 50), () {
+              // 컨텍스트 메뉴는 자동으로 닫힘, 드롭다운을 여기서 닫기
+              Navigator.of(context).pop();
+              Future.delayed(const Duration(milliseconds: 50), () {
+                // 스테이트의 context로 삭제 다이얼로그 표시
+                _showDeleteProjectDialog(
+                  this.context,
+                  project,
+                  projectProvider,
+                );
+              });
             });
           },
         ),
@@ -1465,15 +1520,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       context,
       listen: false,
     );
-    const projectColorPalette = [
-      Color(0xFFEC407A), // Pink
-      Color(0xFF26C6DA), // Cyan
-      Color(0xFF26A69A), // Teal
-      Color(0xFFFF7043), // Deep Orange
-      Color(0xFF8D6E63), // Brown
-      Color(0xFF5C6BC0), // Indigo
-      Color(0xFFEF5350), // Red
-    ];
     final nameController = TextEditingController();
     Future<void> submitCreateProject(BuildContext dialogContext) async {
       if (nameController.text.trim().isEmpty) return;
@@ -1484,10 +1530,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       final usedColors = projectProvider.projects
           .map((project) => project.color.value)
           .toSet();
-      final available = projectColorPalette
+      final available = _projectColorPalette
           .where((color) => !usedColors.contains(color.value))
           .toList();
-      final palette = available.isNotEmpty ? available : projectColorPalette;
+      final palette = available.isNotEmpty ? available : _projectColorPalette;
       final randomColor = palette[Random().nextInt(palette.length)];
       final success = await projectProvider.createProject(
         name: nameController.text.trim(),

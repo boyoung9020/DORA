@@ -2,7 +2,7 @@
 채팅 스키마 (Pydantic)
 """
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
 from app.models.chat import ChatRoomType
 
@@ -47,6 +47,11 @@ class ChatMessageUpdate(BaseModel):
     content: str
 
 
+class MessageReactionToggle(BaseModel):
+    """메시지 리액션 토글 요청"""
+    emoji: str
+
+
 class ChatMessageResponse(BaseModel):
     """메시지 응답"""
     id: str
@@ -56,6 +61,7 @@ class ChatMessageResponse(BaseModel):
     content: str
     image_urls: List[str] = []
     file_urls: List[str] = []
+    reactions: Dict[str, List[str]] = {}
     created_at: datetime
     updated_at: Optional[datetime] = None
 

@@ -106,6 +106,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   bool _showMentionSuggestions = false;
   int _mentionStartIndex = -1;
   int _selectedMentionIndex = -1;
+  static const List<String> _commentReactionPresets = ['✅', '👍', '👀'];
 
   @override
   void initState() {
@@ -858,6 +859,66 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
         );
       }
+    }
+  }
+
+  bool _hasCommentReacted(Comment comment, String emoji, String? userId) {
+    if (userId == null) return false;
+    return comment.reactions[emoji]?.contains(userId) ?? false;
+  }
+
+  int _commentReactionCount(Comment comment, String emoji) {
+    return comment.reactions[emoji]?.length ?? 0;
+  }
+
+  void _setCommentReactions(
+    String commentId,
+    Map<String, List<String>> reactions,
+  ) {
+    final index = _comments.indexWhere((c) => c.id == commentId);
+    if (index == -1) return;
+    setState(() {
+      _comments[index] = _comments[index].copyWith(reactions: reactions);
+    });
+  }
+
+  Future<void> _toggleCommentReaction(Comment comment, String emoji) async {
+    final userId = context.read<AuthProvider>().currentUser?.id;
+    if (userId == null) return;
+
+    final original = <String, List<String>>{};
+    comment.reactions.forEach((key, value) {
+      original[key] = List<String>.from(value);
+    });
+
+    final optimistic = <String, List<String>>{};
+    original.forEach((key, value) {
+      optimistic[key] = List<String>.from(value);
+    });
+    final users = optimistic.putIfAbsent(emoji, () => []);
+    if (users.contains(userId)) {
+      users.remove(userId);
+    } else {
+      users.add(userId);
+    }
+    if (users.isEmpty) {
+      optimistic.remove(emoji);
+    }
+    _setCommentReactions(comment.id, optimistic);
+
+    try {
+      final updated = await _commentService.toggleReaction(comment.id, emoji);
+      if (!mounted) return;
+      _setCommentReactions(comment.id, updated);
+    } catch (e) {
+      if (!mounted) return;
+      _setCommentReactions(comment.id, original);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('댓글 리액션 업데이트 중 오류가 발생했습니다: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
     }
   }
 
@@ -2837,7 +2898,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     ColorScheme colorScheme,
   ) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final isMyComment = comment.userId == (authProvider.currentUser?.id ?? '');
+    final currentUserId = authProvider.currentUser?.id;
+    final isMyComment = comment.userId == (currentUserId ?? '');
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -3057,6 +3119,66 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 }(),
                               ),
                             ],
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: _commentReactionPresets.map((emoji) {
+                                  final count = _commentReactionCount(
+                                    comment,
+                                    emoji,
+                                  );
+                                  final isMine = _hasCommentReacted(
+                                    comment,
+                                    emoji,
+                                    currentUserId,
+                                  );
+                                  return InkWell(
+                                    onTap: () =>
+                                        _toggleCommentReaction(comment, emoji),
+                                    borderRadius: BorderRadius.circular(999),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isMine
+                                            ? colorScheme.primary.withValues(
+                                                alpha: 0.18,
+                                              )
+                                            : colorScheme.surface.withValues(
+                                                alpha: 0.6,
+                                              ),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                        border: Border.all(
+                                          color: isMine
+                                              ? colorScheme.primary.withValues(
+                                                  alpha: 0.5,
+                                                )
+                                              : colorScheme.outline.withValues(
+                                                  alpha: 0.2,
+                                                ),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        count > 0 ? '$emoji $count' : emoji,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: colorScheme.onSurface
+                                              .withValues(alpha: 0.9),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
                           ],
                         ),
                 ),

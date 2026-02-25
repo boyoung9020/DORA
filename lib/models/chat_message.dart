@@ -9,6 +9,7 @@ class ChatMessage {
   final String content;
   final List<String> imageUrls;
   final List<String> fileUrls;
+  final Map<String, List<String>> reactions;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -20,18 +21,43 @@ class ChatMessage {
     required this.content,
     this.imageUrls = const [],
     this.fileUrls = const [],
+    this.reactions = const {},
     required this.createdAt,
     this.updatedAt,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     final roomIdKey = json.containsKey('room_id') ? 'room_id' : 'roomId';
-    final senderIdKey = json.containsKey('sender_id') ? 'sender_id' : 'senderId';
-    final senderUsernameKey = json.containsKey('sender_username') ? 'sender_username' : 'senderUsername';
-    final imageUrlsKey = json.containsKey('image_urls') ? 'image_urls' : 'imageUrls';
-    final fileUrlsKey = json.containsKey('file_urls') ? 'file_urls' : 'fileUrls';
-    final createdAtKey = json.containsKey('created_at') ? 'created_at' : 'createdAt';
-    final updatedAtKey = json.containsKey('updated_at') ? 'updated_at' : 'updatedAt';
+    final senderIdKey = json.containsKey('sender_id')
+        ? 'sender_id'
+        : 'senderId';
+    final senderUsernameKey = json.containsKey('sender_username')
+        ? 'sender_username'
+        : 'senderUsername';
+    final imageUrlsKey = json.containsKey('image_urls')
+        ? 'image_urls'
+        : 'imageUrls';
+    final fileUrlsKey = json.containsKey('file_urls')
+        ? 'file_urls'
+        : 'fileUrls';
+    final reactionsKey = json.containsKey('reactions')
+        ? 'reactions'
+        : 'reactions';
+    final createdAtKey = json.containsKey('created_at')
+        ? 'created_at'
+        : 'createdAt';
+    final updatedAtKey = json.containsKey('updated_at')
+        ? 'updated_at'
+        : 'updatedAt';
+
+    final rawReactions = json[reactionsKey] as Map<String, dynamic>?;
+    final parsedReactions = <String, List<String>>{};
+    if (rawReactions != null) {
+      rawReactions.forEach((emoji, users) {
+        parsedReactions[emoji] =
+            (users as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+      });
+    }
 
     return ChatMessage(
       id: json['id'],
@@ -39,8 +65,17 @@ class ChatMessage {
       senderId: json[senderIdKey],
       senderUsername: json[senderUsernameKey] ?? '',
       content: json['content'] ?? '',
-      imageUrls: (json[imageUrlsKey] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-      fileUrls: (json[fileUrlsKey] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      imageUrls:
+          (json[imageUrlsKey] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      fileUrls:
+          (json[fileUrlsKey] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      reactions: parsedReactions,
       createdAt: parseUtcToLocal(json[createdAtKey]),
       updatedAt: parseUtcToLocalOrNull(json[updatedAtKey]),
     );
@@ -55,6 +90,7 @@ class ChatMessage {
       'content': content,
       'image_urls': imageUrls,
       'file_urls': fileUrls,
+      'reactions': reactions,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };
@@ -68,6 +104,7 @@ class ChatMessage {
     String? content,
     List<String>? imageUrls,
     List<String>? fileUrls,
+    Map<String, List<String>>? reactions,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -79,6 +116,7 @@ class ChatMessage {
       content: content ?? this.content,
       imageUrls: imageUrls ?? this.imageUrls,
       fileUrls: fileUrls ?? this.fileUrls,
+      reactions: reactions ?? this.reactions,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

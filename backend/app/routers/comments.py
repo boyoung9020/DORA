@@ -9,11 +9,17 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.comment import Comment
+from app.models.comment_reaction import CommentReaction
 from app.models.notification import Notification
 from app.models.project import Project
 from app.models.task import Task
 from app.models.user import User
-from app.schemas.comment import CommentCreate, CommentResponse, CommentUpdate
+from app.schemas.comment import (
+    CommentCreate,
+    CommentReactionToggle,
+    CommentResponse,
+    CommentUpdate,
+)
 from app.utils.dependencies import get_current_user
 from app.models.notification import NotificationType
 from app.utils.notifications import create_notification, notify_task_comment_added
@@ -31,6 +37,27 @@ def _safe_list(value) -> List[str]:
     return []
 
 
+def _build_comment_reactions(db: Session, comment_ids: List[str]) -> dict[str, dict[str, list[str]]]:
+    if not comment_ids:
+        return {}
+
+    rows = (
+        db.query(CommentReaction)
+        .filter(CommentReaction.comment_id.in_(comment_ids))
+        .all()
+    )
+    grouped: dict[str, dict[str, list[str]]] = {}
+    for row in rows:
+        grouped.setdefault(row.comment_id, {}).setdefault(row.emoji, []).append(row.user_id)
+    return grouped
+
+
+def _attach_comment_reactions(db: Session, comments: List[Comment]) -> None:
+    reaction_map = _build_comment_reactions(db, [c.id for c in comments])
+    for comment in comments:
+        setattr(comment, "reactions", reaction_map.get(comment.id, {}))
+
+
 @router.get("/task/{task_id}", response_model=List[CommentResponse])
 async def get_comments_by_task(
     task_id: str,
@@ -40,6 +67,7 @@ async def get_comments_by_task(
     comments = (
         db.query(Comment).filter(Comment.task_id == task_id).order_by(Comment.created_at).all()
     )
+    _attach_comment_reactions(db, comments)
     return comments
 
 
@@ -52,6 +80,7 @@ async def get_comment(
     comment = db.query(Comment).filter(Comment.id == comment_id).first()
     if not comment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="댓글을 찾을 수 없습니다")
+    _attach_comment_reactions(db, [comment])
     return comment
 
 
@@ -159,6 +188,7 @@ async def create_comment(
                 )
             )
 
+            setattr(new_comment, "reactions", {})
             return new_comment
         except Exception as commit_error:
             db.rollback()
@@ -198,7 +228,48 @@ async def update_comment(
         comment.image_urls = comment_data.image_urls
     db.commit()
     db.refresh(comment)
+    _attach_comment_reactions(db, [comment])
     return comment
+
+
+@router.post("/{comment_id}/reactions")
+async def toggle_comment_reaction(
+    comment_id: str,
+    payload: CommentReactionToggle,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    comment = db.query(Comment).filter(Comment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="댓글을 찾을 수 없습니다")
+
+    emoji = (payload.emoji or "").strip()
+    if emoji not in {"✅", "👍", "👀"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="지원하지 않는 리액션입니다",
+        )
+
+    existing = db.query(CommentReaction).filter(
+        CommentReaction.comment_id == comment_id,
+        CommentReaction.user_id == current_user.id,
+        CommentReaction.emoji == emoji,
+    ).first()
+
+    if existing:
+        db.delete(existing)
+    else:
+        db.add(
+            CommentReaction(
+                comment_id=comment_id,
+                user_id=current_user.id,
+                emoji=emoji,
+            )
+        )
+
+    db.commit()
+    reaction_map = _build_comment_reactions(db, [comment_id]).get(comment_id, {})
+    return {"reactions": reaction_map}
 
 
 @router.delete("/{comment_id}")

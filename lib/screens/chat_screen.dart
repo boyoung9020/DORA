@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import '../utils/api_client.dart';
 import '../utils/file_download.dart';
 import '../providers/chat_provider.dart';
@@ -49,6 +50,16 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _workspaceScopeInitialized = false;
   String? _editingMessageId;
   bool _isUpdatingMessage = false;
+  String? _hoveredMessageId;
+  static const List<String> _reactionPresets = [
+    '✅',
+    '👍',
+    '❤️',
+    '😄',
+    '😮',
+    '😢',
+    '🔥',
+  ];
 
   @override
   void initState() {
@@ -349,6 +360,10 @@ class _ChatScreenState extends State<ChatScreen> {
         message.fileUrls.isEmpty;
   }
 
+  bool _canDeleteMessage(ChatMessage message, String? currentUserId) {
+    return message.senderId == currentUserId;
+  }
+
   bool _isMessageEdited(ChatMessage message) {
     if (message.updatedAt == null) return false;
     return message.updatedAt!.difference(message.createdAt).inSeconds.abs() >=
@@ -400,6 +415,190 @@ class _ChatScreenState extends State<ChatScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('메시지 수정에 실패했습니다.')));
+  }
+
+  Future<void> _deleteMessage(ChatMessage message) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('메시지 삭제'),
+        content: const Text('이 메시지를 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('삭제', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final success = await context.read<ChatProvider>().deleteMessage(
+      message.roomId,
+      message.id,
+    );
+
+    if (!mounted) return;
+    if (!success) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('메시지 삭제에 실패했습니다.')));
+    }
+  }
+
+  Future<void> _toggleMessageReaction(ChatMessage message, String emoji) async {
+    await context.read<ChatProvider>().toggleReaction(
+      message.roomId,
+      message.id,
+      emoji,
+    );
+  }
+
+  Future<void> _showEmojiPickerBottomSheet(ChatMessage message) async {
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SizedBox(
+          height: 360,
+          child: EmojiPicker(
+            onEmojiSelected: (_, emoji) {
+              Navigator.of(sheetContext).pop();
+              _toggleMessageReaction(message, emoji.emoji);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMessageHoverToolbar(
+    ChatMessage message,
+    bool canEdit,
+    bool canDelete,
+    ColorScheme colorScheme,
+  ) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ..._reactionPresets.map((emoji) {
+          return InkWell(
+            onTap: () => _toggleMessageReaction(message, emoji),
+            borderRadius: BorderRadius.circular(999),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Text(emoji, style: const TextStyle(fontSize: 18)),
+            ),
+          );
+        }),
+        InkWell(
+          onTap: () => _showEmojiPickerBottomSheet(message),
+          borderRadius: BorderRadius.circular(999),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: Icon(
+              Icons.add_reaction_outlined,
+              size: 15,
+              color: colorScheme.onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+        ),
+        if (canEdit || canDelete)
+          PopupMenuButton<String>(
+            icon: Icon(
+              Icons.more_vert,
+              size: 16,
+              color: colorScheme.onSurface.withValues(alpha: 0.45),
+            ),
+            tooltip: '메시지 옵션',
+            onSelected: (value) {
+              if (value == 'edit') _startEditMessage(message);
+              if (value == 'delete') _deleteMessage(message);
+            },
+            itemBuilder: (context) => [
+              if (canEdit)
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit, size: 16),
+                      SizedBox(width: 8),
+                      Text('수정'),
+                    ],
+                  ),
+                ),
+              if (canDelete)
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('삭제', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildMessageReactions(
+    ChatMessage message,
+    String? currentUserId,
+    ColorScheme colorScheme,
+    bool isDarkMode,
+  ) {
+    if (message.reactions.isEmpty) return const SizedBox.shrink();
+
+    final entries = message.reactions.entries
+        .where((e) => e.value.isNotEmpty)
+        .toList();
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: entries.map((entry) {
+        final users = entry.value;
+        final isMine = currentUserId != null && users.contains(currentUserId);
+        return InkWell(
+          onTap: () => _toggleMessageReaction(message, entry.key),
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isMine
+                  ? colorScheme.primary.withValues(alpha: 0.18)
+                  : (isDarkMode
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.black.withValues(alpha: 0.03)),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: isMine
+                    ? colorScheme.primary.withValues(alpha: 0.5)
+                    : colorScheme.outline.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Text(
+              '${entry.key} ${users.length}',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface.withValues(alpha: 0.9),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
   }
 
   String _formatRelativeTime(DateTime date) {
@@ -1212,372 +1411,406 @@ class _ChatScreenState extends State<ChatScreen> {
     final hasContent =
         message.content.trim().isNotEmpty && message.content.trim() != ' ';
     final canEdit = _canEditMessage(message, currentUserId);
+    final canDelete = _canDeleteMessage(message, currentUserId);
     final isEditing = _editingMessageId == message.id;
     final isEdited = _isMessageEdited(message);
+    final isHovered = _hoveredMessageId == message.id;
+    final hoverColor = isDarkMode
+        ? Colors.white.withValues(alpha: 0.04)
+        : Colors.black.withValues(alpha: 0.025);
 
-    return GestureDetector(
-      onLongPress: canEdit && !isEditing
-          ? () => _startEditMessage(message)
-          : null,
-      child: Padding(
-        padding: EdgeInsets.only(top: showHeader ? 12 : 1, bottom: 1),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (showHeader)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: _buildSenderAvatar(
-                  message.senderId,
-                  message.senderUsername,
-                  radius: 18,
-                ),
-              )
-            else
-              const SizedBox(width: 36),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (showHeader)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
-                      child: Row(
-                        children: [
-                          Text(
-                            message.senderUsername,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _formatMessageTime(message.createdAt),
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: colorScheme.onSurface.withValues(
-                                alpha: 0.35,
-                              ),
-                            ),
-                          ),
-                          if (isEdited) ...[
-                            const SizedBox(width: 6),
-                            Text(
-                              '(수정됨)',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.45,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hoveredMessageId = message.id),
+      onExit: (_) {
+        if (_hoveredMessageId == message.id) {
+          setState(() => _hoveredMessageId = null);
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          color: isHovered ? hoverColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: GestureDetector(
+          onLongPress: canEdit && !isEditing
+              ? () => _startEditMessage(message)
+              : null,
+          child: Padding(
+            padding: EdgeInsets.only(top: showHeader ? 12 : 1, bottom: 1),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (showHeader)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: _buildSenderAvatar(
+                      message.senderId,
+                      message.senderUsername,
+                      radius: 18,
+                    ),
+                  )
+                else
+                  const SizedBox(width: 36),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (showHeader)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Row(
+                            children: [
+                              Text(
+                                message.senderUsername,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: colorScheme.onSurface,
                                 ),
                               ),
-                            ),
-                          ],
-                          const Spacer(),
-                          if (canEdit)
-                            PopupMenuButton<String>(
-                              icon: Icon(
-                                Icons.more_vert,
-                                size: 16,
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.45,
+                              const SizedBox(width: 8),
+                              Text(
+                                _formatMessageTime(message.createdAt),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.35,
+                                  ),
                                 ),
                               ),
-                              tooltip: '메시지 옵션',
-                              onSelected: (value) {
-                                if (value == 'edit') _startEditMessage(message);
-                              },
-                              itemBuilder: (context) => const [
-                                PopupMenuItem(
-                                  value: 'edit',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.edit, size: 16),
-                                      SizedBox(width: 8),
-                                      Text('수정'),
-                                    ],
+                              if (isEdited) ...[
+                                const SizedBox(width: 6),
+                                Text(
+                                  '(수정됨)',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.45,
+                                    ),
                                   ),
                                 ),
                               ],
-                            ),
-                        ],
-                      ),
-                    ),
-                  if (isEditing)
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: isDarkMode
-                            ? Colors.white.withValues(alpha: 0.04)
-                            : const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isDarkMode
-                              ? Colors.white.withValues(alpha: 0.1)
-                              : const Color(0xFFE7D3BF),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextField(
-                            controller: _editMessageController,
-                            autofocus: true,
-                            maxLines: null,
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: colorScheme.onSurface,
-                              height: 1.5,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              TextButton(
-                                onPressed: _isUpdatingMessage
-                                    ? null
-                                    : _cancelEditMessage,
-                                child: const Text('취소'),
-                              ),
-                              const SizedBox(width: 8),
-                              FilledButton(
-                                onPressed: _isUpdatingMessage
-                                    ? null
-                                    : () => _saveEditedMessage(message),
-                                child: _isUpdatingMessage
-                                    ? const SizedBox(
-                                        width: 14,
-                                        height: 14,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : const Text('저장'),
-                              ),
+                              const Spacer(),
+                              if (isHovered)
+                                _buildMessageHoverToolbar(
+                                  message,
+                                  canEdit,
+                                  canDelete,
+                                  colorScheme,
+                                ),
                             ],
                           ),
-                        ],
-                      ),
-                    )
-                  else ...[
-                    if (hasContent)
-                      MarkdownBody(
-                        data: message.content.replaceAllMapped(
-                          RegExp(r'@([^\s@]+)'),
-                          (m) {
-                            final name = m.group(1)!;
-                            final known = _allUsers.any(
-                              (u) =>
-                                  u.username.toLowerCase() ==
-                                  name.toLowerCase(),
-                            );
-                            return known ? '[${m.group(0)}](#)' : m.group(0)!;
-                          },
                         ),
-                        selectable: true,
-                        onTapLink: (text, href, title) {},
-                        styleSheet: MarkdownStyleSheet(
-                          p: TextStyle(
-                            fontSize: 14,
-                            color: colorScheme.onSurface,
-                            height: 1.5,
+                      Visibility(
+                        visible: !showHeader && isHovered,
+                        maintainSize: true,
+                        maintainState: true,
+                        maintainAnimation: true,
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: _buildMessageHoverToolbar(
+                            message,
+                            canEdit,
+                            canDelete,
+                            colorScheme,
                           ),
-                          a: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF2563EB),
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.none,
-                          ),
-                          code: TextStyle(
-                            fontSize: 13,
-                            color: colorScheme.primary,
-                            backgroundColor: isDarkMode
-                                ? Colors.white.withValues(alpha: 0.08)
-                                : const Color(0xFFFFF5EA),
-                            fontFamily: 'monospace',
-                          ),
-                          codeblockDecoration: BoxDecoration(
+                        ),
+                      ),
+                      if (isEditing)
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
                             color: isDarkMode
-                                ? Colors.white.withValues(alpha: 0.06)
-                                : const Color(0xFFFFF5EA),
-                            borderRadius: BorderRadius.circular(6),
+                                ? Colors.white.withValues(alpha: 0.04)
+                                : const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: isDarkMode
                                   ? Colors.white.withValues(alpha: 0.1)
                                   : const Color(0xFFE7D3BF),
                             ),
                           ),
-                          blockquoteDecoration: BoxDecoration(
-                            border: Border(
-                              left: BorderSide(
-                                color: colorScheme.primary.withValues(
-                                  alpha: 0.5,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TextField(
+                                controller: _editMessageController,
+                                autofocus: true,
+                                maxLines: null,
+                                decoration: const InputDecoration(
+                                  isDense: true,
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.zero,
                                 ),
-                                width: 3,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: colorScheme.onSurface,
+                                  height: 1.5,
+                                ),
                               ),
-                            ),
-                          ),
-                          h1: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: colorScheme.onSurface,
-                          ),
-                          h2: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: colorScheme.onSurface,
-                          ),
-                          h3: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.onSurface,
-                          ),
-                          strong: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: colorScheme.onSurface,
-                          ),
-                          em: TextStyle(
-                            fontStyle: FontStyle.italic,
-                            color: colorScheme.onSurface,
-                          ),
-                          listBullet: TextStyle(color: colorScheme.onSurface),
-                        ),
-                      ),
-                    if (message.imageUrls.isNotEmpty) ...[
-                      if (hasContent) const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: message.imageUrls.map((url) {
-                          final imageUrl = url.startsWith('/')
-                              ? '${ApiClient.baseUrl}$url'
-                              : url;
-                          return GestureDetector(
-                            onTap: () => _showImageViewer(context, imageUrl),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 300,
-                                  maxHeight: 250,
-                                ),
-                                child: Image.network(
-                                  imageUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    width: 100,
-                                    height: 100,
-                                    color: colorScheme.onSurface.withValues(
-                                      alpha: 0.05,
-                                    ),
-                                    child: const Icon(
-                                      Icons.broken_image,
-                                      size: 32,
-                                    ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  TextButton(
+                                    onPressed: _isUpdatingMessage
+                                        ? null
+                                        : _cancelEditMessage,
+                                    child: const Text('취소'),
                                   ),
-                                ),
+                                  const SizedBox(width: 8),
+                                  FilledButton(
+                                    onPressed: _isUpdatingMessage
+                                        ? null
+                                        : () => _saveEditedMessage(message),
+                                    child: _isUpdatingMessage
+                                        ? const SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : const Text('저장'),
+                                  ),
+                                ],
                               ),
+                            ],
+                          ),
+                        )
+                      else ...[
+                        if (hasContent)
+                          MarkdownBody(
+                            data: message.content.replaceAllMapped(
+                              RegExp(r'@([^\s@]+)'),
+                              (m) {
+                                final name = m.group(1)!;
+                                final known = _allUsers.any(
+                                  (u) =>
+                                      u.username.toLowerCase() ==
+                                      name.toLowerCase(),
+                                );
+                                return known
+                                    ? '[${m.group(0)}](#)'
+                                    : m.group(0)!;
+                              },
                             ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                    if (message.fileUrls.isNotEmpty) ...[
-                      if (hasContent || message.imageUrls.isNotEmpty)
-                        const SizedBox(height: 6),
-                      ...message.fileUrls.map((fileUrl) {
-                        final info = _parseFileUrl(fileUrl);
-                        final downloadUrl = info.url.startsWith('/')
-                            ? '${ApiClient.baseUrl}${info.url}'
-                            : info.url;
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: InkWell(
-                            onTap: () {
-                              _downloadFile(downloadUrl, info.originalName);
-                            },
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
+                            selectable: true,
+                            onTapLink: (text, href, title) {},
+                            styleSheet: MarkdownStyleSheet(
+                              p: TextStyle(
+                                fontSize: 14,
+                                color: colorScheme.onSurface,
+                                height: 1.5,
                               ),
-                              decoration: BoxDecoration(
+                              a: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF2563EB),
+                                fontWeight: FontWeight.w600,
+                                decoration: TextDecoration.none,
+                              ),
+                              code: TextStyle(
+                                fontSize: 13,
+                                color: colorScheme.primary,
+                                backgroundColor: isDarkMode
+                                    ? Colors.white.withValues(alpha: 0.08)
+                                    : const Color(0xFFFFF5EA),
+                                fontFamily: 'monospace',
+                              ),
+                              codeblockDecoration: BoxDecoration(
                                 color: isDarkMode
-                                    ? Colors.white.withValues(alpha: 0.05)
-                                    : const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(8),
+                                    ? Colors.white.withValues(alpha: 0.06)
+                                    : const Color(0xFFFFF5EA),
+                                borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
                                   color: isDarkMode
                                       ? Colors.white.withValues(alpha: 0.1)
                                       : const Color(0xFFE7D3BF),
                                 ),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    _getFileIcon(info.originalName),
-                                    size: 28,
-                                    color: colorScheme.primary,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Flexible(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          info.originalName,
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: colorScheme.primary,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        if (info.size > 0)
-                                          Text(
-                                            _formatFileSize(info.size),
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: colorScheme.onSurface
-                                                  .withValues(alpha: 0.4),
-                                            ),
-                                          ),
-                                      ],
+                              blockquoteDecoration: BoxDecoration(
+                                border: Border(
+                                  left: BorderSide(
+                                    color: colorScheme.primary.withValues(
+                                      alpha: 0.5,
                                     ),
+                                    width: 3,
                                   ),
-                                  const SizedBox(width: 8),
-                                  Icon(
-                                    Icons.download,
-                                    size: 18,
-                                    color: colorScheme.onSurface.withValues(
-                                      alpha: 0.4,
-                                    ),
-                                  ),
-                                ],
+                                ),
+                              ),
+                              h1: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.onSurface,
+                              ),
+                              h2: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.onSurface,
+                              ),
+                              h3: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface,
+                              ),
+                              strong: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.onSurface,
+                              ),
+                              em: TextStyle(
+                                fontStyle: FontStyle.italic,
+                                color: colorScheme.onSurface,
+                              ),
+                              listBullet: TextStyle(
+                                color: colorScheme.onSurface,
                               ),
                             ),
                           ),
-                        );
-                      }),
+                        if (message.imageUrls.isNotEmpty) ...[
+                          if (hasContent) const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: message.imageUrls.map((url) {
+                              final imageUrl = url.startsWith('/')
+                                  ? '${ApiClient.baseUrl}$url'
+                                  : url;
+                              return GestureDetector(
+                                onTap: () =>
+                                    _showImageViewer(context, imageUrl),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 300,
+                                      maxHeight: 250,
+                                    ),
+                                    child: Image.network(
+                                      imageUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Container(
+                                        width: 100,
+                                        height: 100,
+                                        color: colorScheme.onSurface.withValues(
+                                          alpha: 0.05,
+                                        ),
+                                        child: const Icon(
+                                          Icons.broken_image,
+                                          size: 32,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                        if (message.fileUrls.isNotEmpty) ...[
+                          if (hasContent || message.imageUrls.isNotEmpty)
+                            const SizedBox(height: 6),
+                          ...message.fileUrls.map((fileUrl) {
+                            final info = _parseFileUrl(fileUrl);
+                            final downloadUrl = info.url.startsWith('/')
+                                ? '${ApiClient.baseUrl}${info.url}'
+                                : info.url;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: InkWell(
+                                onTap: () {
+                                  _downloadFile(downloadUrl, info.originalName);
+                                },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isDarkMode
+                                        ? Colors.white.withValues(alpha: 0.05)
+                                        : const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isDarkMode
+                                          ? Colors.white.withValues(alpha: 0.1)
+                                          : const Color(0xFFE7D3BF),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        _getFileIcon(info.originalName),
+                                        size: 28,
+                                        color: colorScheme.primary,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Flexible(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              info.originalName,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: colorScheme.primary,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            if (info.size > 0)
+                                              Text(
+                                                _formatFileSize(info.size),
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: colorScheme.onSurface
+                                                      .withValues(alpha: 0.4),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Icon(
+                                        Icons.download,
+                                        size: 18,
+                                        color: colorScheme.onSurface.withValues(
+                                          alpha: 0.4,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
+                        if (message.reactions.isNotEmpty) ...[
+                          if (hasContent ||
+                              message.imageUrls.isNotEmpty ||
+                              message.fileUrls.isNotEmpty)
+                            const SizedBox(height: 6),
+                          _buildMessageReactions(
+                            message,
+                            currentUserId,
+                            colorScheme,
+                            isDarkMode,
+                          ),
+                        ],
+                      ],
                     ],
-                  ],
-                ],
-              ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

@@ -6,6 +6,8 @@ from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
 from app.database import Base, SessionLocal, engine
+from app.models.comment_reaction import CommentReaction  # noqa: F401
+from app.models.message_reaction import MessageReaction  # noqa: F401
 from app.models.sprint import Sprint  # noqa: F401
 from app.models.user import User
 from app.utils.security import get_password_hash

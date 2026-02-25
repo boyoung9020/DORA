@@ -3,7 +3,7 @@
 """
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict
 
 
 class CommentBase(BaseModel):
@@ -23,15 +23,20 @@ class CommentUpdate(BaseModel):
     image_urls: list[str] = []  # 이미지 URL 배열
 
 
+class CommentReactionToggle(BaseModel):
+    """댓글 리액션 토글 요청 스키마"""
+    emoji: str
+
+
 class CommentResponse(CommentBase):
     """댓글 응답 스키마"""
     id: str
     task_id: str
     user_id: str
     username: str
+    reactions: Dict[str, list[str]] = {}
     created_at: datetime
     updated_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
-

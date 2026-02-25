@@ -10,11 +10,13 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.chat import ChatMessage, ChatRoom, ChatRoomParticipant, ChatRoomType
+from app.models.message_reaction import MessageReaction
 from app.models.user import User
 from app.models.workspace import WorkspaceMember
 from app.routers.websocket import manager
 from app.schemas.chat import (
     ChatMessageCreate,
+    MessageReactionToggle,
     ChatMessageResponse,
     ChatMessageUpdate,
     ChatRoomCreate,
@@ -23,6 +25,27 @@ from app.schemas.chat import (
 from app.utils.dependencies import get_current_user
 
 router = APIRouter()
+
+
+def _build_message_reactions(db: Session, message_ids: List[str]) -> dict[str, dict[str, list[str]]]:
+    if not message_ids:
+        return {}
+
+    rows = (
+        db.query(MessageReaction)
+        .filter(MessageReaction.message_id.in_(message_ids))
+        .all()
+    )
+    grouped: dict[str, dict[str, list[str]]] = {}
+    for row in rows:
+        grouped.setdefault(row.message_id, {}).setdefault(row.emoji, []).append(row.user_id)
+    return grouped
+
+
+def _attach_message_reactions(db: Session, messages: List[ChatMessage]) -> None:
+    reaction_map = _build_message_reactions(db, [m.id for m in messages])
+    for message in messages:
+        setattr(message, "reactions", reaction_map.get(message.id, {}))
 
 
 @router.get("/rooms", response_model=List[ChatRoomResponse])
@@ -227,6 +250,7 @@ async def get_messages(
 
     messages = query.order_by(desc(ChatMessage.created_at)).limit(limit).all()
     messages.reverse()
+    _attach_message_reactions(db, messages)
     return messages
 
 
@@ -307,6 +331,7 @@ async def send_message(
             )
         )
 
+    setattr(new_message, "reactions", {})
     return new_message
 
 
@@ -378,7 +403,142 @@ async def update_message(
             )
         )
 
+    _attach_message_reactions(db, [message])
     return message
+
+
+@router.delete("/rooms/{room_id}/messages/{message_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_message(
+    room_id: str,
+    message_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """메시지 삭제 (본인 메시지만 가능)"""
+    room = db.query(ChatRoom).filter(ChatRoom.id == room_id).first()
+    if not room:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="채팅방을 찾을 수 없습니다",
+        )
+
+    if current_user.id not in (room.member_ids or []):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="해당 채팅방에 참여하지 않았습니다",
+        )
+
+    message = db.query(ChatMessage).filter(
+        ChatMessage.id == message_id,
+        ChatMessage.room_id == room_id,
+    ).first()
+    if not message:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="메시지를 찾을 수 없습니다",
+        )
+
+    if message.sender_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="본인이 보낸 메시지만 삭제 가능합니다",
+        )
+
+    db.delete(message)
+    db.commit()
+
+    target_users = [uid for uid in (room.member_ids or []) if uid != current_user.id]
+    if target_users:
+        asyncio.create_task(
+            manager.send_to_users(
+                {
+                    "type": "chat_message_deleted",
+                    "data": {"room_id": room_id, "message_id": message_id},
+                },
+                target_users,
+            )
+        )
+
+    return None
+
+
+@router.post("/rooms/{room_id}/messages/{message_id}/reactions")
+async def toggle_message_reaction(
+    room_id: str,
+    message_id: str,
+    payload: MessageReactionToggle,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """메시지 리액션 토글"""
+    room = db.query(ChatRoom).filter(ChatRoom.id == room_id).first()
+    if not room:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="채팅방을 찾을 수 없습니다",
+        )
+
+    if current_user.id not in (room.member_ids or []):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="해당 채팅방에 참여하지 않았습니다",
+        )
+
+    message = db.query(ChatMessage).filter(
+        ChatMessage.id == message_id,
+        ChatMessage.room_id == room_id,
+    ).first()
+    if not message:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="메시지를 찾을 수 없습니다",
+        )
+
+    emoji = (payload.emoji or "").strip()
+    if not emoji or len(emoji) > 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유효한 이모지를 입력해주세요",
+        )
+
+    existing = db.query(MessageReaction).filter(
+        MessageReaction.message_id == message_id,
+        MessageReaction.user_id == current_user.id,
+        MessageReaction.emoji == emoji,
+    ).first()
+
+    if existing:
+        db.delete(existing)
+    else:
+        db.add(
+            MessageReaction(
+                message_id=message_id,
+                user_id=current_user.id,
+                emoji=emoji,
+            )
+        )
+
+    db.commit()
+
+    reaction_map = _build_message_reactions(db, [message_id]).get(message_id, {})
+
+    target_users = [uid for uid in (room.member_ids or []) if uid != current_user.id]
+    if target_users:
+        asyncio.create_task(
+            manager.send_to_users(
+                {
+                    "type": "chat_reaction_updated",
+                    "data": {
+                        "room_id": room_id,
+                        "message_id": message_id,
+                        "reactions": reaction_map,
+                    },
+                },
+                target_users,
+            )
+        )
+
+    return {"reactions": reaction_map}
 
 
 @router.patch("/rooms/{room_id}/read")

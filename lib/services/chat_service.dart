@@ -138,6 +138,46 @@ class ChatService {
     }
   }
 
+  Future<bool> deleteMessage(String roomId, String messageId) async {
+    try {
+      final response = await ApiClient.delete(
+        '/api/chat/rooms/$roomId/messages/$messageId',
+      );
+      return response.statusCode == 204;
+    } catch (e) {
+      print('[ChatService] deleteMessage failed: $e');
+      return false;
+    }
+  }
+
+  Future<Map<String, List<String>>> toggleReaction(
+    String roomId,
+    String messageId,
+    String emoji,
+  ) async {
+    try {
+      final response = await ApiClient.post(
+        '/api/chat/rooms/$roomId/messages/$messageId/reactions',
+        body: {'emoji': emoji},
+      );
+      if (response.statusCode == 200) {
+        final data = ApiClient.handleResponse(response);
+        final raw = data['reactions'] as Map<String, dynamic>? ?? {};
+        final parsed = <String, List<String>>{};
+        raw.forEach((key, value) {
+          parsed[key] =
+              (value as List<dynamic>?)?.map((e) => e.toString()).toList() ??
+              [];
+        });
+        return parsed;
+      }
+      throw Exception('Failed to toggle reaction: ${response.statusCode}');
+    } catch (e) {
+      print('[ChatService] toggleReaction failed: $e');
+      return {};
+    }
+  }
+
   Future<bool> markAsRead(String roomId) async {
     try {
       final response = await ApiClient.patch(

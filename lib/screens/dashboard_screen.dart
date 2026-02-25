@@ -1953,9 +1953,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                return ListView.separated(
+                return GridView.builder(
                   itemCount: allProjects.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisExtent: 160,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                  ),
                   itemBuilder: (context, index) {
                     final project = allProjects[index];
                     final progress = _calculateProgress(project, allTasks);
@@ -1973,148 +1978,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       users: users,
                     );
 
-                    return Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surface.withValues(alpha: 0.45),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: project.color.withValues(alpha: 0.35),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 4,
-                                height: 20,
-                                decoration: BoxDecoration(
-                                  color: project.color,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  project.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: colorScheme.onSurface,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                '${(progress * 100).toInt()}%',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: project.color,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: LinearProgressIndicator(
-                              value: progress,
-                              minHeight: 10,
-                              backgroundColor: colorScheme.primary.withValues(
-                                alpha: 0.1,
-                              ),
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                project.color,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '전체 $taskCount개 · 완료 $doneCount개',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colorScheme.onSurface.withValues(
-                                alpha: 0.68,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            '팀원별 진행률',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: colorScheme.onSurface.withValues(
-                                alpha: 0.78,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          if (memberProgress.isEmpty)
-                            Text(
-                              '진행률을 표시할 팀원 데이터가 없습니다',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.62,
-                                ),
-                              ),
-                            )
-                          else
-                            ...memberProgress.map((entry) {
-                              final ratio = entry.total == 0
-                                  ? 0.0
-                                  : entry.done / entry.total;
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            entry.username,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: colorScheme.onSurface,
-                                            ),
-                                          ),
-                                        ),
-                                        Text(
-                                          '${(ratio * 100).toInt()}% (${entry.done}/${entry.total})',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: colorScheme.onSurface
-                                                .withValues(alpha: 0.68),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: LinearProgressIndicator(
-                                        value: ratio,
-                                        minHeight: 6,
-                                        backgroundColor: colorScheme.primary
-                                            .withValues(alpha: 0.12),
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              project.color,
-                                            ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }),
-                        ],
-                      ),
+                    return _buildProjectProgressCard(
+                      colorScheme: colorScheme,
+                      project: project,
+                      progress: progress,
+                      taskCount: taskCount,
+                      doneCount: doneCount,
+                      memberProgress: memberProgress,
                     );
                   },
                 );
@@ -2123,6 +1993,184 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildProjectProgressCard({
+    required ColorScheme colorScheme,
+    required Project project,
+    required double progress,
+    required int taskCount,
+    required int doneCount,
+    required List<_MemberProgressEntry> memberProgress,
+  }) {
+    final displayedMembers = memberProgress.take(4).toList();
+    final hiddenCount = memberProgress.length - displayedMembers.length;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: project.color.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: project.color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  project.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 80,
+                height: 80,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 80,
+                      height: 80,
+                      child: CircularProgressIndicator(
+                        value: progress,
+                        strokeWidth: 8,
+                        color: project.color,
+                        backgroundColor: project.color.withValues(alpha: 0.15),
+                      ),
+                    ),
+                    Text(
+                      '${(progress * 100).toInt()}%',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: memberProgress.isEmpty
+                    ? Center(
+                        child: Text(
+                          '팀원 데이터 없음',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      )
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ...displayedMembers.map((entry) {
+                            final ratio = entry.total == 0
+                                ? 0.0
+                                : entry.done / entry.total;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 52,
+                                    child: Text(
+                                      entry.username,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: colorScheme.onSurface.withValues(
+                                          alpha: 0.85,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(999),
+                                      child: LinearProgressIndicator(
+                                        value: ratio,
+                                        minHeight: 4,
+                                        backgroundColor: colorScheme.primary
+                                            .withValues(alpha: 0.12),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              project.color,
+                                            ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  SizedBox(
+                                    width: 30,
+                                    child: Text(
+                                      '${(ratio * 100).toInt()}%',
+                                      textAlign: TextAlign.right,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: colorScheme.onSurface.withValues(
+                                          alpha: 0.75,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                          if (hiddenCount > 0)
+                            Text(
+                              '+$hiddenCount명',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.65,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '완료 $doneCount / 전체 ${taskCount}개',
+            style: TextStyle(
+              fontSize: 11,
+              color: colorScheme.onSurface.withValues(alpha: 0.65),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

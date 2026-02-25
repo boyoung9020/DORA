@@ -7,7 +7,8 @@ class Comment {
   final String userId;
   final String username;
   final String content;
-  final List<String> imageUrls;  // 이미지 URL 배열
+  final List<String> imageUrls; // 이미지 URL 배열
+  final Map<String, List<String>> reactions;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -18,6 +19,7 @@ class Comment {
     required this.username,
     required this.content,
     this.imageUrls = const [],
+    this.reactions = const {},
     required this.createdAt,
     this.updatedAt,
   });
@@ -31,6 +33,7 @@ class Comment {
       'username': username,
       'content': content,
       'image_urls': imageUrls,
+      'reactions': reactions,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -41,19 +44,38 @@ class Comment {
     // API 응답은 snake_case, 로컬 저장은 camelCase 지원
     final taskIdKey = json.containsKey('task_id') ? 'task_id' : 'taskId';
     final userIdKey = json.containsKey('user_id') ? 'user_id' : 'userId';
-    final createdAtKey = json.containsKey('created_at') ? 'created_at' : 'createdAt';
-    final updatedAtKey = json.containsKey('updated_at') ? 'updated_at' : 'updatedAt';
-    final imageUrlsKey = json.containsKey('image_urls') ? 'image_urls' : 'imageUrls';
-    
+    final createdAtKey = json.containsKey('created_at')
+        ? 'created_at'
+        : 'createdAt';
+    final updatedAtKey = json.containsKey('updated_at')
+        ? 'updated_at'
+        : 'updatedAt';
+    final imageUrlsKey = json.containsKey('image_urls')
+        ? 'image_urls'
+        : 'imageUrls';
+    final reactionsKey = json.containsKey('reactions')
+        ? 'reactions'
+        : 'reactions';
+
+    final rawReactions = json[reactionsKey] as Map<String, dynamic>?;
+    final parsedReactions = <String, List<String>>{};
+    if (rawReactions != null) {
+      rawReactions.forEach((emoji, users) {
+        parsedReactions[emoji] =
+            (users as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+      });
+    }
+
     return Comment(
       id: json['id'],
       taskId: json[taskIdKey],
       userId: json[userIdKey],
       username: json['username'],
       content: json['content'],
-      imageUrls: json[imageUrlsKey] != null 
+      imageUrls: json[imageUrlsKey] != null
           ? List<String>.from(json[imageUrlsKey])
           : [],
+      reactions: parsedReactions,
       createdAt: parseUtcToLocal(json[createdAtKey]),
       updatedAt: parseUtcToLocalOrNull(json[updatedAtKey]),
     );
@@ -67,6 +89,7 @@ class Comment {
     String? username,
     String? content,
     List<String>? imageUrls,
+    Map<String, List<String>>? reactions,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -77,9 +100,9 @@ class Comment {
       username: username ?? this.username,
       content: content ?? this.content,
       imageUrls: imageUrls ?? this.imageUrls,
+      reactions: reactions ?? this.reactions,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }
-

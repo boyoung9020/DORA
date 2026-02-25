@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   bitsdojo_window_windows
   desktop_drop
+  emoji_picker_flutter
   file_selector_windows
   url_launcher_windows
 )

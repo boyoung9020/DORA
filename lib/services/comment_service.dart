@@ -15,7 +15,9 @@ class CommentService {
     try {
       final response = await ApiClient.get('/api/comments/task/$taskId');
       final commentsData = ApiClient.handleListResponse(response);
-      return commentsData.map((json) => Comment.fromJson(json as Map<String, dynamic>)).toList()
+      return commentsData
+          .map((json) => Comment.fromJson(json as Map<String, dynamic>))
+          .toList()
         ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     } catch (e) {
       throw Exception('댓글 목록 가져오기 실패: $e');
@@ -33,13 +35,9 @@ class CommentService {
     try {
       final response = await ApiClient.post(
         '/api/comments/',
-        body: {
-          'task_id': taskId,
-          'content': content,
-          'image_urls': imageUrls,
-        },
+        body: {'task_id': taskId, 'content': content, 'image_urls': imageUrls},
       );
-      
+
       final commentData = ApiClient.handleResponse(response);
       return Comment.fromJson(commentData);
     } catch (e) {
@@ -52,12 +50,9 @@ class CommentService {
     try {
       final response = await ApiClient.patch(
         '/api/comments/${comment.id}',
-        body: {
-          'content': comment.content,
-          'image_urls': comment.imageUrls,
-        },
+        body: {'content': comment.content, 'image_urls': comment.imageUrls},
       );
-      
+
       ApiClient.handleResponse(response);
     } catch (e) {
       throw Exception('댓글 업데이트 실패: $e');
@@ -71,6 +66,28 @@ class CommentService {
       ApiClient.handleResponse(response);
     } catch (e) {
       throw Exception('댓글 삭제 실패: $e');
+    }
+  }
+
+  Future<Map<String, List<String>>> toggleReaction(
+    String commentId,
+    String emoji,
+  ) async {
+    try {
+      final response = await ApiClient.post(
+        '/api/comments/$commentId/reactions',
+        body: {'emoji': emoji},
+      );
+      final data = ApiClient.handleResponse(response);
+      final raw = data['reactions'] as Map<String, dynamic>? ?? {};
+      final parsed = <String, List<String>>{};
+      raw.forEach((key, value) {
+        parsed[key] =
+            (value as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+      });
+      return parsed;
+    } catch (e) {
+      throw Exception('댓글 리액션 토글 실패: $e');
     }
   }
 }

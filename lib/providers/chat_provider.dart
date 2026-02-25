@@ -190,6 +190,40 @@ class ChatProvider extends ChangeNotifier {
     return true;
   }
 
+  /// 메시지 삭제
+  Future<bool> deleteMessage(String roomId, String messageId) async {
+    final success = await _chatService.deleteMessage(roomId, messageId);
+    if (!success) {
+      _errorMessage = '메시지 삭제에 실패했습니다.';
+      notifyListeners();
+      return false;
+    }
+
+    _messagesByRoom[roomId]?.removeWhere((m) => m.id == messageId);
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> toggleReaction(
+    String roomId,
+    String messageId,
+    String emoji,
+  ) async {
+    final reactions = await _chatService.toggleReaction(
+      roomId,
+      messageId,
+      emoji,
+    );
+    final existing = _messagesByRoom[roomId];
+    if (existing == null) return false;
+    final idx = existing.indexWhere((m) => m.id == messageId);
+    if (idx == -1) return false;
+
+    existing[idx] = existing[idx].copyWith(reactions: reactions);
+    notifyListeners();
+    return true;
+  }
+
   /// WebSocket으로 수신된 메시지 처리
   void handleIncomingMessage(Map<String, dynamic> data) {
     final roomId = data['room_id'] as String?;
@@ -277,6 +311,37 @@ class ChatProvider extends ChangeNotifier {
       content: data['content']?.toString() ?? existing[idx].content,
       updatedAt: updatedAt,
     );
+    notifyListeners();
+  }
+
+  /// WebSocket으로 수신된 메시지 삭제 이벤트 처리
+  void handleMessageDeleted(Map<String, dynamic> data) {
+    final roomId = data['room_id'] as String?;
+    final messageId = data['message_id'] as String?;
+    if (roomId == null || messageId == null) return;
+
+    _messagesByRoom[roomId]?.removeWhere((m) => m.id == messageId);
+    notifyListeners();
+  }
+
+  void handleReactionUpdated(Map<String, dynamic> data) {
+    final roomId = data['room_id'] as String?;
+    final messageId = data['message_id'] as String?;
+    final rawReactions = data['reactions'] as Map<String, dynamic>?;
+    if (roomId == null || messageId == null || rawReactions == null) return;
+
+    final existing = _messagesByRoom[roomId];
+    if (existing == null) return;
+    final idx = existing.indexWhere((m) => m.id == messageId);
+    if (idx == -1) return;
+
+    final parsed = <String, List<String>>{};
+    rawReactions.forEach((emoji, users) {
+      parsed[emoji] =
+          (users as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+    });
+
+    existing[idx] = existing[idx].copyWith(reactions: parsed);
     notifyListeners();
   }
 
