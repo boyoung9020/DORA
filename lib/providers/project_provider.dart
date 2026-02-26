@@ -9,6 +9,7 @@ class ProjectProvider extends ChangeNotifier {
   List<Project> _allProjects = []; // 모든 프로젝트 (필터링 전)
   List<Project> _projects = []; // 필터링된 프로젝트 (사용자가 속한 프로젝트)
   Project? _currentProject;
+  bool _isAllProjectsMode = false; // '전체' 모드 여부
   bool _isLoading = false;
   String? _errorMessage;
   String? _currentUserId; // 현재 사용자 ID
@@ -17,6 +18,7 @@ class ProjectProvider extends ChangeNotifier {
 
   List<Project> get projects => _projects;
   Project? get currentProject => _currentProject;
+  bool get isAllProjectsMode => _isAllProjectsMode;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
@@ -25,11 +27,19 @@ class ProjectProvider extends ChangeNotifier {
     // MainLayout의 initState에서 _updateProjectProviderUserInfo()를 통해 호출됨
   }
 
+  /// 전체 프로젝트 모드 선택
+  void selectAllProjects() {
+    _isAllProjectsMode = true;
+    _currentProject = null;
+    notifyListeners();
+  }
+
   /// 사용자 정보 설정 (필터링을 위해 필요)
   void setUserInfo(String? userId, bool isAdmin, bool isPM) {
     // 사용자 정보가 변경되면 이전 프로젝트 정보 초기화
     if (_currentUserId != userId) {
       _currentProject = null;
+      _isAllProjectsMode = false;
       _projects = [];
       _allProjects = [];
     }
@@ -66,8 +76,11 @@ class ProjectProvider extends ChangeNotifier {
       print('[ProjectProvider] 사용자 - 필터링된 프로젝트: ${_projects.length}개');
     }
 
-    // 현재 프로젝트가 필터링된 목록에 없으면 첫 번째 프로젝트로 설정
-    if (_currentProject != null) {
+    // '전체' 모드면 currentProject는 항상 null 유지
+    if (_isAllProjectsMode) {
+      _currentProject = null;
+    } else if (_currentProject != null) {
+      // 현재 프로젝트가 필터링된 목록에 없으면 첫 번째 프로젝트로 설정
       final found = _projects.any((p) => p.id == _currentProject!.id);
       if (!found && _projects.isNotEmpty) {
         _currentProject = _projects.first;
@@ -101,17 +114,19 @@ class ProjectProvider extends ChangeNotifier {
       // 프로젝트 필터링
       _filterProjects();
       
-      // 현재 프로젝트를 다시 가져와서 최신 데이터로 업데이트
-      final currentProjectId = _currentProject?.id;
-      if (currentProjectId != null && _projects.isNotEmpty) {
-        _currentProject = _projects.firstWhere(
-          (p) => p.id == currentProjectId,
-          orElse: () => _projects.first,
-        );
-      } else if (_projects.isNotEmpty) {
-        _currentProject = _projects.first;
-      } else {
-        _currentProject = null;
+      // '전체' 모드면 currentProject는 null 유지, 아니면 최신 데이터로 업데이트
+      if (!_isAllProjectsMode) {
+        final currentProjectId = _currentProject?.id;
+        if (currentProjectId != null && _projects.isNotEmpty) {
+          _currentProject = _projects.firstWhere(
+            (p) => p.id == currentProjectId,
+            orElse: () => _projects.first,
+          );
+        } else if (_projects.isNotEmpty) {
+          _currentProject = _projects.first;
+        } else {
+          _currentProject = null;
+        }
       }
       
       _errorMessage = null;
@@ -127,6 +142,7 @@ class ProjectProvider extends ChangeNotifier {
   Future<void> setCurrentProject(String projectId) async {
     try {
       await _projectService.setCurrentProject(projectId);
+      _isAllProjectsMode = false;
       _currentProject = _projects.firstWhere((p) => p.id == projectId);
       notifyListeners();
     } catch (e) {

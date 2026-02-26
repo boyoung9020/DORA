@@ -1221,7 +1221,26 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (currentProject != null) ...[
+                      if (projectProvider.isAllProjectsMode) ...[
+                        Icon(
+                          Icons.layers,
+                          size: 18,
+                          color: isDarkMode
+                              ? colorScheme.onSurface
+                              : const Color(0xFF8A5731),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '전체',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: isDarkMode
+                                ? colorScheme.onSurface
+                                : const Color(0xFF8A5731),
+                          ),
+                        ),
+                      ] else if (currentProject != null) ...[
                         Container(
                           width: 12,
                           height: 12,
@@ -1277,6 +1296,41 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ),
             itemBuilder: (BuildContext context) {
               final items = <PopupMenuEntry<String>>[];
+
+              // '전체' 항목
+              items.add(
+                PopupMenuItem<String>(
+                  value: '__all__',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.layers,
+                        size: 18,
+                        color: projectProvider.isAllProjectsMode
+                            ? colorScheme.primary
+                            : colorScheme.onSurface,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        '전체',
+                        style: TextStyle(
+                          fontWeight: projectProvider.isAllProjectsMode
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: projectProvider.isAllProjectsMode
+                              ? colorScheme.primary
+                              : colorScheme.onSurface,
+                        ),
+                      ),
+                      if (projectProvider.isAllProjectsMode) ...[
+                        const Spacer(),
+                        Icon(Icons.check, color: colorScheme.primary, size: 20),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+              items.add(const PopupMenuDivider());
 
               // 프로젝트 목록
               for (var project in projectProvider.projects) {
@@ -1364,6 +1418,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             onSelected: (String value) async {
               if (value == '__create_new__') {
                 _showCreateProjectDialog(context);
+              } else if (value == '__all__') {
+                projectProvider.selectAllProjects();
+                if (!mounted) return;
+                await taskProvider.loadTasks();
+                await sprintProvider.loadSprints();
               } else {
                 await projectProvider.setCurrentProject(value);
                 if (!mounted) return;

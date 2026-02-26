@@ -106,6 +106,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   bool _showMentionSuggestions = false;
   int _mentionStartIndex = -1;
   int _selectedMentionIndex = -1;
+  bool _showHistoryLogs = true;
   static const List<String> _commentReactionPresets = ['✅', '👍', '👀'];
 
   @override
@@ -1182,6 +1183,42 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
+                      InkWell(
+                        onTap: () => setState(
+                          () => _showHistoryLogs = !_showHistoryLogs,
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 4,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _showHistoryLogs
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
+                                size: 15,
+                                color: colorScheme.primary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _showHistoryLogs
+                                    ? '활동로그 숨기기'
+                                    : '활동로그 보기',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
                       // ??る┛ 甕곌쑵??
                       IconButton(
                         icon: Icon(Icons.close, color: colorScheme.onSurface),
@@ -1228,6 +1265,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                     children: _timelineItems!.map((item) {
                                       if (item.type ==
                                           TimelineItemType.history) {
+                                        if (!_showHistoryLogs) {
+                                          return const SizedBox.shrink();
+                                        }
                                         final event = item.data as HistoryEvent;
                                         return Padding(
                                           padding: const EdgeInsets.only(
