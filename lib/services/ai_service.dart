@@ -68,6 +68,12 @@ class AiService {
     await prefs.remove('$_summaryGeneratedAtKey$suffix');
   }
 
+  Future<AiSummaryResult?> getCachedSummary({
+    String? userId,
+    String? workspaceId,
+    String? projectId,
+  }) => _getCachedSummary(userId: userId, workspaceId: workspaceId, projectId: projectId);
+
   Future<AiSummaryResult?> _getCachedSummary({
     String? userId,
     String? workspaceId,

@@ -1183,38 +1183,41 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      InkWell(
-                        onTap: () => setState(
-                          () => _showHistoryLogs = !_showHistoryLogs,
-                        ),
-                        borderRadius: BorderRadius.circular(6),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 4,
+                      SizedBox(
+                        width: 120,
+                        child: InkWell(
+                          onTap: () => setState(
+                            () => _showHistoryLogs = !_showHistoryLogs,
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                _showHistoryLogs
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
-                                size: 15,
-                                color: colorScheme.primary,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                _showHistoryLogs
-                                    ? '활동로그 숨기기'
-                                    : '활동로그 보기',
-                                style: TextStyle(
-                                  fontSize: 12,
+                          borderRadius: BorderRadius.circular(6),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 4,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  _showHistoryLogs
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                  size: 15,
                                   color: colorScheme.primary,
-                                  fontWeight: FontWeight.w600,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                Text(
+                                  _showHistoryLogs
+                                      ? '활동로그 숨기기'
+                                      : '활동로그 보기',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: colorScheme.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),

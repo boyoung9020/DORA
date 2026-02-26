@@ -386,6 +386,37 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         foregroundColor: colorScheme.primary,
                       ),
                     ),
+                  if (notificationProvider.notifications.isNotEmpty)
+                    TextButton.icon(
+                      onPressed: () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('전체 삭제'),
+                            content: const Text('모든 알림을 삭제하시겠습니까?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('취소'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('삭제'),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirmed == true) {
+                          await notificationProvider.deleteAllNotifications();
+                        }
+                      },
+                      icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                      label: const Text('전체 삭제'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: colorScheme.error,
+                      ),
+                    ),
                   // 새로고침 버튼
                   IconButton(
                     onPressed: () {

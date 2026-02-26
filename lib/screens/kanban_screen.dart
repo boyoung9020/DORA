@@ -25,6 +25,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String? _lastLoadedProjectId;
+  bool? _lastLoadedAllMode;
 
   @override
   void initState() {
@@ -39,12 +40,17 @@ class _KanbanScreenState extends State<KanbanScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final projectId = context.read<ProjectProvider>().currentProject?.id;
-    if (_lastLoadedProjectId != projectId) {
+    final projectProvider = context.read<ProjectProvider>();
+    final projectId = projectProvider.currentProject?.id;
+    final isAllMode = projectProvider.isAllProjectsMode;
+    if (_lastLoadedProjectId != projectId || _lastLoadedAllMode != isAllMode) {
       _lastLoadedProjectId = projectId;
+      _lastLoadedAllMode = isAllMode;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          context.read<TaskProvider>().loadTasks(projectId: projectId);
+          context.read<TaskProvider>().loadTasks(
+            projectId: isAllMode ? null : projectId,
+          );
         }
       });
     }
@@ -63,6 +69,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     final taskProvider = context.watch<TaskProvider>();
     final projectProvider = context.watch<ProjectProvider>();
     final currentProjectId = projectProvider.currentProject?.id;
+    final isAllMode = projectProvider.isAllProjectsMode;
 
     return Container(
       padding: const EdgeInsets.all(24.0),
@@ -140,7 +147,12 @@ class _KanbanScreenState extends State<KanbanScreen> {
           const SizedBox(height: 24),
           // 칸반 보드
           Expanded(
-            child: _buildKanbanBoard(context, taskProvider, currentProjectId),
+            child: _buildKanbanBoard(
+              context,
+              taskProvider,
+              currentProjectId,
+              isAllMode,
+            ),
           ),
         ],
       ),
@@ -185,9 +197,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
     BuildContext context,
     TaskProvider taskProvider,
     String? currentProjectId,
+    bool isAllMode,
   ) {
     // 프로젝트가 없으면 빈 상태 표시
-    if (currentProjectId == null) {
+    if (currentProjectId == null && !isAllMode) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -261,7 +274,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   _filterTasks(
                     taskProvider.getTasksByStatus(
                       TaskStatus.backlog,
-                      projectId: currentProjectId,
+                      projectId: isAllMode ? null : currentProjectId,
                     ),
                     currentProjectId,
                   ),
@@ -276,7 +289,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   _filterTasks(
                     taskProvider.getTasksByStatus(
                       TaskStatus.ready,
-                      projectId: currentProjectId,
+                      projectId: isAllMode ? null : currentProjectId,
                     ),
                     currentProjectId,
                   ),
@@ -291,7 +304,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   _filterTasks(
                     taskProvider.getTasksByStatus(
                       TaskStatus.inProgress,
-                      projectId: currentProjectId,
+                      projectId: isAllMode ? null : currentProjectId,
                     ),
                     currentProjectId,
                   ),
@@ -306,7 +319,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   _filterTasks(
                     taskProvider.getTasksByStatus(
                       TaskStatus.inReview,
-                      projectId: currentProjectId,
+                      projectId: isAllMode ? null : currentProjectId,
                     ),
                     currentProjectId,
                   ),
@@ -321,7 +334,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   _filterTasks(
                     taskProvider.getTasksByStatus(
                       TaskStatus.done,
-                      projectId: currentProjectId,
+                      projectId: isAllMode ? null : currentProjectId,
                     ),
                     currentProjectId,
                   ),

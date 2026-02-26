@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/project_provider.dart';
@@ -41,7 +42,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _lastAiScopeKey = _currentAiScopeKey();
-      _loadAISummary();
+      _loadAISummary(); // 캐시 있으면 즉시 표시, 없으면 API 호출
     });
   }
 
@@ -76,14 +77,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _loadAISummary({bool forceRefresh = false}) async {
     if (!mounted) return;
+    final workspaceId = context.read<WorkspaceProvider>().currentWorkspaceId;
+    final userId = context.read<AuthProvider>().currentUser?.id;
+
+    // 캐시 우선 로딩: 로딩 상태 표시 없이 즉시 캐시 데이터 표시
+    if (!forceRefresh) {
+      final cached = await _aiService.getCachedSummary(
+        userId: userId,
+        workspaceId: workspaceId,
+        projectId: null,
+      );
+      if (cached != null && mounted) {
+        setState(() {
+          _aiSummary = cached.summary.isNotEmpty ? cached.summary : null;
+          _aiGeneratedAt = cached.generatedAt ?? DateTime.now();
+          _aiError = null;
+        });
+        return; // 캐시 히트 - API 호출 불필요
+      }
+    }
+
+    // 캐시 없음 또는 강제 새로고침 - 로딩 상태 표시 후 API 호출
+    if (!mounted) return;
     setState(() {
       _aiLoading = true;
       _aiError = null;
     });
 
     try {
-      final workspaceId = context.read<WorkspaceProvider>().currentWorkspaceId;
-      final userId = context.read<AuthProvider>().currentUser?.id;
       final result = await _aiService.getSummary(
         workspaceId: workspaceId,
         projectId: null,
@@ -212,12 +233,62 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 constraints: BoxConstraints(maxHeight: maxBodyHeight ?? 260),
                 child: Scrollbar(
                   child: SingleChildScrollView(
-                    child: SelectableText(
-                      _aiSummary ?? '요약 내용이 없습니다.',
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.5,
-                        color: colorScheme.onSurface,
+                    child: MarkdownBody(
+                      selectable: true,
+                      data: _aiSummary ?? '요약 내용이 없습니다.',
+                      styleSheet: MarkdownStyleSheet(
+                        p: TextStyle(
+                          fontSize: 14,
+                          height: 1.6,
+                          color: colorScheme.onSurface,
+                        ),
+                        h1: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                        h2: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                        h3: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                        strong: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                        em: TextStyle(
+                          fontStyle: FontStyle.italic,
+                          color: colorScheme.onSurface,
+                        ),
+                        code: TextStyle(
+                          fontSize: 13,
+                          color: colorScheme.primary,
+                          backgroundColor: colorScheme.primary.withValues(
+                            alpha: 0.1,
+                          ),
+                        ),
+                        blockquote: TextStyle(
+                          fontSize: 14,
+                          color: colorScheme.onSurface.withValues(alpha: 0.7),
+                        ),
+                        listBullet: TextStyle(
+                          fontSize: 14,
+                          color: colorScheme.onSurface,
+                        ),
+                        horizontalRuleDecoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.2,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -1612,7 +1683,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Column(
                     children: [
                       Expanded(
-                        flex: 2,
+                        flex: 3,
                         child: _buildAiSummarySection(
                           context: context,
                           colorScheme: colorScheme,
@@ -1620,7 +1691,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       const SizedBox(height: 16),
                       Expanded(
-                        flex: 3,
+                        flex: 2,
                         child: _buildTodayTasksSection(
                           context: context,
                           colorScheme: colorScheme,
@@ -2008,8 +2079,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                           itemBuilder: (context, index) {
                             final project = pageProjects[index];
-                            final progress = _calculateProgress(project, allTasks);
-                            final taskCount = taskCountsByProject[project.id] ?? 0;
+                            final progress = _calculateProgress(
+                              project,
+                              allTasks,
+                            );
+                            final taskCount =
+                                taskCountsByProject[project.id] ?? 0;
                             final doneCount = allTasks
                                 .where(
                                   (task) =>

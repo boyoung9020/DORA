@@ -30,19 +30,23 @@ class NotificationProvider extends ChangeNotifier {
     try {
       final previousUnreadCount = _unreadCount;
       final previousNotificationIds = _notifications.map((n) => n.id).toSet();
-      
-      _notifications = await _notificationService.getNotifications(userId: userId);
-      _notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt)); // 최신순 정렬
+
+      _notifications = await _notificationService.getNotifications(
+        userId: userId,
+      );
+      _notifications.sort(
+        (a, b) => b.createdAt.compareTo(a.createdAt),
+      ); // 최신순 정렬
       _errorMessage = null;
-      
+
       // 읽지 않은 알림 개수 업데이트
       await _updateUnreadCount(userId: userId);
-      
+
       // 새로 추가된 읽지 않은 알림이 있으면 Windows 알림 표시
-      final newNotifications = _notifications.where((n) => 
-        !n.isRead && !previousNotificationIds.contains(n.id)
-      ).toList();
-      
+      final newNotifications = _notifications
+          .where((n) => !n.isRead && !previousNotificationIds.contains(n.id))
+          .toList();
+
       for (final notification in newNotifications) {
         WindowsNotificationService.showNotification(notification);
       }
@@ -90,7 +94,9 @@ class NotificationProvider extends ChangeNotifier {
     try {
       final success = await _notificationService.markAllAsRead(userId: userId);
       if (success) {
-        _notifications = _notifications.map((n) => n.copyWith(isRead: true)).toList();
+        _notifications = _notifications
+            .map((n) => n.copyWith(isRead: true))
+            .toList();
         _unreadCount = 0;
         notifyListeners();
       }
@@ -105,7 +111,9 @@ class NotificationProvider extends ChangeNotifier {
   /// 알림 삭제
   Future<bool> deleteNotification(String notificationId) async {
     try {
-      final success = await _notificationService.deleteNotification(notificationId);
+      final success = await _notificationService.deleteNotification(
+        notificationId,
+      );
       if (success) {
         _notifications.removeWhere((n) => n.id == notificationId);
         await _updateUnreadCount();
@@ -114,6 +122,23 @@ class NotificationProvider extends ChangeNotifier {
       return success;
     } catch (e) {
       _errorMessage = '알림 삭제 중 오류가 발생했습니다: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// 모든 알림 삭제
+  Future<bool> deleteAllNotifications() async {
+    try {
+      final success = await _notificationService.deleteAllNotifications();
+      if (success) {
+        _notifications = [];
+        _unreadCount = 0;
+        notifyListeners();
+      }
+      return success;
+    } catch (e) {
+      _errorMessage = '모든 알림 삭제 중 오류가 발생했습니다: $e';
       notifyListeners();
       return false;
     }
@@ -129,7 +154,7 @@ class NotificationProvider extends ChangeNotifier {
       _unreadCount++;
     }
     notifyListeners();
-    
+
     // Windows 빌드일 경우 Windows 시스템 알림 표시
     WindowsNotificationService.showNotification(notification);
   }

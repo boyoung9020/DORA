@@ -19,7 +19,9 @@ class NotificationService {
 
       if (response.statusCode == 200) {
         final data = ApiClient.handleListResponse(response);
-        return data.map((json) => Notification.fromJson(json as Map<String, dynamic>)).toList();
+        return data
+            .map((json) => Notification.fromJson(json as Map<String, dynamic>))
+            .toList();
       } else {
         throw Exception('알림을 불러오는 중 오류가 발생했습니다: ${response.statusCode}');
       }
@@ -33,9 +35,7 @@ class NotificationService {
   /// 읽지 않은 알림 개수 가져오기
   Future<int> getUnreadCount({String? userId}) async {
     try {
-      final queryParams = <String, String>{
-        'unread_only': 'true',
-      };
+      final queryParams = <String, String>{'unread_only': 'true'};
       if (userId != null) {
         queryParams['user_id'] = userId;
       }
@@ -95,12 +95,24 @@ class NotificationService {
   /// 알림 삭제
   Future<bool> deleteNotification(String notificationId) async {
     try {
-      final response = await ApiClient.delete('/api/notifications/$notificationId');
+      final response = await ApiClient.delete(
+        '/api/notifications/$notificationId',
+      );
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (e) {
       print('[NotificationService] 알림 삭제 실패: $e');
       return false;
     }
   }
-}
 
+  /// 모든 알림 삭제
+  Future<bool> deleteAllNotifications() async {
+    try {
+      final response = await ApiClient.delete('/api/notifications/');
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (e) {
+      print('[NotificationService] 모든 알림 삭제 실패: $e');
+      return false;
+    }
+  }
+}

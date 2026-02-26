@@ -152,3 +152,13 @@ async def delete_notification(
     db.commit()
     return {"message": "알림이 삭제되었습니다"}
 
+
+@router.delete("/")
+async def delete_all_notifications(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """모든 알림 삭제"""
+    db.query(Notification).filter(Notification.user_id == current_user.id).delete()
+    db.commit()
+    return {"message": "모든 알림이 삭제되었습니다"}

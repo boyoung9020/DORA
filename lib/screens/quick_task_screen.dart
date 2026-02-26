@@ -23,6 +23,8 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
   final TextEditingController _taskController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final Set<String> _expandedTasks = {}; // 펼쳐진 태스크 ID 집합
+  String? _lastLoadedProjectId;
+  bool? _lastLoadedAllMode;
 
   @override
   void initState() {
@@ -32,10 +34,31 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
       final taskProvider = context.read<TaskProvider>();
       // 태스크가 없을 때만 초기 로드 (이미 로드된 경우 레이스 컨디션 방지)
       if (taskProvider.tasks.isEmpty) {
-        final projectId = context.read<ProjectProvider>().currentProject?.id;
-        taskProvider.loadTasks(projectId: projectId);
+        final projectProvider = context.read<ProjectProvider>();
+        final projectId = projectProvider.currentProject?.id;
+        final isAllMode = projectProvider.isAllProjectsMode;
+        taskProvider.loadTasks(projectId: isAllMode ? null : projectId);
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final projectProvider = context.read<ProjectProvider>();
+    final projectId = projectProvider.currentProject?.id;
+    final isAllMode = projectProvider.isAllProjectsMode;
+    if (_lastLoadedProjectId != projectId || _lastLoadedAllMode != isAllMode) {
+      _lastLoadedProjectId = projectId;
+      _lastLoadedAllMode = isAllMode;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.read<TaskProvider>().loadTasks(
+            projectId: isAllMode ? null : projectId,
+          );
+        }
+      });
+    }
   }
 
   @override
@@ -87,13 +110,16 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
     final taskProvider = context.watch<TaskProvider>();
     final projectProvider = context.watch<ProjectProvider>();
     final currentProjectId = projectProvider.currentProject?.id;
+    final isAllMode = projectProvider.isAllProjectsMode;
 
     // 현재 프로젝트의 모든 태스크 필터링
-    final allTasks = currentProjectId != null
-        ? taskProvider.tasks
-            .where((task) => task.projectId == currentProjectId)
-            .toList()
-        : <Task>[];
+    final allTasks = isAllMode
+        ? taskProvider.tasks.toList()
+        : (currentProjectId != null
+              ? taskProvider.tasks
+                    .where((task) => task.projectId == currentProjectId)
+                    .toList()
+              : <Task>[]);
 
     // 최신 태스크가 위에 오도록 정렬 (createdAt 기준 내림차순)
     allTasks.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -149,7 +175,9 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                             '태스크가 없습니다',
                             style: TextStyle(
                               fontSize: 16,
-                              color: colorScheme.onSurface.withValues(alpha: 0.7),
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.7,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -157,7 +185,9 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                             '하단 입력창에서 태스크를 추가하세요',
                             style: TextStyle(
                               fontSize: 14,
-                              color: colorScheme.onSurface.withValues(alpha: 0.5),
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
                             ),
                           ),
                         ],
@@ -222,7 +252,8 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                               color: colorScheme.onSurface,
                                             ),
                                           ),
-                                          if (task.description.isNotEmpty && !isExpanded) ...[
+                                          if (task.description.isNotEmpty &&
+                                              !isExpanded) ...[
                                             const SizedBox(height: 4),
                                             Text(
                                               task.description,
@@ -236,50 +267,85 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                             ),
                                           ],
                                           // 할당된 팀원 태그
-                                          if (task.assignedMemberIds.isNotEmpty) ...[
+                                          if (task
+                                              .assignedMemberIds
+                                              .isNotEmpty) ...[
                                             const SizedBox(height: 8),
                                             FutureBuilder<List<dynamic>>(
-                                              future: _loadAssignedMembers(task.assignedMemberIds),
+                                              future: _loadAssignedMembers(
+                                                task.assignedMemberIds,
+                                              ),
                                               builder: (context, snapshot) {
-                                                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                                                if (!snapshot.hasData ||
+                                                    snapshot.data!.isEmpty) {
                                                   return const SizedBox.shrink();
                                                 }
                                                 final members = snapshot.data!;
                                                 return Wrap(
                                                   spacing: 4,
                                                   runSpacing: 4,
-                                                  children: members.map((member) {
+                                                  children: members.map((
+                                                    member,
+                                                  ) {
                                                     return GlassContainer(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 6,
+                                                            vertical: 2,
+                                                          ),
                                                       borderRadius: 6.0,
                                                       blur: 10.0,
                                                       gradientColors: [
-                                                        colorScheme.primary.withValues(alpha: 0.2),
-                                                        colorScheme.primary.withValues(alpha: 0.1),
+                                                        colorScheme.primary
+                                                            .withValues(
+                                                              alpha: 0.2,
+                                                            ),
+                                                        colorScheme.primary
+                                                            .withValues(
+                                                              alpha: 0.1,
+                                                            ),
                                                       ],
-                                                      borderColor: colorScheme.primary.withValues(alpha: 0.3),
+                                                      borderColor: colorScheme
+                                                          .primary
+                                                          .withValues(
+                                                            alpha: 0.3,
+                                                          ),
                                                       child: Row(
-                                                        mainAxisSize: MainAxisSize.min,
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
                                                         children: [
                                                           CircleAvatar(
                                                             radius: 6,
-                                                            backgroundColor: AvatarColor.getColorForUser(member.id),
+                                                            backgroundColor:
+                                                                AvatarColor.getColorForUser(
+                                                                  member.id,
+                                                                ),
                                                             child: Text(
-                                                              AvatarColor.getInitial(member.username),
+                                                              AvatarColor.getInitial(
+                                                                member.username,
+                                                              ),
                                                               style: const TextStyle(
                                                                 fontSize: 8,
-                                                                color: Colors.white,
-                                                                fontWeight: FontWeight.bold,
+                                                                color: Colors
+                                                                    .white,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
                                                               ),
                                                             ),
                                                           ),
-                                                          const SizedBox(width: 4),
+                                                          const SizedBox(
+                                                            width: 4,
+                                                          ),
                                                           Text(
                                                             member.username,
                                                             style: TextStyle(
                                                               fontSize: 10,
-                                                              color: colorScheme.onSurface,
-                                                              fontWeight: FontWeight.w500,
+                                                              color: colorScheme
+                                                                  .onSurface,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500,
                                                             ),
                                                           ),
                                                         ],
@@ -293,117 +359,170 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                         ],
                                       ),
                                     ),
-                                const SizedBox(width: 12),
-                                // 오른쪽 정보 (시작일, 종료일, 상태) - 한 줄로
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    InkWell(
-                                      onTap: () => _pickTaskDateRange(
-                                          context, task, taskProvider),
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 14, vertical: 8),
-                                        decoration: BoxDecoration(
-                                          color: (task.startDate != null ||
-                                                  task.endDate != null)
-                                              ? colorScheme.primary
-                                                  .withValues(alpha: 0.12)
-                                              : colorScheme.onSurface
-                                                  .withValues(alpha: 0.08),
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: (task.startDate != null ||
-                                                    task.endDate != null)
-                                                ? colorScheme.primary.withValues(alpha: 0.4)
-                                                : colorScheme.onSurface
-                                                    .withValues(alpha: 0.2),
+                                    const SizedBox(width: 12),
+                                    // 오른쪽 정보 (시작일, 종료일, 상태) - 한 줄로
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        InkWell(
+                                          onTap: () => _pickTaskDateRange(
+                                            context,
+                                            task,
+                                            taskProvider,
                                           ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.date_range,
-                                              size: 16,
-                                              color: (task.startDate != null ||
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 14,
+                                              vertical: 8,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  (task.startDate != null ||
                                                       task.endDate != null)
                                                   ? colorScheme.primary
+                                                        .withValues(alpha: 0.12)
                                                   : colorScheme.onSurface
-                                                      .withValues(alpha: 0.4),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              _buildRangeLabel(task),
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w600,
-                                                color: (task.startDate != null ||
+                                                        .withValues(
+                                                          alpha: 0.08,
+                                                        ),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              border: Border.all(
+                                                color:
+                                                    (task.startDate != null ||
                                                         task.endDate != null)
                                                     ? colorScheme.primary
+                                                          .withValues(
+                                                            alpha: 0.4,
+                                                          )
                                                     : colorScheme.onSurface
-                                                        .withValues(alpha: 0.6),
+                                                          .withValues(
+                                                            alpha: 0.2,
+                                                          ),
                                               ),
                                             ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    // 상태 (클릭 가능)
-                                    InkWell(
-                                      onTap: () => _showStatusPicker(context, task, taskProvider),
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color: statusColor.withValues(alpha: 0.2),
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: statusColor.withValues(alpha: 0.5),
-                                            width: 1,
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.date_range,
+                                                  size: 16,
+                                                  color:
+                                                      (task.startDate != null ||
+                                                          task.endDate != null)
+                                                      ? colorScheme.primary
+                                                      : colorScheme.onSurface
+                                                            .withValues(
+                                                              alpha: 0.4,
+                                                            ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  _buildRangeLabel(task),
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                    color:
+                                                        (task.startDate !=
+                                                                null ||
+                                                            task.endDate !=
+                                                                null)
+                                                        ? colorScheme.primary
+                                                        : colorScheme.onSurface
+                                                              .withValues(
+                                                                alpha: 0.6,
+                                                              ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.label,
-                                              size: 14,
-                                              color: statusColor,
+                                        const SizedBox(width: 8),
+                                        // 상태 (클릭 가능)
+                                        InkWell(
+                                          onTap: () => _showStatusPicker(
+                                            context,
+                                            task,
+                                            taskProvider,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 6,
                                             ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              task.status.displayName,
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w600,
-                                                color: statusColor,
+                                            decoration: BoxDecoration(
+                                              color: statusColor.withValues(
+                                                alpha: 0.2,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              border: Border.all(
+                                                color: statusColor.withValues(
+                                                  alpha: 0.5,
+                                                ),
+                                                width: 1,
                                               ),
                                             ),
-                                          ],
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.label,
+                                                  size: 14,
+                                                  color: statusColor,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  task.status.displayName,
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: statusColor,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                         ),
-                                      ),
+                                      ],
                                     ),
-                                  ],
-                                ),
                                     const SizedBox(width: 8),
                                     // 편집 버튼
                                     IconButton(
                                       icon: Icon(
                                         Icons.edit,
                                         size: 20,
-                                        color: colorScheme.primary.withValues(alpha: 0.7),
+                                        color: colorScheme.primary.withValues(
+                                          alpha: 0.7,
+                                        ),
                                       ),
                                       onPressed: () {
                                         showGeneralDialog(
                                           context: context,
-                                          barrierColor: Colors.black.withValues(alpha: 0.2),
+                                          barrierColor: Colors.black.withValues(
+                                            alpha: 0.2,
+                                          ),
                                           transitionDuration: Duration.zero,
-                                          pageBuilder: (context, animation, secondaryAnimation) => TaskDetailScreen(task: task),
-                                          transitionBuilder: (context, animation, secondaryAnimation, child) => child,
+                                          pageBuilder:
+                                              (
+                                                context,
+                                                animation,
+                                                secondaryAnimation,
+                                              ) => TaskDetailScreen(task: task),
+                                          transitionBuilder:
+                                              (
+                                                context,
+                                                animation,
+                                                secondaryAnimation,
+                                                child,
+                                              ) => child,
                                         );
                                       },
                                       tooltip: '편집',
@@ -413,11 +532,16 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                       icon: Icon(
                                         Icons.close,
                                         size: 20,
-                                        color: Colors.red.withValues(alpha: 0.7),
+                                        color: Colors.red.withValues(
+                                          alpha: 0.7,
+                                        ),
                                       ),
                                       onPressed: () {
                                         _showDeleteConfirmDialog(
-                                            context, task, taskProvider);
+                                          context,
+                                          task,
+                                          taskProvider,
+                                        );
                                       },
                                       tooltip: '삭제',
                                     ),
@@ -429,7 +553,8 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                   Padding(
                                     padding: const EdgeInsets.all(16),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         // 설명
                                         if (task.description.isNotEmpty) ...[
@@ -438,7 +563,8 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                             style: TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.bold,
-                                              color: colorScheme.onSurface.withValues(alpha: 0.8),
+                                              color: colorScheme.onSurface
+                                                  .withValues(alpha: 0.8),
                                             ),
                                           ),
                                           const SizedBox(height: 8),
@@ -446,7 +572,8 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                             task.description,
                                             style: TextStyle(
                                               fontSize: 14,
-                                              color: colorScheme.onSurface.withValues(alpha: 0.7),
+                                              color: colorScheme.onSurface
+                                                  .withValues(alpha: 0.7),
                                               height: 1.5,
                                             ),
                                           ),
@@ -459,7 +586,8 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                             style: TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.bold,
-                                              color: colorScheme.onSurface.withValues(alpha: 0.8),
+                                              color: colorScheme.onSurface
+                                                  .withValues(alpha: 0.8),
                                             ),
                                           ),
                                           const SizedBox(height: 8),
@@ -467,7 +595,8 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                             task.detail,
                                             style: TextStyle(
                                               fontSize: 14,
-                                              color: colorScheme.onSurface.withValues(alpha: 0.7),
+                                              color: colorScheme.onSurface
+                                                  .withValues(alpha: 0.7),
                                               height: 1.5,
                                             ),
                                           ),
@@ -475,16 +604,25 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                         ],
                                         // 상세 화면으로 이동 버튼
                                         Row(
-                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.end,
                                           children: [
                                             TextButton.icon(
                                               onPressed: () {
                                                 Navigator.of(context).push(
                                                   PageRouteBuilder(
-                                                    pageBuilder: (context, animation, secondaryAnimation) =>
-                                                        TaskDetailScreen(task: task),
-                                                    transitionDuration: Duration.zero,
-                                                    reverseTransitionDuration: Duration.zero,
+                                                    pageBuilder:
+                                                        (
+                                                          context,
+                                                          animation,
+                                                          secondaryAnimation,
+                                                        ) => TaskDetailScreen(
+                                                          task: task,
+                                                        ),
+                                                    transitionDuration:
+                                                        Duration.zero,
+                                                    reverseTransitionDuration:
+                                                        Duration.zero,
                                                   ),
                                                 );
                                               },
@@ -550,16 +688,23 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: Icon(
-                    Icons.send,
-                    color: colorScheme.primary,
-                  ),
+                  icon: Icon(Icons.send, color: colorScheme.primary),
                   onPressed: _addTask,
                   tooltip: '추가',
                 ),
               ],
             ),
           ),
+          if (isAllMode) ...[
+            const SizedBox(height: 8),
+            Text(
+              '새 태스크를 추가하려면 특정 프로젝트를 선택하세요.',
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -627,7 +772,10 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                         onPressed: () => Navigator.of(context).pop(true),
                         style: TextButton.styleFrom(
                           backgroundColor: Colors.red.withValues(alpha: 0.2),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                         ),
                         child: const Text(
                           '삭제',
@@ -666,8 +814,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
       return '기간 설정';
     }
 
-    final startText =
-        hasStart ? _formatDate(task.startDate!) : '시작 미정';
+    final startText = hasStart ? _formatDate(task.startDate!) : '시작 미정';
     final endText = hasEnd ? _formatDate(task.endDate!) : '종료 미정';
     return '$startText ~ $endText';
   }
@@ -714,7 +861,10 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
           builder: (context, setState) {
             return Dialog(
               backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 24,
+              ),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(
                   maxWidth: 400,
@@ -759,12 +909,15 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                               decoration: BoxDecoration(
                                 color: isSelected
                                     ? statusColor.withValues(alpha: 0.2)
-                                    : colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                                    : colorScheme.surfaceContainerHighest
+                                          .withValues(alpha: 0.3),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: isSelected
                                       ? statusColor.withValues(alpha: 0.8)
-                                      : colorScheme.onSurface.withValues(alpha: 0.2),
+                                      : colorScheme.onSurface.withValues(
+                                          alpha: 0.2,
+                                        ),
                                   width: isSelected ? 2 : 1,
                                 ),
                               ),
@@ -844,10 +997,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
 
     if (result != null && context.mounted) {
       await taskProvider.updateTask(
-        task.copyWith(
-          status: result,
-          updatedAt: DateTime.now(),
-        ),
+        task.copyWith(status: result, updatedAt: DateTime.now()),
       );
     }
   }
@@ -863,4 +1013,3 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
     }
   }
 }
-

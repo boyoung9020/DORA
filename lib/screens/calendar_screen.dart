@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -20,6 +20,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _currentMonth = DateTime.now();
   bool _isLocaleReady = false;
   String? _lastLoadedProjectId;
+  bool? _lastLoadedAllMode;
 
   @override
   void initState() {
@@ -36,11 +37,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final projectId = context.read<ProjectProvider>().currentProject?.id;
-    if (_lastLoadedProjectId != projectId) {
+    final projectProvider = context.read<ProjectProvider>();
+    final projectId = projectProvider.currentProject?.id;
+    final isAllMode = projectProvider.isAllProjectsMode;
+    if (_lastLoadedProjectId != projectId || _lastLoadedAllMode != isAllMode) {
       _lastLoadedProjectId = projectId;
+      _lastLoadedAllMode = isAllMode;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) context.read<TaskProvider>().loadTasks(projectId: projectId);
+        if (mounted) {
+          context.read<TaskProvider>().loadTasks(
+            projectId: isAllMode ? null : projectId,
+          );
+        }
       });
     }
   }
@@ -51,18 +59,33 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final taskProvider = context.watch<TaskProvider>();
     final projectProvider = context.watch<ProjectProvider>();
     final currentProjectId = projectProvider.currentProject?.id;
+    final isAllMode = projectProvider.isAllProjectsMode;
 
-    final projectTasks = currentProjectId != null
+    final projectTasks = isAllMode
         ? taskProvider.tasks
-            .where((task) => 
-                task.projectId == currentProjectId && 
-                task.status != TaskStatus.backlog)
-            .toList()
-        : <Task>[];
-    
-    final firstDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
-    final lastDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
-    
+              .where((task) => task.status != TaskStatus.backlog)
+              .toList()
+        : (currentProjectId != null
+              ? taskProvider.tasks
+                    .where(
+                      (task) =>
+                          task.projectId == currentProjectId &&
+                          task.status != TaskStatus.backlog,
+                    )
+                    .toList()
+              : <Task>[]);
+
+    final firstDayOfMonth = DateTime(
+      _currentMonth.year,
+      _currentMonth.month,
+      1,
+    );
+    final lastDayOfMonth = DateTime(
+      _currentMonth.year,
+      _currentMonth.month + 1,
+      0,
+    );
+
     final tasksInMonth = projectTasks.where((task) {
       final startDate = task.startDate ?? task.createdAt;
       final endDate = task.endDate ?? task.updatedAt;
@@ -213,7 +236,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
       final startDate = task.startDate ?? task.createdAt;
       final endDate = task.endDate ?? task.updatedAt;
       final dateOnly = DateTime(date.year, date.month, date.day);
-      final startOnly = DateTime(startDate.year, startDate.month, startDate.day);
+      final startOnly = DateTime(
+        startDate.year,
+        startDate.month,
+        startDate.day,
+      );
       final endOnly = DateTime(endDate.year, endDate.month, endDate.day);
       return dateOnly.isAtSameMomentAs(startOnly) ||
           dateOnly.isAtSameMomentAs(endOnly) ||
@@ -227,13 +254,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
     List<Task> tasks,
     ColorScheme colorScheme,
   ) {
-    final firstDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
+    final firstDayOfMonth = DateTime(
+      _currentMonth.year,
+      _currentMonth.month,
+      1,
+    );
     final firstDayWeekday = firstDayOfMonth.weekday;
-    
+
     // ?щ젰 ?쒖옉??(?붿슂?쇰????쒖옉)
     final startOffset = (firstDayWeekday == 7) ? 0 : firstDayWeekday;
-    final calendarStartDate = firstDayOfMonth.subtract(Duration(days: startOffset));
-    
+    final calendarStartDate = firstDayOfMonth.subtract(
+      Duration(days: startOffset),
+    );
+
     // 6二쇱튂 ?좎쭨 ?앹꽦
     final weeks = <List<DateTime>>[];
     for (int week = 0; week < 6; week++) {
@@ -290,7 +323,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
       final endDate = task.endDate ?? task.updatedAt;
       return weekDates.any((date) {
         final dateOnly = DateTime(date.year, date.month, date.day);
-        final startOnly = DateTime(startDate.year, startDate.month, startDate.day);
+        final startOnly = DateTime(
+          startDate.year,
+          startDate.month,
+          startDate.day,
+        );
         final endOnly = DateTime(endDate.year, endDate.month, endDate.day);
         return dateOnly.isAtSameMomentAs(startOnly) ||
             dateOnly.isAtSameMomentAs(endOnly) ||
@@ -300,100 +337,113 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     // ?쒖뒪?????좊떦 (異⑸룎 諛⑹?, 臾댁젣??
     final taskRows = _assignTaskRows(weekTasks, weekDates);
-    
+
     // ?꾩슂??????怨꾩궛
-    final maxRow = taskRows.values.isEmpty ? 0 : taskRows.values.reduce((a, b) => a > b ? a : b);
+    final maxRow = taskRows.values.isEmpty
+        ? 0
+        : taskRows.values.reduce((a, b) => a > b ? a : b);
     final taskBarHeight = 12.0;
     final taskBarSpacing = 4.0;
     final dateNumberHeight = 24.0;
     final topPadding = 32.0;
     final bottomPadding = 8.0;
-    final weekHeight = dateNumberHeight + topPadding + (maxRow + 1) * (taskBarHeight + taskBarSpacing) + bottomPadding;
+    final weekHeight =
+        dateNumberHeight +
+        topPadding +
+        (maxRow + 1) * (taskBarHeight + taskBarSpacing) +
+        bottomPadding;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final dayWidth = constraints.maxWidth / 7;
-        
+
         return SizedBox(
           height: weekHeight,
           child: Stack(
             children: [
               // ?좎쭨 ???
               Row(
-              children: weekDates.map((date) {
-                final isCurrentMonth = date.month == _currentMonth.month;
-                final isSelected = date.year == _selectedDate.year &&
-                    date.month == _selectedDate.month &&
-                    date.day == _selectedDate.day;
-                final isToday = date.year == DateTime.now().year &&
-                    date.month == DateTime.now().month &&
-                    date.day == DateTime.now().day;
+                children: weekDates.map((date) {
+                  final isCurrentMonth = date.month == _currentMonth.month;
+                  final isSelected =
+                      date.year == _selectedDate.year &&
+                      date.month == _selectedDate.month &&
+                      date.day == _selectedDate.day;
+                  final isToday =
+                      date.year == DateTime.now().year &&
+                      date.month == DateTime.now().month &&
+                      date.day == DateTime.now().day;
 
-                return Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedDate = date;
-                      });
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.all(1),
-                      decoration: BoxDecoration(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
-                        border: isSelected
-                            ? Border.all(
-                                color: colorScheme.primary,
-                                width: 2,
-                              )
-                            : null,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  '${date.day}',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: isSelected || isToday
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                    color: !isCurrentMonth
-                                        ? colorScheme.onSurface.withValues(alpha: 0.3)
-                                        : colorScheme.onSurface,
-                                  ),
-                                ),
-                                if (isToday) ...[
-                                  const SizedBox(width: 4),
-                                  Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.red,
-                                      shape: BoxShape.circle,
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedDate = date;
+                        });
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.all(1),
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          border: isSelected
+                              ? Border.all(color: colorScheme.primary, width: 2)
+                              : null,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    '${date.day}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: isSelected || isToday
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      color: !isCurrentMonth
+                                          ? colorScheme.onSurface.withValues(
+                                              alpha: 0.3,
+                                            )
+                                          : colorScheme.onSurface,
                                     ),
                                   ),
+                                  if (isToday) ...[
+                                    const SizedBox(width: 4),
+                                    Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: const BoxDecoration(
+                                        color: Colors.red,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                );
-              }).toList(),
-            ),
+                  );
+                }).toList(),
+              ),
               // ?쒖뒪??諛붾뱾 (Positioned)
               ...taskRows.entries.map((entry) {
                 final task = entry.key;
                 final row = entry.value;
-                return _buildTaskBar(task, weekDates, dayWidth, row, colorScheme);
+                return _buildTaskBar(
+                  task,
+                  weekDates,
+                  dayWidth,
+                  row,
+                  colorScheme,
+                );
               }).toList(),
             ],
           ),
@@ -418,11 +468,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
     for (final task in sortedTasks) {
       final startDate = task.startDate ?? task.createdAt;
       final endDate = task.endDate ?? task.updatedAt;
-      
+
       // ??二쇱뿉???쒖뒪?ш? 李⑥??섎뒗 ?좎쭨 踰붿쐞
       final taskDates = weekDates.where((date) {
         final dateOnly = DateTime(date.year, date.month, date.day);
-        final startOnly = DateTime(startDate.year, startDate.month, startDate.day);
+        final startOnly = DateTime(
+          startDate.year,
+          startDate.month,
+          startDate.day,
+        );
         final endOnly = DateTime(endDate.year, endDate.month, endDate.day);
         return dateOnly.isAtSameMomentAs(startOnly) ||
             dateOnly.isAtSameMomentAs(endOnly) ||
@@ -474,7 +528,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
     for (int i = 0; i < weekDates.length; i++) {
       final date = weekDates[i];
       final dateOnly = DateTime(date.year, date.month, date.day);
-      final startOnly = DateTime(startDate.year, startDate.month, startDate.day);
+      final startOnly = DateTime(
+        startDate.year,
+        startDate.month,
+        startDate.day,
+      );
       final endOnly = DateTime(endDate.year, endDate.month, endDate.day);
 
       if (dateOnly.isAtSameMomentAs(startOnly) ||
@@ -483,8 +541,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         startCol ??= i;
       }
 
-      if (dateOnly.isAtSameMomentAs(endOnly) ||
-          dateOnly.isBefore(endOnly)) {
+      if (dateOnly.isAtSameMomentAs(endOnly) || dateOnly.isBefore(endOnly)) {
         endCol = i;
       }
     }
@@ -495,15 +552,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final width = (endCol - startCol + 1) * dayWidth;
     final taskBarHeight = 12.0;
     final taskBarSpacing = 4.0;
-    final top = 32.0 + row * (taskBarHeight + taskBarSpacing); // ?좎쭨 ?レ옄 ?꾨옒遺???쒖옉
+    final top =
+        32.0 + row * (taskBarHeight + taskBarSpacing); // ?좎쭨 ?レ옄 ?꾨옒遺???쒖옉
 
     // ?쒖옉/??紐⑥꽌由??κ?寃?
-    final dateOnly = DateTime(weekDates[startCol].year, weekDates[startCol].month, weekDates[startCol].day);
+    final dateOnly = DateTime(
+      weekDates[startCol].year,
+      weekDates[startCol].month,
+      weekDates[startCol].day,
+    );
     final startOnly = DateTime(startDate.year, startDate.month, startDate.day);
     final endOnly = DateTime(endDate.year, endDate.month, endDate.day);
-    
+
     final isStart = dateOnly.isAtSameMomentAs(startOnly);
-    final isEnd = weekDates[endCol].day == endOnly.day &&
+    final isEnd =
+        weekDates[endCol].day == endOnly.day &&
         weekDates[endCol].month == endOnly.month &&
         weekDates[endCol].year == endOnly.year;
 
@@ -660,4 +723,3 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 }
-

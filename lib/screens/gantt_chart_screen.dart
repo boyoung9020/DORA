@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/task.dart';
 import '../models/user.dart';
@@ -29,15 +29,11 @@ class _DateGridPainter extends CustomPainter {
       ..strokeWidth = 1.0;
 
     final days = endDate.difference(startDate).inDays;
-    
+
     // 각 날짜마다 세로선 그리기
     for (int i = 0; i <= days; i++) {
       final x = i * dayWidth;
-      canvas.drawLine(
-        Offset(x, 0),
-        Offset(x, size.height),
-        paint,
-      );
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
   }
 
@@ -63,15 +59,23 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
   DateTime _endDate = DateTime.now().add(const Duration(days: 30));
   final Map<String, Future<List<User>>> _assignedMembersCache = {};
   String? _lastLoadedProjectId;
+  bool? _lastLoadedAllMode;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final projectId = context.read<ProjectProvider>().currentProject?.id;
-    if (_lastLoadedProjectId != projectId) {
+    final projectProvider = context.read<ProjectProvider>();
+    final projectId = projectProvider.currentProject?.id;
+    final isAllMode = projectProvider.isAllProjectsMode;
+    if (_lastLoadedProjectId != projectId || _lastLoadedAllMode != isAllMode) {
       _lastLoadedProjectId = projectId;
+      _lastLoadedAllMode = isAllMode;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) context.read<TaskProvider>().loadTasks(projectId: projectId);
+        if (mounted) {
+          context.read<TaskProvider>().loadTasks(
+            projectId: isAllMode ? null : projectId,
+          );
+        }
       });
     }
   }
@@ -82,30 +86,38 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
     final taskProvider = context.watch<TaskProvider>();
     final projectProvider = context.watch<ProjectProvider>();
     final currentProjectId = projectProvider.currentProject?.id;
+    final isAllMode = projectProvider.isAllProjectsMode;
 
     // 현재 프로젝트의 태스크만 필터링 (backlog 제외)
-    final projectTasks = currentProjectId != null
+    final projectTasks = isAllMode
         ? taskProvider.tasks
-            .where((task) => 
-                task.projectId == currentProjectId && 
-                task.status != TaskStatus.backlog)
-            .toList()
-        : <Task>[];
+              .where((task) => task.status != TaskStatus.backlog)
+              .toList()
+        : (currentProjectId != null
+              ? taskProvider.tasks
+                    .where(
+                      (task) =>
+                          task.projectId == currentProjectId &&
+                          task.status != TaskStatus.backlog,
+                    )
+                    .toList()
+              : <Task>[]);
 
     // 태스크들 중 가장 빠른 날짜 찾기
     if (projectTasks.isNotEmpty) {
       DateTime? earliestDate;
       DateTime? latestDate;
-      
+
       for (final task in projectTasks) {
         // 시작일 기준 (startDate가 있으면 startDate, 없으면 createdAt)
         final taskStart = task.startDate ?? task.createdAt;
         if (earliestDate == null || taskStart.isBefore(earliestDate)) {
           earliestDate = taskStart;
         }
-        
+
         // 종료일 기준 (endDate가 있으면 endDate, 없으면 updatedAt 또는 createdAt + 1일)
-        final taskEnd = task.endDate ?? 
+        final taskEnd =
+            task.endDate ??
             (task.updatedAt.isAfter(task.createdAt)
                 ? task.updatedAt
                 : task.createdAt.add(const Duration(days: 1)));
@@ -113,7 +125,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
           latestDate = taskEnd;
         }
       }
-      
+
       if (earliestDate != null) {
         // 가장 빠른 날짜를 시작일로 설정 (정확히 그 날짜부터)
         final calculatedStartDate = DateTime(
@@ -121,16 +133,17 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
           earliestDate.month,
           earliestDate.day,
         );
-        
+
         // 시작일로부터 정확히 한 달 후를 종료일로 설정
         final calculatedEndDate = DateTime(
           calculatedStartDate.year,
           calculatedStartDate.month + 1,
           calculatedStartDate.day,
         );
-        
+
         // 날짜가 변경되었을 때만 업데이트
-        if (_startDate != calculatedStartDate || _endDate != calculatedEndDate) {
+        if (_startDate != calculatedStartDate ||
+            _endDate != calculatedEndDate) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               setState(() {
@@ -158,8 +171,8 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                 borderRadius: 12.0,
                 blur: 20.0,
                 gradientColors: [
-                  colorScheme.primary.withValues(alpha:0.3),
-                  colorScheme.primary.withValues(alpha:0.2),
+                  colorScheme.primary.withValues(alpha: 0.3),
+                  colorScheme.primary.withValues(alpha: 0.2),
                 ],
                 child: IconButton(
                   icon: Icon(Icons.date_range, color: colorScheme.primary),
@@ -171,9 +184,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
           ),
           const SizedBox(height: 24),
           // 간트 차트
-          Expanded(
-            child: _buildGanttChart(context, projectTasks, colorScheme),
-          ),
+          Expanded(child: _buildGanttChart(context, projectTasks, colorScheme)),
         ],
       ),
     );
@@ -192,8 +203,8 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
           borderRadius: 20.0,
           blur: 25.0,
           gradientColors: [
-            colorScheme.surface.withValues(alpha:0.3),
-            colorScheme.surface.withValues(alpha:0.2),
+            colorScheme.surface.withValues(alpha: 0.3),
+            colorScheme.surface.withValues(alpha: 0.2),
           ],
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -201,14 +212,14 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
               Icon(
                 Icons.timeline,
                 size: 64,
-                color: colorScheme.onSurface.withValues(alpha:0.5),
+                color: colorScheme.onSurface.withValues(alpha: 0.5),
               ),
               const SizedBox(height: 16),
               Text(
                 '태스크가 없습니다',
                 style: TextStyle(
                   fontSize: 16,
-                  color: colorScheme.onSurface.withValues(alpha:0.7),
+                  color: colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -234,8 +245,8 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
       borderRadius: 20.0,
       blur: 25.0,
       gradientColors: [
-        colorScheme.surface.withValues(alpha:0.4),
-        colorScheme.surface.withValues(alpha:0.3),
+        colorScheme.surface.withValues(alpha: 0.4),
+        colorScheme.surface.withValues(alpha: 0.3),
       ],
       child: Column(
         children: [
@@ -245,12 +256,15 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
               // 작업 이름 헤더 (고정)
               Container(
                 width: 200,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   border: Border(
                     right: BorderSide(
                       color: colorScheme.brightness == Brightness.dark
-                          ? colorScheme.onSurface.withValues(alpha:0.2)
+                          ? colorScheme.onSurface.withValues(alpha: 0.2)
                           : const Color(0xFFE0E7FF),
                       width: 1,
                     ),
@@ -290,7 +304,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                     border: Border(
                       right: BorderSide(
                         color: colorScheme.brightness == Brightness.dark
-                            ? colorScheme.onSurface.withValues(alpha:0.2)
+                            ? colorScheme.onSurface.withValues(alpha: 0.2)
                             : const Color(0xFFE0E7FF),
                         width: 1,
                       ),
@@ -407,7 +421,10 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                                   }
                                   return Padding(
                                     padding: const EdgeInsets.only(left: 8),
-                                    child: _buildAssigneeStack(members, colorScheme),
+                                    child: _buildAssigneeStack(
+                                      members,
+                                      colorScheme,
+                                    ),
                                   );
                                 },
                               ),
@@ -430,7 +447,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: priorityColor.withValues(alpha:0.2),
+        color: priorityColor.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
@@ -475,7 +492,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
               left: display.length * 20,
               child: CircleAvatar(
                 radius: 12,
-                backgroundColor: colorScheme.onSurface.withValues(alpha:0.4),
+                backgroundColor: colorScheme.onSurface.withValues(alpha: 0.4),
                 child: Text(
                   '+$overflow',
                   style: const TextStyle(
@@ -497,9 +514,12 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
       return _assignedMembersCache[cacheKey]!;
     }
 
-    final future = AuthService().getAllUsers().then((users) {
-      return users.where((user) => memberIds.contains(user.id)).toList();
-    }).catchError((_) => <User>[]);
+    final future = AuthService()
+        .getAllUsers()
+        .then((users) {
+          return users.where((user) => memberIds.contains(user.id)).toList();
+        })
+        .catchError((_) => <User>[]);
 
     _assignedMembersCache[cacheKey] = future;
     return future;
@@ -519,7 +539,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
         border: Border(
           bottom: BorderSide(
             color: colorScheme.brightness == Brightness.dark
-                ? colorScheme.onSurface.withValues(alpha:0.2)
+                ? colorScheme.onSurface.withValues(alpha: 0.2)
                 : const Color(0xFFE0E7FF),
             width: 1,
           ),
@@ -536,15 +556,17 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
               itemBuilder: (context, weekIndex) {
                 final weekStart = _startDate.add(Duration(days: weekIndex * 7));
                 final weekEnd = weekStart.add(const Duration(days: 6));
-                final actualEnd = weekEnd.isAfter(_endDate) ? _endDate : weekEnd;
-                
+                final actualEnd = weekEnd.isAfter(_endDate)
+                    ? _endDate
+                    : weekEnd;
+
                 return Container(
                   width: dayWidth * 7,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
                     border: Border(
                       right: BorderSide(
-                        color: colorScheme.onSurface.withValues(alpha:0.15),
+                        color: colorScheme.onSurface.withValues(alpha: 0.15),
                         width: 1,
                       ),
                     ),
@@ -555,7 +577,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface.withValues(alpha:0.8),
+                        color: colorScheme.onSurface.withValues(alpha: 0.8),
                       ),
                     ),
                   ),
@@ -571,23 +593,26 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
               itemBuilder: (context, dayIndex) {
                 final date = _startDate.add(Duration(days: dayIndex));
                 if (date.isAfter(_endDate)) return const SizedBox.shrink();
-                
-                final isWeekend = date.weekday == DateTime.saturday || date.weekday == DateTime.sunday;
-                final isToday = date.year == DateTime.now().year &&
+
+                final isWeekend =
+                    date.weekday == DateTime.saturday ||
+                    date.weekday == DateTime.sunday;
+                final isToday =
+                    date.year == DateTime.now().year &&
                     date.month == DateTime.now().month &&
                     date.day == DateTime.now().day;
-                
+
                 return Container(
                   width: dayWidth,
                   decoration: BoxDecoration(
-                    color: isToday 
-                        ? colorScheme.primary.withValues(alpha:0.1)
+                    color: isToday
+                        ? colorScheme.primary.withValues(alpha: 0.1)
                         : isWeekend
-                            ? colorScheme.onSurface.withValues(alpha:0.03)
-                            : null,
+                        ? colorScheme.onSurface.withValues(alpha: 0.03)
+                        : null,
                     border: Border(
                       right: BorderSide(
-                        color: colorScheme.onSurface.withValues(alpha:0.15),
+                        color: colorScheme.onSurface.withValues(alpha: 0.15),
                         width: 1,
                       ),
                     ),
@@ -600,9 +625,11 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                         style: TextStyle(
                           fontSize: 9,
                           color: isWeekend
-                              ? colorScheme.onSurface.withValues(alpha:0.5)
-                              : colorScheme.onSurface.withValues(alpha:0.6),
-                          fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                              ? colorScheme.onSurface.withValues(alpha: 0.5)
+                              : colorScheme.onSurface.withValues(alpha: 0.6),
+                          fontWeight: isToday
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -610,12 +637,14 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                         '${date.day}',
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
+                          fontWeight: isToday
+                              ? FontWeight.bold
+                              : FontWeight.w500,
                           color: isToday
                               ? colorScheme.primary
                               : isWeekend
-                                  ? colorScheme.onSurface.withValues(alpha:0.6)
-                                  : colorScheme.onSurface.withValues(alpha:0.8),
+                              ? colorScheme.onSurface.withValues(alpha: 0.6)
+                              : colorScheme.onSurface.withValues(alpha: 0.8),
                         ),
                       ),
                     ],
@@ -646,7 +675,8 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
     final statusColor = task.status.color;
     // 시작일과 종료일 사용 (없으면 createdAt/updatedAt 사용)
     final taskStart = task.startDate ?? task.createdAt;
-    final taskEnd = task.endDate ?? 
+    final taskEnd =
+        task.endDate ??
         (task.updatedAt.isAfter(task.createdAt)
             ? task.updatedAt
             : task.createdAt.add(const Duration(days: 1)));
@@ -673,7 +703,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
         border: Border(
           bottom: BorderSide(
             color: isDarkMode
-                ? colorScheme.onSurface.withValues(alpha:0.1)
+                ? colorScheme.onSurface.withValues(alpha: 0.1)
                 : const Color(0xFFE0E7FF),
             width: 1,
           ),
@@ -689,8 +719,8 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
               endDate: _endDate,
               dayWidth: dayWidth,
               lineColor: isDarkMode
-                  ? colorScheme.onSurface.withValues(alpha:0.1)
-                  : const Color(0xFFE0E7FF).withValues(alpha:0.6),
+                  ? colorScheme.onSurface.withValues(alpha: 0.1)
+                  : const Color(0xFFE0E7FF).withValues(alpha: 0.6),
             ),
           ),
           // 간트 바
@@ -701,12 +731,9 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
               width: barWidth,
               height: 32,
               decoration: BoxDecoration(
-                color: statusColor.withValues(alpha:0.7),
+                color: statusColor.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: statusColor,
-                  width: 2,
-                ),
+                border: Border.all(color: statusColor, width: 2),
               ),
               child: Center(
                 child: Text(
@@ -739,8 +766,8 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
             borderRadius: 20.0,
             blur: 25.0,
             gradientColors: [
-              colorScheme.surface.withValues(alpha:0.6),
-              colorScheme.surface.withValues(alpha:0.5),
+              colorScheme.surface.withValues(alpha: 0.6),
+              colorScheme.surface.withValues(alpha: 0.5),
             ],
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -811,4 +838,3 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
     );
   }
 }
-
