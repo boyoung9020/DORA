@@ -43,6 +43,9 @@ class Task(Base):
     display_order = Column(Integer, default=0, nullable=False)
     sprint_id = Column(String, ForeignKey("sprints.id"), nullable=True, index=True)
 
+    # 문서 링크 [{title: str, url: str}, ...]
+    document_links = Column(JSON, default=[], nullable=False)
+
     # 히스토리 데이터는 JSON으로 저장
     status_history = Column(JSON, default=[], nullable=False)
     assignment_history = Column(JSON, default=[], nullable=False)

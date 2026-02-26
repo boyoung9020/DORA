@@ -233,8 +233,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 constraints: BoxConstraints(maxHeight: maxBodyHeight ?? 260),
                 child: Scrollbar(
                   child: SingleChildScrollView(
-                    child: MarkdownBody(
-                      selectable: true,
+                    child: SelectionArea(child: MarkdownBody(
+                      selectable: false,
                       data: _aiSummary ?? '요약 내용이 없습니다.',
                       styleSheet: MarkdownStyleSheet(
                         p: TextStyle(
@@ -290,7 +290,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ),
                       ),
-                    ),
+                    )),
                   ),
                 ),
               ),

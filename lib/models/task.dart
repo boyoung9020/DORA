@@ -151,6 +151,7 @@ class Task {
   final List<StatusChangeHistory> statusHistory; // ?곹깭 蹂寃??덉뒪?좊━
   final List<AssignmentHistory> assignmentHistory; // ?좊떦 ?덉뒪?좊━
   final List<PriorityChangeHistory> priorityHistory; // 以묒슂??蹂寃??덉뒪?좊━
+  final List<Map<String, String>> documentLinks;
   final int displayOrder; // 移몃컲 蹂대뱶 ???쒖떆 ?쒖꽌
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -172,6 +173,7 @@ class Task {
     List<StatusChangeHistory>? statusHistory,
     List<AssignmentHistory>? assignmentHistory,
     List<PriorityChangeHistory>? priorityHistory,
+    List<Map<String, String>>? documentLinks,
     this.displayOrder = 0,
     required this.createdAt,
     required this.updatedAt,
@@ -181,7 +183,8 @@ class Task {
        priority = priority ?? TaskPriority.p2,
        statusHistory = statusHistory ?? [],
        assignmentHistory = assignmentHistory ?? [],
-       priorityHistory = priorityHistory ?? [];
+       priorityHistory = priorityHistory ?? [],
+       documentLinks = documentLinks ?? [];
 
   /// JSON?쇰줈 蹂??(??μ슜)
   Map<String, dynamic> toJson() {
@@ -202,6 +205,7 @@ class Task {
       'statusHistory': statusHistory.map((h) => h.toJson()).toList(),
       'assignmentHistory': assignmentHistory.map((h) => h.toJson()).toList(),
       'priorityHistory': priorityHistory.map((h) => h.toJson()).toList(),
+      'document_links': documentLinks,
       'display_order': displayOrder,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
@@ -286,6 +290,25 @@ class Task {
     }
     
     // project_id ?먮뒗 projectId 泥섎━
+    // document_links 파싱
+    List<Map<String, String>> documentLinks = [];
+    final docLinksKey = getKey('documentLinks', 'document_links');
+    if (json.containsKey(docLinksKey) && json[docLinksKey] != null) {
+      try {
+        final links = json[docLinksKey];
+        if (links is List) {
+          documentLinks = links
+              .whereType<Map>()
+              .map((e) => Map<String, String>.from(
+                    e.map((k, v) => MapEntry(k.toString(), v.toString())),
+                  ))
+              .toList();
+        }
+      } catch (e) {
+        documentLinks = [];
+      }
+    }
+
     final projectIdKey = getKey('projectId', 'project_id');
     final projectId = json[projectIdKey] ?? '';
     final sprintIdKey = getKey('sprintId', 'sprint_id');
@@ -334,6 +357,7 @@ class Task {
       statusHistory: statusHistory,
       assignmentHistory: assignmentHistory,
       priorityHistory: priorityHistory,
+      documentLinks: documentLinks,
       displayOrder: json['display_order'] ?? 0,
       createdAt: createdAt,
       updatedAt: updatedAt,
@@ -358,6 +382,7 @@ class Task {
     List<StatusChangeHistory>? statusHistory,
     List<AssignmentHistory>? assignmentHistory,
     List<PriorityChangeHistory>? priorityHistory,
+    List<Map<String, String>>? documentLinks,
     int? displayOrder,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -379,6 +404,7 @@ class Task {
       statusHistory: statusHistory ?? this.statusHistory,
       assignmentHistory: assignmentHistory ?? this.assignmentHistory,
       priorityHistory: priorityHistory ?? this.priorityHistory,
+      documentLinks: documentLinks ?? this.documentLinks,
       displayOrder: displayOrder ?? this.displayOrder,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

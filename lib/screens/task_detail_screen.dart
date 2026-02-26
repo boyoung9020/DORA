@@ -21,6 +21,7 @@ import '../utils/api_client.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/date_range_picker_dialog.dart';
 import '../utils/avatar_color.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// ?븐늿肉?節딅┛ Intent
 class _PasteIntent extends Intent {
@@ -107,6 +108,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   int _mentionStartIndex = -1;
   int _selectedMentionIndex = -1;
   bool _showHistoryLogs = true;
+  List<Map<String, String>> _documentLinks = [];
   static const List<String> _commentReactionPresets = ['✅', '👍', '👀'];
 
   @override
@@ -123,6 +125,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _selectedPriority = widget.task.priority;
     _startDate = widget.task.startDate;
     _endDate = widget.task.endDate;
+    _documentLinks = List<Map<String, String>>.from(
+      widget.task.documentLinks.map((e) => Map<String, String>.from(e)),
+    );
 
     // ?λ뜃由?嚥≪뮆諭?????쎄쾿嚥▲끉??筌??袁⑥삋嚥?揶쎛筌왖 ??낅즲嚥??귐딅뮞???곕떽?
     _timelineScrollController.addListener(() {
@@ -438,9 +443,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return Builder(
       builder: (context) {
         int cbIdx = 0;
-        return MarkdownBody(
+        return SelectionArea(child: MarkdownBody(
           data: _addCheckboxStrikethrough(processed),
-          selectable: true,
+          selectable: false,
           softLineBreak: true,
           onTapLink: (text, href, title) {},
           checkboxBuilder: (bool value) {
@@ -465,7 +470,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             );
           },
           styleSheet: _buildMarkdownStyleSheet(colorScheme),
-        );
+        ));
       },
     );
   }
@@ -1207,9 +1212,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  _showHistoryLogs
-                                      ? '활동로그 숨기기'
-                                      : '활동로그 보기',
+                                  _showHistoryLogs ? '활동로그 숨기기' : '활동로그 보기',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: colorScheme.primary,
@@ -1351,24 +1354,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Row(
-                                          children: [
-                                            Text(
-                                              '프로젝트',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.bold,
-                                                color: colorScheme.onSurface,
-                                              ),
-                                            ),
-                                            const Spacer(),
-                                            Icon(
-                                              Icons.settings,
-                                              size: 16,
-                                              color: colorScheme.onSurface
-                                                  .withValues(alpha: 0.5),
-                                            ),
-                                          ],
+                                        Text(
+                                          '프로젝트',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: colorScheme.onSurface,
+                                          ),
                                         ),
                                         const SizedBox(height: 8),
                                         Row(
@@ -1399,95 +1391,195 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                     ),
                                   ),
                                 const SizedBox(height: 12),
-                                // ?怨밴묶
-                                GlassContainer(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 16,
-                                  ),
-                                  borderRadius: 15.0,
-                                  blur: 20.0,
-                                  gradientColors: [
-                                    Colors.white.withValues(alpha: 0.8),
-                                    Colors.white.withValues(alpha: 0.7),
-                                  ],
-                                  shadowBlurRadius: 6,
-                                  shadowOffset: const Offset(0, 2),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Text(
-                                            '상태',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.bold,
-                                              color: colorScheme.onSurface,
-                                            ),
-                                          ),
-                                          const Spacer(),
-                                          Icon(
-                                            Icons.settings,
-                                            size: 16,
-                                            color: colorScheme.onSurface
-                                                .withValues(alpha: 0.5),
-                                          ),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: GlassContainer(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 12,
+                                        ),
+                                        borderRadius: 15.0,
+                                        blur: 20.0,
+                                        gradientColors: [
+                                          Colors.white.withValues(alpha: 0.8),
+                                          Colors.white.withValues(alpha: 0.7),
                                         ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      DropdownButton<TaskStatus>(
-                                        value: _selectedStatus,
-                                        isExpanded: true,
-                                        items: TaskStatus.values.map((status) {
-                                          return DropdownMenuItem(
-                                            value: status,
-                                            child: Row(
-                                              children: [
-                                                Container(
-                                                  width: 8,
-                                                  height: 8,
-                                                  decoration: BoxDecoration(
-                                                    color: status.color,
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Text(status.displayName),
-                                              ],
+                                        shadowBlurRadius: 6,
+                                        shadowOffset: const Offset(0, 2),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '상태',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: colorScheme.onSurface,
+                                              ),
                                             ),
-                                          );
-                                        }).toList(),
-                                        onChanged: (value) async {
-                                          if (value != null) {
-                                            setState(() {
-                                              _selectedStatus = value;
-                                            });
-                                            final authProvider = context
-                                                .read<AuthProvider>();
-                                            final currentUser =
-                                                authProvider.currentUser;
-                                            await taskProvider.changeTaskStatus(
-                                              currentTask.id,
-                                              value,
-                                              userId: currentUser?.id,
-                                              username: currentUser?.username,
-                                            );
-                                            // ?怨밴묶 癰궰野??????袁⑥뵬????낅쑓??꾨뱜
-                                            await _loadTimelineItems();
-                                          }
-                                        },
+                                            const SizedBox(height: 8),
+                                            DropdownButton<TaskStatus>(
+                                              value: _selectedStatus,
+                                              isExpanded: true,
+                                              items: TaskStatus.values.map((
+                                                status,
+                                              ) {
+                                                return DropdownMenuItem(
+                                                  value: status,
+                                                  child: Row(
+                                                    children: [
+                                                      Container(
+                                                        width: 8,
+                                                        height: 8,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                              color:
+                                                                  status.color,
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                            ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Text(
+                                                        status.displayName,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              }).toList(),
+                                              onChanged: (value) async {
+                                                if (value != null) {
+                                                  setState(() {
+                                                    _selectedStatus = value;
+                                                  });
+                                                  final authProvider = context
+                                                      .read<AuthProvider>();
+                                                  final currentUser =
+                                                      authProvider.currentUser;
+                                                  await taskProvider
+                                                      .changeTaskStatus(
+                                                        currentTask.id,
+                                                        value,
+                                                        userId: currentUser?.id,
+                                                        username: currentUser
+                                                            ?.username,
+                                                      );
+                                                  // ?怨밴묶 癰궰野??????袁⑥뵬????낅쑓??꾨뱜
+                                                  await _loadTimelineItems();
+                                                }
+                                              },
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: GlassContainer(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 12,
+                                        ),
+                                        borderRadius: 15.0,
+                                        blur: 20.0,
+                                        gradientColors: [
+                                          Colors.white.withValues(alpha: 0.8),
+                                          Colors.white.withValues(alpha: 0.7),
+                                        ],
+                                        shadowBlurRadius: 6,
+                                        shadowOffset: const Offset(0, 2),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '우선순위',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: colorScheme.onSurface,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            DropdownButton<TaskPriority>(
+                                              value: _selectedPriority,
+                                              isExpanded: true,
+                                              items: TaskPriority.values.map((
+                                                priority,
+                                              ) {
+                                                return DropdownMenuItem(
+                                                  value: priority,
+                                                  child: Row(
+                                                    children: [
+                                                      Container(
+                                                        width: 8,
+                                                        height: 8,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                              color: priority
+                                                                  .color,
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                            ),
+                                                      ),
+                                                      const SizedBox(width: 6),
+                                                      Flexible(
+                                                        child: Text(
+                                                          priority.displayName,
+                                                          style: TextStyle(
+                                                            color:
+                                                                priority.color,
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                          ),
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              }).toList(),
+                                              onChanged: (value) async {
+                                                if (value != null) {
+                                                  setState(() {
+                                                    _selectedPriority = value;
+                                                  });
+                                                  final authProvider = context
+                                                      .read<AuthProvider>();
+                                                  final currentUser =
+                                                      authProvider.currentUser;
+                                                  await taskProvider.updateTask(
+                                                    currentTask.copyWith(
+                                                      priority: value,
+                                                      updatedAt: DateTime.now(),
+                                                    ),
+                                                    userId: currentUser?.id,
+                                                    username:
+                                                        currentUser?.username,
+                                                  );
+                                                  // 餓λ쵐???癰궰野??????袁⑥뵬????낅쑓??꾨뱜
+                                                  await _loadTimelineItems();
+                                                }
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 12),
-                                // 餓λ쵐???
+                                // 문서 링크
                                 GlassContainer(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
-                                    vertical: 16,
+                                    vertical: 12,
                                   ),
                                   borderRadius: 15.0,
                                   blur: 20.0,
@@ -1504,7 +1596,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       Row(
                                         children: [
                                           Text(
-                                            '우선순위',
+                                            '문서 링크',
                                             style: TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.bold,
@@ -1512,67 +1604,113 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                             ),
                                           ),
                                           const Spacer(),
-                                          Icon(
-                                            Icons.priority_high,
-                                            size: 16,
-                                            color: colorScheme.onSurface
-                                                .withValues(alpha: 0.5),
+                                          IconButton(
+                                            icon: Icon(
+                                              Icons.add_link,
+                                              size: 16,
+                                              color: colorScheme.primary,
+                                            ),
+                                            onPressed: () =>
+                                                _showAddDocumentLinkDialog(
+                                                  context,
+                                                  currentTask,
+                                                  taskProvider,
+                                                ),
+                                            tooltip: '링크 추가',
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 8),
-                                      DropdownButton<TaskPriority>(
-                                        value: _selectedPriority,
-                                        isExpanded: true,
-                                        items: TaskPriority.values.map((
-                                          priority,
+                                      const SizedBox(height: 4),
+                                      if (_documentLinks.isEmpty)
+                                        Text(
+                                          '링크가 없습니다',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.5),
+                                          ),
+                                        )
+                                      else
+                                        ...(_documentLinks.asMap().entries.map((
+                                          entry,
                                         ) {
-                                          return DropdownMenuItem(
-                                            value: priority,
-                                            child: Row(
-                                              children: [
-                                                Container(
-                                                  width: 8,
-                                                  height: 8,
-                                                  decoration: BoxDecoration(
-                                                    color: priority.color,
-                                                    shape: BoxShape.circle,
+                                          final idx = entry.key;
+                                          final link = entry.value;
+                                          return Row(
+                                            children: [
+                                              Expanded(
+                                                child: InkWell(
+                                                  onTap: () async {
+                                                    final url =
+                                                        link['url'] ?? '';
+                                                    if (url.isNotEmpty) {
+                                                      await launchUrl(
+                                                        Uri.parse(url),
+                                                        mode: LaunchMode
+                                                            .externalApplication,
+                                                      );
+                                                    }
+                                                  },
+                                                  child: Text(
+                                                    (link['title']?.isNotEmpty ==
+                                                                true
+                                                            ? link['title']!
+                                                            : link['url']) ??
+                                                        '',
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      color:
+                                                          colorScheme.primary,
+                                                      decoration: TextDecoration
+                                                          .underline,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
                                                 ),
-                                                const SizedBox(width: 8),
-                                                Text(
-                                                  '${priority.displayName} - ${priority.description}',
-                                                  style: TextStyle(
-                                                    color: priority.color,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        }).toList(),
-                                        onChanged: (value) async {
-                                          if (value != null) {
-                                            setState(() {
-                                              _selectedPriority = value;
-                                            });
-                                            final authProvider = context
-                                                .read<AuthProvider>();
-                                            final currentUser =
-                                                authProvider.currentUser;
-                                            await taskProvider.updateTask(
-                                              currentTask.copyWith(
-                                                priority: value,
-                                                updatedAt: DateTime.now(),
                                               ),
-                                              userId: currentUser?.id,
-                                              username: currentUser?.username,
-                                            );
-                                            // 餓λ쵐???癰궰野??????袁⑥뵬????낅쑓??꾨뱜
-                                            await _loadTimelineItems();
-                                          }
-                                        },
-                                      ),
+                                              IconButton(
+                                                icon: Icon(
+                                                  Icons.close,
+                                                  size: 14,
+                                                  color: colorScheme.onSurface
+                                                      .withValues(alpha: 0.4),
+                                                ),
+                                                onPressed: () async {
+                                                  setState(() {
+                                                    _documentLinks.removeAt(
+                                                      idx,
+                                                    );
+                                                  });
+                                                  final authProvider = context
+                                                      .read<AuthProvider>();
+                                                  await taskProvider.updateTask(
+                                                    currentTask.copyWith(
+                                                      documentLinks:
+                                                          _documentLinks,
+                                                      updatedAt: DateTime.now(),
+                                                    ),
+                                                    userId: authProvider
+                                                        .currentUser
+                                                        ?.id,
+                                                    username: authProvider
+                                                        .currentUser
+                                                        ?.username,
+                                                  );
+                                                },
+                                                padding: EdgeInsets.zero,
+                                                constraints:
+                                                    const BoxConstraints(
+                                                      minWidth: 24,
+                                                      minHeight: 24,
+                                                    ),
+                                              ),
+                                            ],
+                                          );
+                                        })),
                                     ],
                                   ),
                                 ),
@@ -2046,6 +2184,76 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   /// ?????醫딅뼣 ??쇱뵠??곗쨮域?
+  Future<void> _showAddDocumentLinkDialog(
+    BuildContext context,
+    Task currentTask,
+    TaskProvider taskProvider,
+  ) async {
+    final titleController = TextEditingController();
+    final urlController = TextEditingController();
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('문서 링크 추가'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleController,
+              decoration: const InputDecoration(
+                labelText: '제목',
+                hintText: '문서 제목',
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: urlController,
+              decoration: const InputDecoration(
+                labelText: 'URL',
+                hintText: 'https://...',
+              ),
+              keyboardType: TextInputType.url,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final title = titleController.text.trim();
+              final url = urlController.text.trim();
+              if (url.isNotEmpty) {
+                Navigator.of(ctx).pop();
+                setState(() {
+                  _documentLinks.add({
+                    'title': title.isNotEmpty ? title : url,
+                    'url': url,
+                  });
+                });
+                final authProvider = context.read<AuthProvider>();
+                await taskProvider.updateTask(
+                  currentTask.copyWith(
+                    documentLinks: _documentLinks,
+                    updatedAt: DateTime.now(),
+                  ),
+                  userId: authProvider.currentUser?.id,
+                  username: authProvider.currentUser?.username,
+                );
+              }
+            },
+            child: const Text('추가'),
+          ),
+        ],
+      ),
+    );
+    titleController.dispose();
+    urlController.dispose();
+  }
+
   Future<void> _openDateRangePicker(
     BuildContext context,
     Task currentTask,
@@ -2684,12 +2892,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               Colors.white.withValues(alpha: 0.8),
               Colors.white.withValues(alpha: 0.7),
             ],
-            child: MarkdownBody(
+            child: SelectionArea(child: MarkdownBody(
               data: _normalizeMarkdownNewlines(description),
-              selectable: true,
+              selectable: false,
               softLineBreak: true,
               styleSheet: _buildMarkdownStyleSheet(colorScheme),
-            ),
+            )),
           ),
         ),
       ],
@@ -2823,11 +3031,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               Builder(
                                 builder: (context) {
                                   int cbIdx = 0;
-                                  return MarkdownBody(
+                                  return SelectionArea(child: MarkdownBody(
                                     data: _addCheckboxStrikethrough(
                                       _normalizeMarkdownNewlines(task.detail),
                                     ),
-                                    selectable: true,
+                                    selectable: false,
                                     softLineBreak: true,
                                     checkboxBuilder: (bool value) {
                                       final idx = cbIdx++;
@@ -2864,7 +3072,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                     styleSheet: _buildMarkdownStyleSheet(
                                       colorScheme,
                                     ),
-                                  );
+                                  ));
                                 },
                               )
                             else

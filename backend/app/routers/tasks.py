@@ -86,6 +86,7 @@ async def create_task(
         priority=task_data.priority,
         assigned_member_ids=task_data.assigned_member_ids,
         sprint_id=task_data.sprint_id,
+        document_links=task_data.document_links or [],
         comment_ids=[],
         status_history=[],
         assignment_history=[],
@@ -176,6 +177,8 @@ async def update_task(
         task.detail = task_data.detail
     if task_data.detail_image_urls is not None:
         task.detail_image_urls = task_data.detail_image_urls
+    if task_data.document_links is not None:
+        task.document_links = task_data.document_links
     if task_data.priority is not None:
         # 중요도 변경 히스토리 추가
         old_priority = task.priority
