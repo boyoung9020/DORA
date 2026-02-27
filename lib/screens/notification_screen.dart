@@ -29,6 +29,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       if (authProvider.isAuthenticated && authProvider.currentUser != null) {
         notificationProvider.loadNotifications(
           userId: authProvider.currentUser!.id,
+          currentUsername: authProvider.currentUser!.username,
         );
       }
     });
@@ -424,6 +425,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           authProvider.currentUser != null) {
                         notificationProvider.loadNotifications(
                           userId: authProvider.currentUser!.id,
+                          currentUsername: authProvider.currentUser!.username,
                         );
                       }
                     },
@@ -545,6 +547,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           authProvider.currentUser != null) {
                         await notificationProvider.loadNotifications(
                           userId: authProvider.currentUser!.id,
+                          currentUsername: authProvider.currentUser!.username,
                         );
                       }
                     },

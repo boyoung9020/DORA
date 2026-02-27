@@ -246,4 +246,26 @@ class TaskProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  /// 댓글 삭제 후 로컬 상태만 업데이트
+  /// 백엔드 comment DELETE 엔드포인트가 comment_ids를 DB에서 처리하므로 PATCH는 생략
+  void removeCommentId(String taskId, String commentId) {
+    final index = _tasks.indexWhere((t) => t.id == taskId);
+    if (index != -1) {
+      final task = _tasks[index];
+      _tasks[index] = task.copyWith(
+        commentIds: task.commentIds.where((id) => id != commentId).toList(),
+      );
+    }
+
+    final allIndex = _allTasks.indexWhere((t) => t.id == taskId);
+    if (allIndex != -1) {
+      final task = _allTasks[allIndex];
+      _allTasks[allIndex] = task.copyWith(
+        commentIds: task.commentIds.where((id) => id != commentId).toList(),
+      );
+    }
+
+    notifyListeners();
+  }
 }

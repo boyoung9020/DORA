@@ -443,34 +443,46 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return Builder(
       builder: (context) {
         int cbIdx = 0;
-        return SelectionArea(child: MarkdownBody(
-          data: _addCheckboxStrikethrough(processed),
-          selectable: false,
-          softLineBreak: true,
-          onTapLink: (text, href, title) {},
-          checkboxBuilder: (bool value) {
-            final idx = cbIdx++;
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => _onCommentCheckboxTap(comment, idx, value),
-              child: Padding(
-                padding: const EdgeInsets.only(right: 4, top: 2),
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: Checkbox(
-                    value: value,
-                    onChanged: null,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    side: BorderSide(color: colorScheme.primary),
-                    activeColor: colorScheme.primary,
-                  ),
-                ),
-              ),
-            );
+        return Actions(
+          actions: {
+            CopySelectionTextIntent: CallbackAction<CopySelectionTextIntent>(
+              onInvoke: (_) {
+                Clipboard.setData(ClipboardData(text: comment.content));
+                return null;
+              },
+            ),
           },
-          styleSheet: _buildMarkdownStyleSheet(colorScheme),
-        ));
+          child: SelectionArea(
+            child: MarkdownBody(
+              data: _addCheckboxStrikethrough(processed),
+              selectable: false,
+              softLineBreak: true,
+              onTapLink: (text, href, title) {},
+              checkboxBuilder: (bool value) {
+                final idx = cbIdx++;
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _onCommentCheckboxTap(comment, idx, value),
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 4, top: 2),
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: Checkbox(
+                        value: value,
+                        onChanged: null,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        side: BorderSide(color: colorScheme.primary),
+                        activeColor: colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                );
+              },
+              styleSheet: _buildMarkdownStyleSheet(colorScheme),
+            ),
+          ),
+        );
       },
     );
   }
@@ -968,21 +980,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     try {
       await _commentService.deleteComment(commentId);
 
-      // Task?癒?퐣 ?蹂? ID ??볤탢
+      // 댓글 ID는 백엔드에서 이미 동기화되므로 로컬 상태만 갱신
       final taskProvider = Provider.of<TaskProvider>(context, listen: false);
-      final currentTask = taskProvider.tasks.firstWhere(
-        (t) => t.id == widget.task.id,
-        orElse: () => widget.task,
-      );
-      final updatedCommentIds = currentTask.commentIds
-          .where((id) => id != commentId)
-          .toList();
-      await taskProvider.updateTask(
-        currentTask.copyWith(
-          commentIds: updatedCommentIds,
-          updatedAt: DateTime.now(),
-        ),
-      );
+      taskProvider.removeCommentId(widget.task.id, commentId);
 
       await _loadComments();
     } catch (e) {
@@ -2421,7 +2421,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         TextButton(
                           onPressed: () => Navigator.of(context).pop(),
                           child: Text(
-                            '??る┛',
+                            '확인',
                             style: TextStyle(color: colorScheme.onSurface),
                           ),
                         ),
@@ -2892,12 +2892,25 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               Colors.white.withValues(alpha: 0.8),
               Colors.white.withValues(alpha: 0.7),
             ],
-            child: SelectionArea(child: MarkdownBody(
-              data: _normalizeMarkdownNewlines(description),
-              selectable: false,
-              softLineBreak: true,
-              styleSheet: _buildMarkdownStyleSheet(colorScheme),
-            )),
+            child: Actions(
+              actions: {
+                CopySelectionTextIntent:
+                    CallbackAction<CopySelectionTextIntent>(
+                      onInvoke: (_) {
+                        Clipboard.setData(ClipboardData(text: description));
+                        return null;
+                      },
+                    ),
+              },
+              child: SelectionArea(
+                child: MarkdownBody(
+                  data: _normalizeMarkdownNewlines(description),
+                  selectable: false,
+                  softLineBreak: true,
+                  styleSheet: _buildMarkdownStyleSheet(colorScheme),
+                ),
+              ),
+            ),
           ),
         ),
       ],
@@ -3031,48 +3044,70 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               Builder(
                                 builder: (context) {
                                   int cbIdx = 0;
-                                  return SelectionArea(child: MarkdownBody(
-                                    data: _addCheckboxStrikethrough(
-                                      _normalizeMarkdownNewlines(task.detail),
-                                    ),
-                                    selectable: false,
-                                    softLineBreak: true,
-                                    checkboxBuilder: (bool value) {
-                                      final idx = cbIdx++;
-                                      return GestureDetector(
-                                        behavior: HitTestBehavior.opaque,
-                                        onTap: () => _onDetailCheckboxTap(
-                                          task,
-                                          idx,
-                                          value,
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.only(
-                                            right: 4,
-                                            top: 2,
+                                  return Actions(
+                                    actions: {
+                                      CopySelectionTextIntent:
+                                          CallbackAction<
+                                            CopySelectionTextIntent
+                                          >(
+                                            onInvoke: (_) {
+                                              Clipboard.setData(
+                                                ClipboardData(
+                                                  text: task.detail,
+                                                ),
+                                              );
+                                              return null;
+                                            },
                                           ),
-                                          child: SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: Checkbox(
-                                              value: value,
-                                              onChanged: null,
-                                              materialTapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
-                                              side: BorderSide(
-                                                color: colorScheme.primary,
-                                              ),
-                                              activeColor: colorScheme.primary,
-                                            ),
-                                          ),
-                                        ),
-                                      );
                                     },
-                                    styleSheet: _buildMarkdownStyleSheet(
-                                      colorScheme,
+                                    child: SelectionArea(
+                                      child: MarkdownBody(
+                                        data: _addCheckboxStrikethrough(
+                                          _normalizeMarkdownNewlines(
+                                            task.detail,
+                                          ),
+                                        ),
+                                        selectable: false,
+                                        softLineBreak: true,
+                                        checkboxBuilder: (bool value) {
+                                          final idx = cbIdx++;
+                                          return GestureDetector(
+                                            behavior: HitTestBehavior.opaque,
+                                            onTap: () => _onDetailCheckboxTap(
+                                              task,
+                                              idx,
+                                              value,
+                                            ),
+                                            child: Padding(
+                                              padding: const EdgeInsets.only(
+                                                right: 4,
+                                                top: 2,
+                                              ),
+                                              child: SizedBox(
+                                                width: 18,
+                                                height: 18,
+                                                child: Checkbox(
+                                                  value: value,
+                                                  onChanged: null,
+                                                  materialTapTargetSize:
+                                                      MaterialTapTargetSize
+                                                          .shrinkWrap,
+                                                  side: BorderSide(
+                                                    color: colorScheme.primary,
+                                                  ),
+                                                  activeColor:
+                                                      colorScheme.primary,
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        styleSheet: _buildMarkdownStyleSheet(
+                                          colorScheme,
+                                        ),
+                                      ),
                                     ),
-                                  ));
+                                  );
                                 },
                               )
                             else

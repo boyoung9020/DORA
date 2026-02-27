@@ -64,7 +64,7 @@ def _build_prompt(
     project_lines = []
     for stat in project_stats:
         project_lines.append(
-            f"- [{stat['name']}] {stat['done']}/{stat['total']} 완료 ({stat['progress']}%), "
+            f"- **{stat['name']}** {stat['done']}/{stat['total']} 완료 ({stat['progress']}%), "
             f"진행중 {stat['in_progress']}개, 검토중 {stat['in_review']}개"
         )
 
@@ -72,14 +72,14 @@ def _build_prompt(
     for task in urgent_tasks[:10]:
         end_date = task.end_date.astimezone().strftime("%Y-%m-%d") if task.end_date else "미지정"
         urgent_lines.append(
-            f"- \"{task.title}\" [{project_name_by_id.get(task.project_id, '미분류')}] "
+            f"- \"{task.title}\" **{project_name_by_id.get(task.project_id, '미분류')}** "
             f"우선순위:{_priority_label(task.priority.value)} 상태:{_status_label(task.status.value)} 기한:{end_date}"
         )
 
     today_due_lines = []
     for task in today_due_tasks[:10]:
         today_due_lines.append(
-            f"- \"{task.title}\" [{project_name_by_id.get(task.project_id, '미분류')}] "
+            f"- \"{task.title}\" **{project_name_by_id.get(task.project_id, '미분류')}** "
             f"상태:{_status_label(task.status.value)}"
         )
 
@@ -89,7 +89,7 @@ def _build_prompt(
             continue
         overdue_days = (datetime.now().astimezone().date() - task.end_date.astimezone().date()).days
         overdue_lines.append(
-            f"- \"{task.title}\" [{project_name_by_id.get(task.project_id, '미분류')}] "
+            f"- \"{task.title}\" **{project_name_by_id.get(task.project_id, '미분류')}** "
             f"{max(overdue_days, 0)}일 초과"
         )
 
@@ -129,6 +129,7 @@ def _build_prompt(
 - 첫 줄은 전체 분위기 요약
 - 이후 핵심 포인트를 불릿으로 제시
 - 과장 없이 우선순위가 높은 일부터 언급
+- 프로젝트명은 **프로젝트명** 형식(마크다운 굵게)으로 표시
 """.strip()
 
     return prompt

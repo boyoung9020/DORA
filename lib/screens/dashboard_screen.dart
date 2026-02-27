@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/project_provider.dart';
@@ -233,64 +234,81 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 constraints: BoxConstraints(maxHeight: maxBodyHeight ?? 260),
                 child: Scrollbar(
                   child: SingleChildScrollView(
-                    child: SelectionArea(child: MarkdownBody(
-                      selectable: false,
-                      data: _aiSummary ?? '요약 내용이 없습니다.',
-                      styleSheet: MarkdownStyleSheet(
-                        p: TextStyle(
-                          fontSize: 14,
-                          height: 1.6,
-                          color: colorScheme.onSurface,
-                        ),
-                        h1: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
-                        h2: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
-                        h3: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
-                        strong: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
-                        em: TextStyle(
-                          fontStyle: FontStyle.italic,
-                          color: colorScheme.onSurface,
-                        ),
-                        code: TextStyle(
-                          fontSize: 13,
-                          color: colorScheme.primary,
-                          backgroundColor: colorScheme.primary.withValues(
-                            alpha: 0.1,
-                          ),
-                        ),
-                        blockquote: TextStyle(
-                          fontSize: 14,
-                          color: colorScheme.onSurface.withValues(alpha: 0.7),
-                        ),
-                        listBullet: TextStyle(
-                          fontSize: 14,
-                          color: colorScheme.onSurface,
-                        ),
-                        horizontalRuleDecoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(
+                    child: Actions(
+                      actions: {
+                        CopySelectionTextIntent:
+                            CallbackAction<CopySelectionTextIntent>(
+                              onInvoke: (_) {
+                                Clipboard.setData(
+                                  ClipboardData(text: _aiSummary ?? ''),
+                                );
+                                return null;
+                              },
+                            ),
+                      },
+                      child: SelectionArea(
+                        child: MarkdownBody(
+                          selectable: false,
+                          data: _aiSummary ?? '요약 내용이 없습니다.',
+                          styleSheet: MarkdownStyleSheet(
+                            p: TextStyle(
+                              fontSize: 14,
+                              height: 1.6,
+                              color: colorScheme.onSurface,
+                            ),
+                            h1: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                            h2: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                            h3: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                            strong: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                            em: TextStyle(
+                              fontStyle: FontStyle.italic,
+                              color: colorScheme.onSurface,
+                            ),
+                            code: TextStyle(
+                              fontSize: 13,
+                              color: colorScheme.primary,
+                              backgroundColor: colorScheme.primary.withValues(
+                                alpha: 0.1,
+                              ),
+                            ),
+                            blockquote: TextStyle(
+                              fontSize: 14,
                               color: colorScheme.onSurface.withValues(
-                                alpha: 0.2,
+                                alpha: 0.7,
+                              ),
+                            ),
+                            listBullet: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.onSurface,
+                            ),
+                            horizontalRuleDecoration: BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.2,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    )),
+                    ),
                   ),
                 ),
               ),
@@ -2062,11 +2080,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         final pageProjects = allProjects.sublist(start, end);
 
                         return GridView.builder(
-                          padding: EdgeInsets.only(
-                            right:
-                                (totalPages > 1 && pageIndex < totalPages - 1)
-                                ? 44
-                                : 0,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: totalPages > 1 ? 40 : 0,
                           ),
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: pageProjects.length,
@@ -2110,6 +2125,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         );
                       },
                     ),
+                    if (totalPages > 1 && _projectProgressPage > 0)
+                      Positioned(
+                        left: 2,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(999),
+                              onTap: () {
+                                _projectProgressPageController.previousPage(
+                                  duration: const Duration(milliseconds: 220),
+                                  curve: Curves.easeOutCubic,
+                                );
+                              },
+                              child: Container(
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surface.withValues(
+                                    alpha: 0.92,
+                                  ),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: colorScheme.outline.withValues(
+                                      alpha: 0.25,
+                                    ),
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.chevron_left_rounded,
+                                  size: 22,
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.8,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     if (totalPages > 1 && _projectProgressPage < totalPages - 1)
                       Positioned(
                         right: 2,

@@ -172,6 +172,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     if (authProvider.isAuthenticated && authProvider.currentUser != null) {
       await notificationProvider.loadNotifications(
         userId: authProvider.currentUser!.id,
+        currentUsername: authProvider.currentUser!.username,
       );
       await chatProvider.loadRooms(workspaceId: wsProvider.currentWorkspaceId);
     }

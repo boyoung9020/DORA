@@ -90,6 +90,7 @@ class TaskService {
         'priority': task.priority.name,
         'assigned_member_ids': task.assignedMemberIds,
         'sprint_id': task.sprintId,
+        'document_links': task.documentLinks,
       };
 
       final response = await ApiClient.patch(
