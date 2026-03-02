@@ -1,0 +1,22 @@
+# Git
+.git/
+.gitignore
+
+# 빌드 결과물 (Docker 안에서 새로 빌드)
+build/
+
+# Flutter 플랫폼별 폴더 (web 빌드에 불필요)
+android/
+ios/
+linux/
+macos/
+windows/
+
+# 백엔드 (별도 context로 빌드)
+backend/
+
+# 기타
+postgres_data/
+oracle_cloud/
+.dart_tool/
+*.log
