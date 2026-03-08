@@ -23,7 +23,10 @@ echo "=============================="
 echo ""
 echo "[1/4] Flutter Web 빌드 중..."
 cd "$(dirname "$0")/.."
-flutter build web --release
+source backend/.env
+flutter build web --release \
+  --dart-define=GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
+  --dart-define=KAKAO_REST_API_KEY="$KAKAO_REST_API_KEY"
 echo "  완료: build/web/"
 
 # 2. build/web 서버로 전송
