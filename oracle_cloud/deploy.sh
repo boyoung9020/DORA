@@ -40,7 +40,10 @@ echo ""
 echo "[3/4] 설정 및 백엔드 전송 중..."
 $SCP docker-compose.yml "$SERVER:~/app/"
 $SCP nginx/nginx.conf "$SERVER:~/app/nginx/"
-$SCP -r backend/ "$SERVER:~/app/backend/"
+# 백엔드: 서버의 기존 app 디렉토리 삭제 후 새로 전송 (scp 업데이트 누락 방지)
+$SSH "$SERVER" "rm -rf ~/app/backend/app"
+$SCP -r backend/app "$SERVER:~/app/backend/"
+$SCP backend/Dockerfile backend/requirements.txt "$SERVER:~/app/backend/"
 echo "  완료"
 
 # 4. 서버에서 컨테이너 재시작
