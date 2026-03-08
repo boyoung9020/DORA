@@ -1,9 +1,10 @@
 ﻿"""Authentication API routes."""
 import re
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -28,6 +29,32 @@ from app.utils.social_auth import (
 )
 
 router = APIRouter()
+
+# 소셜 신규 가입 대기 저장소 (10분 TTL)
+_pending_social_registrations: dict[str, dict] = {}
+
+
+def _store_pending_social_registration(
+    provider: str, social_id: str, email: str | None, display_name: str | None
+) -> str:
+    token = str(uuid.uuid4())
+    _pending_social_registrations[token] = {
+        "provider": provider,
+        "social_id": social_id,
+        "email": email,
+        "display_name": display_name,
+        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10),
+    }
+    return token
+
+
+def _pop_pending_social_registration(token: str) -> dict | None:
+    entry = _pending_social_registrations.pop(token, None)
+    if entry is None:
+        return None
+    if datetime.now(timezone.utc) > entry["expires_at"]:
+        return None
+    return entry
 
 
 def _issue_access_token(user: User) -> Token:
@@ -257,12 +284,24 @@ async def social_google_login_with_code(
     except SocialAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
+    social_id = profile["social_id"] or ""
+    email = profile.get("email")
+    display_name = profile.get("display_name")
+
+    existing_user = _find_social_user(db, provider="google", social_id=social_id, email=email)
+    if existing_user is None and body.mode == "login":
+        reg_token = _store_pending_social_registration("google", social_id, email, display_name)
+        return JSONResponse(
+            status_code=202,
+            content={"registration_required": True, "registration_token": reg_token},
+        )
+
     user = _resolve_social_user_by_mode(
         db,
         provider="google",
-        social_id=profile["social_id"] or "",
-        email=profile.get("email"),
-        display_name=profile.get("display_name"),
+        social_id=social_id,
+        email=email,
+        display_name=display_name,
         mode=body.mode,
         username=body.username,
     )
@@ -324,14 +363,57 @@ async def social_kakao_login_with_code(
         import traceback; traceback.print_exc()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
+    social_id = profile["social_id"] or ""
+    email = profile.get("email")
+    display_name = profile.get("display_name")
+
+    existing_user = _find_social_user(db, provider="kakao", social_id=social_id, email=email)
+    if existing_user is None and body.mode == "login":
+        reg_token = _store_pending_social_registration("kakao", social_id, email, display_name)
+        return JSONResponse(
+            status_code=202,
+            content={"registration_required": True, "registration_token": reg_token},
+        )
+
     user = _resolve_social_user_by_mode(
         db,
         provider="kakao",
-        social_id=profile["social_id"] or "",
-        email=profile.get("email"),
-        display_name=profile.get("display_name"),
+        social_id=social_id,
+        email=email,
+        display_name=display_name,
         mode=body.mode,
         username=body.username,
+    )
+
+    if not user.is_approved:
+        user.is_approved = True
+        db.commit()
+        db.refresh(user)
+
+    return _issue_access_token(user)
+
+
+@router.post("/social/complete_registration", response_model=Token)
+async def complete_social_registration(
+    body: dict,
+    db: Session = Depends(get_db),
+):
+    """신규 소셜 유저 회원가입 완료 (registration_token + username)."""
+    registration_token = body.get("registration_token", "")
+    username = body.get("username", "")
+
+    entry = _pop_pending_social_registration(registration_token)
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="유효하지 않거나 만료된 가입 토큰입니다.")
+
+    user = _resolve_social_user_by_mode(
+        db,
+        provider=entry["provider"],
+        social_id=entry["social_id"],
+        email=entry["email"],
+        display_name=entry["display_name"],
+        mode="register",
+        username=username or None,
     )
 
     if not user.is_approved:

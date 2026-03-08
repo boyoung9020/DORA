@@ -231,6 +231,24 @@ class AuthService {
       },
       includeAuth: false,
     );
+
+    // 신규 유저: 백엔드가 202 + registration_token 반환 → 유저이름 입력 화면으로
+    if (response.statusCode == 202) {
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final registrationToken = body['registration_token'] as String?;
+      if (registrationToken != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          _pendingSocialRegisterDataKey,
+          jsonEncode({
+            'provider': provider,
+            'registration_token': registrationToken,
+          }),
+        );
+      }
+      return null;
+    }
+
     return _consumeLoginTokenResponse(response);
   }
 
@@ -262,13 +280,24 @@ class AuthService {
     if (raw == null) throw Exception('진행 중인 소셜 회원가입이 없습니다.');
 
     final data = jsonDecode(raw) as Map<String, dynamic>;
+    await prefs.remove(_pendingSocialRegisterDataKey);
+
+    // 신규 유저 경로: registration_token 방식 (login 버튼 → 신규 유저)
+    final registrationToken = data['registration_token'] as String?;
+    if (registrationToken != null) {
+      final response = await ApiClient.post(
+        '/api/auth/social/complete_registration',
+        body: {'registration_token': registrationToken, 'username': username},
+        includeAuth: false,
+      );
+      return _consumeLoginTokenResponse(response);
+    }
+
+    // 기존 경로: code 방식 (register 버튼으로 온 경우)
     final provider = data['provider'] as String;
     final code = data['code'] as String;
     final redirectUri = data['redirect_uri'] as String;
     final codeVerifier = data['code_verifier'] as String;
-
-    // Clear before calling backend so expired codes don't loop.
-    await prefs.remove(_pendingSocialRegisterDataKey);
 
     final endpoint = provider == 'google'
         ? '/api/auth/social/google/code'
