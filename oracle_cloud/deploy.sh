@@ -38,12 +38,12 @@ ssh -i "$KEY" -o StrictHostKeyChecking=no "$SERVER" << 'REMOTE'
     cd ~/app
     git pull origin main
     docker compose up -d --build api
-    docker compose restart nginx
+    docker compose up -d nginx
     sleep 3
     docker compose ps
 REMOTE
 
 echo ""
 echo "=============================="
-echo " 완료! https://168.107.50.187"
+echo " 완료! https://syncwork.kr"
 echo "=============================="
