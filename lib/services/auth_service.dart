@@ -50,8 +50,7 @@ class AuthService {
       // registered in Google Cloud Console / Kakao Developers.
       return configuredRedirectUri;
     }
-    final current = Uri.base;
-    return current.replace(path: '/', query: null, fragment: null).toString();
+    return '${Uri.base.origin}/';
   }
 
   Future<void> _savePendingWebSocialAuth({
