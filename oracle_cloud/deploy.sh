@@ -36,6 +36,7 @@ echo ""
 echo "[3/3] 서버 업데이트 중..."
 ssh -i "$KEY" -o StrictHostKeyChecking=no "$SERVER" << 'REMOTE'
     cd ~/app
+    git checkout -- .
     git pull origin main
     docker compose up -d --build api
     docker compose up -d nginx
