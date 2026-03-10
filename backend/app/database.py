@@ -21,8 +21,10 @@ print(f"[Database] Connecting to: postgresql://{settings.DB_USER}:***@{settings.
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,  # 연결 상태 확인 후 사용
-    pool_size=10,  # 연결 풀 크기
-    max_overflow=20  # 추가 연결 허용 수
+    pool_size=5,   # 워커당 5개 × 2워커 = 최대 10개 상시 연결
+    max_overflow=5,  # 피크 시 최대 20개까지 허용
+    pool_timeout=30,  # 커넥션 대기 최대 30초
+    pool_recycle=1800,  # 30분마다 연결 갱신 (끊긴 연결 방지)
 )
 
 # 세션 팩토리 생성

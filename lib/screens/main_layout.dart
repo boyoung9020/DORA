@@ -1990,7 +1990,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  if (member.isPM) ...[
+                                  if (member.id == currentProject.creatorId) ...[
                                     const SizedBox(width: 6),
                                     Container(
                                       padding: const EdgeInsets.symmetric(
@@ -2090,11 +2090,15 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           .where((u) => currentProject.teamMemberIds.contains(u.id))
           .toList();
 
-      // PM을 먼저 정렬
+      // 프로젝트 PM(creatorId)을 먼저, 나머지는 teamMemberIds 추가 순서대로 정렬
       teamMembers.sort((a, b) {
-        if (a.isPM && !b.isPM) return -1;
-        if (!a.isPM && b.isPM) return 1;
-        return 0;
+        final aIsProjectPM = a.id == currentProject.creatorId;
+        final bIsProjectPM = b.id == currentProject.creatorId;
+        if (aIsProjectPM && !bIsProjectPM) return -1;
+        if (!aIsProjectPM && bIsProjectPM) return 1;
+        final aIndex = currentProject.teamMemberIds.indexOf(a.id);
+        final bIndex = currentProject.teamMemberIds.indexOf(b.id);
+        return aIndex.compareTo(bIndex);
       });
 
       return teamMembers;

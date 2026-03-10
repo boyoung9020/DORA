@@ -646,6 +646,11 @@ box-shadow:0 4px 24px rgba(0,0,0,.08)}h2{color:#D86B27}''';
 
         return user;
       } catch (_) {
+        // 토큰이 삭제됐으면 401로 인한 실패 → 재로그인 필요
+        final token = await ApiClient.getToken();
+        if (token == null) return null;
+
+        // 네트워크 오류 등 일시적 실패 → 캐시된 유저 사용
         final prefs = await SharedPreferences.getInstance();
         final userJson = prefs.getString(_currentUserKey);
         if (userJson == null) return null;

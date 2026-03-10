@@ -29,7 +29,7 @@ services:
     environment:
       PYTHONPATH: /app
     volumes:
-      - ./backend:/app
+      - ./uploads:/app/uploads
     ports:
       - "4000:4000"
     depends_on:
@@ -37,9 +37,8 @@ services:
         condition: service_healthy
     command: >
       sh -c "
-        export PYTHONPATH=/app:$PYTHONPATH &&
         python app/init_db.py &&
-        uvicorn app.main:app --host 0.0.0.0 --port 4000 --reload
+        uvicorn app.main:app --host 0.0.0.0 --port 4000 --workers 2
       "
     networks:
       - sync_network
