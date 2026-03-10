@@ -22,6 +22,16 @@ from app.routers.websocket import manager
 router = APIRouter()
 
 
+def _get_project_or_403(db: Session, project_id: str, user: User) -> Project:
+    """프로젝트 조회 + 접근 권한 검증 (admin 또는 프로젝트 멤버만)"""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="프로젝트를 찾을 수 없습니다")
+    if not user.is_admin and user.id not in (project.team_member_ids or []):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="이 프로젝트에 접근 권한이 없습니다")
+    return project
+
+
 @router.get("/", response_model=List[TaskResponse])
 async def get_all_tasks(
     project_id: Optional[str] = None,
@@ -73,41 +83,41 @@ async def create_task(
     current_user: User = Depends(get_current_user)
 ):
     """새 태스크 생성"""
-    new_task = Task(
-        id=str(uuid.uuid4()),
-        title=task_data.title,
-        description=task_data.description,
-        status=task_data.status,
-        project_id=task_data.project_id,
-        start_date=task_data.start_date,
-        end_date=task_data.end_date,
-        detail=task_data.detail,
-        detail_image_urls=task_data.detail_image_urls or [],
-        priority=task_data.priority,
-        assigned_member_ids=task_data.assigned_member_ids,
-        sprint_id=task_data.sprint_id,
-        document_links=task_data.document_links or [],
-        comment_ids=[],
-        status_history=[],
-        assignment_history=[],
-        priority_history=[]
-    )
-    
-    db.add(new_task)
-    db.commit()
-    db.refresh(new_task)
-    
-    # 프로젝트 팀원에게만 태스크 생성 이벤트 전송 (타겟 전송)
-    project = db.query(Project).filter(Project.id == new_task.project_id).first()
-    target_users = project.team_member_ids if project else []
+    project = _get_project_or_403(db, task_data.project_id, current_user)
+
+    try:
+        new_task = Task(
+            id=str(uuid.uuid4()),
+            title=task_data.title,
+            description=task_data.description,
+            status=task_data.status,
+            project_id=task_data.project_id,
+            start_date=task_data.start_date,
+            end_date=task_data.end_date,
+            detail=task_data.detail,
+            detail_image_urls=task_data.detail_image_urls or [],
+            priority=task_data.priority,
+            assigned_member_ids=task_data.assigned_member_ids,
+            sprint_id=task_data.sprint_id,
+            document_links=task_data.document_links or [],
+            comment_ids=[],
+            status_history=[],
+            assignment_history=[],
+            priority_history=[]
+        )
+        db.add(new_task)
+        db.commit()
+        db.refresh(new_task)
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="태스크 생성에 실패했습니다")
+
+    # DB 커밋 성공 후 WebSocket 이벤트 전송
     asyncio.create_task(manager.send_to_users({
         "type": "task_created",
-        "data": {
-            "task_id": new_task.id,
-            "project_id": new_task.project_id,
-        }
-    }, target_users, exclude_user_id=current_user.id))
-    
+        "data": {"task_id": new_task.id, "project_id": new_task.project_id}
+    }, project.team_member_ids, exclude_user_id=current_user.id))
+
     return new_task
 
 
@@ -138,10 +148,10 @@ async def update_task(
     """태스크 정보 수정"""
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="태스크를 찾을 수 없습니다"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="태스크를 찾을 수 없습니다")
+
+    # 프로젝트 접근 권한 검증
+    _get_project_or_403(db, task.project_id, current_user)
     
     # 변경된 필드 추적
     changed_fields = []
@@ -226,20 +236,21 @@ async def update_task(
     if changed_fields:
         notify_task_option_changed(db, task, current_user, changed_fields)
     
-    db.commit()
-    db.refresh(task)
-    
-    # 프로젝트 팀원에게만 태스크 업데이트 이벤트 전송 (타겟 전송)
+    try:
+        db.commit()
+        db.refresh(task)
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="태스크 수정에 실패했습니다")
+
+    # DB 커밋 성공 후 WebSocket 이벤트 전송
     project = db.query(Project).filter(Project.id == task.project_id).first()
-    target_users = project.team_member_ids if project else []
-    asyncio.create_task(manager.send_to_users({
-        "type": "task_updated",
-        "data": {
-            "task_id": task.id,
-            "project_id": task.project_id,
-        }
-    }, target_users, exclude_user_id=current_user.id))
-    
+    if project:
+        asyncio.create_task(manager.send_to_users({
+            "type": "task_updated",
+            "data": {"task_id": task.id, "project_id": task.project_id}
+        }, project.team_member_ids, exclude_user_id=current_user.id))
+
     return task
 
 
@@ -252,25 +263,30 @@ async def delete_task(
     """태스크 삭제"""
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="태스크를 찾을 수 없습니다"
-        )
-    
-    # 관련 댓글 ID 조회
-    comment_ids = [
-        c.id for c in db.query(Comment.id).filter(Comment.task_id == task_id).all()
-    ]
-    # 관련 알림 삭제 (task_id 또는 comment_id 참조)
-    noti_filter = Notification.task_id == task_id
-    if comment_ids:
-        noti_filter = or_(noti_filter, Notification.comment_id.in_(comment_ids))
-    db.query(Notification).filter(noti_filter).delete(synchronize_session=False)
-    # 관련 댓글 삭제
-    db.query(Comment).filter(Comment.task_id == task_id).delete(synchronize_session=False)
-    # 태스크 삭제
-    db.delete(task)
-    db.commit()
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="태스크를 찾을 수 없습니다")
+
+    # 프로젝트 접근 권한 검증 (PM 또는 admin만 삭제 가능)
+    project = _get_project_or_403(db, task.project_id, current_user)
+    if not current_user.is_admin and project.creator_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="태스크 삭제는 PM 또는 관리자만 가능합니다")
+
+    try:
+        # 관련 댓글 ID 조회
+        comment_ids = [c.id for c in db.query(Comment.id).filter(Comment.task_id == task_id).all()]
+        # 관련 알림 삭제
+        noti_filter = Notification.task_id == task_id
+        if comment_ids:
+            noti_filter = or_(noti_filter, Notification.comment_id.in_(comment_ids))
+        db.query(Notification).filter(noti_filter).delete(synchronize_session=False)
+        # 관련 댓글 삭제
+        db.query(Comment).filter(Comment.task_id == task_id).delete(synchronize_session=False)
+        # 태스크 삭제
+        db.delete(task)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="태스크 삭제에 실패했습니다")
+
     return {"message": "태스크가 삭제되었습니다"}
 
 

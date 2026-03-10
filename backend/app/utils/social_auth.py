@@ -79,8 +79,6 @@ async def exchange_kakao_auth_code(
     if settings.KAKAO_CLIENT_SECRET:
         body["client_secret"] = settings.KAKAO_CLIENT_SECRET
 
-    import sys
-    print(f"[Kakao] token request body: {body}", flush=True, file=sys.stderr)
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
@@ -90,8 +88,6 @@ async def exchange_kakao_auth_code(
             )
     except Exception as exc:  # noqa: BLE001
         raise SocialAuthError("Failed to exchange Kakao auth code") from exc
-
-    print(f"[Kakao] token response status={response.status_code} body={response.text}", flush=True, file=sys.stderr)
     if response.status_code != 200:
         detail = None
         try:

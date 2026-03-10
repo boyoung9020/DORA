@@ -38,7 +38,7 @@ services:
     command: >
       sh -c "
         python app/init_db.py &&
-        uvicorn app.main:app --host 0.0.0.0 --port 4000 --workers 2
+        uvicorn app.main:app --host 0.0.0.0 --port 4000 --no-access-log
       "
     networks:
       - sync_network

@@ -48,12 +48,15 @@ async def get_my_workspaces(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """내가 속한 워크스페이스 목록"""
-    memberships = db.query(WorkspaceMember).filter(
-        WorkspaceMember.user_id == current_user.id
-    ).all()
-    ws_ids = [m.workspace_id for m in memberships]
-    workspaces = db.query(Workspace).filter(Workspace.id.in_(ws_ids)).all()
+    """내가 속한 워크스페이스 목록 (admin은 전체)"""
+    if current_user.is_admin:
+        workspaces = db.query(Workspace).all()
+    else:
+        memberships = db.query(WorkspaceMember).filter(
+            WorkspaceMember.user_id == current_user.id
+        ).all()
+        ws_ids = [m.workspace_id for m in memberships]
+        workspaces = db.query(Workspace).filter(Workspace.id.in_(ws_ids)).all()
     return [_workspace_to_response(ws, db) for ws in workspaces]
 
 
@@ -92,9 +95,9 @@ async def get_workspace(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """워크스페이스 상세 조회 (멤버만)"""
+    """워크스페이스 상세 조회 (멤버 또는 admin)"""
     ws = _get_workspace_or_404(db, workspace_id)
-    if not _is_workspace_member(db, workspace_id, current_user.id):
+    if not current_user.is_admin and not _is_workspace_member(db, workspace_id, current_user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="워크스페이스 멤버가 아닙니다")
     return _workspace_to_response(ws, db)
 
@@ -105,9 +108,9 @@ async def get_workspace_members(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """워크스페이스 멤버 목록 (멤버만)"""
+    """워크스페이스 멤버 목록 (멤버 또는 admin)"""
     _get_workspace_or_404(db, workspace_id)
-    if not _is_workspace_member(db, workspace_id, current_user.id):
+    if not current_user.is_admin and not _is_workspace_member(db, workspace_id, current_user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="워크스페이스 멤버가 아닙니다")
 
     memberships = db.query(WorkspaceMember).filter(

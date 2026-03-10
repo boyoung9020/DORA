@@ -22,10 +22,10 @@ class Notification(Base):
     
     id = Column(String, primary_key=True, index=True)
     type = Column(SQLEnum(NotificationType), nullable=False, index=True)
-    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)  # 알림을 받는 사용자 ID
-    project_id = Column(String, ForeignKey("projects.id"), nullable=True, index=True)  # 관련 프로젝트 ID (선택적)
-    task_id = Column(String, ForeignKey("tasks.id"), nullable=True, index=True)  # 관련 작업 ID (선택적)
-    comment_id = Column(String, ForeignKey("comments.id"), nullable=True, index=True)  # 관련 코멘트 ID (선택적)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=True, index=True)
+    task_id = Column(String, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True, index=True)
+    comment_id = Column(String, ForeignKey("comments.id", ondelete="CASCADE"), nullable=True, index=True)
     title = Column(String, nullable=False)  # 알림 제목
     message = Column(String, nullable=False)  # 알림 메시지
     is_read = Column(Boolean, default=False, nullable=False, index=True)  # 읽음 여부

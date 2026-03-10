@@ -60,6 +60,47 @@ def ensure_image_urls_column() -> None:
 
 ensure_image_urls_column()
 
+
+def ensure_notification_cascades() -> None:
+    """notifications 테이블 FK에 ON DELETE CASCADE 적용 (기존 DB 마이그레이션)."""
+    fk_targets = [
+        ("notifications_user_id_fkey", "user_id", "users", "id"),
+        ("notifications_project_id_fkey", "project_id", "projects", "id"),
+        ("notifications_task_id_fkey", "task_id", "tasks", "id"),
+        ("notifications_comment_id_fkey", "comment_id", "comments", "id"),
+    ]
+    try:
+        conn = engine.connect()
+        try:
+            for constraint_name, col, ref_table, ref_col in fk_targets:
+                # 이미 CASCADE인지 확인
+                result = conn.execute(text("""
+                    SELECT rc.delete_rule
+                    FROM information_schema.referential_constraints rc
+                    JOIN information_schema.key_column_usage kcu
+                      ON kcu.constraint_name = rc.constraint_name
+                    WHERE kcu.table_name = 'notifications'
+                      AND kcu.column_name = :col
+                """), {"col": col})
+                row = result.fetchone()
+                if row and row[0] == "CASCADE":
+                    continue
+                # CASCADE 아니면 재생성
+                conn.execute(text(f"ALTER TABLE notifications DROP CONSTRAINT IF EXISTS {constraint_name}"))
+                nullable = "NOT NULL" if col == "user_id" else ""
+                conn.execute(text(
+                    f"ALTER TABLE notifications ADD CONSTRAINT {constraint_name} "
+                    f"FOREIGN KEY ({col}) REFERENCES {ref_table}({ref_col}) ON DELETE CASCADE"
+                ))
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"[main] failed to ensure notification cascades: {e}")
+
+
+ensure_notification_cascades()
+
 app = FastAPI(
     title="SYNC Project Manager API",
     description="SYNC project management backend API",

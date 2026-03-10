@@ -360,7 +360,6 @@ async def social_kakao_login_with_code(
         )
         profile = await verify_kakao_access_token(access_token)
     except SocialAuthError as exc:
-        import traceback; traceback.print_exc()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
     social_id = profile["social_id"] or ""

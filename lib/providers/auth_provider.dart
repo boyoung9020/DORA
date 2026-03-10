@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/user.dart';
 import '../services/auth_service.dart';
+import '../utils/api_client.dart';
 
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -22,8 +23,16 @@ class AuthProvider with ChangeNotifier {
   String? get pendingSocialProvider => _pendingSocialProvider;
 
   AuthProvider() {
+    // 토큰 만료(401) 시 자동 로그아웃
+    ApiClient.onUnauthorized = _forceLogout;
     _loadCurrentUser();
     _authService.initializeAdmin();
+  }
+
+  void _forceLogout() {
+    _currentUser = null;
+    _errorMessage = '세션이 만료되었습니다. 다시 로그인해주세요.';
+    notifyListeners();
   }
 
   Future<void> _loadCurrentUser() async {

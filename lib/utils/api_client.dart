@@ -11,6 +11,9 @@ class ApiClient {
   // 로컬 개발(flutter run): localhost:4000
   static final String baseUrl = _resolveBaseUrl();
 
+  /// 401 발생 시 호출되는 전역 콜백 (AuthProvider가 등록)
+  static void Function()? onUnauthorized;
+
   static String _resolveBaseUrl() {
     const env = String.fromEnvironment('API_BASE_URL');
     if (env.isNotEmpty) return env;
@@ -159,8 +162,9 @@ class ApiClient {
       }
       return jsonDecode(response.body) as Map<String, dynamic>;
     } else if (response.statusCode == 401) {
-      // 인증 오류 - 토큰 삭제
+      // 인증 오류 - 토큰 삭제 후 로그인 페이지로 이동
       clearToken();
+      onUnauthorized?.call();
       throw Exception('인증이 만료되었습니다. 다시 로그인해주세요.');
     } else {
       // 에러 메시지 파싱 시도
@@ -178,6 +182,10 @@ class ApiClient {
   static List<dynamic> handleListResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return jsonDecode(response.body) as List<dynamic>;
+    } else if (response.statusCode == 401) {
+      clearToken();
+      onUnauthorized?.call();
+      throw Exception('인증이 만료되었습니다. 다시 로그인해주세요.');
     } else {
       throw Exception('서버 오류 (${response.statusCode}): ${response.body}');
     }

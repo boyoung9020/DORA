@@ -117,50 +117,41 @@ async def websocket_endpoint(websocket: WebSocket):
     # 쿼리 파라미터에서 토큰 가져오기
     token = websocket.query_params.get("token")
     if not token:
-        print("[WebSocket] 토큰이 없습니다")
         await websocket.close(code=1008, reason="토큰이 필요합니다")
         return
-    
-    print(f"[WebSocket] 토큰 수신: {token[:20]}...")  # 토큰 일부만 로그
-    
-    # 토큰 검증 및 사용자 조회
+
+    # 토큰 검증
     payload = decode_access_token(token)
     if payload is None:
-        print("[WebSocket] 토큰 검증 실패")
         await websocket.close(code=1008, reason="유효하지 않은 토큰입니다")
         return
-    
-    print(f"[WebSocket] 토큰 검증 성공, payload: {payload}")
-    
+
     user_id = payload.get("sub")
     if not user_id:
         await websocket.close(code=1008, reason="토큰에서 사용자 정보를 찾을 수 없습니다")
         return
-    
+
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            print(f"[WebSocket] 사용자를 찾을 수 없음: {user_id}")
-            await websocket.close(code=1008, reason="사용자를 찾을 수 없습니다")
+        if not user or not user.is_approved:
+            await websocket.close(code=1008, reason="접근이 거부되었습니다")
             return
-        if not user.is_approved:
-            print(f"[WebSocket] 사용자 승인되지 않음: {user_id}, is_approved: {user.is_approved}")
-            await websocket.close(code=1008, reason="사용자가 승인되지 않았습니다")
-            return
-        
+
         await manager.connect(websocket, user.id)
+        print(f"[WebSocket] 사용자 {user.username} 연결됨. 총 연결: {len(manager.all_connections)}")
         try:
             while True:
-                # 클라이언트로부터 메시지 수신 (ping/pong 등)
-                data = await websocket.receive_text()
-                # 하트비트 응답
+                # 30초 타임아웃으로 ping/pong 처리 (좀비 연결 방지)
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
                 if data == "ping":
                     await websocket.send_text("pong")
+        except asyncio.TimeoutError:
+            # 60초간 메시지 없으면 연결 종료
+            manager.disconnect(websocket, user.id)
         except WebSocketDisconnect:
             manager.disconnect(websocket, user.id)
-        except Exception as e:
-            print(f"[WebSocket] 오류: {e}")
+        except Exception:
             manager.disconnect(websocket, user.id)
     finally:
         db.close()
