@@ -485,94 +485,80 @@ class _KanbanScreenState extends State<KanbanScreen> {
                       width: isDraggingOver ? 2 : 1,
                     ),
                   ),
-                  child: Stack(
-                    children: [
-                      tasks.isEmpty
-                          ? _buildEmptyColumn(context, status)
-                          : _buildTaskList(
-                              context,
-                              status,
-                              tasks,
-                              taskProvider,
-                              statusColor,
-                            ),
-                      Positioned(
-                        bottom: 8,
-                        right: 8,
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () =>
-                                _showAddTaskDialogForStatus(context, status),
-                            borderRadius: BorderRadius.circular(20.0),
-                            child: GlassContainer(
-                              padding: EdgeInsets.zero,
-                              borderRadius: 20.0,
-                              blur: 20.0,
-                              gradientColors: [
-                                colorScheme.surface.withValues(alpha: 0.6),
-                                colorScheme.surface.withValues(alpha: 0.5),
-                              ],
-                              borderColor:
-                                  Theme.of(context).brightness ==
-                                      Brightness.dark
-                                  ? colorScheme.onSurface.withValues(alpha: 0.2)
-                                  : const Color(0xFFE0E7FF),
-                              borderWidth: 1.0,
-                              child: Container(
-                                width: 36,
-                                height: 36,
-                                alignment: Alignment.center,
-                                child: Icon(
-                                  Icons.add,
-                                  color: colorScheme.onSurface,
-                                  size: 20,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () => _showAddTaskDialogForStatus(context, status),
+                    child: Stack(
+                      children: [
+                        // 컬럼에 카드가 있어도 안내 문구는 "배경"으로 항상 깔린다.
+                        // 카드가 쌓이면 자연스럽게 가려지고, 빈 공간/문구 탭으로도 추가 가능.
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: Center(
+                              child: Text(
+                                '태스크를 여기로 드래그하거나 탭하여 추가하세요',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: colorScheme.onSurface.withValues(alpha: 0.5),
+                                  fontSize: 14,
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                        if (tasks.isNotEmpty)
+                          _buildTaskList(
+                            context,
+                            status,
+                            tasks,
+                            taskProvider,
+                            statusColor,
+                          ),
+                        Positioned(
+                          bottom: 8,
+                          right: 8,
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () =>
+                                  _showAddTaskDialogForStatus(context, status),
+                              borderRadius: BorderRadius.circular(20.0),
+                              child: GlassContainer(
+                                padding: EdgeInsets.zero,
+                                borderRadius: 20.0,
+                                blur: 20.0,
+                                gradientColors: [
+                                  colorScheme.surface.withValues(alpha: 0.6),
+                                  colorScheme.surface.withValues(alpha: 0.5),
+                                ],
+                                borderColor:
+                                    Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? colorScheme.onSurface.withValues(alpha: 0.2)
+                                        : const Color(0xFFE0E7FF),
+                                borderWidth: 1.0,
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    Icons.add,
+                                    color: colorScheme.onSurface,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  /// 빈 컬럼 표시
-  Widget _buildEmptyColumn(BuildContext context, TaskStatus status) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    return GestureDetector(
-      onTap: () => _showAddTaskDialogForStatus(context, status),
-      child: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          color: isDarkMode ? Colors.transparent : const Color(0xFFFAFBFD),
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(
-            color: isDarkMode
-                ? colorScheme.onSurface.withValues(alpha: 0.1)
-                : const Color(0xFFE0E7FF),
-            style: BorderStyle.solid,
-          ),
-        ),
-        child: Center(
-          child: Text(
-            '태스크를 여기로 드래그하거나 탭하여 추가하세요',
-            style: TextStyle(
-              color: colorScheme.onSurface.withValues(alpha: 0.5),
-              fontSize: 14,
-            ),
-          ),
-        ),
       ),
     );
   }

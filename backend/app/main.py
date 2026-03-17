@@ -9,6 +9,7 @@ from app.routers import (
     ai,
     auth,
     chat,
+    checklists,
     comments,
     notifications,
     projects,
@@ -101,6 +102,59 @@ def ensure_notification_cascades() -> None:
 
 ensure_notification_cascades()
 
+
+def ensure_checklist_tables() -> None:
+    """checklists, checklist_items 테이블이 없으면 생성 (기존 DB 마이그레이션)."""
+    try:
+        conn = engine.connect()
+        try:
+            # checklists 테이블
+            result = conn.execute(text("SELECT to_regclass('public.checklists')"))
+            if result.scalar() is None:
+                conn.execute(text("""
+                    CREATE TABLE checklists (
+                        id VARCHAR PRIMARY KEY,
+                        task_id VARCHAR NOT NULL,
+                        title VARCHAR NOT NULL DEFAULT 'Checklist',
+                        created_by VARCHAR NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                    )
+                """))
+                conn.execute(text("CREATE INDEX ix_checklists_task_id ON checklists(task_id)"))
+                conn.execute(text("CREATE INDEX ix_checklists_id ON checklists(id)"))
+                print("[main] created checklists table")
+
+            # checklist_items 테이블
+            result = conn.execute(text("SELECT to_regclass('public.checklist_items')"))
+            if result.scalar() is None:
+                conn.execute(text("""
+                    CREATE TABLE checklist_items (
+                        id VARCHAR PRIMARY KEY,
+                        checklist_id VARCHAR NOT NULL,
+                        task_id VARCHAR NOT NULL,
+                        content VARCHAR NOT NULL,
+                        is_checked BOOLEAN NOT NULL DEFAULT FALSE,
+                        assignee_id VARCHAR,
+                        due_date TIMESTAMPTZ,
+                        display_order INTEGER NOT NULL DEFAULT 0,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                    )
+                """))
+                conn.execute(text("CREATE INDEX ix_checklist_items_checklist_id ON checklist_items(checklist_id)"))
+                conn.execute(text("CREATE INDEX ix_checklist_items_id ON checklist_items(id)"))
+                print("[main] created checklist_items table")
+
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"[main] failed to ensure checklist tables: {e}")
+
+
+ensure_checklist_tables()
+
 app = FastAPI(
     title="SYNC Project Manager API",
     description="SYNC project management backend API",
@@ -121,6 +175,7 @@ app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(projects.router, prefix="/api/projects", tags=["Projects"])
 app.include_router(tasks.router, prefix="/api/tasks", tags=["Tasks"])
 app.include_router(comments.router, prefix="/api/comments", tags=["Comments"])
+app.include_router(checklists.router, prefix="/api/checklists", tags=["Checklists"])
 app.include_router(uploads.router, prefix="/api/uploads", tags=["Uploads"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])

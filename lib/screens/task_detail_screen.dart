@@ -11,14 +11,17 @@ import 'dart:typed_data';
 import '../models/task.dart';
 import '../models/user.dart';
 import '../models/comment.dart';
+import '../models/checklist.dart';
 import '../providers/task_provider.dart';
 import '../providers/project_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
 import '../services/comment_service.dart';
+import '../services/checklist_service.dart';
 import '../services/upload_service.dart';
 import '../utils/api_client.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/checklist_widget.dart';
 import '../widgets/date_range_picker_dialog.dart';
 import '../utils/avatar_color.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -34,7 +37,7 @@ class _SubmitCommentIntent extends Intent {
 }
 
 /// ???袁⑥뵬???袁⑹뵠??????
-enum TimelineItemType { history, comment, detail }
+enum TimelineItemType { history, comment, detail, checklist }
 
 /// ???袁⑥뵬???袁⑹뵠???怨쀬뵠???????
 class TimelineItem {
@@ -84,7 +87,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   bool _isTitleHovering = false;
   final FocusNode _titleFocusNode = FocusNode();
   final CommentService _commentService = CommentService();
+  final ChecklistService _checklistService = ChecklistService();
   final UploadService _uploadService = UploadService();
+  List<Checklist> _checklists = [];
   final ImagePicker _imagePicker = ImagePicker();
   final FocusNode _commentFocusNode = FocusNode();
   final ScrollController _timelineScrollController = ScrollController();
@@ -201,15 +206,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       final results = await Future.wait([
         _commentService.getCommentsByTaskId(widget.task.id),
         _loadAssignedMembersData(),
+        _checklistService.getChecklistsByTaskId(widget.task.id),
       ]);
 
       final comments = results[0] as List<Comment>;
       final members = results[1] as List<User>?;
+      final checklists = results[2] as List<Checklist>;
 
       // ??甕곕뜄彛?setState ?紐꾪뀱
       setState(() {
         _comments = comments;
         _assignedMembers = members;
+        _checklists = checklists;
         _isLoadingComments = false;
       });
 
@@ -230,6 +238,128 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   /// ?蹂? 嚥≪뮆諭?
+  // ===== 체크리스트 핸들러 =====
+
+  void _syncChecklistsIntoTimeline() {
+    final current = _timelineItems;
+    if (current == null || current.isEmpty) return;
+
+    final byId = <String, Checklist>{for (final c in _checklists) c.id: c};
+
+    setState(() {
+      _timelineItems = current.map((item) {
+        if (item.type != TimelineItemType.checklist) return item;
+        final existing = item.data as Checklist;
+        final updated = byId[existing.id];
+        if (updated == null) return item;
+        // keep original timeline date ordering; only refresh the checklist payload
+        return TimelineItem(type: item.type, date: item.date, data: updated);
+      }).toList(growable: false);
+    });
+  }
+
+  Future<void> _createChecklist() async {
+    try {
+      final checklist = await _checklistService.createChecklist(taskId: widget.task.id);
+      setState(() => _checklists.add(checklist));
+      await _loadTimelineItems(scrollToBottom: true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('체크리스트 생성 실패: $e')));
+      }
+    }
+  }
+
+  Future<void> _deleteChecklist(String checklistId) async {
+    try {
+      await _checklistService.deleteChecklist(checklistId);
+      setState(() => _checklists.removeWhere((c) => c.id == checklistId));
+      await _loadTimelineItems();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('체크리스트 삭제 실패: $e')));
+      }
+    }
+  }
+
+  Future<void> _addChecklistItem(String checklistId, String itemContent) async {
+    try {
+      final item = await _checklistService.addItem(checklistId: checklistId, content: itemContent);
+      if (!mounted) return;
+      setState(() {
+        final idx = _checklists.indexWhere((c) => c.id == checklistId);
+        if (idx != -1) {
+          _checklists[idx] = _checklists[idx].copyWith(
+            items: [..._checklists[idx].items, item],
+          );
+        }
+      });
+      _syncChecklistsIntoTimeline();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('항목 추가 실패: $e')));
+      }
+    }
+  }
+
+  Future<void> _toggleChecklistItem(String itemId, bool checked) async {
+    try {
+      final updated = await _checklistService.updateItem(itemId, isChecked: checked);
+      _replaceChecklistItem(updated);
+      _syncChecklistsIntoTimeline();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('항목 수정 실패: $e')));
+      }
+    }
+  }
+
+  Future<void> _deleteChecklistItem(String itemId) async {
+    try {
+      await _checklistService.deleteItem(itemId);
+      for (var i = 0; i < _checklists.length; i++) {
+        final newItems = _checklists[i].items.where((it) => it.id != itemId).toList();
+        if (newItems.length != _checklists[i].items.length) {
+          _checklists[i] = _checklists[i].copyWith(items: newItems);
+          break;
+        }
+      }
+      if (!mounted) return;
+      setState(() {});
+      _syncChecklistsIntoTimeline();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('항목 삭제 실패: $e')));
+      }
+    }
+  }
+
+  Future<void> _updateChecklistItem(String itemId, {String? assigneeId, DateTime? dueDate}) async {
+    try {
+      final updated = await _checklistService.updateItem(itemId, assigneeId: assigneeId, dueDate: dueDate);
+      _replaceChecklistItem(updated);
+      _syncChecklistsIntoTimeline();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('항목 업데이트 실패: $e')));
+      }
+    }
+  }
+
+  void _replaceChecklistItem(ChecklistItem updated) {
+    setState(() {
+      for (var i = 0; i < _checklists.length; i++) {
+        final idx = _checklists[i].items.indexWhere((it) => it.id == updated.id);
+        if (idx != -1) {
+          final newItems = List<ChecklistItem>.from(_checklists[i].items);
+          newItems[idx] = updated;
+          _checklists[i] = _checklists[i].copyWith(items: newItems);
+          break;
+        }
+      }
+    });
+  }
+
   Future<void> _loadComments({bool updateTimeline = true}) async {
     setState(() {
       _isLoadingComments = true;
@@ -1315,6 +1445,23 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                               ),
                                             );
                                           },
+                                        );
+                                      }
+                                       else if (item.type ==
+                                          TimelineItemType.checklist) {
+                                        final checklist = item.data as Checklist;
+                                        return Padding(
+                                          key: ValueKey('timeline-checklist-${checklist.id}'),
+                                          padding: const EdgeInsets.only(bottom: 12),
+                                          child: ChecklistWidget(
+                                            checklist: checklist,
+                                            members: _assignedMembers ?? [],
+                                            onItemToggled: (itemId, checked) => _toggleChecklistItem(itemId, checked),
+                                            onItemDeleted: (itemId) => _deleteChecklistItem(itemId),
+                                            onItemAdded: (cId, text) => _addChecklistItem(cId, text),
+                                            onChecklistDeleted: (cId) => _deleteChecklist(cId),
+                                            onItemUpdated: (itemId, {assigneeId, dueDate}) => _updateChecklistItem(itemId, assigneeId: assigneeId, dueDate: dueDate),
+                                          ),
                                         );
                                       }
                                       return const SizedBox.shrink();
@@ -2643,6 +2790,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
     // ??볦퍢??뽰몵嚥??類ｌ졊 (??살삋??野껉퍓???- 筌ㅼ뮇????????袁⑥삋????뽯뻻??
     // 筌뤴뫀諭??醫롮???UTC嚥?癰궰??묐릭?????袁⒲?筌△뫁???얜챷????욧퍙
+    // 체크리스트 항목 추가
+    for (final checklist in _checklists) {
+      items.add(
+        TimelineItem(
+          type: TimelineItemType.checklist,
+          date: checklist.createdAt,
+          data: checklist,
+        ),
+      );
+    }
+
     items.sort((a, b) {
       // Local ???袁⒲??UTC嚥?癰궰??
       final aUtc = a.date.isUtc ? a.date : a.date.toUtc();
@@ -3829,13 +3987,26 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.image,
-                                      color: colorScheme.primary,
-                                    ),
-                                    onPressed: _pickCommentImages,
-                                    tooltip: '이미지 추가',
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.image,
+                                          color: colorScheme.primary,
+                                        ),
+                                        onPressed: _pickCommentImages,
+                                        tooltip: '이미지 추가',
+                                      ),
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.checklist,
+                                          color: colorScheme.primary,
+                                        ),
+                                        onPressed: _createChecklist,
+                                        tooltip: '체크리스트 추가',
+                                      ),
+                                    ],
                                   ),
                                   TextButton(
                                     onPressed: _addComment,

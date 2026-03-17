@@ -6,6 +6,7 @@ import '../providers/task_provider.dart';
 import '../providers/project_provider.dart';
 import '../models/task.dart';
 import '../widgets/glass_container.dart';
+import 'task_detail_screen.dart';
 
 /// ?щ젰 ?붾㈃
 class CalendarScreen extends StatefulWidget {
@@ -638,7 +639,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
         final task = tasks[index];
         final statusColor = task.status.color;
 
-        return Container(
+        return InkWell(
+          onTap: () {
+            showGeneralDialog(
+              context: context,
+              transitionDuration: Duration.zero,
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  TaskDetailScreen(task: task),
+              transitionBuilder: (context, animation, secondaryAnimation, child) =>
+                  child,
+            );
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -718,6 +731,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ),
             ],
           ),
+        ),
         );
       },
     );

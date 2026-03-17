@@ -1,5 +1,6 @@
 """AI manager summary router."""
 
+import asyncio
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
@@ -238,7 +239,8 @@ async def get_ai_summary(
 
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        response = client.models.generate_content(
+        response = await asyncio.to_thread(
+            client.models.generate_content,
             model="gemini-2.5-flash",
             contents=prompt,
         )
