@@ -84,7 +84,7 @@ class ProjectProvider extends ChangeNotifier {
       final found = _projects.any((p) => p.id == _currentProject!.id);
       if (!found && _projects.isNotEmpty) {
         _currentProject = _projects.first;
-      } else if (!found && _projects.isEmpty) {
+      } else if (!found) {
         _currentProject = null;
       }
     } else if (_projects.isNotEmpty) {
@@ -125,7 +125,9 @@ class ProjectProvider extends ChangeNotifier {
         } else if (_projects.isNotEmpty) {
           _currentProject = _projects.first;
         } else {
+          // 속한 프로젝트가 없으면 자동으로 '전체' 모드로 전환
           _currentProject = null;
+          _isAllProjectsMode = true;
         }
       }
       

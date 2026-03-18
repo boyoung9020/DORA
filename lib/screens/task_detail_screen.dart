@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import '../models/task.dart';
+import '../models/project.dart';
 import '../models/user.dart';
 import '../models/comment.dart';
 import '../models/checklist.dart';
@@ -105,6 +106,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   List<String> _uploadedCommentImageUrls = []; // ??낆쨮??뺣쭆 ?蹂? ???筌왖 URL
   List<String> _uploadedDetailImageUrls = []; // ??낆쨮??뺣쭆 ?怨멸쉭 ??곸뒠 ???筌왖 URL
   List<User>? _assignedMembers; // ?醫딅뼣??????筌?Ŋ??
+  List<User> _projectMembers = []; // 프로젝트 전체 멤버 (체크리스트 할당용)
   bool _isInitialLoad = true; // ?λ뜃由?嚥≪뮆諭????
   List<String>? _lastAssignedMemberIds; // ??곸읈 ?醫딅뼣??????ID (??녿┛???類ㅼ뵥??
   List<User> _mentionCandidates = [];
@@ -270,6 +272,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
+  Future<void> _updateChecklistTitle(String checklistId, String newTitle) async {
+    try {
+      final updated = await _checklistService.updateChecklist(checklistId, title: newTitle);
+      setState(() {
+        final idx = _checklists.indexWhere((c) => c.id == checklistId);
+        if (idx != -1) _checklists[idx] = updated;
+      });
+      await _loadTimelineItems();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('체크리스트 이름 변경 실패: $e')));
+      }
+    }
+  }
+
   Future<void> _deleteChecklist(String checklistId) async {
     try {
       await _checklistService.deleteChecklist(checklistId);
@@ -420,7 +437,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   Future<void> _loadMentionCandidates() async {
     try {
-      final project = context.read<ProjectProvider>().currentProject;
+      final projectProvider = context.read<ProjectProvider>();
+      Project? project = projectProvider.currentProject;
+      if (project == null) {
+        try {
+          project = projectProvider.projects.firstWhere(
+            (p) => p.id == widget.task.projectId,
+          );
+        } catch (_) {}
+      }
       if (project == null) {
         if (mounted) {
           setState(() {
@@ -436,14 +461,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       final authService = AuthService();
       final allUsers = await authService.getAllUsers();
       final currentUserId = context.read<AuthProvider>().currentUser?.id;
-      final candidates = allUsers
-          .where((u) => project.teamMemberIds.contains(u.id))
+      final projectMembers = allUsers
+          .where((u) => project!.teamMemberIds.contains(u.id))
+          .toList();
+      final candidates = projectMembers
           .where((u) => u.id != currentUserId)
           .toList();
 
       if (!mounted) return;
       setState(() {
         _mentionCandidates = candidates;
+        _projectMembers = projectMembers;
       });
     } catch (_) {
       // noop
@@ -1455,12 +1483,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           padding: const EdgeInsets.only(bottom: 12),
                                           child: ChecklistWidget(
                                             checklist: checklist,
-                                            members: _assignedMembers ?? [],
+                                            members: _projectMembers,
                                             onItemToggled: (itemId, checked) => _toggleChecklistItem(itemId, checked),
                                             onItemDeleted: (itemId) => _deleteChecklistItem(itemId),
                                             onItemAdded: (cId, text) => _addChecklistItem(cId, text),
                                             onChecklistDeleted: (cId) => _deleteChecklist(cId),
                                             onItemUpdated: (itemId, {assigneeId, dueDate}) => _updateChecklistItem(itemId, assigneeId: assigneeId, dueDate: dueDate),
+                                            onTitleUpdated: (cId, newTitle) => _updateChecklistTitle(cId, newTitle),
                                           ),
                                         );
                                       }
@@ -2436,15 +2465,26 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     TaskProvider taskProvider,
     currentProject,
   ) async {
-    if (currentProject == null) return;
-
     final colorScheme = Theme.of(context).colorScheme;
     final authService = AuthService();
+
+    // all-projects 모드에서 currentProject가 null이면 task의 projectId로 찾기
+    Project? resolvedProject = currentProject;
+    if (resolvedProject == null) {
+      try {
+        resolvedProject = context.read<ProjectProvider>().projects.firstWhere(
+          (p) => p.id == task.projectId,
+        );
+      } catch (_) {}
+    }
 
     try {
       final allUsers = await authService.getAllUsers();
       final projectMembers = allUsers.where((user) {
-        return currentProject.teamMemberIds.contains(user.id);
+        if (resolvedProject != null) {
+          return resolvedProject.teamMemberIds.contains(user.id);
+        }
+        return true; // 프로젝트를 찾을 수 없으면 모든 유저 표시
       }).toList();
 
       if (projectMembers.isEmpty) {
