@@ -131,30 +131,32 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.close(code=1008, reason="토큰에서 사용자 정보를 찾을 수 없습니다")
         return
 
+    # DB 세션은 유저 조회에만 사용하고 즉시 반환 (커넥션 풀 고갈 방지)
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.id == user_id).first()
         if not user or not user.is_approved:
             await websocket.close(code=1008, reason="접근이 거부되었습니다")
             return
-
-        await manager.connect(websocket, user.id)
-        print(f"[WebSocket] 사용자 {user.username} 연결됨. 총 연결: {len(manager.all_connections)}")
-        try:
-            while True:
-                # 30초 타임아웃으로 ping/pong 처리 (좀비 연결 방지)
-                data = await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
-                if data == "ping":
-                    await websocket.send_text("pong")
-        except asyncio.TimeoutError:
-            # 60초간 메시지 없으면 연결 종료
-            manager.disconnect(websocket, user.id)
-        except WebSocketDisconnect:
-            manager.disconnect(websocket, user.id)
-        except Exception:
-            manager.disconnect(websocket, user.id)
+        resolved_user_id = user.id
+        resolved_username = user.username
     finally:
         db.close()
+
+    await manager.connect(websocket, resolved_user_id)
+    print(f"[WebSocket] 사용자 {resolved_username} 연결됨. 총 연결: {len(manager.all_connections)}")
+    try:
+        while True:
+            # 60초 타임아웃으로 ping/pong 처리 (좀비 연결 방지)
+            data = await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
+            if data == "ping":
+                await websocket.send_text("pong")
+    except asyncio.TimeoutError:
+        manager.disconnect(websocket, resolved_user_id)
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, resolved_user_id)
+    except Exception:
+        manager.disconnect(websocket, resolved_user_id)
 
 
 def broadcast_event(event_type: str, data: dict, exclude_user_id: str = None):

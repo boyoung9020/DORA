@@ -8,8 +8,17 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from app.config import settings
 
-# 비밀번호 해싱 컨텍스트
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# passlib 1.7.4 + bcrypt 4.x 호환성 패치
+# bcrypt 4.0부터 __about__ 속성이 제거되어 passlib이 느린 fallback을 사용하는 문제 수정
+try:
+    import bcrypt as _bcrypt
+    if not hasattr(_bcrypt, '__about__'):
+        _bcrypt.__about__ = type('_about', (), {'__version__': _bcrypt.__version__})()
+except Exception:
+    pass
+
+# 비밀번호 해싱 컨텍스트 (rounds=10: 서버 부하 감안해 12→10으로 조정, ~0.1s)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=10)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

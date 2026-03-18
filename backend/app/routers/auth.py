@@ -1,6 +1,8 @@
 ﻿"""Authentication API routes."""
+import asyncio
 import re
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -211,14 +213,31 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     return new_user
 
 
+_thread_pool = ThreadPoolExecutor(max_workers=4)
+
+
 @router.post("/login", response_model=Token)
 async def login(user_data: UserLogin, db: Session = Depends(get_db)):
     """Login with username/email and password."""
+    import time as _time
+    _t0 = _time.monotonic()
+
     user = db.query(User).filter(
         (User.email == user_data.username) | (User.username == user_data.username)
     ).first()
+    _t1 = _time.monotonic()
+    print(f"[LOGIN] DB query: {_t1 - _t0:.3f}s")
 
-    if not user or not verify_password(user_data.password, user.password_hash):
+    # verify_password는 bcrypt 연산으로 blocking → 이벤트 루프 블로킹 방지
+    loop = asyncio.get_running_loop()
+    password_hash = user.password_hash if user else "$2b$10$invalidhashfortimingattackprevention"
+    is_valid = await loop.run_in_executor(
+        _thread_pool, verify_password, user_data.password, password_hash
+    )
+    _t2 = _time.monotonic()
+    print(f"[LOGIN] bcrypt verify: {_t2 - _t1:.3f}s  |  total: {_t2 - _t0:.3f}s")
+
+    if not user or not is_valid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="이메일 또는 비밀번호가 올바르지 않습니다.",
