@@ -1612,7 +1612,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       builder: (context) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          child: GlassContainer(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: GlassContainer(
             padding: const EdgeInsets.all(24),
             borderRadius: 20.0,
             blur: 25.0,
@@ -1664,6 +1666,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 ),
               ],
             ),
+          ),
           ),
         );
       },
