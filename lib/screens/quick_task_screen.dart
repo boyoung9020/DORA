@@ -69,10 +69,20 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
   }
 
   void _addTask() {
-    final text = _taskController.text.trim();
-    if (text.isEmpty) return;
-
     final projectProvider = context.read<ProjectProvider>();
+    if (projectProvider.isAllProjectsMode) return;
+
+    final text = _taskController.text.trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('제목을 입력해주세요.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     final currentProjectId = projectProvider.currentProject?.id;
     if (currentProjectId == null) return;
 
@@ -527,23 +537,35 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                                       },
                                       tooltip: '편집',
                                     ),
-                                    // 삭제 버튼
-                                    IconButton(
-                                      icon: Icon(
-                                        Icons.close,
-                                        size: 20,
-                                        color: Colors.red.withValues(
-                                          alpha: 0.7,
-                                        ),
-                                      ),
-                                      onPressed: () {
-                                        _showDeleteConfirmDialog(
-                                          context,
-                                          task,
-                                          taskProvider,
+                                    // 삭제 버튼 (PM, admin, 또는 태스크 생성자만)
+                                    Builder(
+                                      builder: (context) {
+                                        final authProvider = context.read<AuthProvider>();
+                                        final currentUser = authProvider.currentUser;
+                                        final projectProvider = context.read<ProjectProvider>();
+                                        final currentProject = projectProvider.currentProject;
+                                        final isPm = currentProject?.creatorId == currentUser?.id;
+                                        final isTaskCreator = task.creatorId == currentUser?.id;
+                                        final canDelete = (currentUser?.isAdmin ?? false) || isPm || isTaskCreator;
+                                        if (!canDelete) return const SizedBox.shrink();
+                                        return IconButton(
+                                          icon: Icon(
+                                            Icons.close,
+                                            size: 20,
+                                            color: Colors.red.withValues(
+                                              alpha: 0.7,
+                                            ),
+                                          ),
+                                          onPressed: () {
+                                            _showDeleteConfirmDialog(
+                                              context,
+                                              task,
+                                              taskProvider,
+                                            );
+                                          },
+                                          tooltip: '삭제',
                                         );
                                       },
-                                      tooltip: '삭제',
                                     ),
                                   ],
                                 ),
@@ -660,20 +682,23 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
             borderRadius: 20.0,
             blur: 25.0,
             gradientColors: [
-              colorScheme.surface.withValues(alpha: 0.6),
-              colorScheme.surface.withValues(alpha: 0.5),
+              colorScheme.surface.withValues(alpha: isAllMode ? 0.3 : 0.6),
+              colorScheme.surface.withValues(alpha: isAllMode ? 0.25 : 0.5),
             ],
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _taskController,
+                    enabled: !isAllMode,
                     decoration: InputDecoration(
-                      hintText: '태스크를 입력하고 Enter를 누르세요...',
+                      hintText: isAllMode
+                          ? '프로젝트를 선택하면 태스크를 추가할 수 있습니다.'
+                          : '태스크를 입력하고 Enter를 누르세요...',
                       border: InputBorder.none,
                       hintStyle: TextStyle(
-                        color: colorScheme.onSurface.withValues(alpha: 0.5),
-                        fontSize: 16,
+                        color: colorScheme.onSurface.withValues(alpha: isAllMode ? 0.35 : 0.5),
+                        fontSize: 15,
                       ),
                     ),
                     style: TextStyle(
@@ -688,23 +713,18 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: Icon(Icons.send, color: colorScheme.primary),
-                  onPressed: _addTask,
-                  tooltip: '추가',
+                  icon: Icon(
+                    Icons.send,
+                    color: isAllMode
+                        ? colorScheme.onSurface.withValues(alpha: 0.25)
+                        : colorScheme.primary,
+                  ),
+                  onPressed: isAllMode ? null : _addTask,
+                  tooltip: isAllMode ? '프로젝트를 선택하세요' : '추가',
                 ),
               ],
             ),
           ),
-          if (isAllMode) ...[
-            const SizedBox(height: 8),
-            Text(
-              '새 태스크를 추가하려면 특정 프로젝트를 선택하세요.',
-              style: TextStyle(
-                fontSize: 12,
-                color: colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-          ],
         ],
       ),
     );

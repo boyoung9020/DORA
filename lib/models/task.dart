@@ -153,6 +153,7 @@ class Task {
   final List<PriorityChangeHistory> priorityHistory; // 以묒슂??蹂寃??덉뒪?좊━
   final List<Map<String, String>> documentLinks;
   final int displayOrder; // 移몃컲 蹂대뱶 ???쒖떆 ?쒖꽌
+  final String? creatorId; // 태스크 생성자 ID
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -175,6 +176,7 @@ class Task {
     List<PriorityChangeHistory>? priorityHistory,
     List<Map<String, String>>? documentLinks,
     this.displayOrder = 0,
+    this.creatorId,
     required this.createdAt,
     required this.updatedAt,
   }) : detailImageUrls = detailImageUrls ?? [],
@@ -207,6 +209,7 @@ class Task {
       'priorityHistory': priorityHistory.map((h) => h.toJson()).toList(),
       'document_links': documentLinks,
       'display_order': displayOrder,
+      'creator_id': creatorId,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -359,6 +362,7 @@ class Task {
       priorityHistory: priorityHistory,
       documentLinks: documentLinks,
       displayOrder: json['display_order'] ?? 0,
+      creatorId: json['creator_id'] as String?,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -384,6 +388,7 @@ class Task {
     List<PriorityChangeHistory>? priorityHistory,
     List<Map<String, String>>? documentLinks,
     int? displayOrder,
+    String? creatorId,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -406,6 +411,7 @@ class Task {
       priorityHistory: priorityHistory ?? this.priorityHistory,
       documentLinks: documentLinks ?? this.documentLinks,
       displayOrder: displayOrder ?? this.displayOrder,
+      creatorId: creatorId ?? this.creatorId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

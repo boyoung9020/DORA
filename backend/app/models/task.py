@@ -42,6 +42,7 @@ class Task(Base):
     priority = Column(SQLEnum(TaskPriority), nullable=False, default=TaskPriority.P2)
     display_order = Column(Integer, default=0, nullable=False)
     sprint_id = Column(String, ForeignKey("sprints.id"), nullable=True, index=True)
+    creator_id = Column(String, nullable=True, index=True)  # 태스크 생성자 ID
 
     # 문서 링크 [{title: str, url: str}, ...]
     document_links = Column(JSON, default=[], nullable=False)

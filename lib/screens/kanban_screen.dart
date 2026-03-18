@@ -281,6 +281,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   taskProvider,
                   currentProjectId: currentProjectId,
                   columnWidth: columnWidth,
+                  isAllMode: isAllMode,
                 ),
                 SizedBox(width: spacing),
                 _buildColumn(
@@ -296,6 +297,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   taskProvider,
                   currentProjectId: currentProjectId,
                   columnWidth: columnWidth,
+                  isAllMode: isAllMode,
                 ),
                 SizedBox(width: spacing),
                 _buildColumn(
@@ -311,6 +313,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   taskProvider,
                   currentProjectId: currentProjectId,
                   columnWidth: columnWidth,
+                  isAllMode: isAllMode,
                 ),
                 SizedBox(width: spacing),
                 _buildColumn(
@@ -326,6 +329,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   taskProvider,
                   currentProjectId: currentProjectId,
                   columnWidth: columnWidth,
+                  isAllMode: isAllMode,
                 ),
                 SizedBox(width: spacing),
                 _buildColumn(
@@ -341,6 +345,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   taskProvider,
                   currentProjectId: currentProjectId,
                   columnWidth: columnWidth,
+                  isAllMode: isAllMode,
                 ),
               ],
             ),
@@ -358,6 +363,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     TaskProvider taskProvider, {
     String? currentProjectId,
     double columnWidth = 300,
+    bool isAllMode = false,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     final statusColor = status.color;
@@ -487,7 +493,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   ),
                   child: GestureDetector(
                     behavior: HitTestBehavior.translucent,
-                    onTap: () => _showAddTaskDialogForStatus(context, status),
+                    onTap: isAllMode ? null : () => _showAddTaskDialogForStatus(context, status),
                     child: Stack(
                       children: [
                         // 컬럼에 카드가 있어도 안내 문구는 "배경"으로 항상 깔린다.
@@ -520,7 +526,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: () =>
+                              onTap: isAllMode ? null : () =>
                                   _showAddTaskDialogForStatus(context, status),
                               borderRadius: BorderRadius.circular(20.0),
                               child: GlassContainer(
@@ -857,6 +863,16 @@ class _KanbanScreenState extends State<KanbanScreen> {
     BuildContext context,
     TaskStatus initialStatus,
   ) {
+    final projectProvider = context.read<ProjectProvider>();
+    if (projectProvider.isAllProjectsMode) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('태스크를 추가하려면 특정 프로젝트를 선택해주세요.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
     final titleController = TextEditingController();
     TaskStatus selectedStatus = initialStatus;
     TaskPriority selectedPriority = TaskPriority.p1;
@@ -1136,30 +1152,37 @@ class _KanbanScreenState extends State<KanbanScreen> {
                             child: GlassButton(
                               text: '추가',
                               onPressed: () {
-                                if (titleController.text.trim().isNotEmpty) {
-                                  final projectProvider = context
-                                      .read<ProjectProvider>();
-                                  final currentProjectId =
-                                      projectProvider.currentProject?.id;
-                                  final authProvider = context
-                                      .read<AuthProvider>();
-                                  final currentUserId =
-                                      authProvider.currentUser?.id;
-                                  if (currentProjectId != null &&
-                                      currentUserId != null) {
-                                    context.read<TaskProvider>().createTask(
-                                      title: titleController.text.trim(),
-                                      description: '',
-                                      status: selectedStatus,
-                                      projectId: currentProjectId,
-                                      startDate: startDate,
-                                      endDate: endDate,
-                                      priority: selectedPriority,
-                                      assignedMemberIds: [currentUserId],
-                                    );
-                                  }
-                                  Navigator.of(context).pop();
+                                if (titleController.text.trim().isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('제목을 입력해주세요.'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                  return;
                                 }
+                                final projectProvider = context
+                                    .read<ProjectProvider>();
+                                final currentProjectId =
+                                    projectProvider.currentProject?.id;
+                                final authProvider = context
+                                    .read<AuthProvider>();
+                                final currentUserId =
+                                    authProvider.currentUser?.id;
+                                if (currentProjectId != null &&
+                                    currentUserId != null) {
+                                  context.read<TaskProvider>().createTask(
+                                    title: titleController.text.trim(),
+                                    description: '',
+                                    status: selectedStatus,
+                                    projectId: currentProjectId,
+                                    startDate: startDate,
+                                    endDate: endDate,
+                                    priority: selectedPriority,
+                                    assignedMemberIds: [currentUserId],
+                                  );
+                                }
+                                Navigator.of(context).pop();
                               },
                               gradientColors: [
                                 colorScheme.primary.withValues(alpha: 0.5),
@@ -1351,6 +1374,26 @@ class _KanbanScreenState extends State<KanbanScreen> {
   ) {
     final size = MediaQuery.of(context).size;
     final navContext = Navigator.of(context).context;
+
+    final authProvider = context.read<AuthProvider>();
+    final currentUser = authProvider.currentUser;
+    final projectProvider = context.read<ProjectProvider>();
+    // all-projects 모드에서 currentProject가 null이면 task의 실제 프로젝트로 조회
+    final currentProject = projectProvider.currentProject ??
+        (() {
+          try {
+            return projectProvider.projects.firstWhere(
+              (p) => p.id == task.projectId,
+            );
+          } catch (_) {
+            return null;
+          }
+        }());
+    final isPm = currentProject?.creatorId == currentUser?.id;
+    final isTaskCreator = task.creatorId == currentUser?.id;
+    final canDelete = (currentUser?.isAdmin ?? false) || isPm || isTaskCreator;
+
+    if (!canDelete) return;
 
     showMenu<String>(
       context: context,

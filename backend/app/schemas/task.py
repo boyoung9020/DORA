@@ -51,6 +51,7 @@ class TaskReorderRequest(BaseModel):
 class TaskResponse(TaskBase):
     """태스크 응답 스키마"""
     id: str
+    creator_id: Optional[str] = None
     comment_ids: List[str]
     display_order: int = 0
     status_history: List[Dict[str, Any]] = []

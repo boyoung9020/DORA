@@ -99,6 +99,7 @@ async def create_task(
             priority=task_data.priority,
             assigned_member_ids=task_data.assigned_member_ids,
             sprint_id=task_data.sprint_id,
+            creator_id=current_user.id,
             document_links=task_data.document_links or [],
             comment_ids=[],
             status_history=[],
@@ -265,10 +266,12 @@ async def delete_task(
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="태스크를 찾을 수 없습니다")
 
-    # 프로젝트 접근 권한 검증 (PM 또는 admin만 삭제 가능)
+    # 프로젝트 접근 권한 검증 (PM, admin, 또는 태스크 생성자만 삭제 가능)
     project = _get_project_or_403(db, task.project_id, current_user)
-    if not current_user.is_admin and project.creator_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="태스크 삭제는 PM 또는 관리자만 가능합니다")
+    is_pm = project.creator_id == current_user.id
+    is_task_creator = task.creator_id == current_user.id
+    if not current_user.is_admin and not is_pm and not is_task_creator:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="태스크 삭제는 PM, 관리자, 또는 태스크 생성자만 가능합니다")
 
     try:
         # 관련 댓글 ID 조회
