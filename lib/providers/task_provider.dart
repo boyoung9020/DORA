@@ -11,6 +11,8 @@ class TaskProvider extends ChangeNotifier {
   List<Task> _allTasks = [];
   bool _isLoading = false;
   String? _errorMessage;
+  // 작업 필터: null=모든 작업, 'mine'=내 작업, userId=특정 멤버
+  String? _taskOwnerFilter;
 
   // 실시간 댓글 갱신 콜백 (열린 태스크 다이얼로그에서 등록)
   final Map<String, List<void Function()>> _commentListeners = {};
@@ -19,6 +21,18 @@ class TaskProvider extends ChangeNotifier {
   List<Task> get allTasks => _allTasks;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  bool get showMyTasksOnly => _taskOwnerFilter == 'mine';
+  String? get taskOwnerFilter => _taskOwnerFilter;
+
+  void toggleMyTasksOnly() {
+    _taskOwnerFilter = _taskOwnerFilter == 'mine' ? null : 'mine';
+    notifyListeners();
+  }
+
+  void setTaskOwnerFilter(String? filter) {
+    _taskOwnerFilter = filter;
+    notifyListeners();
+  }
 
   /// 댓글 갱신 리스너 등록 (태스크 상세 화면에서 호출)
   void addCommentListener(String taskId, void Function() callback) {

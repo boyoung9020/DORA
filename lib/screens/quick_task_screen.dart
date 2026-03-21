@@ -123,13 +123,24 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
     final isAllMode = projectProvider.isAllProjectsMode;
 
     // 현재 프로젝트의 모든 태스크 필터링
-    final allTasks = isAllMode
+    var allTasks = isAllMode
         ? taskProvider.tasks.toList()
         : (currentProjectId != null
               ? taskProvider.tasks
                     .where((task) => task.projectId == currentProjectId)
                     .toList()
               : <Task>[]);
+
+    // 작업 소유자 필터 (글로벌)
+    final ownerFilter = context.read<TaskProvider>().taskOwnerFilter;
+    if (ownerFilter == 'mine') {
+      final currentUserId = context.read<AuthProvider>().currentUser?.id;
+      if (currentUserId != null) {
+        allTasks = allTasks.where((task) => task.assignedMemberIds.contains(currentUserId)).toList();
+      }
+    } else if (ownerFilter != null) {
+      allTasks = allTasks.where((task) => task.assignedMemberIds.contains(ownerFilter)).toList();
+    }
 
     // 최신 태스크가 위에 오도록 정렬 (createdAt 기준 내림차순)
     allTasks.sort((a, b) => b.createdAt.compareTo(a.createdAt));

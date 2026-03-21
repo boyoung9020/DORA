@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/task.dart';
 import '../models/project.dart';
+import '../models/user.dart';
 import '../providers/task_provider.dart';
 import '../providers/project_provider.dart';
 import '../providers/auth_provider.dart';
@@ -26,6 +27,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
   String _searchQuery = '';
   String? _lastLoadedProjectId;
   bool? _lastLoadedAllMode;
+  Map<String, User> _usersById = {};
 
   @override
   void initState() {
@@ -35,6 +37,18 @@ class _KanbanScreenState extends State<KanbanScreen> {
         _searchQuery = _searchController.text;
       });
     });
+    _loadAllUsers();
+  }
+
+  Future<void> _loadAllUsers() async {
+    try {
+      final users = await AuthService().getAllUsers();
+      if (mounted) {
+        setState(() {
+          _usersById = {for (final u in users) u.id: u};
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -175,21 +189,37 @@ class _KanbanScreenState extends State<KanbanScreen> {
 
   /// 태스크 필터링
   List<Task> _filterTasks(List<Task> tasks, String? currentProjectId) {
-    if (_searchQuery.trim().isEmpty) {
-      return tasks;
-    }
-
-    final query = _searchQuery.toLowerCase();
-    return tasks.where((task) {
+    var filtered = tasks.where((task) {
       if (currentProjectId != null && task.projectId != currentProjectId) {
         return false;
       }
-      return task.title.toLowerCase().contains(query) ||
-          task.description.toLowerCase().contains(query) ||
-          task.detail.toLowerCase().contains(query) ||
-          task.status.displayName.toLowerCase().contains(query) ||
-          task.priority.displayName.toLowerCase().contains(query);
+      return true;
     }).toList();
+
+    // 작업 소유자 필터 (글로벌)
+    final ownerFilter = context.read<TaskProvider>().taskOwnerFilter;
+    if (ownerFilter == 'mine') {
+      final currentUserId = context.read<AuthProvider>().currentUser?.id;
+      if (currentUserId != null) {
+        filtered = filtered.where((task) => task.assignedMemberIds.contains(currentUserId)).toList();
+      }
+    } else if (ownerFilter != null) {
+      filtered = filtered.where((task) => task.assignedMemberIds.contains(ownerFilter)).toList();
+    }
+
+    // 검색어 필터
+    if (_searchQuery.trim().isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      filtered = filtered.where((task) {
+        return task.title.toLowerCase().contains(query) ||
+            task.description.toLowerCase().contains(query) ||
+            task.detail.toLowerCase().contains(query) ||
+            task.status.displayName.toLowerCase().contains(query) ||
+            task.priority.displayName.toLowerCase().contains(query);
+      }).toList();
+    }
+
+    return filtered;
   }
 
   /// 칸반 보드 UI 구성
@@ -501,14 +531,16 @@ class _KanbanScreenState extends State<KanbanScreen> {
                         Positioned.fill(
                           child: IgnorePointer(
                             child: Center(
-                              child: Text(
-                                '태스크를 여기로 드래그하거나 탭하여 추가하세요',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: colorScheme.onSurface.withValues(alpha: 0.5),
-                                  fontSize: 14,
-                                ),
-                              ),
+                              child: tasks.isEmpty
+                                  ? Text(
+                                      '태스크를 여기로 드래그하거나 탭하여 추가하세요',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: colorScheme.onSurface.withValues(alpha: 0.5),
+                                        fontSize: 14,
+                                      ),
+                                    )
+                                  : null,
                             ),
                           ),
                         ),
@@ -696,33 +728,26 @@ class _KanbanScreenState extends State<KanbanScreen> {
               children: [_buildTaskCardContent(context, task, statusColor)],
             ),
             // 오른쪽 상단 할당자 프로필 아이콘
-            if (task.assignedMemberIds.isNotEmpty)
+            if (task.assignedMemberIds.isNotEmpty && _usersById.isNotEmpty)
               Positioned(
                 top: -6,
                 right: -6,
-                child: FutureBuilder<List<dynamic>>(
-                  future: _loadAssignedMembers(task.assignedMemberIds),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return const SizedBox.shrink();
-                    }
-                    final members = snapshot.data!;
-                    // 첫 번째 할당자만 표시 (여러 명이면 첫 번째)
-                    final member = members.first;
-                    return CircleAvatar(
-                      radius: 12,
-                      backgroundColor: AvatarColor.getColorForUser(member.id),
-                      child: Text(
-                        AvatarColor.getInitial(member.username),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+                child: () {
+                  final member = _usersById[task.assignedMemberIds.first];
+                  if (member == null) return const SizedBox.shrink();
+                  return CircleAvatar(
+                    radius: 12,
+                    backgroundColor: AvatarColor.getColorForUser(member.id),
+                    child: Text(
+                      AvatarColor.getInitial(member.username),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                }(),
               ),
           ],
         ),
@@ -843,16 +868,6 @@ class _KanbanScreenState extends State<KanbanScreen> {
   }
 
   /// 할당된 팀원 목록 로드
-  Future<List<dynamic>> _loadAssignedMembers(List<String> memberIds) async {
-    try {
-      final authService = AuthService();
-      final allUsers = await authService.getAllUsers();
-      return allUsers.where((user) => memberIds.contains(user.id)).toList();
-    } catch (e) {
-      return [];
-    }
-  }
-
   /// 새 태스크 추가 다이얼로그
   void _showAddTaskDialog(BuildContext context) {
     _showAddTaskDialogForStatus(context, TaskStatus.backlog);

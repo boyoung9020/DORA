@@ -1182,7 +1182,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       });
     }
 
-    return GestureDetector(
+    return KeyboardListener(
+      focusNode: FocusNode()..requestFocus(),
+      autofocus: true,
+      onKeyEvent: (event) {
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: GestureDetector(
       onTap: () => Navigator.of(context).pop(),
       behavior: HitTestBehavior.opaque,
       child: Dialog(
@@ -2264,6 +2272,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

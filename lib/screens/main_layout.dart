@@ -757,56 +757,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                 borderRadius: const BorderRadius.only(
                                   topLeft: Radius.circular(28),
                                 ),
-                                child: _isDashboardSelected()
-                                    ? Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          // 팀원 사이드바 (왼쪽)
-                                          _buildTeamMemberSidebar(
-                                            context,
-                                            colorScheme,
-                                            isDarkMode,
-                                          ),
-                                          // 구분선 (그림자 효과 포함 - 왼쪽으로만)
-                                          Container(
-                                            width: 1,
-                                            decoration: BoxDecoration(
-                                              color: colorScheme.outline
-                                                  .withValues(alpha: 0.1),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.black
-                                                      .withValues(
-                                                        alpha: isDarkMode
-                                                            ? 0.45
-                                                            : 0.14,
-                                                      ),
-                                                  blurRadius: 8,
-                                                  offset: const Offset(-1, 0),
-                                                  spreadRadius: 0,
-                                                ),
-                                                BoxShadow(
-                                                  color: Colors.black
-                                                      .withValues(
-                                                        alpha: isDarkMode
-                                                            ? 0.2
-                                                            : 0.08,
-                                                      ),
-                                                  blurRadius: 4,
-                                                  offset: const Offset(-2, 0),
-                                                  spreadRadius: 0,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          // 메인 컨텐츠 (오른쪽)
-                                          Expanded(
-                                            child: _buildContent(context),
-                                          ),
-                                        ],
-                                      )
-                                    : _buildContent(context),
+                                child: _buildContent(context),
                               ),
                             ),
                           ),
@@ -1432,6 +1383,77 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               }
             },
           ),
+          const SizedBox(width: 8),
+          // 작업 필터 드롭다운 (모든 작업 / 내 작업 / 팀원별)
+          Consumer<TaskProvider>(
+            builder: (context, taskProv, _) {
+              final filter = taskProv.taskOwnerFilter;
+              final isFiltered = filter != null;
+
+              // 현재 선택된 라벨/아이콘 결정
+              String filterLabel;
+              IconData filterIcon;
+              if (filter == null) {
+                filterLabel = '모든 작업';
+                filterIcon = Icons.people;
+              } else if (filter == 'mine') {
+                filterLabel = '내 작업';
+                filterIcon = Icons.person;
+              } else {
+                // 특정 멤버 ID
+                filterLabel = _getMemberName(filter);
+                filterIcon = Icons.person_outline;
+              }
+
+              final defaultColor = isDarkMode
+                  ? colorScheme.onSurface.withValues(alpha: 0.6)
+                  : const Color(0xFF8A5731).withValues(alpha: 0.6);
+
+              return InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => _showTaskOwnerFilterMenu(context, taskProv),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isFiltered
+                        ? colorScheme.primary.withValues(alpha: 0.15)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isFiltered
+                          ? colorScheme.primary.withValues(alpha: 0.4)
+                          : colorScheme.onSurface.withValues(alpha: 0.15),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        filterIcon,
+                        size: 16,
+                        color: isFiltered ? colorScheme.primary : defaultColor,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        filterLabel,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isFiltered ? FontWeight.w600 : FontWeight.normal,
+                          color: isFiltered ? colorScheme.primary : defaultColor,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.arrow_drop_down,
+                        size: 16,
+                        color: isFiltered ? colorScheme.primary : defaultColor,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
           const Spacer(),
           IconButton(
             tooltip: '전체 검색',
@@ -1446,6 +1468,97 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         ],
       ),
     );
+  }
+
+  // 캐시된 유저 목록 (작업 필터 드롭다운용)
+  List<User>? _cachedUsers;
+
+  String _getMemberName(String userId) {
+    final user = _cachedUsers?.where((u) => u.id == userId).firstOrNull;
+    return user?.username ?? '멤버';
+  }
+
+  void _showTaskOwnerFilterMenu(BuildContext context, TaskProvider taskProv) async {
+    // 유저 목록 로드 (캐시)
+    _cachedUsers ??= await AuthService().getAllUsers();
+
+    if (!mounted) return;
+
+    final colorScheme = Theme.of(context).colorScheme;
+    final currentUserId = context.read<AuthProvider>().currentUser?.id;
+    final currentFilter = taskProv.taskOwnerFilter;
+    final RenderBox button = context.findRenderObject() as RenderBox;
+    final offset = button.localToGlobal(Offset.zero);
+
+    final users = _cachedUsers ?? [];
+
+    showMenu<String?>(
+      context: context,
+      position: RelativeRect.fromLTRB(offset.dx, offset.dy + 40, 0, 0),
+      items: [
+        // 모든 작업
+        PopupMenuItem<String?>(
+          value: '__all__',
+          child: Row(
+            children: [
+              Icon(Icons.people, size: 18,
+                color: currentFilter == null ? colorScheme.primary : colorScheme.onSurface.withValues(alpha: 0.6)),
+              const SizedBox(width: 10),
+              Text('모든 작업', style: TextStyle(
+                fontWeight: currentFilter == null ? FontWeight.bold : FontWeight.normal,
+                color: currentFilter == null ? colorScheme.primary : colorScheme.onSurface,
+              )),
+            ],
+          ),
+        ),
+        // 내 작업
+        PopupMenuItem<String?>(
+          value: 'mine',
+          child: Row(
+            children: [
+              Icon(Icons.person, size: 18,
+                color: currentFilter == 'mine' ? colorScheme.primary : colorScheme.onSurface.withValues(alpha: 0.6)),
+              const SizedBox(width: 10),
+              Text('내 작업', style: TextStyle(
+                fontWeight: currentFilter == 'mine' ? FontWeight.bold : FontWeight.normal,
+                color: currentFilter == 'mine' ? colorScheme.primary : colorScheme.onSurface,
+              )),
+            ],
+          ),
+        ),
+        // 구분선
+        const PopupMenuDivider(),
+        // 팀원 목록
+        ...users.where((u) => u.id != currentUserId).map(
+          (user) => PopupMenuItem<String?>(
+            value: user.id,
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 10,
+                  backgroundColor: AvatarColor.getColorForUser(user.id),
+                  child: Text(
+                    AvatarColor.getInitial(user.username),
+                    style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(user.username, style: TextStyle(
+                  fontWeight: currentFilter == user.id ? FontWeight.bold : FontWeight.normal,
+                  color: currentFilter == user.id ? colorScheme.primary : colorScheme.onSurface,
+                )),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value == '__all__') {
+        taskProv.setTaskOwnerFilter(null);
+      } else if (value != null) {
+        taskProv.setTaskOwnerFilter(value);
+      }
+    });
   }
 
   /// 프로젝트 컨텍스트 메뉴 표시 (오른쪽 클릭)

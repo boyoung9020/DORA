@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import '../providers/task_provider.dart';
 import '../providers/project_provider.dart';
+import '../providers/auth_provider.dart';
 import '../models/task.dart';
 import '../widgets/glass_container.dart';
 import 'task_detail_screen.dart';
@@ -62,7 +63,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final currentProjectId = projectProvider.currentProject?.id;
     final isAllMode = projectProvider.isAllProjectsMode;
 
-    final projectTasks = isAllMode
+    var projectTasks = isAllMode
         ? taskProvider.tasks
               .where((task) => task.status != TaskStatus.backlog)
               .toList()
@@ -75,6 +76,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     )
                     .toList()
               : <Task>[]);
+
+    // 작업 소유자 필터 (글로벌)
+    final ownerFilter = context.read<TaskProvider>().taskOwnerFilter;
+    if (ownerFilter == 'mine') {
+      final currentUserId = context.read<AuthProvider>().currentUser?.id;
+      if (currentUserId != null) {
+        projectTasks = projectTasks.where((task) => task.assignedMemberIds.contains(currentUserId)).toList();
+      }
+    } else if (ownerFilter != null) {
+      projectTasks = projectTasks.where((task) => task.assignedMemberIds.contains(ownerFilter)).toList();
+    }
 
     final firstDayOfMonth = DateTime(
       _currentMonth.year,

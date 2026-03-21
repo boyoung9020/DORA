@@ -4,6 +4,7 @@ import '../models/task.dart';
 import '../models/user.dart';
 import '../providers/project_provider.dart';
 import '../providers/task_provider.dart';
+import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
 import '../utils/avatar_color.dart';
 import '../widgets/glass_container.dart';
@@ -89,7 +90,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
     final isAllMode = projectProvider.isAllProjectsMode;
 
     // 현재 프로젝트의 태스크만 필터링 (backlog 제외)
-    final projectTasks = isAllMode
+    var projectTasks = isAllMode
         ? taskProvider.tasks
               .where((task) => task.status != TaskStatus.backlog)
               .toList()
@@ -102,6 +103,17 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                     )
                     .toList()
               : <Task>[]);
+
+    // 작업 소유자 필터 (글로벌)
+    final ownerFilter = context.read<TaskProvider>().taskOwnerFilter;
+    if (ownerFilter == 'mine') {
+      final currentUserId = context.read<AuthProvider>().currentUser?.id;
+      if (currentUserId != null) {
+        projectTasks = projectTasks.where((task) => task.assignedMemberIds.contains(currentUserId)).toList();
+      }
+    } else if (ownerFilter != null) {
+      projectTasks = projectTasks.where((task) => task.assignedMemberIds.contains(ownerFilter)).toList();
+    }
 
     // 태스크들 중 가장 빠른 날짜 찾기
     if (projectTasks.isNotEmpty) {
@@ -161,7 +173,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 헤더 (날짜 범위 조정 버튼만)
+          // 헤더
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
