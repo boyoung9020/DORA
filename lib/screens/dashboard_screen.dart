@@ -37,6 +37,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _lastAiScopeKey;
   String? _lastTaskRefreshKey;
   bool _aiCollapsed = false;
+  /// AI 요약 범위: mine(내 할당), others(다른 팀원 할당), all(전체)
+  String _aiSummaryScope = 'all';
 
   // 최근 활동 관련
   bool _activityCollapsed = false;
@@ -127,6 +129,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         userId: userId,
         workspaceId: workspaceId,
         projectId: null,
+        summaryScope: _aiSummaryScope,
       );
       if (cached != null && mounted) {
         setState(() {
@@ -149,6 +152,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         workspaceId: workspaceId,
         projectId: null,
         userId: userId,
+        summaryScope: _aiSummaryScope,
         forceRefresh: forceRefresh,
       );
       if (!mounted) return;
@@ -618,6 +622,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ],
                 const Spacer(),
+                Text(
+                  '범위',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: colorScheme.onSurface.withValues(alpha: 0.55),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _aiSummaryScope,
+                    isDense: true,
+                    padding: EdgeInsets.zero,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
+                    ),
+                    dropdownColor: colorScheme.surface,
+                    icon: Icon(
+                      Icons.arrow_drop_down,
+                      size: 18,
+                      color: colorScheme.onSurface.withValues(alpha: 0.65),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'mine',
+                        child: Text('내 할당'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'others',
+                        child: Text('다른 팀원'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'all',
+                        child: Text('전체'),
+                      ),
+                    ],
+                    onChanged: _aiLoading
+                        ? null
+                        : (v) {
+                            if (v == null || v == _aiSummaryScope) return;
+                            setState(() => _aiSummaryScope = v);
+                            _loadAISummary();
+                          },
+                  ),
+                ),
+                const SizedBox(width: 4),
                 // 새로고침 버튼
                 SizedBox(
                   width: 26,
@@ -1929,17 +1981,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ─── Export 기능 ─────────────────────────────────────────────
 
-  void _showExportDialog(BuildContext context, List<Project> allProjects) {
+  Future<void> _showExportDialog(BuildContext context, List<Project> allProjects) async {
     final colorScheme = Theme.of(context).colorScheme;
+    final workspaceId = context.read<WorkspaceProvider>().currentWorkspaceId;
+
+    final allUsers = await (_usersFuture ?? Future.value(<User>[]));
+    if (!context.mounted) return;
+    final memberIdSet = <String>{};
+    for (final p in allProjects) {
+      memberIdSet.addAll(p.teamMemberIds);
+    }
+    final teamUsers = allUsers.where((u) => memberIdSet.contains(u.id)).toList()
+      ..sort((a, b) => a.username.toLowerCase().compareTo(b.username.toLowerCase()));
 
     final selectedProjectIds = <String>{};
+    final exportAssigneeIds = <String>{};
     String exportFormat = 'docs'; // 'docs' or 'md'
     DateTime exportStart = DateTime.now().subtract(const Duration(days: 7));
     DateTime exportEnd = DateTime.now();
-    final yy = (exportStart.year % 100).toString().padLeft(2, '0');
-    final mm = exportStart.month.toString().padLeft(2, '0');
-    final dd = exportStart.day.toString().padLeft(2, '0');
-    final titleController = TextEditingController(text: '$yy$mm$dd 업무 보고');
+    // 보고서 제목 기본값:보내기를 여는 당일(로컬) 기준 YYMMDD — 기간과 무관, 필드에서 수정 가능
+    String defaultExportTitleForDate(DateTime d) {
+      final y = (d.year % 100).toString().padLeft(2, '0');
+      final m = d.month.toString().padLeft(2, '0');
+      final day = d.day.toString().padLeft(2, '0');
+      return '$y$m$day 업무 보고';
+    }
+
+    final titleController = TextEditingController(
+      text: defaultExportTitleForDate(DateTime.now()),
+    );
     bool isLoading = false;
 
     showDialog(
@@ -1947,13 +2017,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
-            void updateTitle() {
-              final y = (exportStart.year % 100).toString().padLeft(2, '0');
-              final m = exportStart.month.toString().padLeft(2, '0');
-              final d = exportStart.day.toString().padLeft(2, '0');
-              titleController.text = '$y$m$d 업무 보고';
-            }
-
             return Dialog(
               backgroundColor: Colors.transparent,
               child: GlassContainer(
@@ -1993,6 +2056,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       TextField(
                         controller: titleController,
                         decoration: InputDecoration(
+                          hintText: '기본: 오늘 날짜(YYMMDD) 기준 — 필요 시 수정',
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           isDense: true,
@@ -2099,7 +2163,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             setDialogState(() {
                               exportStart = picked.start;
                               exportEnd = picked.end;
-                              updateTitle();
                             });
                           }
                         },
@@ -2123,6 +2186,116 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 16),
+
+                      // 담당자 (작업 테이블 담당자 필터와 동일: 멀티 선택 · 아바타 · 초기화)
+                      Row(
+                        children: [
+                          Text(
+                            '담당자',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+                          ),
+                          const Spacer(),
+                          InkWell(
+                            onTap: () => setDialogState(() => exportAssigneeIds.clear()),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.clear_all, size: 16, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '초기화',
+                                    style: TextStyle(fontSize: 12, color: colorScheme.primary, fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '선택하지 않으면 기간·프로젝트 내 전체 작업입니다. 선택 시 해당 담당자가 할당된 작업만 포함합니다.',
+                        style: TextStyle(fontSize: 11, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 160),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: colorScheme.outline),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: teamUsers.isEmpty
+                            ? Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Text(
+                                  '표시할 팀원이 없습니다. 프로젝트에 팀원이 있는지 확인해 주세요.',
+                                  style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.55)),
+                                ),
+                              )
+                            : SingleChildScrollView(
+                                child: Column(
+                                  children: teamUsers.map((user) {
+                                    final isSelected = exportAssigneeIds.contains(user.id);
+                                    return InkWell(
+                                      onTap: () {
+                                        setDialogState(() {
+                                          if (isSelected) {
+                                            exportAssigneeIds.remove(user.id);
+                                          } else {
+                                            exportAssigneeIds.add(user.id);
+                                          }
+                                        });
+                                      },
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              isSelected ? Icons.check_box : Icons.check_box_outline_blank,
+                                              size: 18,
+                                              color: isSelected ? colorScheme.primary : colorScheme.onSurface.withValues(alpha: 0.4),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            CircleAvatar(
+                                              radius: 10,
+                                              backgroundColor: AvatarColor.getColorForUser(user.id),
+                                              child: Text(
+                                                AvatarColor.getInitial(user.username),
+                                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                user.username,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: colorScheme.onSurface,
+                                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                      ),
+                      if (exportAssigneeIds.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            '${exportAssigneeIds.length}명 선택됨',
+                            style: TextStyle(fontSize: 11, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                          ),
+                        ),
                       const SizedBox(height: 16),
 
                       // 형식 선택
@@ -2208,10 +2381,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             try {
                               final report = await _callExportApi(
                                 title: titleController.text,
+                                workspaceId: workspaceId,
                                 projectIds: selectedProjectIds.isEmpty ? null : selectedProjectIds.toList(),
                                 startDate: exportStart,
                                 endDate: exportEnd,
                                 format: exportFormat,
+                                assigneeIds: exportAssigneeIds.isEmpty ? null : exportAssigneeIds.toList(),
                               );
                               if (ctx.mounted) {
                                 Navigator.of(dialogContext).pop();
@@ -2244,25 +2419,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
           },
         );
       },
-    );
+    ).then((_) => titleController.dispose());
   }
 
   Future<String> _callExportApi({
     required String title,
+    String? workspaceId,
     List<String>? projectIds,
     required DateTime startDate,
     required DateTime endDate,
     required String format,
+    List<String>? assigneeIds,
   }) async {
+    final body = <String, dynamic>{
+      'title': title,
+      'project_ids': projectIds,
+      'start_date': startDate.toIso8601String(),
+      'end_date': endDate.toIso8601String(),
+      'format': format,
+      'task_scope': 'all',
+    };
+    if (workspaceId != null && workspaceId.isNotEmpty) {
+      body['workspace_id'] = workspaceId;
+    }
+    if (assigneeIds != null && assigneeIds.isNotEmpty) {
+      body['assignee_ids'] = assigneeIds;
+    }
     final response = await ApiClient.post(
       '/api/ai/export-report',
-      body: {
-        'title': title,
-        'project_ids': projectIds,
-        'start_date': startDate.toIso8601String(),
-        'end_date': endDate.toIso8601String(),
-        'format': format,
-      },
+      body: body,
     );
     final data = ApiClient.handleResponse(response);
     return data['report'] as String;

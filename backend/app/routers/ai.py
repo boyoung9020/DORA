@@ -51,6 +51,20 @@ def _notification_type_label(ntype: NotificationType) -> str:
     return mapping.get(ntype, ntype.value)
 
 
+def _tasks_for_summary_scope(tasks: List[Task], user_id: str, scope: str) -> List[Task]:
+    """요약 범위: mine=내 할당, others=다른 사람 할당(미할당 제외), all=전체."""
+    if scope == "mine":
+        return [t for t in tasks if user_id in (t.assigned_member_ids or [])]
+    if scope == "others":
+        return [
+            t
+            for t in tasks
+            if (t.assigned_member_ids or [])
+            and user_id not in (t.assigned_member_ids or [])
+        ]
+    return list(tasks)
+
+
 def _build_prompt(
     username: str,
     project_stats: List[Dict[str, object]],
@@ -59,6 +73,7 @@ def _build_prompt(
     overdue_tasks: List[Task],
     project_name_by_id: Dict[str, str],
     unread_notifications: List[Notification],
+    summary_scope: str = "all",
 ) -> str:
     today = datetime.now().astimezone().strftime("%Y-%m-%d")
 
@@ -100,10 +115,28 @@ def _build_prompt(
             f"- [{_notification_type_label(notif.type)}] {notif.title}: {notif.message}"
         )
 
+    if summary_scope == "mine":
+        scope_intro = (
+            f"아래 데이터는 '{username}'님에게 **할당된 작업** 위주입니다. "
+            f"'{username}'님에게 직접 말하듯 오늘의 업무 브리핑을 해주세요. "
+            "절대 \"팀원 여러분\" 같은 표현은 쓰지 마세요."
+        )
+    elif summary_scope == "others":
+        scope_intro = (
+            "아래 데이터는 참여 중인 프로젝트에서 **다른 팀원에게 할당된 작업**입니다. "
+            f"'{username}'님 본인에게 할당된 작업은 제외되었습니다. "
+            "동료들의 진행 상황을 간결하게 브리핑해 주세요."
+        )
+    else:
+        scope_intro = (
+            f"아래 데이터는 참여 중인 프로젝트의 **전체 작업** 현황입니다. "
+            f"'{username}'님에게 직접 말하듯 오늘의 업무 브리핑을 해주세요. "
+            "절대 \"팀원 여러분\" 같은 표현은 쓰지 마세요."
+        )
+
     prompt = f"""
 [시스템]
-당신은 프로젝트 매니저 AI입니다. 아래 데이터는 '{username}'님 개인의 업무 현황입니다.
-'{username}'님에게 직접 말하듯 오늘의 업무 브리핑을 해주세요. 절대 "팀원 여러분" 같은 표현은 쓰지 마세요.
+당신은 프로젝트 매니저 AI입니다. {scope_intro}
 형식: 한 줄 총평 + 주요 사항 불릿(최대 5개). 간결하고 친근한 한국어.
 
 [데이터]
@@ -139,6 +172,10 @@ def _build_prompt(
 @router.get("/summary", response_model=AISummaryResponse)
 async def get_ai_summary(
     workspace_id: Optional[str] = Query(None),
+    summary_scope: str = Query(
+        "all",
+        description="요약 범위: mine(내 할당), others(다른 팀원 할당), all(전체)",
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -163,9 +200,14 @@ async def get_ai_summary(
     if project_ids:
         tasks = db.query(Task).filter(Task.project_id.in_(project_ids)).all()
 
+    scope = (summary_scope or "all").lower().strip()
+    if scope not in ("mine", "others", "all"):
+        scope = "all"
+    scoped_tasks = _tasks_for_summary_scope(tasks, current_user.id, scope)
+
     stats: List[Dict[str, object]] = []
     for project in projects:
-        project_tasks = [task for task in tasks if task.project_id == project.id]
+        project_tasks = [task for task in scoped_tasks if task.project_id == project.id]
         total = len(project_tasks)
         done = sum(1 for task in project_tasks if task.status == TaskStatus.DONE)
         in_progress = sum(1 for task in project_tasks if task.status == TaskStatus.IN_PROGRESS)
@@ -185,24 +227,23 @@ async def get_ai_summary(
         )
 
     today_local = datetime.now().astimezone().date()
-    assigned_to_me = [task for task in tasks if current_user.id in (task.assigned_member_ids or [])]
 
     urgent_tasks = [
         task
-        for task in assigned_to_me
+        for task in scoped_tasks
         if task.status != TaskStatus.DONE
         and task.priority in (TaskPriority.P0, TaskPriority.P1)
     ]
     today_due_tasks = [
         task
-        for task in assigned_to_me
+        for task in scoped_tasks
         if task.status != TaskStatus.DONE
         and task.end_date
         and task.end_date.astimezone().date() == today_local
     ]
     overdue_tasks = [
         task
-        for task in assigned_to_me
+        for task in scoped_tasks
         if task.status != TaskStatus.DONE
         and task.end_date
         and task.end_date.astimezone().date() < today_local
@@ -227,6 +268,7 @@ async def get_ai_summary(
         overdue_tasks=overdue_tasks,
         project_name_by_id=project_name_by_id,
         unread_notifications=unread_notifications,
+        summary_scope=scope,
     )
 
     try:
@@ -330,13 +372,30 @@ async def generate_export_report(
             detail="GEMINI_API_KEY가 설정되지 않았습니다.",
         )
 
-    # 프로젝트 조회
+    # 접근 가능한 프로젝트만 (AI 요약 GET /summary 와 동일 규칙)
     project_query = db.query(Project)
+    if req.workspace_id:
+        project_query = project_query.filter(Project.workspace_id == req.workspace_id)
+    if not current_user.is_admin:
+        project_query = project_query.filter(Project.team_member_ids.any(current_user.id))
+
+    allowed_projects = project_query.all()
+    allowed_by_id = {p.id: p for p in allowed_projects}
+
     if req.project_ids:
-        project_query = project_query.filter(Project.id.in_(req.project_ids))
-    projects = project_query.all()
+        requested = [pid for pid in req.project_ids if pid in allowed_by_id]
+        projects = [allowed_by_id[pid] for pid in requested]
+    else:
+        projects = list(allowed_projects)
+
     project_name_by_id = {p.id: p.name for p in projects}
     project_ids = [p.id for p in projects]
+
+    if not project_ids:
+        return AIExportResponse(
+            report="보낼 수 있는 프로젝트가 없습니다. 참여 중인 프로젝트를 선택했는지 확인해 주세요.",
+            generated_at=datetime.now(timezone.utc),
+        )
 
     # 작업 조회 (기간 필터)
     task_query = db.query(Task).filter(Task.project_id.in_(project_ids))
@@ -352,6 +411,21 @@ async def generate_export_report(
         )
 
     tasks = task_query.all()
+
+    assignee_ids = [x for x in (req.assignee_ids or []) if x]
+    if assignee_ids:
+        aid_set = set(assignee_ids)
+        tasks = [
+            t
+            for t in tasks
+            if aid_set.intersection(set(t.assigned_member_ids or []))
+        ]
+    else:
+        scope = (req.task_scope or "all").lower().strip()
+        if scope not in ("mine", "others", "all"):
+            scope = "all"
+        if scope != "all":
+            tasks = _tasks_for_summary_scope(tasks, current_user.id, scope)
 
     # 상태별 카운트
     holding = sum(1 for t in tasks if t.status in (TaskStatus.BACKLOG, TaskStatus.READY))

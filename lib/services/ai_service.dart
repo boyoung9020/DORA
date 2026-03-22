@@ -18,10 +18,12 @@ class AiService {
   static const String _summaryDateKey = 'ai_summary_date';
   static const String _summaryGeneratedAtKey = 'ai_summary_generated_at';
 
+  /// [summaryScope] mine | others | all — 서버 `/api/ai/summary?summary_scope=` 와 동일
   Future<AiSummaryResult> getSummary({
     String? workspaceId,
     String? projectId,
     String? userId,
+    String summaryScope = 'all',
     bool forceRefresh = false,
   }) async {
     if (!forceRefresh) {
@@ -29,11 +31,14 @@ class AiService {
         userId: userId,
         workspaceId: workspaceId,
         projectId: projectId,
+        summaryScope: summaryScope,
       );
       if (cached != null) return cached;
     }
 
-    final queryParams = <String, String>{};
+    final queryParams = <String, String>{
+      'summary_scope': summaryScope,
+    };
     if (workspaceId != null && workspaceId.isNotEmpty) {
       queryParams['workspace_id'] = workspaceId;
     }
@@ -53,16 +58,29 @@ class AiService {
           ? DateTime.tryParse(data['generated_at'].toString())?.toLocal()
           : null,
     );
-    await _saveSummaryToCache(result,
-        userId: userId, workspaceId: workspaceId, projectId: projectId);
+    await _saveSummaryToCache(
+      result,
+      userId: userId,
+      workspaceId: workspaceId,
+      projectId: projectId,
+      summaryScope: summaryScope,
+    );
     return result;
   }
 
-  Future<void> clearCache(
-      {String? userId, String? workspaceId, String? projectId}) async {
+  Future<void> clearCache({
+    String? userId,
+    String? workspaceId,
+    String? projectId,
+    String summaryScope = 'all',
+  }) async {
     final prefs = await SharedPreferences.getInstance();
-    final suffix =
-        _scopeSuffix(userId: userId, workspaceId: workspaceId, projectId: projectId);
+    final suffix = _scopeSuffix(
+      userId: userId,
+      workspaceId: workspaceId,
+      projectId: projectId,
+      summaryScope: summaryScope,
+    );
     await prefs.remove('$_summaryDateKey$suffix');
     await prefs.remove('$_summaryTextKey$suffix');
     await prefs.remove('$_summaryGeneratedAtKey$suffix');
@@ -72,16 +90,28 @@ class AiService {
     String? userId,
     String? workspaceId,
     String? projectId,
-  }) => _getCachedSummary(userId: userId, workspaceId: workspaceId, projectId: projectId);
+    String summaryScope = 'all',
+  }) =>
+      _getCachedSummary(
+        userId: userId,
+        workspaceId: workspaceId,
+        projectId: projectId,
+        summaryScope: summaryScope,
+      );
 
   Future<AiSummaryResult?> _getCachedSummary({
     String? userId,
     String? workspaceId,
     String? projectId,
+    String summaryScope = 'all',
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    final suffix =
-        _scopeSuffix(userId: userId, workspaceId: workspaceId, projectId: projectId);
+    final suffix = _scopeSuffix(
+      userId: userId,
+      workspaceId: workspaceId,
+      projectId: projectId,
+      summaryScope: summaryScope,
+    );
     final cachedDate = prefs.getString('$_summaryDateKey$suffix');
     if (cachedDate != _todayString()) return null;
 
@@ -105,11 +135,16 @@ class AiService {
     String? userId,
     String? workspaceId,
     String? projectId,
+    String summaryScope = 'all',
   }) async {
     if (result.summary.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
-    final suffix =
-        _scopeSuffix(userId: userId, workspaceId: workspaceId, projectId: projectId);
+    final suffix = _scopeSuffix(
+      userId: userId,
+      workspaceId: workspaceId,
+      projectId: projectId,
+      summaryScope: summaryScope,
+    );
     await prefs.setString('$_summaryDateKey$suffix', _todayString());
     await prefs.setString('$_summaryTextKey$suffix', result.summary);
     await prefs.setString(
@@ -126,8 +161,12 @@ class AiService {
     return '$year-$month-$day';
   }
 
-  String _scopeSuffix(
-      {String? userId, String? workspaceId, String? projectId}) {
+  String _scopeSuffix({
+    String? userId,
+    String? workspaceId,
+    String? projectId,
+    String summaryScope = 'all',
+  }) {
     final userScope =
         (userId != null && userId.isNotEmpty) ? userId : '__anonymous__';
     final workspaceScope = (workspaceId != null && workspaceId.isNotEmpty)
@@ -135,6 +174,7 @@ class AiService {
         : '__no_workspace__';
     final projectScope =
         (projectId != null && projectId.isNotEmpty) ? projectId : '__no_project__';
-    return '_${userScope}_${workspaceScope}_$projectScope';
+    final scope = summaryScope.isNotEmpty ? summaryScope : 'all';
+    return '_${userScope}_${workspaceScope}_${projectScope}_$scope';
   }
 }
