@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import 'glass_container.dart';
 
 /// Shows a glass-styled calendar dialog that lets the user pick
-/// a start and end date within a single calendar just like a
-/// flight ticket booking experience.
+/// a start and end date by scrolling through months vertically.
 Future<Map<String, DateTime?>?> showTaskDateRangePickerDialog({
   required BuildContext context,
   DateTime? initialStartDate,
@@ -12,6 +11,7 @@ Future<Map<String, DateTime?>?> showTaskDateRangePickerDialog({
   DateTime? minDate,
   DateTime? maxDate,
 }) {
+  final now = DateTime.now();
   return showDialog<Map<String, DateTime?>>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.2),
@@ -19,8 +19,8 @@ Future<Map<String, DateTime?>?> showTaskDateRangePickerDialog({
       return _DateRangePickerDialog(
         initialStartDate: initialStartDate,
         initialEndDate: initialEndDate,
-        minDate: minDate ?? DateTime(2020),
-        maxDate: maxDate ?? DateTime(2030),
+        minDate: minDate ?? DateTime(now.year - 2),
+        maxDate: maxDate ?? DateTime(now.year + 3),
       );
     },
   );
@@ -44,18 +44,62 @@ class _DateRangePickerDialog extends StatefulWidget {
 }
 
 class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
-  late DateTime _visibleMonth;
   DateTime? _selectedStartDate;
   DateTime? _selectedEndDate;
+  late final ScrollController _scrollController;
+  late final List<DateTime> _months;
+  late final List<double> _monthOffsets;
+  static const double _cellSize = 40.0;
+  static const double _monthTitleHeight = 32.0;
+  static const double _monthGap = 16.0;
+
+  int _rowCountForMonth(DateTime month) {
+    final firstDay = DateTime(month.year, month.month, 1);
+    final leadingDays = firstDay.weekday % 7;
+    final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
+    return ((leadingDays + daysInMonth) / 7).ceil();
+  }
+
+  double _monthHeight(DateTime month) {
+    return _monthTitleHeight + (_rowCountForMonth(month) * _cellSize) + _monthGap;
+  }
 
   @override
   void initState() {
     super.initState();
-    final baseDate =
-        widget.initialStartDate ?? widget.initialEndDate ?? DateTime.now();
-    _visibleMonth = DateTime(baseDate.year, baseDate.month);
     _selectedStartDate = widget.initialStartDate;
     _selectedEndDate = widget.initialEndDate;
+
+    _months = [];
+    var cursor = DateTime(widget.minDate.year, widget.minDate.month);
+    final end = DateTime(widget.maxDate.year, widget.maxDate.month);
+    while (!cursor.isAfter(end)) {
+      _months.add(cursor);
+      cursor = DateTime(cursor.year, cursor.month + 1);
+    }
+
+    // Pre-compute cumulative offsets for each month
+    _monthOffsets = List.filled(_months.length, 0.0);
+    double offset = 0;
+    for (int i = 0; i < _months.length; i++) {
+      _monthOffsets[i] = offset;
+      offset += _monthHeight(_months[i]);
+    }
+
+    // Scroll to the relevant month
+    final baseDate =
+        widget.initialStartDate ?? widget.initialEndDate ?? DateTime.now();
+    final targetMonth = DateTime(baseDate.year, baseDate.month);
+    final targetIndex = _months.indexWhere(
+        (m) => m.year == targetMonth.year && m.month == targetMonth.month);
+    final initialOffset = targetIndex > 0 ? _monthOffsets[targetIndex] : 0.0;
+    _scrollController = ScrollController(initialScrollOffset: initialOffset);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _handleDateTap(DateTime date) {
@@ -84,19 +128,6 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
     });
   }
 
-  void _changeMonth(int offset) {
-    setState(() {
-      _visibleMonth = DateTime(
-        _visibleMonth.year,
-        _visibleMonth.month + offset,
-      );
-    });
-  }
-
-  bool _isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -104,39 +135,46 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 500, maxHeight: 640),
+        constraints: const BoxConstraints(maxWidth: 400, maxHeight: 620),
         child: GlassContainer(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           borderRadius: 20.0,
-          blur: 25.0,
+          blur: 18.0,
           gradientColors: [
             colorScheme.surface.withValues(alpha: 0.6),
             colorScheme.surface.withValues(alpha: 0.5),
           ],
           child: Column(
-            mainAxisSize: MainAxisSize.max,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
+              _buildSelectionSummary(colorScheme),
+              const SizedBox(height: 16),
+              _buildWeekdayHeader(colorScheme),
+              const SizedBox(height: 4),
               Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.zero,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 4),
-                      _buildCalendarNavigation(colorScheme),
-                      const SizedBox(height: 12),
-                      _buildWeekdayHeader(colorScheme),
-                      const SizedBox(height: 8),
-                      _buildCalendarGrid(colorScheme),
-                      const SizedBox(height: 16),
-                      _buildSelectionSummary(colorScheme),
-                    ],
-                  ),
+                child: ListView.builder(
+                  controller: _scrollController,
+                  itemCount: _months.length,
+                  itemExtent: null,
+                  addAutomaticKeepAlives: false,
+                  addRepaintBoundaries: true,
+                  itemBuilder: (context, index) {
+                    return _MonthWidget(
+                      key: ValueKey(_months[index]),
+                      month: _months[index],
+                      cellSize: _cellSize,
+                      titleHeight: _monthTitleHeight,
+                      gap: _monthGap,
+                      selectedStartDate: _selectedStartDate,
+                      selectedEndDate: _selectedEndDate,
+                      minDate: widget.minDate,
+                      maxDate: widget.maxDate,
+                      onDateTap: _handleDateTap,
+                    );
+                  },
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -180,32 +218,6 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
     );
   }
 
-  Widget _buildCalendarNavigation(ColorScheme colorScheme) {
-    return Row(
-      children: [
-        Text(
-          '${_visibleMonth.year}년 ${_visibleMonth.month}월',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: colorScheme.onSurface,
-          ),
-        ),
-        const Spacer(),
-        IconButton(
-          onPressed: () => _changeMonth(-1),
-          icon: const Icon(Icons.chevron_left),
-          color: colorScheme.onSurface,
-        ),
-        IconButton(
-          onPressed: () => _changeMonth(1),
-          icon: const Icon(Icons.chevron_right),
-          color: colorScheme.onSurface,
-        ),
-      ],
-    );
-  }
-
   Widget _buildWeekdayHeader(ColorScheme colorScheme) {
     const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
     return Row(
@@ -225,135 +237,6 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
           ),
         );
       }),
-    );
-  }
-
-  Widget _buildCalendarGrid(ColorScheme colorScheme) {
-    final today = DateTime.now();
-    final firstDayOfMonth = DateTime(
-      _visibleMonth.year,
-      _visibleMonth.month,
-      1,
-    );
-    final firstWeekday = firstDayOfMonth.weekday; // Monday=1 ... Sunday=7
-    final leadingDays = firstWeekday % 7; // Sunday starts column (Sun=0)
-    final firstVisibleDay = firstDayOfMonth.subtract(
-      Duration(days: leadingDays),
-    );
-    final days = List.generate(
-      42,
-      (index) => firstVisibleDay.add(Duration(days: index)),
-    );
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 7,
-        childAspectRatio: 1.2,
-      ),
-      itemCount: days.length,
-      itemBuilder: (context, index) {
-        final date = days[index];
-        final isCurrentMonth = date.month == _visibleMonth.month;
-        final isToday = _isSameDay(date, today);
-        final isSunday = date.weekday == DateTime.sunday;
-        final isDisabled =
-            !isCurrentMonth ||
-            date.isBefore(widget.minDate) ||
-            date.isAfter(widget.maxDate);
-        final isSelectedStart =
-            _selectedStartDate != null && _isSameDay(date, _selectedStartDate!);
-        final isSelectedEnd =
-            _selectedEndDate != null && _isSameDay(date, _selectedEndDate!);
-        final isRange =
-            _selectedStartDate != null &&
-            _selectedEndDate != null &&
-            date.isAfter(_selectedStartDate!) &&
-            date.isBefore(_selectedEndDate!);
-
-        final textColor = isSelectedStart || isSelectedEnd
-            ? Colors.white
-            : isDisabled
-            ? colorScheme.onSurface.withValues(alpha: 0.25)
-            : isSunday && isCurrentMonth
-            ? const Color(0xFFEF5350)
-            : colorScheme.onSurface.withValues(
-                alpha: isCurrentMonth ? 0.9 : 0.4,
-              );
-
-        return GestureDetector(
-          onTap: isDisabled ? null : () => _handleDateTap(date),
-          child: Padding(
-            padding: const EdgeInsets.all(4),
-            child: Stack(
-              children: [
-                if (isRange || isSelectedStart || isSelectedEnd)
-                  Positioned.fill(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primary.withValues(
-                          alpha: isRange ? 0.15 : 0.2,
-                        ),
-                        borderRadius: BorderRadius.horizontal(
-                          left: isSelectedStart && !isSelectedEnd
-                              ? const Radius.circular(999)
-                              : Radius.zero,
-                          right: isSelectedEnd && !isSelectedStart
-                              ? const Radius.circular(999)
-                              : Radius.zero,
-                        ),
-                      ),
-                    ),
-                  ),
-                Align(
-                  alignment: Alignment.center,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: isSelectedStart || isSelectedEnd
-                          ? colorScheme.primary
-                          : Colors.transparent,
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '${date.day}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: textColor,
-                      ),
-                    ),
-                  ),
-                ),
-                if (isToday && isCurrentMonth)
-                  const Positioned.fill(
-                    child: Align(
-                      alignment: Alignment.bottomCenter,
-                      child: Padding(
-                        padding: EdgeInsets.only(bottom: 7),
-                        child: SizedBox(
-                          width: 5,
-                          height: 5,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Color(0xFFE53935),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -388,6 +271,186 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
           color: colorScheme.onSurface.withValues(alpha: 0.8),
         ),
       ],
+    );
+  }
+}
+
+/// Separate StatelessWidget for each month to avoid rebuilding all months
+/// on selection change via repaint boundaries.
+class _MonthWidget extends StatelessWidget {
+  const _MonthWidget({
+    super.key,
+    required this.month,
+    required this.cellSize,
+    required this.titleHeight,
+    required this.gap,
+    required this.selectedStartDate,
+    required this.selectedEndDate,
+    required this.minDate,
+    required this.maxDate,
+    required this.onDateTap,
+  });
+
+  final DateTime month;
+  final double cellSize;
+  final double titleHeight;
+  final double gap;
+  final DateTime? selectedStartDate;
+  final DateTime? selectedEndDate;
+  final DateTime minDate;
+  final DateTime maxDate;
+  final ValueChanged<DateTime> onDateTap;
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final today = DateTime.now();
+    final firstDay = DateTime(month.year, month.month, 1);
+    final leadingDays = firstDay.weekday % 7;
+    final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
+    final rowCount = ((leadingDays + daysInMonth) / 7).ceil();
+    final firstVisibleDay = firstDay.subtract(Duration(days: leadingDays));
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: gap),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Month title
+          SizedBox(
+            height: titleHeight,
+            child: Center(
+              child: Text(
+                '${month.year}년 ${month.month}월',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+            ),
+          ),
+          // Calendar grid as Column of Rows (no shrinkWrap GridView)
+          for (int row = 0; row < rowCount; row++)
+            SizedBox(
+              height: cellSize,
+              child: Row(
+                children: List.generate(7, (col) {
+                  final dayIndex = row * 7 + col;
+                  final date =
+                      firstVisibleDay.add(Duration(days: dayIndex));
+                  final isCurrentMonth =
+                      date.month == month.month && date.year == month.year;
+                  final isToday = _isSameDay(date, today);
+                  final isSunday = date.weekday == DateTime.sunday;
+                  final isDisabled = !isCurrentMonth ||
+                      date.isBefore(minDate) ||
+                      date.isAfter(maxDate);
+                  final isSelectedStart = selectedStartDate != null &&
+                      _isSameDay(date, selectedStartDate!);
+                  final isSelectedEnd = selectedEndDate != null &&
+                      _isSameDay(date, selectedEndDate!);
+                  final isRange = selectedStartDate != null &&
+                      selectedEndDate != null &&
+                      date.isAfter(selectedStartDate!) &&
+                      date.isBefore(selectedEndDate!);
+
+                  final textColor = isSelectedStart || isSelectedEnd
+                      ? Colors.white
+                      : isDisabled
+                          ? colorScheme.onSurface.withValues(alpha: 0.25)
+                          : isSunday && isCurrentMonth
+                              ? const Color(0xFFEF5350)
+                              : colorScheme.onSurface.withValues(
+                                  alpha: isCurrentMonth ? 0.9 : 0.4);
+
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap:
+                          isDisabled ? null : () => onDateTap(date),
+                      child: Stack(
+                        children: [
+                          if (isCurrentMonth &&
+                              (isRange ||
+                                  isSelectedStart ||
+                                  isSelectedEnd))
+                            Positioned.fill(
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(
+                                    vertical: 8),
+                                decoration: BoxDecoration(
+                                  color:
+                                      colorScheme.primary.withValues(
+                                    alpha: isRange ? 0.15 : 0.2,
+                                  ),
+                                  borderRadius:
+                                      BorderRadius.horizontal(
+                                    left: isSelectedStart &&
+                                            !isSelectedEnd
+                                        ? const Radius.circular(999)
+                                        : Radius.zero,
+                                    right: isSelectedEnd &&
+                                            !isSelectedStart
+                                        ? const Radius.circular(999)
+                                        : Radius.zero,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          Center(
+                            child: Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color:
+                                    isSelectedStart || isSelectedEnd
+                                        ? colorScheme.primary
+                                        : Colors.transparent,
+                                shape: BoxShape.circle,
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                '${date.day}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: textColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (isToday && isCurrentMonth)
+                            const Positioned.fill(
+                              child: Align(
+                                alignment: Alignment.bottomCenter,
+                                child: Padding(
+                                  padding: EdgeInsets.only(bottom: 3),
+                                  child: SizedBox(
+                                    width: 5,
+                                    height: 5,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: Color(0xFFE53935),
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

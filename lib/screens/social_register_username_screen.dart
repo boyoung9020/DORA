@@ -94,7 +94,7 @@ class _SocialRegisterUsernameScreenState
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Text(
-                    '사용자 이름 설정',
+                    '실명 입력',
                     style: TextStyle(
                       color: Color(0xFFD86B27),
                       fontSize: 28,
@@ -103,7 +103,7 @@ class _SocialRegisterUsernameScreenState
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '$provider 계정으로 회원가입을 완료합니다.\n워크스페이스에서 사용할 이름을 입력하세요.',
+                    '$provider 계정으로 회원가입을 완료합니다.\n팀원 식별을 위해 반드시 실명을 입력해주세요.',
                     style: const TextStyle(
                       fontSize: 14,
                       color: Color(0xFF7B5C42),
@@ -113,7 +113,7 @@ class _SocialRegisterUsernameScreenState
                   ),
                   const SizedBox(height: 32),
                   const Text(
-                    '사용자 이름',
+                    '이름 (실명)',
                     style: TextStyle(
                       color: Color(0xFF8A6647),
                       fontSize: 12,
@@ -131,7 +131,7 @@ class _SocialRegisterUsernameScreenState
                       fontWeight: FontWeight.w600,
                     ),
                     decoration: InputDecoration(
-                      hintText: '이름 또는 아이디 입력',
+                      hintText: '실명을 입력하세요 (예: 홍길동)',
                       hintStyle: const TextStyle(
                         color: Color(0xFFC1A58A),
                         fontWeight: FontWeight.w500,
@@ -140,7 +140,7 @@ class _SocialRegisterUsernameScreenState
                       prefixIcon: const Padding(
                         padding: EdgeInsets.only(left: 14, right: 10),
                         child: Icon(
-                          Icons.person_outline,
+                          Icons.badge_outlined,
                           size: 18,
                           color: Color(0xFFC09A78),
                         ),
@@ -196,10 +196,10 @@ class _SocialRegisterUsernameScreenState
                     onFieldSubmitted: (_) => _handleConfirm(),
                     validator: (v) {
                       if (v == null || v.trim().isEmpty) {
-                        return '사용자 이름을 입력하세요';
+                        return '실명을 입력하세요';
                       }
-                      if (v.trim().length < 3) {
-                        return '사용자 이름은 3자 이상이어야 합니다';
+                      if (v.trim().length < 2) {
+                        return '이름은 2자 이상이어야 합니다';
                       }
                       return null;
                     },

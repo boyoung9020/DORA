@@ -43,6 +43,7 @@ class Task(Base):
     display_order = Column(Integer, default=0, nullable=False)
     sprint_id = Column(String, ForeignKey("sprints.id"), nullable=True, index=True)
     creator_id = Column(String, nullable=True, index=True)  # 태스크 생성자 ID
+    parent_task_id = Column(String, nullable=True, index=True)  # 부모 태스크 ID (계층 구조)
 
     # 문서 링크 [{title: str, url: str}, ...]
     document_links = Column(JSON, default=[], nullable=False)

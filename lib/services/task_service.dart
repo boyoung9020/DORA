@@ -50,6 +50,7 @@ class TaskService {
     TaskPriority priority = TaskPriority.p2,
     List<String>? assignedMemberIds,
     String? sprintId,
+    String? parentTaskId,
   }) async {
     try {
       final response = await ApiClient.post(
@@ -66,6 +67,7 @@ class TaskService {
           'priority': priority.name,
           'assigned_member_ids': assignedMemberIds ?? [],
           'sprint_id': sprintId,
+          'parent_task_id': parentTaskId,
         },
       );
 
@@ -90,6 +92,7 @@ class TaskService {
         'priority': task.priority.name,
         'assigned_member_ids': task.assignedMemberIds,
         'sprint_id': task.sprintId,
+        'parent_task_id': task.parentTaskId,
         'document_links': task.documentLinks,
       };
 

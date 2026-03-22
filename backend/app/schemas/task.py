@@ -20,6 +20,7 @@ class TaskBase(BaseModel):
     priority: TaskPriority = TaskPriority.P2
     assigned_member_ids: List[str] = []
     sprint_id: Optional[str] = None
+    parent_task_id: Optional[str] = None
     document_links: List[Dict[str, str]] = []  # [{title, url}, ...]
 
 
@@ -40,6 +41,7 @@ class TaskUpdate(BaseModel):
     priority: Optional[TaskPriority] = None
     assigned_member_ids: Optional[List[str]] = None
     sprint_id: Optional[str] = None
+    parent_task_id: Optional[str] = None
     document_links: Optional[List[Dict[str, str]]] = None  # [{title, url}, ...]
 
 

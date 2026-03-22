@@ -26,6 +26,7 @@ import '../widgets/checklist_widget.dart';
 import '../widgets/date_range_picker_dialog.dart';
 import '../utils/avatar_color.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// ?븐늿肉?節딅┛ Intent
 class _PasteIntent extends Intent {
@@ -115,6 +116,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   int _mentionStartIndex = -1;
   int _selectedMentionIndex = -1;
   bool _showHistoryLogs = true;
+  static const String _showHistoryLogsKey = 'task_detail_show_history_logs';
   List<Map<String, String>> _documentLinks = [];
   static const List<String> _commentReactionPresets = ['✅', '👍', '👀'];
 
@@ -137,6 +139,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
 
     // ?λ뜃由?嚥≪뮆諭?????쎄쾿嚥▲끉??筌??袁⑥삋嚥?揶쎛筌왖 ??낅즲嚥??귐딅뮞???곕떽?
+    // 활동로그 표시 상태 복원
+    SharedPreferences.getInstance().then((prefs) {
+      final saved = prefs.getBool(_showHistoryLogsKey);
+      if (saved != null && mounted) {
+        setState(() => _showHistoryLogs = saved);
+      }
+    });
+
     _timelineScrollController.addListener(() {
       if (_isInitialLoad && _timelineScrollController.hasClients) {
         // ?λ뜃由?嚥≪뮆諭?餓λ쵐肉???쎄쾿嚥▲끉??筌??袁⑥삋嚥?揶쎛??블???롢늺 筌??袁⑥쨮 ??롫즼??
@@ -1357,9 +1367,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       SizedBox(
                         width: 120,
                         child: InkWell(
-                          onTap: () => setState(
-                            () => _showHistoryLogs = !_showHistoryLogs,
-                          ),
+                          onTap: () {
+                            setState(() => _showHistoryLogs = !_showHistoryLogs);
+                            SharedPreferences.getInstance().then((prefs) {
+                              prefs.setBool(_showHistoryLogsKey, _showHistoryLogs);
+                            });
+                          },
                           borderRadius: BorderRadius.circular(6),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
@@ -2222,7 +2235,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 12),
-                                // ??밴쉐??
+                                // 작업 관계 (상위 + 하위 통합)
+                                _buildTaskRelationSection(
+                                  context,
+                                  currentTask,
+                                  taskProvider,
+                                  colorScheme,
+                                ),
+                                const SizedBox(height: 12),
+                                // 생성일
                                 GlassContainer(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
@@ -2275,6 +2296,721 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       ),
       ),
     );
+  }
+
+  /// 통합 작업 관계 섹션 (상위 + 하위)
+  Widget _buildTaskRelationSection(
+    BuildContext context,
+    Task currentTask,
+    TaskProvider taskProvider,
+    ColorScheme colorScheme,
+  ) {
+    // 부모 태스크 찾기
+    Task? parentTask;
+    if (currentTask.parentTaskId != null) {
+      final idx = taskProvider.tasks.indexWhere((t) => t.id == currentTask.parentTaskId);
+      if (idx != -1) parentTask = taskProvider.tasks[idx];
+    }
+
+    // 하위 태스크 찾기
+    final childTasks = taskProvider.tasks
+        .where((t) => t.parentTaskId == currentTask.id)
+        .toList();
+
+    // 진행률 계산
+    final doneCount = childTasks.where((t) => t.status == TaskStatus.done).length;
+    final progress = childTasks.isEmpty ? 0.0 : doneCount / childTasks.length;
+
+    return GlassContainer(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      borderRadius: 15.0,
+      blur: 20.0,
+      gradientColors: [
+        Colors.white.withValues(alpha: 0.8),
+        Colors.white.withValues(alpha: 0.7),
+      ],
+      shadowBlurRadius: 6,
+      shadowOffset: const Offset(0, 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 헤더
+          Row(
+            children: [
+              Icon(Icons.account_tree_outlined, size: 16, color: colorScheme.primary),
+              const SizedBox(width: 6),
+              Text(
+                '작업 관계',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // ── 상위 작업 ──
+          Row(
+            children: [
+              Icon(Icons.arrow_upward, size: 13, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+              const SizedBox(width: 4),
+              Text(
+                '상위 작업',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: () => _showParentTaskPicker(context, currentTask, taskProvider),
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: Icon(
+                    parentTask != null ? Icons.swap_horiz : Icons.add,
+                    size: 16,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          if (parentTask != null)
+            _buildRelationTaskTile(
+              context: context,
+              task: parentTask,
+              colorScheme: colorScheme,
+              onTap: () => _navigateToTask(context, parentTask!),
+              onRemove: () async {
+                final authProvider = context.read<AuthProvider>();
+                await taskProvider.updateTask(
+                  currentTask.copyWith(parentTaskId: '', updatedAt: DateTime.now()),
+                  userId: authProvider.currentUser?.id,
+                  username: authProvider.currentUser?.username,
+                );
+              },
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Text(
+                '없음',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: colorScheme.onSurface.withValues(alpha: 0.4),
+                ),
+              ),
+            ),
+
+          Divider(height: 20, color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
+
+          // ── 하위 작업 ──
+          Row(
+            children: [
+              Icon(Icons.arrow_downward, size: 13, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+              const SizedBox(width: 4),
+              Text(
+                '하위 작업',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+              if (childTasks.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Text(
+                  '$doneCount/${childTasks.length}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: colorScheme.onSurface.withValues(alpha: 0.4),
+                  ),
+                ),
+              ],
+              const Spacer(),
+              InkWell(
+                onTap: () => _showAddChildTaskMenu(context, currentTask, taskProvider),
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: Icon(Icons.add, size: 16, color: colorScheme.primary),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          // 진행률 바
+          if (childTasks.isNotEmpty) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 4,
+                backgroundColor: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  progress == 1.0 ? Colors.green : colorScheme.primary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+
+          if (childTasks.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Text(
+                '없음',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: colorScheme.onSurface.withValues(alpha: 0.4),
+                ),
+              ),
+            )
+          else
+            ...childTasks.map((child) => Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: _buildRelationTaskTile(
+                context: context,
+                task: child,
+                colorScheme: colorScheme,
+                onTap: () => _navigateToTask(context, child),
+                onRemove: () async {
+                  final authProvider = context.read<AuthProvider>();
+                  await taskProvider.updateTask(
+                    child.copyWith(parentTaskId: '', updatedAt: DateTime.now()),
+                    userId: authProvider.currentUser?.id,
+                    username: authProvider.currentUser?.username,
+                  );
+                },
+              ),
+            )),
+        ],
+      ),
+    );
+  }
+
+  /// 관계 작업 타일 (상위/하위 공용)
+  Widget _buildRelationTaskTile({
+    required BuildContext context,
+    required Task task,
+    required ColorScheme colorScheme,
+    required VoidCallback onTap,
+    required VoidCallback onRemove,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          child: Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: task.status.color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  task.title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: colorScheme.onSurface,
+                    decoration: task.status == TaskStatus.done
+                        ? TextDecoration.lineThrough
+                        : null,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: task.status.color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  task.status.displayName,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: task.status.color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: onRemove,
+                child: Icon(
+                  Icons.close,
+                  size: 14,
+                  color: colorScheme.onSurface.withValues(alpha: 0.35),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 작업 상세로 이동
+  void _navigateToTask(BuildContext context, Task task) {
+    Navigator.of(context).pop(); // 현재 다이얼로그 닫기
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'TaskDetail',
+      pageBuilder: (context, animation, secondaryAnimation) => TaskDetailScreen(task: task),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+      transitionDuration: const Duration(milliseconds: 200),
+    );
+  }
+
+  /// 하위 작업 추가 메뉴 (기존 작업 연결 / 새 작업 생성)
+  void _showAddChildTaskMenu(
+    BuildContext context,
+    Task currentTask,
+    TaskProvider taskProvider,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return Container(
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 32, height: 4,
+                decoration: BoxDecoration(
+                  color: colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: Icon(Icons.add_circle_outline, color: colorScheme.primary),
+                title: const Text('새 하위 작업 생성'),
+                subtitle: Text('새 작업을 만들어 하위로 추가합니다', style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.5))),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _showCreateChildTaskDialog(context, currentTask, taskProvider);
+                },
+              ),
+              Divider(height: 1, indent: 16, endIndent: 16, color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
+              ListTile(
+                leading: Icon(Icons.link, color: colorScheme.primary),
+                title: const Text('기존 작업 연결'),
+                subtitle: Text('기존 작업을 하위 작업으로 연결합니다', style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.5))),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _showChildTaskPicker(context, currentTask, taskProvider);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 새 하위 작업 생성 다이얼로그
+  void _showCreateChildTaskDialog(
+    BuildContext context,
+    Task currentTask,
+    TaskProvider taskProvider,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final titleController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: GlassContainer(
+            padding: const EdgeInsets.all(20),
+            borderRadius: 20.0,
+            blur: 25.0,
+            gradientColors: [
+              colorScheme.surface.withValues(alpha: 0.95),
+              colorScheme.surface.withValues(alpha: 0.9),
+            ],
+            child: SizedBox(
+              width: 400,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '새 하위 작업',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '상위: ${currentTask.title}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: titleController,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: '작업 제목을 입력하세요',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      isDense: true,
+                    ),
+                    onSubmitted: (value) async {
+                      if (value.trim().isEmpty) return;
+                      Navigator.of(dialogContext).pop();
+                      await taskProvider.createTask(
+                        title: value.trim(),
+                        projectId: currentTask.projectId,
+                        parentTaskId: currentTask.id,
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        child: Text('취소', style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.6))),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: () async {
+                          final title = titleController.text.trim();
+                          if (title.isEmpty) return;
+                          Navigator.of(dialogContext).pop();
+                          await taskProvider.createTask(
+                            title: title,
+                            projectId: currentTask.projectId,
+                            parentTaskId: currentTask.id,
+                          );
+                        },
+                        child: const Text('생성'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 기존 작업을 하위로 연결하는 피커
+  void _showChildTaskPicker(
+    BuildContext context,
+    Task currentTask,
+    TaskProvider taskProvider,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final childIds = _getAllDescendantIds(currentTask.id, taskProvider.tasks);
+    // 같은 프로젝트, 자기 자신/자신의 하위/이미 하위인 작업/상위 작업 제외
+    final candidates = taskProvider.tasks
+        .where((t) =>
+            t.projectId == currentTask.projectId &&
+            t.id != currentTask.id &&
+            !childIds.contains(t.id) &&
+            t.parentTaskId != currentTask.id &&
+            t.id != currentTask.parentTaskId)
+        .toList();
+
+    String searchQuery = '';
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final filtered = searchQuery.isEmpty
+                ? candidates
+                : candidates
+                    .where((t) => t.title.toLowerCase().contains(searchQuery.toLowerCase()))
+                    .toList();
+
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              child: GlassContainer(
+                padding: const EdgeInsets.all(20),
+                borderRadius: 20.0,
+                blur: 25.0,
+                gradientColors: [
+                  colorScheme.surface.withValues(alpha: 0.95),
+                  colorScheme.surface.withValues(alpha: 0.9),
+                ],
+                child: SizedBox(
+                  width: 400,
+                  height: 500,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '하위 작업으로 연결',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        decoration: InputDecoration(
+                          hintText: '작업 검색...',
+                          prefixIcon: const Icon(Icons.search, size: 18),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          isDense: true,
+                        ),
+                        onChanged: (v) => setDialogState(() => searchQuery = v),
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: filtered.isEmpty
+                            ? Center(
+                                child: Text(
+                                  '연결할 수 있는 작업이 없습니다',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                itemCount: filtered.length,
+                                itemBuilder: (context, index) {
+                                  final task = filtered[index];
+                                  return ListTile(
+                                    dense: true,
+                                    leading: Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        color: task.status.color,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    title: Text(
+                                      task.title,
+                                      style: const TextStyle(fontSize: 13),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    subtitle: Text(
+                                      task.status.displayName,
+                                      style: TextStyle(fontSize: 11, color: task.status.color),
+                                    ),
+                                    onTap: () async {
+                                      Navigator.of(dialogContext).pop();
+                                      final authProvider = context.read<AuthProvider>();
+                                      await taskProvider.updateTask(
+                                        task.copyWith(
+                                          parentTaskId: currentTask.id,
+                                          updatedAt: DateTime.now(),
+                                        ),
+                                        userId: authProvider.currentUser?.id,
+                                        username: authProvider.currentUser?.username,
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// 부모 태스크 선택 다이얼로그
+  void _showParentTaskPicker(
+    BuildContext context,
+    Task currentTask,
+    TaskProvider taskProvider,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final childIds = _getAllDescendantIds(currentTask.id, taskProvider.tasks);
+    final candidates = taskProvider.tasks
+        .where((t) =>
+            t.projectId == currentTask.projectId &&
+            t.id != currentTask.id &&
+            !childIds.contains(t.id))
+        .toList();
+
+    String searchQuery = '';
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final filtered = searchQuery.isEmpty
+                ? candidates
+                : candidates
+                    .where((t) => t.title.toLowerCase().contains(searchQuery.toLowerCase()))
+                    .toList();
+
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              child: GlassContainer(
+                padding: const EdgeInsets.all(20),
+                borderRadius: 20.0,
+                blur: 25.0,
+                gradientColors: [
+                  colorScheme.surface.withValues(alpha: 0.95),
+                  colorScheme.surface.withValues(alpha: 0.9),
+                ],
+                child: SizedBox(
+                  width: 400,
+                  height: 500,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '상위 작업 선택',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        decoration: InputDecoration(
+                          hintText: '작업 검색...',
+                          prefixIcon: const Icon(Icons.search, size: 18),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          isDense: true,
+                        ),
+                        onChanged: (v) => setDialogState(() => searchQuery = v),
+                      ),
+                      const SizedBox(height: 8),
+                      if (currentTask.parentTaskId != null)
+                        ListTile(
+                          dense: true,
+                          leading: Icon(Icons.remove_circle_outline, size: 18, color: colorScheme.error),
+                          title: Text(
+                            '상위 작업 해제',
+                            style: TextStyle(fontSize: 13, color: colorScheme.error, fontWeight: FontWeight.w600),
+                          ),
+                          onTap: () async {
+                            Navigator.of(dialogContext).pop();
+                            final authProvider = context.read<AuthProvider>();
+                            await taskProvider.updateTask(
+                              currentTask.copyWith(parentTaskId: '', updatedAt: DateTime.now()),
+                              userId: authProvider.currentUser?.id,
+                              username: authProvider.currentUser?.username,
+                            );
+                          },
+                        ),
+                      const Divider(height: 1),
+                      Expanded(
+                        child: filtered.isEmpty
+                            ? Center(
+                                child: Text(
+                                  '선택할 수 있는 작업이 없습니다',
+                                  style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                                ),
+                              )
+                            : ListView.builder(
+                                itemCount: filtered.length,
+                                itemBuilder: (context, index) {
+                                  final task = filtered[index];
+                                  final isCurrentParent = task.id == currentTask.parentTaskId;
+                                  return ListTile(
+                                    dense: true,
+                                    selected: isCurrentParent,
+                                    leading: Container(
+                                      width: 8, height: 8,
+                                      decoration: BoxDecoration(color: task.status.color, shape: BoxShape.circle),
+                                    ),
+                                    title: Text(
+                                      task.title,
+                                      style: TextStyle(fontSize: 13, fontWeight: isCurrentParent ? FontWeight.bold : FontWeight.normal),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    subtitle: Text(task.status.displayName, style: TextStyle(fontSize: 11, color: task.status.color)),
+                                    trailing: isCurrentParent ? Icon(Icons.check, size: 16, color: colorScheme.primary) : null,
+                                    onTap: () async {
+                                      Navigator.of(dialogContext).pop();
+                                      final authProvider = context.read<AuthProvider>();
+                                      await taskProvider.updateTask(
+                                        currentTask.copyWith(parentTaskId: task.id, updatedAt: DateTime.now()),
+                                        userId: authProvider.currentUser?.id,
+                                        username: authProvider.currentUser?.username,
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// 재귀적으로 모든 하위 태스크 ID를 수집 (순환 참조 방지)
+  Set<String> _getAllDescendantIds(String taskId, List<Task> allTasks) {
+    final descendants = <String>{};
+    final children = allTasks.where((t) => t.parentTaskId == taskId);
+    for (final child in children) {
+      descendants.add(child.id);
+      descendants.addAll(_getAllDescendantIds(child.id, allTasks));
+    }
+    return descendants;
   }
 
   Future<void> _saveTitle() async {

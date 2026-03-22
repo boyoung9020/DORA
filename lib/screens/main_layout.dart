@@ -1487,14 +1487,35 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final colorScheme = Theme.of(context).colorScheme;
     final currentUserId = context.read<AuthProvider>().currentUser?.id;
     final currentFilter = taskProv.taskOwnerFilter;
-    final RenderBox button = context.findRenderObject() as RenderBox;
-    final offset = button.localToGlobal(Offset.zero);
 
-    final users = _cachedUsers ?? [];
+    // 드롭다운 버튼 위치 계산 — 버튼 바로 아래에 표시
+    final RenderBox button = context.findRenderObject() as RenderBox;
+    final buttonPos = button.localToGlobal(Offset.zero);
+    final buttonSize = button.size;
+
+    final allUsers = _cachedUsers ?? [];
+
+    // 현재 프로젝트 멤버만 필터링 (전체모드면 모든 유저)
+    final projectProvider = context.read<ProjectProvider>();
+    final currentProject = projectProvider.currentProject;
+    final isAllMode = projectProvider.isAllProjectsMode;
+
+    List<User> users;
+    if (isAllMode || currentProject == null) {
+      users = allUsers;
+    } else {
+      final memberIds = currentProject.teamMemberIds;
+      users = allUsers.where((u) => memberIds.contains(u.id)).toList();
+    }
 
     showMenu<String?>(
       context: context,
-      position: RelativeRect.fromLTRB(offset.dx, offset.dy + 40, 0, 0),
+      position: RelativeRect.fromLTRB(
+        buttonPos.dx,
+        buttonPos.dy + buttonSize.height,
+        buttonPos.dx + buttonSize.width,
+        0,
+      ),
       items: [
         // 모든 작업
         PopupMenuItem<String?>(
@@ -1528,7 +1549,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         ),
         // 구분선
         const PopupMenuDivider(),
-        // 팀원 목록
+        // 팀원 목록 (프로젝트 멤버만)
         ...users.where((u) => u.id != currentUserId).map(
           (user) => PopupMenuItem<String?>(
             value: user.id,

@@ -43,6 +43,17 @@ def run_migrations():
                 )
             )
             conn.commit()
+            if "parent_task_id" not in columns:
+                conn.execute(text("ALTER TABLE tasks ADD COLUMN parent_task_id VARCHAR"))
+                conn.commit()
+                print("[migration] added tasks.parent_task_id")
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_tasks_parent_task_id "
+                    "ON tasks(parent_task_id)"
+                )
+            )
+            conn.commit()
 
         if "projects" in inspector.get_table_names():
             columns = [col["name"] for col in inspector.get_columns("projects")]

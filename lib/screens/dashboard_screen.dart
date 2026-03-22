@@ -16,6 +16,7 @@ import '../services/auth_service.dart';
 import '../services/task_service.dart';
 import '../widgets/glass_container.dart';
 import '../utils/avatar_color.dart';
+import '../utils/api_client.dart';
 import 'task_detail_screen.dart';
 
 /// 대시보드 화면 - AI 매니저 + 작업 테이블
@@ -430,19 +431,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     ];
 
-    return Row(
-      children: cards.map((card) {
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: _buildStatusCard(context, colorScheme, isDark, card),
-          ),
-        );
-      }).toList()
-        ..last = Expanded(
-          child: _buildStatusCard(
-              context, colorScheme, isDark, cards.last),
+    final dividerColor = colorScheme.onSurface.withValues(alpha: isDark ? 0.1 : 0.08);
+
+    return GlassContainer(
+      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+      borderRadius: 14.0,
+      blur: 20.0,
+      gradientColors: isDark
+          ? [
+              colorScheme.surface.withValues(alpha: 0.85),
+              colorScheme.surface.withValues(alpha: 0.9),
+            ]
+          : [
+              Colors.white.withValues(alpha: 0.95),
+              Colors.white.withValues(alpha: 0.98),
+            ],
+      borderColor: colorScheme.onSurface.withValues(alpha: isDark ? 0.12 : 0.1),
+      borderWidth: 1.0,
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            for (int i = 0; i < cards.length; i++) ...[
+              Expanded(
+                child: _buildStatusCard(context, colorScheme, isDark, cards[i]),
+              ),
+              if (i < cards.length - 1)
+                VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: dividerColor,
+                ),
+            ],
+          ],
         ),
+      ),
     );
   }
 
@@ -452,81 +474,79 @@ class _DashboardScreenState extends State<DashboardScreen> {
     bool isDark,
     _StatusCardData card,
   ) {
-    return GlassContainer(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      borderRadius: 14.0,
-      blur: 20.0,
-      gradientColors: isDark
-          ? [
-              Color.lerp(card.color, Colors.black, 0.85)!
-                  .withValues(alpha: 0.9),
-              Color.lerp(card.color, Colors.black, 0.9)!
-                  .withValues(alpha: 0.9),
-            ]
-          : [
-              Color.lerp(card.color, Colors.white, 0.88)!
-                  .withValues(alpha: 0.95),
-              Color.lerp(card.color, Colors.white, 0.92)!
-                  .withValues(alpha: 0.95),
-            ],
-      borderColor: card.color.withValues(alpha: isDark ? 0.3 : 0.25),
-      borderWidth: 1.2,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 아이콘 + 라벨
+          // 라벨
           Row(
             children: [
-              Icon(card.icon, size: 15, color: card.color),
+              Icon(card.icon, size: 14, color: card.color),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   card.label,
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface.withValues(alpha: 0.65),
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.onSurface.withValues(alpha: 0.55),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          // 숫자
-          Text(
-            '${card.count}${card.unit}',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: card.color,
-              height: 1.1,
+          const SizedBox(height: 10),
+          // 숫자 + 퍼센트
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                '${card.count}',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface,
+                  height: 1.1,
+                ),
+              ),
+              Text(
+                card.unit,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.onSurface.withValues(alpha: 0.45),
+                  height: 1.1,
+                ),
+              ),
+              if (card.pctLabel != null) ...[
+                const Spacer(),
+                Text(
+                  card.pctLabel!,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: card.color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          // 프로그레스 바
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: card.progress ?? 0,
+              minHeight: 4,
+              backgroundColor:
+                  colorScheme.onSurface.withValues(alpha: isDark ? 0.08 : 0.06),
+              valueColor: AlwaysStoppedAnimation<Color>(card.color),
             ),
           ),
-          // 프로그레스 바 + 퍼센트 (전체 프로젝트 카드에는 없음)
-          if (card.progress != null) ...[
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: card.progress,
-                minHeight: 5,
-                backgroundColor:
-                    card.color.withValues(alpha: isDark ? 0.18 : 0.14),
-                valueColor: AlwaysStoppedAnimation<Color>(card.color),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              card.pctLabel!,
-              style: TextStyle(
-                fontSize: 11,
-                color: card.color.withValues(alpha: 0.8),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -541,9 +561,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(1.6),
+      padding: const EdgeInsets.all(1.4),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -560,8 +580,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       child: GlassContainer(
         width: double.infinity,
-        padding: const EdgeInsets.all(18),
-        borderRadius: 17.0,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        borderRadius: 13.0,
         blur: 22.0,
         gradientColors: gradientColors,
         borderColor: Colors.transparent,
@@ -576,23 +596,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Icon(
                   Icons.auto_awesome,
                   color: colorScheme.primary,
-                  size: 22,
+                  size: 16,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Text(
                   'AI 매니저',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 13,
                     fontWeight: FontWeight.bold,
                     color: colorScheme.onSurface,
                   ),
                 ),
                 if (_aiGeneratedAt != null) ...[
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Text(
                     '${_formatAiGeneratedAt(_aiGeneratedAt!)} 기준',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 10,
                       color: colorScheme.onSurface.withValues(alpha: 0.55),
                     ),
                   ),
@@ -600,11 +620,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const Spacer(),
                 // 새로고침 버튼
                 SizedBox(
-                  width: 32,
-                  height: 32,
+                  width: 26,
+                  height: 26,
                   child: IconButton(
                     padding: EdgeInsets.zero,
-                    iconSize: 18,
+                    iconSize: 14,
                     icon: Icon(
                       Icons.refresh,
                       color: colorScheme.onSurface.withValues(alpha: 0.6),
@@ -615,14 +635,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     tooltip: '새로고침',
                   ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 2),
                 // 접기/펼치기 버튼
                 SizedBox(
-                  width: 32,
-                  height: 32,
+                  width: 26,
+                  height: 26,
                   child: IconButton(
                     padding: EdgeInsets.zero,
-                    iconSize: 18,
+                    iconSize: 14,
                     icon: Icon(
                       _aiCollapsed
                           ? Icons.keyboard_arrow_down
@@ -641,7 +661,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             // 본문
             if (!_aiCollapsed) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               if (_aiLoading) ...[
                 const LinearProgressIndicator(minHeight: 3),
                 const SizedBox(height: 12),
@@ -677,67 +697,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   label: const Text('다시 시도'),
                 ),
               ] else ...[
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 160),
-                  child: Scrollbar(
-                    child: SingleChildScrollView(
-                      child: Actions(
-                        actions: {
-                          CopySelectionTextIntent:
-                              CallbackAction<CopySelectionTextIntent>(
-                                onInvoke: (_) {
-                                  Clipboard.setData(
-                                    ClipboardData(text: _aiSummary ?? ''),
-                                  );
-                                  return null;
-                                },
-                              ),
-                        },
-                        child: SelectionArea(
-                          child: MarkdownBody(
-                            selectable: false,
-                            data: _aiSummary ?? '요약 내용이 없습니다.',
-                            styleSheet: MarkdownStyleSheet(
-                              p: TextStyle(
-                                fontSize: 14,
-                                height: 1.6,
-                                color: colorScheme.onSurface,
-                              ),
-                              h1: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: colorScheme.onSurface,
-                              ),
-                              h2: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: colorScheme.onSurface,
-                              ),
-                              h3: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: colorScheme.onSurface,
-                              ),
-                              strong: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: colorScheme.onSurface,
-                              ),
-                              em: TextStyle(
-                                fontStyle: FontStyle.italic,
-                                color: colorScheme.onSurface,
-                              ),
-                              code: TextStyle(
-                                fontSize: 13,
-                                color: colorScheme.primary,
-                                backgroundColor:
-                                    colorScheme.primary.withValues(alpha: 0.1),
-                              ),
-                              listBullet: TextStyle(
-                                fontSize: 14,
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                          ),
+                Actions(
+                  actions: {
+                    CopySelectionTextIntent:
+                        CallbackAction<CopySelectionTextIntent>(
+                          onInvoke: (_) {
+                            Clipboard.setData(
+                              ClipboardData(text: _aiSummary ?? ''),
+                            );
+                            return null;
+                          },
+                        ),
+                  },
+                  child: SelectionArea(
+                    child: MarkdownBody(
+                      selectable: false,
+                      data: _aiSummary ?? '요약 내용이 없습니다.',
+                      styleSheet: MarkdownStyleSheet(
+                        p: TextStyle(
+                          fontSize: 12,
+                          height: 1.5,
+                          color: colorScheme.onSurface,
+                        ),
+                        h1: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                        h2: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                        h3: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                        strong: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                        em: TextStyle(
+                          fontStyle: FontStyle.italic,
+                          color: colorScheme.onSurface,
+                        ),
+                        code: TextStyle(
+                          fontSize: 11,
+                          color: colorScheme.primary,
+                          backgroundColor:
+                              colorScheme.primary.withValues(alpha: 0.1),
+                        ),
+                        listBullet: TextStyle(
+                          fontSize: 12,
+                          color: colorScheme.onSurface,
                         ),
                       ),
                     ),
@@ -821,6 +834,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                   ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Export 버튼
+            InkWell(
+              onTap: () => _showExportDialog(context, allProjects),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.ios_share_outlined,
+                  size: 16,
+                  color: colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
             ),
@@ -1891,6 +1924,453 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // ─── Export 기능 ─────────────────────────────────────────────
+
+  void _showExportDialog(BuildContext context, List<Project> allProjects) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final selectedProjectIds = <String>{};
+    String exportFormat = 'docs'; // 'docs' or 'md'
+    DateTime exportStart = DateTime.now().subtract(const Duration(days: 7));
+    DateTime exportEnd = DateTime.now();
+    final yy = (exportStart.year % 100).toString().padLeft(2, '0');
+    final mm = exportStart.month.toString().padLeft(2, '0');
+    final dd = exportStart.day.toString().padLeft(2, '0');
+    final titleController = TextEditingController(text: '$yy$mm$dd 업무 보고');
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            void updateTitle() {
+              final y = (exportStart.year % 100).toString().padLeft(2, '0');
+              final m = exportStart.month.toString().padLeft(2, '0');
+              final d = exportStart.day.toString().padLeft(2, '0');
+              titleController.text = '$y$m$d 업무 보고';
+            }
+
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              child: GlassContainer(
+                padding: const EdgeInsets.all(24),
+                borderRadius: 20.0,
+                blur: 25.0,
+                gradientColors: [
+                  colorScheme.surface.withValues(alpha: 0.95),
+                  colorScheme.surface.withValues(alpha: 0.9),
+                ],
+                child: SizedBox(
+                  width: 460,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.ios_share_outlined, size: 20, color: colorScheme.primary),
+                          const SizedBox(width: 8),
+                          Text(
+                            '업무 보고서 내보내기',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: Icon(Icons.close, size: 20, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      // 제목
+                      Text('제목', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: titleController,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          isDense: true,
+                        ),
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // 프로젝트 선택 (멀티셀렉트)
+                      Row(
+                        children: [
+                          Text('프로젝트', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
+                          const Spacer(),
+                          InkWell(
+                            onTap: () {
+                              setDialogState(() {
+                                if (selectedProjectIds.length == allProjects.length) {
+                                  selectedProjectIds.clear();
+                                } else {
+                                  selectedProjectIds.clear();
+                                  selectedProjectIds.addAll(allProjects.map((p) => p.id));
+                                }
+                              });
+                            },
+                            child: Text(
+                              selectedProjectIds.length == allProjects.length ? '전체 해제' : '전체 선택',
+                              style: TextStyle(fontSize: 12, color: colorScheme.primary, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 140),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: colorScheme.outline),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: allProjects.map((project) {
+                              final isSelected = selectedProjectIds.contains(project.id);
+                              return InkWell(
+                                onTap: () {
+                                  setDialogState(() {
+                                    if (isSelected) {
+                                      selectedProjectIds.remove(project.id);
+                                    } else {
+                                      selectedProjectIds.add(project.id);
+                                    }
+                                  });
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        isSelected ? Icons.check_box : Icons.check_box_outline_blank,
+                                        size: 18,
+                                        color: isSelected ? colorScheme.primary : colorScheme.onSurface.withValues(alpha: 0.4),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          project.name,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: colorScheme.onSurface,
+                                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                      if (selectedProjectIds.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            '${selectedProjectIds.length}개 선택됨',
+                            style: TextStyle(fontSize: 11, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                          ),
+                        ),
+                      const SizedBox(height: 16),
+
+                      // 기간 선택
+                      Text('기간', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
+                      const SizedBox(height: 6),
+                      InkWell(
+                        onTap: () async {
+                          final picked = await showDateRangePicker(
+                            context: ctx,
+                            firstDate: DateTime(2024),
+                            lastDate: DateTime(2030),
+                            initialDateRange: DateTimeRange(start: exportStart, end: exportEnd),
+                          );
+                          if (picked != null) {
+                            setDialogState(() {
+                              exportStart = picked.start;
+                              exportEnd = picked.end;
+                              updateTitle();
+                            });
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: colorScheme.outline),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.calendar_today, size: 16, color: colorScheme.onSurface.withValues(alpha: 0.6)),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${exportStart.month}/${exportStart.day} ~ ${exportEnd.month}/${exportEnd.day}',
+                                style: TextStyle(fontSize: 14, color: colorScheme.onSurface),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // 형식 선택
+                      Text('형식', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => setDialogState(() => exportFormat = 'docs'),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: exportFormat == 'docs'
+                                      ? colorScheme.primary.withValues(alpha: 0.12)
+                                      : Colors.transparent,
+                                  border: Border.all(
+                                    color: exportFormat == 'docs'
+                                        ? colorScheme.primary
+                                        : colorScheme.outline,
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.description_outlined, size: 16,
+                                      color: exportFormat == 'docs' ? colorScheme.primary : colorScheme.onSurface.withValues(alpha: 0.6)),
+                                    const SizedBox(width: 6),
+                                    Text('Google Docs',
+                                      style: TextStyle(fontSize: 13,
+                                        color: exportFormat == 'docs' ? colorScheme.primary : colorScheme.onSurface,
+                                        fontWeight: exportFormat == 'docs' ? FontWeight.w600 : FontWeight.normal)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => setDialogState(() => exportFormat = 'md'),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: exportFormat == 'md'
+                                      ? colorScheme.primary.withValues(alpha: 0.12)
+                                      : Colors.transparent,
+                                  border: Border.all(
+                                    color: exportFormat == 'md'
+                                        ? colorScheme.primary
+                                        : colorScheme.outline,
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.code, size: 16,
+                                      color: exportFormat == 'md' ? colorScheme.primary : colorScheme.onSurface.withValues(alpha: 0.6)),
+                                    const SizedBox(width: 6),
+                                    Text('Markdown',
+                                      style: TextStyle(fontSize: 13,
+                                        color: exportFormat == 'md' ? colorScheme.primary : colorScheme.onSurface,
+                                        fontWeight: exportFormat == 'md' ? FontWeight.w600 : FontWeight.normal)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // 내보내기 버튼
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: isLoading ? null : () async {
+                            setDialogState(() => isLoading = true);
+                            try {
+                              final report = await _callExportApi(
+                                title: titleController.text,
+                                projectIds: selectedProjectIds.isEmpty ? null : selectedProjectIds.toList(),
+                                startDate: exportStart,
+                                endDate: exportEnd,
+                                format: exportFormat,
+                              );
+                              if (ctx.mounted) {
+                                Navigator.of(dialogContext).pop();
+                                _showExportResultDialog(context, report, exportFormat);
+                              }
+                            } catch (e) {
+                              setDialogState(() => isLoading = false);
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  SnackBar(content: Text('보고서 생성 실패: $e'), backgroundColor: Colors.red),
+                                );
+                              }
+                            }
+                          },
+                          icon: isLoading
+                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Icon(Icons.auto_awesome, size: 18),
+                          label: Text(isLoading ? 'AI 보고서 생성 중...' : 'AI 보고서 생성'),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<String> _callExportApi({
+    required String title,
+    List<String>? projectIds,
+    required DateTime startDate,
+    required DateTime endDate,
+    required String format,
+  }) async {
+    final response = await ApiClient.post(
+      '/api/ai/export-report',
+      body: {
+        'title': title,
+        'project_ids': projectIds,
+        'start_date': startDate.toIso8601String(),
+        'end_date': endDate.toIso8601String(),
+        'format': format,
+      },
+    );
+    final data = ApiClient.handleResponse(response);
+    return data['report'] as String;
+  }
+
+  void _showExportResultDialog(BuildContext context, String report, String format) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final scrollController = ScrollController();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: GlassContainer(
+            padding: const EdgeInsets.all(24),
+            borderRadius: 20.0,
+            blur: 25.0,
+            gradientColors: [
+              colorScheme.surface.withValues(alpha: 0.95),
+              colorScheme.surface.withValues(alpha: 0.9),
+            ],
+            child: SizedBox(
+              width: 600,
+              height: 600,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.article_outlined, size: 20, color: colorScheme.primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        '보고서',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
+                      ),
+                      const Spacer(),
+                      FilledButton.tonalIcon(
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: report));
+                          ScaffoldMessenger.of(dialogContext).showSnackBar(
+                            const SnackBar(content: Text('클립보드에 복사되었습니다'), duration: Duration(seconds: 2)),
+                          );
+                        },
+                        icon: const Icon(Icons.copy, size: 16),
+                        label: const Text('복사'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          textStyle: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: Icon(Icons.close, size: 20, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerLowest,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
+                      ),
+                      child: format == 'md'
+                          ? Markdown(
+                              data: report,
+                              selectable: true,
+                              controller: scrollController,
+                              padding: EdgeInsets.zero,
+                              styleSheet: MarkdownStyleSheet(
+                                h2: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
+                                h3: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: colorScheme.primary),
+                                p: TextStyle(fontSize: 13, height: 1.6, color: colorScheme.onSurface),
+                                listBullet: TextStyle(fontSize: 13, color: colorScheme.onSurface),
+                                strong: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.onSurface),
+                                h2Padding: const EdgeInsets.only(bottom: 8),
+                                h3Padding: const EdgeInsets.only(top: 12, bottom: 4),
+                                blockSpacing: 6,
+                              ),
+                            )
+                          : Scrollbar(
+                              controller: scrollController,
+                              thumbVisibility: true,
+                              child: SingleChildScrollView(
+                                controller: scrollController,
+                                child: SelectableText(
+                                  report,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    height: 1.6,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                ),
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

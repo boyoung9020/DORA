@@ -96,7 +96,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         backgroundColor: const Color(0xFFFFFAF2),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
-          '사용자 이름 설정',
+          '실명 입력',
           style: TextStyle(
             color: Color(0xFFD86B27),
             fontWeight: FontWeight.w900,
@@ -105,7 +105,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         content: Form(
           key: formKey,
-          child: TextFormField(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '팀원 식별을 위해 반드시 실명을 입력해주세요.',
+                style: TextStyle(
+                  color: Color(0xFFD86B27),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
             controller: controller,
             autofocus: true,
             style: const TextStyle(
@@ -114,10 +127,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               fontWeight: FontWeight.w600,
             ),
             decoration: InputDecoration(
-              hintText: '이름 또는 아이디 입력',
+              hintText: '실명을 입력하세요 (예: 홍길동)',
               hintStyle: const TextStyle(color: Color(0xFFC1A58A)),
               prefixIcon: const Icon(
-                Icons.person_outline,
+                Icons.badge_outlined,
                 color: Color(0xFFC09A78),
                 size: 18,
               ),
@@ -148,8 +161,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
             validator: (v) {
-              if (v == null || v.trim().isEmpty) return '사용자 이름을 입력하세요';
-              if (v.trim().length < 3) return '사용자 이름은 3자 이상이어야 합니다';
+              if (v == null || v.trim().isEmpty) return '실명을 입력하세요';
+              if (v.trim().length < 2) return '이름은 2자 이상이어야 합니다';
               return null;
             },
             onFieldSubmitted: (_) {
@@ -157,6 +170,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Navigator.of(ctx).pop(controller.text.trim());
               }
             },
+          ),
+            ],
           ),
         ),
         actions: [
@@ -460,12 +475,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 14),
             _buildInputField(
               controller: _usernameController,
-              label: '사용자 이름',
-              hint: '이름 또는 아이디 입력',
-              icon: Icons.person_outline,
+              label: '이름 (실명)',
+              hint: '실명을 입력하세요 (예: 홍길동)',
+              icon: Icons.badge_outlined,
+              helperText: '팀원 식별을 위해 반드시 실명을 입력해주세요.',
               validator: (value) {
-                if (value == null || value.isEmpty) return '사용자 이름을 입력하세요';
-                if (value.length < 3) return '사용자 이름은 3자 이상이어야 합니다';
+                if (value == null || value.isEmpty) return '이름을 입력하세요';
+                if (value.length < 2) return '이름은 2자 이상이어야 합니다';
                 return null;
               },
             ),
@@ -627,6 +643,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     TextInputType? keyboardType,
     bool obscureText = false,
     Widget? suffixIcon,
+    String? helperText,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -704,6 +721,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
             errorStyle: const TextStyle(
               color: Color(0xFFDC2626),
               fontSize: 12,
+            ),
+            helperText: helperText,
+            helperStyle: const TextStyle(
+              color: Color(0xFFD86B27),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),

@@ -13,7 +13,7 @@ from app.models.notification import Notification, NotificationType
 from app.models.project import Project
 from app.models.task import Task, TaskPriority, TaskStatus
 from app.models.user import User
-from app.schemas.ai import AISummaryResponse
+from app.schemas.ai import AISummaryResponse, AIExportRequest, AIExportResponse
 from app.utils.dependencies import get_current_user
 
 router = APIRouter()
@@ -254,3 +254,207 @@ async def get_ai_summary(
         ) from e
 
     return AISummaryResponse(summary=summary, generated_at=datetime.now(timezone.utc))
+
+
+def _build_export_prompt(
+    title: str,
+    tasks_by_project: Dict[str, List[Dict]],
+    holding_count: int,
+    in_progress_count: int,
+    done_count: int,
+    example_format: str,
+    output_format: str = "docs",
+) -> str:
+    if output_format == "md":
+        format_rule = (
+            "마크다운 형식으로 작성하세요:\n"
+            "   - 보고서 제목은 ## (h2)로 작성\n"
+            "   - 프로젝트명은 ### (h3)로 작성\n"
+            "   - 섹션 구분(📌 투입 프로젝트 진행 요약 등)은 **굵게** 처리\n"
+            "   - 작업 목록은 - 불릿 리스트로 작성\n"
+            "   - 중요 키워드나 상태(완료, 보류, 진행중 등)는 **굵게** 처리\n"
+            "   - 상태 카운트 줄은 그대로 텍스트로 작성"
+        )
+    else:
+        format_rule = (
+            "마크다운 문법(#, **, - 등)을 절대 사용하지 마세요. 일반 텍스트로만 작성하세요. "
+            "Google Docs에 붙여넣기 좋은 순수 텍스트 형식으로 작성하세요. "
+            "양식 예시의 들여쓰기와 줄바꿈을 정확히 따르세요."
+        )
+
+    task_data_lines = []
+    for project_name, tasks in tasks_by_project.items():
+        task_data_lines.append(f"\n=== {project_name} ===")
+        for t in tasks:
+            task_data_lines.append(
+                f"- [{t['status']}] {t['title']}  "
+                f"우선순위:{t['priority']}  기간:{t['period']}  "
+                f"설명:{t['description']}"
+            )
+
+    return f"""
+[시스템]
+당신은 프로젝트 매니저 업무 보고서 작성 AI입니다.
+아래 작업 데이터를 기반으로 업무 보고서를 작성하세요.
+
+[출력 양식 예시 - 반드시 이 형식과 스타일을 정확히 따르세요]
+{example_format}
+
+[규칙]
+1. 위 양식의 구조, 들여쓰기, 줄바꿈 스타일을 정확히 따라야 합니다.
+2. 첫 줄은 제목: "{title}"
+3. 빈 줄 2개 후 상태 카운트: "홀딩: {holding_count}    진행: {in_progress_count}    완료: {done_count}"
+4. "📌 투입 프로젝트 진행 요약" 헤더를 쓰세요.
+5. 프로젝트명을 적고, 그 아래에 해당 프로젝트의 작업들을 서술형으로 정리하세요.
+6. 양식 예시처럼 각 작업은 "작업제목 - 상황 설명" 또는 "작업제목" 후 다음 줄에 상세 설명 형식으로 쓰세요.
+7. 예시에서처럼 "차주까지 처리 목표", "금주까지 처리 목표", "확인 중", "완료", "보류" 등 실무적 표현을 사용하세요.
+8. 완료된 작업은 "완료"로 명시하고, 진행중인 작업은 현재 상황과 목표를 함께 쓰세요.
+9. {format_rule}
+10. 데이터에 없는 내용을 지어내지 마세요. 작업 제목과 설명에 있는 내용만 사용하세요.
+11. 프로젝트 내 작업이 여러 개면 양식 예시처럼 자연스럽게 묶어서 정리하세요.
+
+[작업 데이터]
+{chr(10).join(task_data_lines)}
+""".strip()
+
+
+@router.post("/export-report", response_model=AIExportResponse)
+async def generate_export_report(
+    req: AIExportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not settings.GEMINI_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="GEMINI_API_KEY가 설정되지 않았습니다.",
+        )
+
+    # 프로젝트 조회
+    project_query = db.query(Project)
+    if req.project_ids:
+        project_query = project_query.filter(Project.id.in_(req.project_ids))
+    projects = project_query.all()
+    project_name_by_id = {p.id: p.name for p in projects}
+    project_ids = [p.id for p in projects]
+
+    # 작업 조회 (기간 필터)
+    task_query = db.query(Task).filter(Task.project_id.in_(project_ids))
+
+    start_dt = datetime.fromisoformat(req.start_date).replace(tzinfo=timezone.utc) if req.start_date else None
+    end_dt = datetime.fromisoformat(req.end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc) if req.end_date else None
+
+    if start_dt and end_dt:
+        # 기간이 겹치는 작업
+        task_query = task_query.filter(
+            (Task.start_date <= end_dt) | (Task.start_date.is_(None)),
+            (Task.end_date >= start_dt) | (Task.end_date.is_(None)),
+        )
+
+    tasks = task_query.all()
+
+    # 상태별 카운트
+    holding = sum(1 for t in tasks if t.status in (TaskStatus.BACKLOG, TaskStatus.READY))
+    in_progress = sum(1 for t in tasks if t.status in (TaskStatus.IN_PROGRESS, TaskStatus.IN_REVIEW))
+    done = sum(1 for t in tasks if t.status == TaskStatus.DONE)
+
+    # 프로젝트별 그룹핑
+    tasks_by_project: Dict[str, List[Dict]] = {}
+    for t in tasks:
+        p_name = project_name_by_id.get(t.project_id, "미분류")
+        if p_name not in tasks_by_project:
+            tasks_by_project[p_name] = []
+
+        period = ""
+        if t.start_date or t.end_date:
+            s = t.start_date.strftime("%m/%d") if t.start_date else "?"
+            e = t.end_date.strftime("%m/%d") if t.end_date else "?"
+            period = f"{s} ~ {e}"
+
+        tasks_by_project[p_name].append({
+            "title": t.title,
+            "status": _status_label(t.status.value),
+            "priority": _priority_label(t.priority.value),
+            "period": period or "미지정",
+            "description": t.description or "",
+        })
+
+    example_format = """260317 AI 업무 보고
+
+
+홀딩    진행     완료
+📌 투입 프로젝트 진행 요약
+AI Meta
+MBC AI Meta - 차주까지 처리 목표
+얼굴인식 메모리 사용 최적화 보류 (AI 타이틀 얼굴인식 메모리 누수 우선 처리)
+서울삼성병원 AI meta - 금주까지 처리 목표
+본사 개발환경에서 AI 서비스 연동 중 에러. 확인 중..
+SBS NDS AI meta - 수요일 작업 예정
+금주 VectorDB Milvus 관련해서 이중화 구성 요청 받음 (신진범 과장).
+KBS AI QC
+테스트 영상 다시 요청 드림 (성민효 차장)
+YNA
+프레임 보간
+8개 운영서버에 배포 시나리오 작성 및 확인 중
+AI Title  - 금주까지 처리 목표
+메모리 누수 지난주에 이어 확인중
+RAPA AI 데이터 라벨링 사업
+IDC 백업 진행 중  - 3월 마무리 목표
+지역성/전통성이 잘 들어나는 컨텐츠 확인 요청 & 전달
+인물 DB 구축 프로젝트 - 3월 마무리 목표
+DB와 서비스 포트 구성하여 docker compose로 패키징 완료
+1700명 해외 인물 크롤링 완료하여 edwar, 인사팀장님 검수 작업중
+검수 작업자 화면에서 추가 기능 구현
+LiveSTT(지연송출)
+구로 MCC
+MCC 개발환경에 STT 설치 지원 & 연동 지원 완료 (최대식 대리)
+ SBS 미디어넷
+샘플 영상 기반 STT 수행 결과 및 인식률 결과 전달 (이상봉 이사)
+AI 프롬프터
+AI 프롬프터 전체 구성도 문서 재검토 및 작성
+우선 AI 파트에서는 보류!!
+
+
+신규
+
+AI 데이터 라벨링 Proxima MAM 연동
+차주까지 업로드 툴 & AI Meta 인터페이스 명세서 전달 예정 (임은지 대리)
+SE 김성민 팀장님 요청 - 금주까지 처리 목표
+AWS 인스턴스 상에서 OCR 서비스를 올려 인스턴스 스펙 테스트
+ECS 테스트 (with 김성빈, 김희웅 연구원)"""
+
+    prompt = _build_export_prompt(
+        title=req.title,
+        tasks_by_project=tasks_by_project,
+        holding_count=holding,
+        in_progress_count=in_progress,
+        done_count=done,
+        example_format=example_format,
+        output_format=req.format,
+    )
+
+    try:
+        from google import genai
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AI 라이브러리를 불러오지 못했습니다: {e}",
+        ) from e
+
+    try:
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        response = await asyncio.to_thread(
+            client.models.generate_content,
+            model="gemini-2.5-flash",
+            contents=prompt,
+        )
+        report = (response.text or "").strip()
+        if not report:
+            report = "보고서를 생성하지 못했습니다. 잠시 후 다시 시도해 주세요."
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AI 보고서 생성에 실패했습니다: {e}",
+        ) from e
+
+    return AIExportResponse(report=report, generated_at=datetime.now(timezone.utc))

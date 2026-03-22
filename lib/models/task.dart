@@ -154,6 +154,7 @@ class Task {
   final List<Map<String, String>> documentLinks;
   final int displayOrder; // 移몃컲 蹂대뱶 ???쒖떆 ?쒖꽌
   final String? creatorId; // 태스크 생성자 ID
+  final String? parentTaskId; // 부모 태스크 ID (계층 구조)
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -177,6 +178,7 @@ class Task {
     List<Map<String, String>>? documentLinks,
     this.displayOrder = 0,
     this.creatorId,
+    this.parentTaskId,
     required this.createdAt,
     required this.updatedAt,
   }) : detailImageUrls = detailImageUrls ?? [],
@@ -210,6 +212,7 @@ class Task {
       'document_links': documentLinks,
       'display_order': displayOrder,
       'creator_id': creatorId,
+      'parent_task_id': parentTaskId,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -363,6 +366,7 @@ class Task {
       documentLinks: documentLinks,
       displayOrder: json['display_order'] ?? 0,
       creatorId: json['creator_id'] as String?,
+      parentTaskId: json['parent_task_id'] as String?,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -389,6 +393,7 @@ class Task {
     List<Map<String, String>>? documentLinks,
     int? displayOrder,
     String? creatorId,
+    String? parentTaskId,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -412,6 +417,7 @@ class Task {
       documentLinks: documentLinks ?? this.documentLinks,
       displayOrder: displayOrder ?? this.displayOrder,
       creatorId: creatorId ?? this.creatorId,
+      parentTaskId: parentTaskId ?? this.parentTaskId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
