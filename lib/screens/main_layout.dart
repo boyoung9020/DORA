@@ -37,6 +37,7 @@ import 'admin_approval_screen.dart';
 import 'notification_screen.dart';
 import 'chat_screen.dart';
 import 'search_screen.dart';
+import 'project_info_screen.dart';
 
 /// 메인 레이아웃 - Slack 스타일 (왼쪽 사이드바 + 오른쪽 컨텐츠)
 class MainLayout extends StatefulWidget {
@@ -110,6 +111,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       selectedIcon: Icons.notifications,
       label: '알림',
       index: 7,
+    ),
+    MenuItem(
+      icon: Icons.space_dashboard_outlined,
+      selectedIcon: Icons.space_dashboard,
+      label: '프로젝트',
+      index: 8,
     ),
   ];
 
@@ -194,6 +201,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       context,
       listen: false,
     );
+    final wsProvider = Provider.of<WorkspaceProvider>(context, listen: false);
 
     if (!authProvider.isAuthenticated || authProvider.currentUser == null) {
       return;
@@ -205,11 +213,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       case 'project_created':
       case 'project_updated':
       case 'team_member_added':
-        // 프로젝트 목록 새로고침
+        // 프로젝트 목록 새로고침 (워크스페이스 범위)
         await projectProvider.loadProjects(
           userId: user.id,
           isAdmin: authProvider.isAdmin,
           isPM: authProvider.isPM,
+          workspaceId: wsProvider.currentWorkspaceId,
         );
 
         // 팀원 추가 시 인앱 토스트 표시
@@ -598,6 +607,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         label: '알림',
         index: 7,
       ),
+      MenuItem(
+        icon: Icons.space_dashboard_outlined,
+        selectedIcon: Icons.space_dashboard,
+        label: '프로젝트',
+        index: 8,
+      ),
     ];
 
     var menuItemsToApply = defaultItems;
@@ -609,25 +624,29 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       final savedOrder = prefs.getStringList('menu_item_order');
       selectedIndexToApply = prefs.getInt('selected_menu_index') ?? 0;
       if (savedOrder != null && savedOrder.length == defaultItems.length) {
-        // 저장된 순서대로 재정렬
-        final orderedItems = <MenuItem>[];
-        for (final label in savedOrder) {
-          final item = defaultItems.firstWhere(
-            (item) => item.label == label,
-            orElse: () => defaultItems[0],
-          );
-          orderedItems.add(item);
+        // 저장된 label이 모두 현재 defaultItems에 존재하는지 확인
+        final defaultLabels = defaultItems.map((item) => item.label).toSet();
+        final allMatch = savedOrder.every((label) => defaultLabels.contains(label));
+
+        if (allMatch) {
+          // 저장된 순서대로 재정렬
+          final orderedItems = <MenuItem>[];
+          for (final label in savedOrder) {
+            final item = defaultItems.firstWhere((item) => item.label == label);
+            orderedItems.add(item);
+          }
+          // index 업데이트
+          for (int i = 0; i < orderedItems.length; i++) {
+            orderedItems[i] = MenuItem(
+              icon: orderedItems[i].icon,
+              selectedIcon: orderedItems[i].selectedIcon,
+              label: orderedItems[i].label,
+              index: i,
+            );
+          }
+          menuItemsToApply = orderedItems;
         }
-        // index 업데이트
-        for (int i = 0; i < orderedItems.length; i++) {
-          orderedItems[i] = MenuItem(
-            icon: orderedItems[i].icon,
-            selectedIcon: orderedItems[i].selectedIcon,
-            label: orderedItems[i].label,
-            index: i,
-          );
-        }
-        menuItemsToApply = orderedItems;
+        // label 불일치 시 기본 순서 사용 (메뉴 이름 변경 대응)
       }
     } catch (e) {
       // 에러 발생 시 기본 순서 사용
@@ -1373,7 +1392,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               } else if (value == '__all__') {
                 projectProvider.selectAllProjects();
                 if (!mounted) return;
+                // 워크스페이스 범위 내 프로젝트의 태스크만 로드
+                final wsProjectIds = projectProvider.projects.map((p) => p.id).toList();
                 await taskProvider.loadTasks();
+                taskProvider.filterByProjectIds(wsProjectIds);
                 await sprintProvider.loadSprints();
               } else {
                 await projectProvider.setCurrentProject(value);
@@ -2610,6 +2632,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         return const ChatScreen();
       case '관리자 승인':
         return const AdminApprovalScreen();
+      case '프로젝트':
+        return const ProjectInfoScreen();
       default:
         return const DashboardScreen();
     }

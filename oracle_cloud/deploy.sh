@@ -5,6 +5,7 @@
 # ============================================================
 
 set -e
+export PATH="$PATH:/c/flutter/bin"
 
 SERVER="ubuntu@168.107.50.187"
 KEY="/tmp/deploy_key"

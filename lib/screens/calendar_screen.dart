@@ -6,7 +6,10 @@ import '../providers/task_provider.dart';
 import '../providers/project_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/task.dart';
+import '../models/user.dart';
+import '../services/auth_service.dart';
 import '../widgets/glass_container.dart';
+import '../utils/avatar_color.dart';
 import 'task_detail_screen.dart';
 
 /// ?щ젰 ?붾㈃
@@ -23,6 +26,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   bool _isLocaleReady = false;
   String? _lastLoadedProjectId;
   bool? _lastLoadedAllMode;
+  Map<String, User> _usersById = {};
 
   @override
   void initState() {
@@ -34,6 +38,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
         });
       }
     });
+    _loadUsers();
+  }
+
+  Future<void> _loadUsers() async {
+    try {
+      final users = await AuthService().getAllUsers();
+      if (mounted) {
+        setState(() {
+          _usersById = {for (var u in users) u.id: u};
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -726,20 +742,62 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
               ],
               const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  task.status.displayName,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: statusColor,
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      task.status.displayName,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: statusColor,
+                      ),
+                    ),
                   ),
-                ),
+                  const Spacer(),
+                  // 담당자 아바타
+                  if (task.assignedMemberIds.isNotEmpty && _usersById.isNotEmpty)
+                    ...task.assignedMemberIds.take(3).map((memberId) {
+                      final member = _usersById[memberId];
+                      if (member == null) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: CircleAvatar(
+                          radius: 10,
+                          backgroundColor: AvatarColor.getColorForUser(member.id),
+                          child: Text(
+                            AvatarColor.getInitial(member.username),
+                            style: const TextStyle(
+                              fontSize: 9,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  if (task.assignedMemberIds.length > 3)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: CircleAvatar(
+                        radius: 10,
+                        backgroundColor: colorScheme.onSurface.withValues(alpha: 0.2),
+                        child: Text(
+                          '+${task.assignedMemberIds.length - 3}',
+                          style: TextStyle(
+                            fontSize: 8,
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ],
           ),

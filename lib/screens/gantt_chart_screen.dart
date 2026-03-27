@@ -54,6 +54,7 @@ class _GanttRow {
   final bool isExpanded;
   final int childCount;
   final int doneChildCount;
+  final int level;
 
   const _GanttRow({
     required this.task,
@@ -61,6 +62,7 @@ class _GanttRow {
     this.isExpanded = false,
     this.childCount = 0,
     this.doneChildCount = 0,
+    this.level = 0,
   });
 }
 
@@ -188,14 +190,6 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
 
   /// 플랫 태스크 리스트를 계층 구조 행 리스트로 변환
   List<_GanttRow> _buildHierarchicalRows(List<Task> tasks) {
-    // 부모 태스크가 있는 자식들의 ID 세트
-    final childIds = <String>{};
-    for (final t in tasks) {
-      if (t.parentTaskId != null && t.parentTaskId!.isNotEmpty) {
-        childIds.add(t.id);
-      }
-    }
-
     // 부모 ID → 자식 태스크 맵
     final childrenMap = <String, List<Task>>{};
     for (final t in tasks) {
@@ -219,32 +213,34 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
     });
 
     final rows = <_GanttRow>[];
-    for (final root in rootTasks) {
-      final children = childrenMap[root.id] ?? [];
-      final hasChildren = children.isNotEmpty;
-      final isExpanded = _expandedParents[root.id] ?? true;
-      final doneCount = children.where((c) => c.status == TaskStatus.done).length;
+    void addRows(List<Task> taskList, int level) {
+      for (final task in taskList) {
+        final children = childrenMap[task.id] ?? [];
+        final hasChildren = children.isNotEmpty;
+        final isExpanded = _expandedParents[task.id] ?? true;
+        final doneCount = children.where((c) => c.status == TaskStatus.done).length;
 
-      rows.add(_GanttRow(
-        task: root,
-        isParent: hasChildren,
-        isExpanded: isExpanded,
-        childCount: children.length,
-        doneChildCount: doneCount,
-      ));
+        rows.add(_GanttRow(
+          task: task,
+          isParent: hasChildren,
+          isExpanded: isExpanded,
+          childCount: children.length,
+          doneChildCount: doneCount,
+          level: level,
+        ));
 
-      if (hasChildren && isExpanded) {
-        children.sort((a, b) {
-          final aStart = a.startDate ?? a.createdAt;
-          final bStart = b.startDate ?? b.createdAt;
-          return aStart.compareTo(bStart);
-        });
-        for (final child in children) {
-          rows.add(_GanttRow(task: child, isParent: false));
+        if (hasChildren && isExpanded) {
+          children.sort((a, b) {
+            final aStart = a.startDate ?? a.createdAt;
+            final bStart = b.startDate ?? b.createdAt;
+            return aStart.compareTo(bStart);
+          });
+          addRows(children, level + 1);
         }
       }
     }
 
+    addRows(rootTasks, 0);
     return rows;
   }
 
@@ -709,7 +705,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
               : null,
         ),
         padding: EdgeInsets.only(
-          left: isParent ? 12 : 32,
+          left: 12.0 + row.level * 20.0,
           right: 12,
         ),
         child: Row(

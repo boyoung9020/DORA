@@ -11,6 +11,7 @@ from app.routers import (
     chat,
     checklists,
     comments,
+    github,
     notifications,
     projects,
     search,
@@ -155,6 +156,39 @@ def ensure_checklist_tables() -> None:
 
 ensure_checklist_tables()
 
+
+def ensure_project_github_table() -> None:
+    """project_github 테이블이 없으면 생성 (GitHub 연동)."""
+    try:
+        conn = engine.connect()
+        try:
+            result = conn.execute(text("SELECT to_regclass('public.project_github')"))
+            if result.scalar() is None:
+                conn.execute(text("""
+                    CREATE TABLE project_github (
+                        id VARCHAR PRIMARY KEY,
+                        project_id VARCHAR NOT NULL UNIQUE,
+                        repo_owner VARCHAR NOT NULL,
+                        repo_name VARCHAR NOT NULL,
+                        access_token VARCHAR,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                    )
+                """))
+                conn.execute(text("CREATE INDEX ix_project_github_project_id ON project_github(project_id)"))
+                conn.execute(text("CREATE INDEX ix_project_github_id ON project_github(id)"))
+                conn.commit()
+                print("[main] created project_github table")
+            else:
+                print("[main] project_github table already exists")
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"[main] failed to ensure project_github table: {e}")
+
+
+ensure_project_github_table()
+
 app = FastAPI(
     title="SYNC Project Manager API",
     description="SYNC project management backend API",
@@ -182,6 +216,7 @@ app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 app.include_router(workspaces.router, prefix="/api/workspaces", tags=["Workspaces"])
 app.include_router(sprints.router, prefix="/api/sprints", tags=["Sprints"])
 app.include_router(search.router, prefix="/api/search", tags=["Search"])
+app.include_router(github.router, prefix="/api/github", tags=["GitHub"])
 app.include_router(websocket.router, prefix="/api", tags=["WebSocket"])
 
 

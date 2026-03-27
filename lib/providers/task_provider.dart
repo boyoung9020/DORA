@@ -75,6 +75,14 @@ class TaskProvider extends ChangeNotifier {
     return result;
   }
 
+  /// 현재 태스크 목록을 주어진 프로젝트 ID 목록으로 필터링
+  void filterByProjectIds(List<String> projectIds) {
+    if (projectIds.isEmpty) return;
+    final idSet = projectIds.toSet();
+    _tasks = _tasks.where((t) => idSet.contains(t.projectId)).toList();
+    notifyListeners();
+  }
+
   /// 초기화 및 태스크 로드
   Future<void> loadTasks({String? projectId}) async {
     _isLoading = true;
@@ -105,10 +113,17 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
-  /// 대시보드용 전체 태스크 로드 (프로젝트 필터 없음)
-  Future<void> loadAllTasks() async {
+  /// 대시보드용 전체 태스크 로드
+  /// [projectIds]가 주어지면 해당 프로젝트의 태스크만 유지 (워크스페이스 범위 제한)
+  Future<void> loadAllTasks({List<String>? projectIds}) async {
     try {
-      _allTasks = await _taskService.getAllTasks();
+      final all = await _taskService.getAllTasks();
+      if (projectIds != null && projectIds.isNotEmpty) {
+        final idSet = projectIds.toSet();
+        _allTasks = all.where((t) => idSet.contains(t.projectId)).toList();
+      } else {
+        _allTasks = all;
+      }
       notifyListeners();
     } catch (e) {
       _errorMessage = '전체 태스크를 불러오는 중 오류가 발생했습니다: $e';

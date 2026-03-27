@@ -328,11 +328,19 @@ def _build_export_prompt(
     for project_name, tasks in tasks_by_project.items():
         task_data_lines.append(f"\n=== {project_name} ===")
         for t in tasks:
-            task_data_lines.append(
+            line = (
                 f"- [{t['status']}] {t['title']}  "
-                f"우선순위:{t['priority']}  기간:{t['period']}  "
-                f"설명:{t['description']}"
+                f"우선순위:{t['priority']}  기간:{t['period']}"
             )
+            if t.get('assignees'):
+                line += f"  담당:{t['assignees']}"
+            if t.get('parent_task'):
+                line += f"  상위작업:{t['parent_task']}"
+            if t.get('description'):
+                line += f"\n  설명: {t['description']}"
+            if t.get('detail'):
+                line += f"\n  상세: {t['detail']}"
+            task_data_lines.append(line)
 
     return f"""
 [시스템]
@@ -352,8 +360,11 @@ def _build_export_prompt(
 7. 예시에서처럼 "차주까지 처리 목표", "금주까지 처리 목표", "확인 중", "완료", "보류" 등 실무적 표현을 사용하세요.
 8. 완료된 작업은 "완료"로 명시하고, 진행중인 작업은 현재 상황과 목표를 함께 쓰세요.
 9. {format_rule}
-10. 데이터에 없는 내용을 지어내지 마세요. 작업 제목과 설명에 있는 내용만 사용하세요.
+10. 데이터에 없는 내용을 지어내지 마세요. 작업 데이터에 있는 내용만 사용하세요.
 11. 프로젝트 내 작업이 여러 개면 양식 예시처럼 자연스럽게 묶어서 정리하세요.
+12. "상세" 필드가 있으면 작업의 구체적 진행 상황으로 활용하세요. 보고서에 핵심 내용을 반영하세요.
+13. "담당" 필드가 있으면 누가 해당 작업을 맡고 있는지 자연스럽게 포함하세요 (예: "김철수 - 작업명 진행중").
+14. "상위작업" 필드가 있으면 하위 작업들을 상위 작업 아래로 묶어 정리하세요.
 
 [작업 데이터]
 {chr(10).join(task_data_lines)}
@@ -432,6 +443,26 @@ async def generate_export_report(
     in_progress = sum(1 for t in tasks if t.status in (TaskStatus.IN_PROGRESS, TaskStatus.IN_REVIEW))
     done = sum(1 for t in tasks if t.status == TaskStatus.DONE)
 
+    # 담당자 이름 조회용 맵
+    all_member_ids = set()
+    for t in tasks:
+        all_member_ids.update(t.assigned_member_ids or [])
+    user_name_by_id: Dict[str, str] = {}
+    if all_member_ids:
+        users = db.query(User).filter(User.id.in_(list(all_member_ids))).all()
+        user_name_by_id = {u.id: u.username for u in users}
+
+    # 상위 작업 제목 조회용 맵
+    task_title_by_id = {t.id: t.title for t in tasks}
+    parent_ids_to_fetch = set()
+    for t in tasks:
+        if t.parent_task_id and t.parent_task_id not in task_title_by_id:
+            parent_ids_to_fetch.add(t.parent_task_id)
+    if parent_ids_to_fetch:
+        parent_tasks = db.query(Task.id, Task.title).filter(Task.id.in_(list(parent_ids_to_fetch))).all()
+        for pt in parent_tasks:
+            task_title_by_id[pt.id] = pt.title
+
     # 프로젝트별 그룹핑
     tasks_by_project: Dict[str, List[Dict]] = {}
     for t in tasks:
@@ -445,12 +476,29 @@ async def generate_export_report(
             e = t.end_date.strftime("%m/%d") if t.end_date else "?"
             period = f"{s} ~ {e}"
 
+        # 담당자 이름 리스트
+        assignees = [user_name_by_id.get(uid, "") for uid in (t.assigned_member_ids or [])]
+        assignees = [a for a in assignees if a]
+
+        # 상위 작업 제목
+        parent_title = ""
+        if t.parent_task_id:
+            parent_title = task_title_by_id.get(t.parent_task_id, "")
+
+        # 상세 내용 (200자 제한)
+        detail = (t.detail or "").strip()
+        if len(detail) > 200:
+            detail = detail[:200] + "..."
+
         tasks_by_project[p_name].append({
             "title": t.title,
             "status": _status_label(t.status.value),
             "priority": _priority_label(t.priority.value),
             "period": period or "미지정",
             "description": t.description or "",
+            "detail": detail,
+            "assignees": ", ".join(assignees) if assignees else "",
+            "parent_task": parent_title,
         })
 
     example_format = """260317 AI 업무 보고

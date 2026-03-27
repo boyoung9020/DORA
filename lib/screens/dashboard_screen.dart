@@ -40,6 +40,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   /// AI 요약 범위: mine(내 할당), others(다른 팀원 할당), all(전체)
   String _aiSummaryScope = 'all';
 
+  // 오늘 할 작업 관련
+  bool _todayTasksCollapsed = false;
+
   // 최근 활동 관련
   bool _activityCollapsed = false;
 
@@ -92,7 +95,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _lastTaskRefreshKey = scopeKey;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          context.read<TaskProvider>().loadAllTasks();
+          final projectIds = context.read<ProjectProvider>().projects.map((p) => p.id).toList();
+          context.read<TaskProvider>().loadAllTasks(projectIds: projectIds);
           final authProv = context.read<AuthProvider>();
           if (authProv.currentUser != null) {
             context.read<NotificationProvider>().loadNotifications(
@@ -315,11 +319,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final filteredTasks = _getFilteredTasks(allTasks, allProjects);
 
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final user = authProvider.currentUser;
+
     return Container(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 인사 멘트
+          Row(
+            children: [
+              Text(
+                '${_getGreetingMessage()}, ',
+                style: TextStyle(
+                  fontSize: 20,
+                  color: colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
+              Text(
+                '${user?.username ?? '사용자'}님',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           // 상태 카운트 카드 행
           _buildStatusCountRow(context, colorScheme, allTasks, allProjects),
           const SizedBox(height: 16),
@@ -343,10 +371,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                // 최근 활동 (3)
+                // 오늘 할 작업 + 최근 활동 (3)
                 Expanded(
                   flex: 3,
-                  child: _buildRecentActivitySection(context, colorScheme),
+                  child: Column(
+                    children: [
+                      // 오늘 할 작업
+                      Expanded(
+                        flex: 5,
+                        child: _buildTodayTasksSection(context, colorScheme, allTasks),
+                      ),
+                      const SizedBox(height: 16),
+                      // 최근 활동
+                      Expanded(
+                        flex: 4,
+                        child: _buildRecentActivitySection(context, colorScheme),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -354,6 +396,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
     );
+  }
+
+  // ─── 시간대별 인사 메시지 ──────────────────────────────────────
+  String _getGreetingMessage() {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) {
+      return '좋은 아침입니다';
+    } else if (hour >= 12 && hour < 17) {
+      return '좋은 오후입니다';
+    } else if (hour >= 17 && hour < 22) {
+      return '좋은 저녁입니다';
+    } else {
+      return '안녕하세요';
+    }
   }
 
   // ─── 상태 카운트 카드 행 ────────────────────────────────────────
@@ -1422,11 +1478,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final allUsers = await _usersFuture ?? [];
     if (!mounted) return;
 
-    // 현재 테이블에 노출된 프로젝트들의 팀원 ID만 수집
+    // 내가 속한 프로젝트들의 팀원 ID만 수집
+    final currentUserId = context.read<AuthProvider>().currentUser?.id;
     final visibleProjects = context.read<ProjectProvider>().projects;
     final memberIdSet = <String>{};
     for (final p in visibleProjects) {
-      memberIdSet.addAll(p.teamMemberIds);
+      if (currentUserId != null && p.teamMemberIds.contains(currentUserId)) {
+        memberIdSet.addAll(p.teamMemberIds);
+      }
     }
     // 전체 유저 중 해당 프로젝트 팀원만 필터링 (순서 유지)
     final users = allUsers.where((u) => memberIdSet.contains(u.id)).toList();
@@ -1695,6 +1754,381 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  // ─── 오늘 할 작업 섹션 ─────────────────────────────────────────────
+
+  Widget _buildTodayTasksSection(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<Task> allTasks,
+  ) {
+    final currentUserId = context.read<AuthProvider>().currentUser?.id;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    // 오늘 작업해야 하는 진행중 작업 (endDate가 오늘이거나 오늘 이후, startDate가 오늘이거나 오늘 이전)
+    // + 완료 상태이며 오늘 완료된 작업도 포함 (취소선으로 표시)
+    final todayTasks = allTasks.where((task) {
+      // 현재 사용자에게 할당된 작업만
+      if (currentUserId != null && !task.assignedMemberIds.contains(currentUserId)) {
+        return false;
+      }
+
+      // 완료된 작업: 오늘 완료된 것만 표시
+      if (task.status == TaskStatus.done) {
+        // statusHistory에서 done으로 변경된 마지막 기록 확인
+        final doneHistory = task.statusHistory.where(
+          (h) => h.toStatus == TaskStatus.done,
+        );
+        if (doneHistory.isNotEmpty) {
+          final doneDate = doneHistory.last.changedAt;
+          final doneDateOnly = DateTime(doneDate.year, doneDate.month, doneDate.day);
+          return doneDateOnly == today;
+        }
+        // statusHistory가 없으면 updatedAt으로 판단
+        final updatedDateOnly = DateTime(task.updatedAt.year, task.updatedAt.month, task.updatedAt.day);
+        return updatedDateOnly == today;
+      }
+
+      // 진행중 작업: startDate~endDate 범위에 오늘이 포함되면 표시
+      if (task.status == TaskStatus.inProgress) {
+        if (task.startDate != null && task.endDate != null) {
+          final start = DateTime(task.startDate!.year, task.startDate!.month, task.startDate!.day);
+          final end = DateTime(task.endDate!.year, task.endDate!.month, task.endDate!.day);
+          return !today.isBefore(start) && today.isBefore(end.add(const Duration(days: 1)));
+        }
+        if (task.endDate != null) {
+          final end = DateTime(task.endDate!.year, task.endDate!.month, task.endDate!.day);
+          return !today.isAfter(end);
+        }
+        if (task.startDate != null) {
+          final start = DateTime(task.startDate!.year, task.startDate!.month, task.startDate!.day);
+          return !today.isBefore(start);
+        }
+        // 날짜가 없는 진행중 작업도 포함
+        return true;
+      }
+
+      return false;
+    }).toList();
+
+    // 진행중 먼저, 완료는 뒤로
+    todayTasks.sort((a, b) {
+      if (a.status == TaskStatus.done && b.status != TaskStatus.done) return 1;
+      if (a.status != TaskStatus.done && b.status == TaskStatus.done) return -1;
+      return 0;
+    });
+
+    final projectProvider = context.watch<ProjectProvider>();
+    final projects = {for (var p in projectProvider.projects) p.id: p};
+
+    return GlassContainer(
+      padding: const EdgeInsets.all(16),
+      borderRadius: 16.0,
+      blur: 20.0,
+      gradientColors: [
+        colorScheme.surface.withValues(alpha: 0.45),
+        colorScheme.surface.withValues(alpha: 0.35),
+      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 헤더
+          Row(
+            children: [
+              Icon(
+                Icons.today,
+                color: colorScheme.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '오늘 할 작업',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${todayTasks.where((t) => t.status != TaskStatus.done).length}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  iconSize: 16,
+                  icon: Icon(
+                    _todayTasksCollapsed
+                        ? Icons.keyboard_arrow_down
+                        : Icons.keyboard_arrow_up,
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _todayTasksCollapsed = !_todayTasksCollapsed;
+                    });
+                  },
+                  tooltip: _todayTasksCollapsed ? '펼치기' : '접기',
+                ),
+              ),
+            ],
+          ),
+          if (!_todayTasksCollapsed) ...[
+            const SizedBox(height: 8),
+            // 테이블 헤더
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: colorScheme.onSurface.withValues(alpha: 0.03),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+              ),
+              child: Row(
+                children: [
+                  // 완료 체크
+                  const SizedBox(width: 36),
+                  // 제목
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                      child: Text(
+                        '제목',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // 프로젝트
+                  SizedBox(
+                    width: 90,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                      child: Text(
+                        '프로젝트',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // 우선순위
+                  SizedBox(
+                    width: 60,
+                    child: Center(
+                      child: Text(
+                        '우선순위',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: colorScheme.onSurface.withValues(alpha: 0.08)),
+            // 테이블 본문
+            Expanded(
+              child: todayTasks.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.check_circle_outline,
+                            size: 40,
+                            color: colorScheme.onSurface.withValues(alpha: 0.3),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '오늘 할 작업이 없습니다',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: colorScheme.onSurface.withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: todayTasks.length,
+                      separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        color: colorScheme.onSurface.withValues(alpha: 0.06),
+                      ),
+                      itemBuilder: (context, index) {
+                        final task = todayTasks[index];
+                        final isDone = task.status == TaskStatus.done;
+                        final project = projects[task.projectId];
+                        final priorityColor = task.priority.color;
+
+                        return InkWell(
+                          onTap: () {
+                            showGeneralDialog(
+                              context: context,
+                              transitionDuration: Duration.zero,
+                              pageBuilder: (context, animation, secondaryAnimation) =>
+                                  TaskDetailScreen(task: task),
+                              transitionBuilder:
+                                  (context, animation, secondaryAnimation, child) => child,
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            child: Row(
+                              children: [
+                                // 체크박스
+                                SizedBox(
+                                  width: 36,
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: Checkbox(
+                                        value: isDone,
+                                        onChanged: (value) async {
+                                          if (value == true && !isDone) {
+                                            final taskProvider = context.read<TaskProvider>();
+                                            final authProvider = context.read<AuthProvider>();
+                                            await taskProvider.updateTask(
+                                              task.copyWith(status: TaskStatus.done),
+                                              userId: authProvider.currentUser?.id,
+                                              username: authProvider.currentUser?.username,
+                                            );
+                                          }
+                                        },
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(3),
+                                        ),
+                                        activeColor: TaskStatus.done.color,
+                                        side: BorderSide(
+                                          color: colorScheme.onSurface.withValues(alpha: 0.3),
+                                          width: 1.5,
+                                        ),
+                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // 제목
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                                    child: Text(
+                                      task.title,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: isDone
+                                            ? colorScheme.onSurface.withValues(alpha: 0.4)
+                                            : colorScheme.onSurface,
+                                        decoration: isDone
+                                            ? TextDecoration.lineThrough
+                                            : null,
+                                        decorationColor: colorScheme.onSurface.withValues(alpha: 0.4),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                                // 프로젝트
+                                SizedBox(
+                                  width: 90,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                                    child: Row(
+                                      children: [
+                                        if (project != null) ...[
+                                          Container(
+                                            width: 6,
+                                            height: 6,
+                                            decoration: BoxDecoration(
+                                              color: project.color,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                        ],
+                                        Expanded(
+                                          child: Text(
+                                            project?.name ?? '-',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: isDone
+                                                  ? colorScheme.onSurface.withValues(alpha: 0.35)
+                                                  : colorScheme.onSurface.withValues(alpha: 0.6),
+                                              decoration: isDone
+                                                  ? TextDecoration.lineThrough
+                                                  : null,
+                                              decorationColor: colorScheme.onSurface.withValues(alpha: 0.3),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                // 우선순위
+                                SizedBox(
+                                  width: 60,
+                                  child: Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: priorityColor.withValues(alpha: isDone ? 0.08 : 0.15),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        task.priority.displayName,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: isDone
+                                              ? priorityColor.withValues(alpha: 0.4)
+                                              : priorityColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 

@@ -8,6 +8,7 @@ from app.models.message_reaction import MessageReaction
 from app.models.comment_reaction import CommentReaction
 from app.models.workspace import Workspace, WorkspaceMember
 from app.models.sprint import Sprint, SprintStatus
+from app.models.github import ProjectGitHub
 
 __all__ = [
     "User", "Project", "Task", "TaskStatus", "TaskPriority",
@@ -16,4 +17,5 @@ __all__ = [
     "MessageReaction", "CommentReaction",
     "Workspace", "WorkspaceMember",
     "Sprint", "SprintStatus",
+    "ProjectGitHub",
 ]

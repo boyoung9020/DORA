@@ -25,6 +25,8 @@ import '../widgets/glass_container.dart';
 import '../widgets/checklist_widget.dart';
 import '../widgets/date_range_picker_dialog.dart';
 import '../utils/avatar_color.dart';
+import '../providers/github_provider.dart';
+import '../models/github.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -1168,8 +1170,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    // context.read???????뤿연 ?븍뜇釉?酉釉??귐됲돱??獄쎻뫗?
-    final taskProvider = context.read<TaskProvider>();
+    final taskProvider = context.watch<TaskProvider>();
     final projectProvider = context.read<ProjectProvider>();
     final currentProject = projectProvider.currentProject;
 
@@ -2281,6 +2282,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                     ],
                                   ),
                                 ),
+                                const SizedBox(height: 12),
+                                // GitHub 레포 정보
+                                _buildGitHubPanel(context, colorScheme),
                               ],
                             ),
                           ),
@@ -5160,6 +5164,114 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 ],
               ],
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildGitHubPanel(BuildContext context, ColorScheme colorScheme) {
+    final projectProvider = context.read<ProjectProvider>();
+    final currentProject = projectProvider.currentProject;
+    if (currentProject == null) return const SizedBox.shrink();
+
+    return Consumer<GitHubProvider>(
+      builder: (context, ghProvider, _) {
+        if (!ghProvider.repoInfoLoaded && !ghProvider.isLoading) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ghProvider.loadRepoInfo(currentProject.id);
+          });
+        }
+
+        final repo = ghProvider.connectedRepo;
+
+        return GlassContainer(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+          borderRadius: 15.0,
+          blur: 20.0,
+          gradientColors: [
+            Colors.white.withValues(alpha: 0.8),
+            Colors.white.withValues(alpha: 0.7),
+          ],
+          shadowBlurRadius: 6,
+          shadowOffset: const Offset(0, 2),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.code, size: 16, color: colorScheme.onSurface),
+                  const SizedBox(width: 6),
+                  Text(
+                    'GitHub',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (ghProvider.isLoading)
+                const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
+              else if (repo != null) ...[
+                InkWell(
+                  onTap: () async {
+                    final uri = Uri.parse('https://github.com/${repo.repoOwner}/${repo.repoName}');
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.open_in_new, size: 14, color: colorScheme.primary),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            repo.fullName,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (repo.hasToken)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(
+                      children: [
+                        Icon(Icons.vpn_key, size: 12, color: Colors.green.shade600),
+                        const SizedBox(width: 4),
+                        Text(
+                          'PAT 연결됨',
+                          style: TextStyle(fontSize: 11, color: Colors.green.shade600),
+                        ),
+                      ],
+                    ),
+                  ),
+              ] else
+                Text(
+                  '연결된 레포가 없습니다',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+            ],
           ),
         );
       },
