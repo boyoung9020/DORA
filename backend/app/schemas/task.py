@@ -22,6 +22,7 @@ class TaskBase(BaseModel):
     sprint_id: Optional[str] = None
     parent_task_id: Optional[str] = None
     document_links: List[Dict[str, str]] = []  # [{title, url}, ...]
+    site_tags: List[str] = []  # 사이트 태그
 
 
 class TaskCreate(TaskBase):
@@ -43,6 +44,7 @@ class TaskUpdate(BaseModel):
     sprint_id: Optional[str] = None
     parent_task_id: Optional[str] = None
     document_links: Optional[List[Dict[str, str]]] = None  # [{title, url}, ...]
+    site_tags: Optional[List[str]] = None  # 사이트 태그
 
 
 class TaskReorderRequest(BaseModel):

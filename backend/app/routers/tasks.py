@@ -102,6 +102,7 @@ async def create_task(
             creator_id=current_user.id,
             parent_task_id=task_data.parent_task_id,
             document_links=task_data.document_links or [],
+            site_tags=task_data.site_tags or [],
             comment_ids=[],
             status_history=[],
             assignment_history=[],
@@ -235,6 +236,8 @@ async def update_task(
         task.sprint_id = task_data.sprint_id
     if task_data.parent_task_id is not None:
         task.parent_task_id = task_data.parent_task_id if task_data.parent_task_id != "" else None
+    if task_data.site_tags is not None:
+        task.site_tags = task_data.site_tags
     
     # 작업 옵션 변경 알림 (중요도, 상태, 날짜 변경 시)
     if changed_fields:

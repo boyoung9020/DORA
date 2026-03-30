@@ -26,13 +26,173 @@ import '../widgets/checklist_widget.dart';
 import '../widgets/date_range_picker_dialog.dart';
 import '../utils/avatar_color.dart';
 import '../providers/github_provider.dart';
-import '../models/github.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/project_site.dart';
+import '../services/project_site_service.dart';
 
 /// ?븐늿肉?節딅┛ Intent
 class _PasteIntent extends Intent {
   const _PasteIntent();
+}
+
+class _ProjectSiteDropdown extends StatefulWidget {
+  final String projectId;
+  final ColorScheme colorScheme;
+  final ProjectSiteService service;
+  final Future<void> Function(void Function() refresh) onAdd;
+  final Future<void> Function(String name) onAssign;
+  final Future<void> Function(ProjectSite site) onDelete;
+
+  const _ProjectSiteDropdown({
+    required this.projectId,
+    required this.colorScheme,
+    required this.service,
+    required this.onAdd,
+    required this.onAssign,
+    required this.onDelete,
+  });
+
+  @override
+  State<_ProjectSiteDropdown> createState() => _ProjectSiteDropdownState();
+}
+
+class _ProjectSiteDropdownState extends State<_ProjectSiteDropdown> {
+  bool _loading = true;
+  String? _error;
+  List<ProjectSite> _sites = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await widget.service.listSites(projectId: widget.projectId);
+      if (!mounted) return;
+      setState(() => _sites = data);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.colorScheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              '사이트 선택',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: cs.onSurface,
+              ),
+            ),
+            const Spacer(),
+            IconButton(
+              onPressed: _load,
+              icon: const Icon(Icons.refresh, size: 18),
+              tooltip: '새로고침',
+            ),
+            IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close, size: 18),
+              tooltip: '닫기',
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        InkWell(
+          onTap: () => widget.onAdd(_load),
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: cs.primaryContainer.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: cs.primary.withValues(alpha: 0.25)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.add, size: 18, color: cs.primary),
+                const SizedBox(width: 8),
+                Text(
+                  '사이트 추가',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: cs.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child:
+                Text(_error!, style: TextStyle(color: cs.error, fontSize: 12)),
+          ),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 18),
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          )
+        else if (_sites.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Text(
+              '등록된 사이트가 없습니다.',
+              style: TextStyle(color: cs.onSurface.withValues(alpha: 0.55)),
+            ),
+          )
+        else
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 320),
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: _sites.length,
+              separatorBuilder: (_, __) => Divider(
+                height: 1,
+                color: cs.outlineVariant.withValues(alpha: 0.25),
+              ),
+              itemBuilder: (ctx, i) {
+                final site = _sites[i];
+                return ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                  title: Text(site.name, style: const TextStyle(fontSize: 13)),
+                  onTap: () => widget.onAssign(site.name),
+                  trailing: IconButton(
+                    icon: Icon(Icons.close, size: 18, color: cs.error),
+                    tooltip: '삭제',
+                    onPressed: () async {
+                      await widget.onDelete(site);
+                      await _load();
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 /// ?꾨뗀李???袁⑸꽊 Intent (Ctrl+Enter)
@@ -120,6 +280,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   bool _showHistoryLogs = true;
   static const String _showHistoryLogsKey = 'task_detail_show_history_logs';
   List<Map<String, String>> _documentLinks = [];
+  // 고객사명(사이트): 1개만 허용 (기존 DB 필드명은 site_tags(List) 유지)
+  String? _siteName;
+  final ProjectSiteService _projectSiteService = ProjectSiteService();
   static const List<String> _commentReactionPresets = ['✅', '👍', '👀'];
 
   @override
@@ -139,6 +302,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _documentLinks = List<Map<String, String>>.from(
       widget.task.documentLinks.map((e) => Map<String, String>.from(e)),
     );
+    final tags = List<String>.from(widget.task.siteTags);
+    _siteName = tags.isNotEmpty ? tags.first : null;
 
     // ?λ뜃由?嚥≪뮆諭?????쎄쾿嚥▲끉??筌??袁⑥삋嚥?揶쎛筌왖 ??낅즲嚥??귐딅뮞???곕떽?
     // 활동로그 표시 상태 복원
@@ -1588,6 +1753,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       ],
                                     ),
                                   ),
+                                const SizedBox(height: 12),
+                                // 사이트(고객사명) - 프로젝트 아래, 상태/우선순위 위
+                                _buildSiteSection(
+                                  context,
+                                  currentTask,
+                                  taskProvider,
+                                  colorScheme,
+                                ),
                                 const SizedBox(height: 12),
                                 Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -5163,6 +5336,203 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   ),
                 ],
               ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ─── 사이트(고객사명) 섹션: 1개만 허용 ─────────────────────────────
+
+  Widget _buildSiteSection(
+    BuildContext context,
+    Task currentTask,
+    dynamic taskProvider,
+    ColorScheme colorScheme,
+  ) {
+    final display = (_siteName ?? '').trim();
+    return GlassContainer(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      borderRadius: 15.0,
+      blur: 20.0,
+      gradientColors: [
+        Colors.white.withValues(alpha: 0.8),
+        Colors.white.withValues(alpha: 0.7),
+      ],
+      shadowBlurRadius: 6,
+      shadowOffset: const Offset(0, 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '사이트',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const Spacer(),
+              if (display.isNotEmpty)
+                IconButton(
+                  icon: Icon(Icons.close, size: 16, color: colorScheme.primary),
+                  tooltip: '사이트 제거',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () async {
+                    setState(() => _siteName = null);
+                    final authProvider = context.read<AuthProvider>();
+                    await taskProvider.updateTask(
+                      currentTask.copyWith(
+                        siteTags: const [],
+                        updatedAt: DateTime.now(),
+                      ),
+                      userId: authProvider.currentUser?.id,
+                      username: authProvider.currentUser?.username,
+                    );
+                  },
+                )
+              else
+                IconButton(
+                  icon: Icon(Icons.add, size: 16, color: colorScheme.primary),
+                  tooltip: '사이트 등록',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () => _showSitePicker(
+                    context,
+                    currentTask,
+                    taskProvider,
+                    colorScheme,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (display.isEmpty)
+            Text(
+              '사이트 없음',
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.onSurface.withValues(alpha: 0.45),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: colorScheme.primary.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Text(
+                display,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.primary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showSitePicker(
+    BuildContext context,
+    Task currentTask,
+    dynamic taskProvider,
+    ColorScheme colorScheme,
+  ) {
+    final projectId = currentTask.projectId;
+
+    Future<void> assignSite(
+      String name,
+      void Function() closeDialog,
+    ) async {
+      final site = name.trim();
+      setState(() => _siteName = site.isEmpty ? null : site);
+      final authProvider = context.read<AuthProvider>();
+      await taskProvider.updateTask(
+        currentTask.copyWith(
+          siteTags: site.isEmpty ? const [] : [site],
+          updatedAt: DateTime.now(),
+        ),
+        userId: authProvider.currentUser?.id,
+        username: authProvider.currentUser?.username,
+      );
+      closeDialog();
+    }
+
+    Future<void> showAddDialog(void Function() refresh) async {
+      final ctrl = TextEditingController();
+      final created = await showDialog<String?>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('사이트 추가'),
+          content: TextField(
+            controller: ctrl,
+            decoration: const InputDecoration(
+              hintText: '고객사명 입력',
+            ),
+            autofocus: true,
+            onSubmitted: (_) => Navigator.pop(ctx, ctrl.text),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, null),
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text),
+              child: const Text('추가'),
+            ),
+          ],
+        ),
+      );
+      final name = (created ?? '').trim();
+      if (name.isEmpty) return;
+      await _projectSiteService.createSite(projectId: projectId, name: name);
+      refresh();
+    }
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: GlassContainer(
+            padding: const EdgeInsets.all(18),
+            borderRadius: 16,
+            blur: 25,
+            gradientColors: [
+              colorScheme.surface.withValues(alpha: 0.95),
+              colorScheme.surface.withValues(alpha: 0.9),
+            ],
+            child: SizedBox(
+              width: 360,
+              child: _ProjectSiteDropdown(
+                projectId: projectId,
+                colorScheme: colorScheme,
+                service: _projectSiteService,
+                onAdd: (refresh) => showAddDialog(refresh),
+                onAssign: (name) =>
+                    assignSite(name, () => Navigator.pop(dialogContext)),
+                onDelete: (site) async {
+                  await _projectSiteService.deleteSite(siteId: site.id);
+                  if ((_siteName ?? '').trim() == site.name.trim()) {
+                    // 현재 태스크에 할당된 사이트가 삭제되면 즉시 해제
+                    await assignSite('', () {});
+                  }
+                },
+              ),
             ),
           ),
         );

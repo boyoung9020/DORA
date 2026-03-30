@@ -135,6 +135,27 @@ class ApiClient {
     }
   }
 
+  /// PUT 요청
+  static Future<http.Response> put(
+    String endpoint, {
+    Map<String, dynamic>? body,
+    bool includeAuth = true,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl$endpoint');
+
+      final response = await http.put(
+        uri,
+        headers: await _getHeaders(includeAuth: includeAuth),
+        body: body != null ? jsonEncode(body) : null,
+      );
+
+      return response;
+    } catch (e) {
+      throw Exception('네트워크 오류: $e');
+    }
+  }
+
   /// DELETE 요청
   static Future<http.Response> delete(
     String endpoint, {

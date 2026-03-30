@@ -12,7 +12,7 @@ class ActiveTeamCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return GlassContainer(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       borderRadius: 16,
       blur: 20,
       gradientColors: [
@@ -21,59 +21,55 @@ class ActiveTeamCard extends StatelessWidget {
       ],
       shadowBlurRadius: 8,
       shadowOffset: const Offset(0, 2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Row(
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.purple.shade50,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.people_outlined,
+                size: 16, color: Colors.purple.shade600),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('현재 투입 인력',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.onSurface.withValues(alpha: 0.6))),
+                const SizedBox(height: 2),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
                   children: [
-                    Text('현재 투입 인력',
+                    Text('${activeMembers.length}',
                         style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: colorScheme.onSurface.withValues(alpha: 0.6))),
-                    const SizedBox(height: 4),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text('${activeMembers.length}',
-                            style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w800,
-                                color: colorScheme.onSurface)),
-                        const SizedBox(width: 4),
-                        Text('명 작업중',
-                            style: TextStyle(
-                                fontSize: 13,
-                                color: colorScheme.onSurface.withValues(alpha: 0.5))),
-                      ],
-                    ),
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: colorScheme.onSurface)),
+                    const SizedBox(width: 3),
+                    Text('명 작업중',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: colorScheme.onSurface.withValues(alpha: 0.5))),
                   ],
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.purple.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.people_outlined,
-                    size: 20, color: Colors.purple.shade600),
-              ),
-            ],
+              ],
+            ),
           ),
           SizedBox(
-            height: 40,
+            width: 110,
+            height: 26,
             child: activeMembers.isEmpty
                 ? Text('작업 중인 팀원 없음',
                     style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 11,
                         color: colorScheme.onSurface.withValues(alpha: 0.4)))
                 : Stack(
                     children: [
@@ -82,13 +78,13 @@ class ActiveTeamCard extends StatelessWidget {
                         (i) {
                           final member = activeMembers[i];
                           return Positioned(
-                            left: i * 28.0,
+                            left: i * 19.0,
                             child: Container(
-                              width: 38,
-                              height: 38,
+                              width: 26,
+                              height: 26,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 3),
+                                border: Border.all(color: Colors.white, width: 2),
                                 gradient: LinearGradient(
                                   colors: [
                                     Colors.purple.shade400,
@@ -101,8 +97,8 @@ class ActiveTeamCard extends StatelessWidget {
                                     ? ClipOval(
                                         child: Image.network(
                                             member.profileImageUrl!,
-                                            width: 32,
-                                            height: 32,
+                                            width: 22,
+                                            height: 22,
                                             fit: BoxFit.cover))
                                     : Text(
                                         member.username.isNotEmpty
@@ -111,7 +107,7 @@ class ActiveTeamCard extends StatelessWidget {
                                         style: const TextStyle(
                                             color: Colors.white,
                                             fontWeight: FontWeight.bold,
-                                            fontSize: 13),
+                                            fontSize: 10),
                                       ),
                               ),
                             ),
@@ -120,20 +116,20 @@ class ActiveTeamCard extends StatelessWidget {
                       ),
                       if (activeMembers.length > 5)
                         Positioned(
-                          left: 5 * 28.0,
+                          left: 5 * 19.0,
                           child: Container(
-                            width: 38,
-                            height: 38,
+                            width: 26,
+                            height: 26,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: Colors.grey.shade100,
-                              border: Border.all(color: Colors.white, width: 3),
+                              border: Border.all(color: Colors.white, width: 2),
                             ),
                             child: Center(
                               child: Text(
                                 '+${activeMembers.length - 5}',
                                 style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 9,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.grey.shade600),
                               ),

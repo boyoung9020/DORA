@@ -64,7 +64,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _usersFuture = AuthService().getAllUsers();
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text;
@@ -93,6 +92,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     if (_lastTaskRefreshKey != scopeKey) {
       _lastTaskRefreshKey = scopeKey;
+      if (workspaceId.isNotEmpty) {
+        setState(() {
+          _usersFuture = AuthService().getUsersByWorkspace(workspaceId);
+        });
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           final projectIds = context.read<ProjectProvider>().projects.map((p) => p.id).toList();

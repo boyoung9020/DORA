@@ -152,6 +152,7 @@ class Task {
   final List<AssignmentHistory> assignmentHistory; // ?좊떦 ?덉뒪?좊━
   final List<PriorityChangeHistory> priorityHistory; // 以묒슂??蹂寃??덉뒪?좊━
   final List<Map<String, String>> documentLinks;
+  final List<String> siteTags; // 사이트 태그
   final int displayOrder; // 移몃컲 蹂대뱶 ???쒖떆 ?쒖꽌
   final String? creatorId; // 태스크 생성자 ID
   final String? parentTaskId; // 부모 태스크 ID (계층 구조)
@@ -176,6 +177,7 @@ class Task {
     List<AssignmentHistory>? assignmentHistory,
     List<PriorityChangeHistory>? priorityHistory,
     List<Map<String, String>>? documentLinks,
+    List<String>? siteTags,
     this.displayOrder = 0,
     this.creatorId,
     this.parentTaskId,
@@ -188,7 +190,8 @@ class Task {
        statusHistory = statusHistory ?? [],
        assignmentHistory = assignmentHistory ?? [],
        priorityHistory = priorityHistory ?? [],
-       documentLinks = documentLinks ?? [];
+       documentLinks = documentLinks ?? [],
+       siteTags = siteTags ?? [];
 
   /// JSON?쇰줈 蹂??(??μ슜)
   Map<String, dynamic> toJson() {
@@ -210,6 +213,7 @@ class Task {
       'assignmentHistory': assignmentHistory.map((h) => h.toJson()).toList(),
       'priorityHistory': priorityHistory.map((h) => h.toJson()).toList(),
       'document_links': documentLinks,
+      'site_tags': siteTags,
       'display_order': displayOrder,
       'creator_id': creatorId,
       'parent_task_id': parentTaskId,
@@ -364,6 +368,9 @@ class Task {
       assignmentHistory: assignmentHistory,
       priorityHistory: priorityHistory,
       documentLinks: documentLinks,
+      siteTags: json.containsKey('site_tags') && json['site_tags'] != null
+          ? List<String>.from(json['site_tags'])
+          : [],
       displayOrder: json['display_order'] ?? 0,
       creatorId: json['creator_id'] as String?,
       parentTaskId: json['parent_task_id'] as String?,
@@ -391,6 +398,7 @@ class Task {
     List<AssignmentHistory>? assignmentHistory,
     List<PriorityChangeHistory>? priorityHistory,
     List<Map<String, String>>? documentLinks,
+    List<String>? siteTags,
     int? displayOrder,
     String? creatorId,
     String? parentTaskId,
@@ -415,6 +423,7 @@ class Task {
       assignmentHistory: assignmentHistory ?? this.assignmentHistory,
       priorityHistory: priorityHistory ?? this.priorityHistory,
       documentLinks: documentLinks ?? this.documentLinks,
+      siteTags: siteTags ?? this.siteTags,
       displayOrder: displayOrder ?? this.displayOrder,
       creatorId: creatorId ?? this.creatorId,
       parentTaskId: parentTaskId ?? this.parentTaskId,

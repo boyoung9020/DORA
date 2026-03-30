@@ -15,6 +15,8 @@ class TeamWorkloadChart extends StatelessWidget {
 
   const TeamWorkloadChart({super.key, required this.memberWorkload});
 
+  static const double _barItemWidth = 66;
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -53,70 +55,82 @@ class TeamWorkloadChart extends StatelessWidget {
           else
             SizedBox(
               height: 200,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: memberWorkload.map((mw) {
-                  final barRatio = mw.count / maxCount;
-                  return Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Text('${mw.count}건',
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.indigo.shade600)),
-                          const SizedBox(height: 4),
-                          Flexible(
-                            child: FractionallySizedBox(
-                              heightFactor: barRatio.clamp(0.05, 1.0),
-                              child: Container(
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: Colors.indigo.shade500,
-                                  borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(6)),
+              child: Scrollbar(
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: memberWorkload.map((mw) {
+                      final barRatio = mw.count / maxCount;
+                      return SizedBox(
+                        width: _barItemWidth,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Text('${mw.count}건',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.indigo.shade600)),
+                              const SizedBox(height: 4),
+                              Flexible(
+                                child: FractionallySizedBox(
+                                  heightFactor: barRatio.clamp(0.05, 1.0),
+                                  widthFactor: 1,
+                                  alignment: Alignment.bottomCenter,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.indigo.shade500,
+                                      borderRadius:
+                                          const BorderRadius.vertical(
+                                              top: Radius.circular(6)),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                              const SizedBox(height: 8),
+                              CircleAvatar(
+                                radius: 14,
+                                backgroundColor: AvatarColor.getColorForUser(
+                                    mw.member.username),
+                                backgroundImage:
+                                    mw.member.profileImageUrl != null
+                                        ? NetworkImage(
+                                            mw.member.profileImageUrl!)
+                                        : null,
+                                child: mw.member.profileImageUrl == null
+                                    ? Text(
+                                        mw.member.username.isNotEmpty
+                                            ? mw.member.username[0]
+                                                .toUpperCase()
+                                            : '?',
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 10),
+                                      )
+                                    : null,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                mw.member.username,
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: colorScheme.onSurface),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 8),
-                          CircleAvatar(
-                            radius: 14,
-                            backgroundColor:
-                                AvatarColor.getColorForUser(mw.member.username),
-                            backgroundImage: mw.member.profileImageUrl != null
-                                ? NetworkImage(mw.member.profileImageUrl!)
-                                : null,
-                            child: mw.member.profileImageUrl == null
-                                ? Text(
-                                    mw.member.username.isNotEmpty
-                                        ? mw.member.username[0].toUpperCase()
-                                        : '?',
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 10),
-                                  )
-                                : null,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            mw.member.username,
-                            style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: colorScheme.onSurface),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
               ),
             ),
         ],

@@ -54,6 +54,15 @@ def run_migrations():
                 )
             )
             conn.commit()
+            if "site_tags" not in columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE tasks "
+                        "ADD COLUMN site_tags VARCHAR[] DEFAULT '{}' NOT NULL"
+                    )
+                )
+                conn.commit()
+                print("[migration] added tasks.site_tags")
 
         if "projects" in inspector.get_table_names():
             columns = [col["name"] for col in inspector.get_columns("projects")]

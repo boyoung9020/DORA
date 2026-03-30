@@ -18,14 +18,12 @@ class GitHubCard extends StatefulWidget {
 class _GitHubCardState extends State<GitHubCard> {
   final _repoOwnerController = TextEditingController();
   final _repoNameController = TextEditingController();
-  final _patController = TextEditingController();
   bool _showConnectForm = false;
 
   @override
   void dispose() {
     _repoOwnerController.dispose();
     _repoNameController.dispose();
-    _patController.dispose();
     super.dispose();
   }
 
@@ -191,18 +189,6 @@ class _GitHubCardState extends State<GitHubCard> {
             ),
           ],
         ),
-        if (repo.hasToken)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(
-              children: [
-                Icon(Icons.vpn_key, size: 14, color: Colors.green.shade600),
-                const SizedBox(width: 4),
-                Text('PAT 연결됨',
-                    style: TextStyle(fontSize: 12, color: Colors.green.shade600)),
-              ],
-            ),
-          ),
       ],
     );
   }
@@ -252,16 +238,6 @@ class _GitHubCardState extends State<GitHubCard> {
           ),
         ),
         const SizedBox(height: 10),
-        TextField(
-          controller: _patController,
-          obscureText: true,
-          decoration: InputDecoration(
-            labelText: 'Personal Access Token (선택)',
-            hintText: 'Private 레포 접근 시 필요',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            isDense: true,
-          ),
-        ),
         const SizedBox(height: 12),
         if (ghProvider.errorMessage != null)
           Padding(
@@ -286,18 +262,15 @@ class _GitHubCardState extends State<GitHubCard> {
                         final owner = _repoOwnerController.text.trim();
                         final name = _repoNameController.text.trim();
                         if (owner.isEmpty || name.isEmpty) return;
-                        final pat = _patController.text.trim();
                         final success = await ghProvider.connectRepo(
                           projectId: widget.projectId,
                           repoOwner: owner,
                           repoName: name,
-                          accessToken: pat.isEmpty ? null : pat,
                         );
                         if (success && mounted) {
                           setState(() => _showConnectForm = false);
                           _repoOwnerController.clear();
                           _repoNameController.clear();
-                          _patController.clear();
                         }
                       },
                 child: ghProvider.isLoading

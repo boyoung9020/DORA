@@ -96,4 +96,26 @@ class GitHubService {
       throw Exception('PR 목록 조회 실패: $e');
     }
   }
+
+  /// (계정) GitHub 토큰 연결 여부
+  Future<bool> getMyTokenStatus() async {
+    final resp = await ApiClient.get('/api/github-token/me');
+    final data = ApiClient.handleResponse(resp);
+    return (data['has_token'] ?? false) == true;
+  }
+
+  /// (계정) GitHub PAT 저장/갱신
+  Future<void> upsertMyToken(String token) async {
+    final resp = await ApiClient.put(
+      '/api/github-token/me',
+      body: {'access_token': token},
+    );
+    ApiClient.handleResponse(resp);
+  }
+
+  /// (계정) GitHub PAT 삭제
+  Future<void> deleteMyToken() async {
+    final resp = await ApiClient.delete('/api/github-token/me');
+    ApiClient.handleResponse(resp);
+  }
 }

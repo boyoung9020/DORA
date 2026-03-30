@@ -9,6 +9,9 @@ from app.models.comment_reaction import CommentReaction
 from app.models.workspace import Workspace, WorkspaceMember
 from app.models.sprint import Sprint, SprintStatus
 from app.models.github import ProjectGitHub
+from app.models.user_github_token import UserGitHubToken
+from app.models.patch import ProjectPatch
+from app.models.project_site import ProjectSite
 
 __all__ = [
     "User", "Project", "Task", "TaskStatus", "TaskPriority",
@@ -18,4 +21,7 @@ __all__ = [
     "Workspace", "WorkspaceMember",
     "Sprint", "SprintStatus",
     "ProjectGitHub",
+    "UserGitHubToken",
+    "ProjectPatch",
+    "ProjectSite",
 ]

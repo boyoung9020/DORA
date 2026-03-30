@@ -4,6 +4,9 @@ from . import (
     chat,
     checklists,
     comments,
+    project_sites,
+    patches,
+    user_github_tokens,
     notifications,
     projects,
     search,
@@ -30,4 +33,7 @@ __all__ = [
     "workspaces",
     "sprints",
     "search",
+    "project_sites",
+    "patches",
+    "user_github_tokens",
 ]

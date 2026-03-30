@@ -25,6 +25,7 @@ from app.utils.github_api import (
     get_pull_requests,
     validate_repo,
 )
+from app.models.user_github_token import UserGitHubToken
 
 router = APIRouter()
 
@@ -82,7 +83,11 @@ async def connect_repo(
 
     # GitHub 레포 유효성 검증
     try:
-        await validate_repo(body.repo_owner, body.repo_name, body.access_token)
+        # 프로젝트 연결 시에는 "레포 정보만" 저장합니다.
+        # 검증/프라이빗 접근을 위해 현재 사용자 토큰을 우선 사용합니다.
+        token_rec = db.query(UserGitHubToken).filter(UserGitHubToken.user_id == current_user.id).first()
+        user_token = token_rec.access_token if token_rec else None
+        await validate_repo(body.repo_owner, body.repo_name, user_token or body.access_token)
     except GitHubApiError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -91,7 +96,7 @@ async def connect_repo(
         project_id=project_id,
         repo_owner=body.repo_owner,
         repo_name=body.repo_name,
-        access_token=body.access_token,
+        access_token=None,
     )
     db.add(gh)
     db.commit()
@@ -145,6 +150,14 @@ def _get_github_record(db: Session, project_id: str, user: User) -> ProjectGitHu
     return gh
 
 
+def _get_user_token(db: Session, user: User) -> Optional[str]:
+    rec = db.query(UserGitHubToken).filter(UserGitHubToken.user_id == user.id).first()
+    if not rec:
+        return None
+    token = (rec.access_token or "").strip()
+    return token or None
+
+
 @router.get("/{project_id}/commits", response_model=List[GitHubCommitResponse])
 async def list_commits(
     project_id: str,
@@ -156,9 +169,10 @@ async def list_commits(
 ):
     """GitHub 커밋 목록을 조회합니다."""
     gh = _get_github_record(db, project_id, current_user)
+    token = _get_user_token(db, current_user) or gh.access_token
 
     try:
-        raw = await get_commits(gh.repo_owner, gh.repo_name, gh.access_token, branch, page, per_page)
+        raw = await get_commits(gh.repo_owner, gh.repo_name, token, branch, page, per_page)
     except GitHubApiError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
@@ -187,9 +201,10 @@ async def list_branches(
 ):
     """GitHub 브랜치 목록을 조회합니다."""
     gh = _get_github_record(db, project_id, current_user)
+    token = _get_user_token(db, current_user) or gh.access_token
 
     try:
-        raw = await get_branches(gh.repo_owner, gh.repo_name, gh.access_token)
+        raw = await get_branches(gh.repo_owner, gh.repo_name, token)
     except GitHubApiError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
@@ -213,9 +228,10 @@ async def list_pull_requests(
 ):
     """GitHub Pull Request 목록을 조회합니다."""
     gh = _get_github_record(db, project_id, current_user)
+    token = _get_user_token(db, current_user) or gh.access_token
 
     try:
-        raw = await get_pull_requests(gh.repo_owner, gh.repo_name, gh.access_token, state, page, per_page)
+        raw = await get_pull_requests(gh.repo_owner, gh.repo_name, token, state, page, per_page)
     except GitHubApiError as e:
         raise HTTPException(status_code=502, detail=str(e))
 

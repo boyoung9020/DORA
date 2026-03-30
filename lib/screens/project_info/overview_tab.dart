@@ -56,7 +56,7 @@ class OverviewTab extends StatelessWidget {
     }).toList();
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -71,9 +71,9 @@ class OverviewTab extends StatelessWidget {
               crossAxisCount: crossCount,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              childAspectRatio: 1.6,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 3.6,
               children: [
                 ProgressCard(percent: progressPercent),
                 ProductivityCard(
@@ -87,7 +87,7 @@ class OverviewTab extends StatelessWidget {
               ],
             );
           }),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
           // 프로젝트 설명 + 마감임박 / 팀원 막대 그래프
           LayoutBuilder(builder: (context, constraints) {
@@ -103,45 +103,63 @@ class OverviewTab extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(flex: 2, child: description),
-                  const SizedBox(width: 24),
+                  const SizedBox(width: 12),
                   Expanded(flex: 1, child: chart),
                 ],
               );
             }
             return Column(children: [
               description,
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
               chart,
             ]);
           }),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
           // 팀원 + GitHub
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: TeamMembersCard(
-                  teamMembers: teamMembers,
-                  isPM: isPM,
-                  onMemberChanged: onMemberChanged,
-                  authService: authService,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: GitHubCard(projectId: project.id, isPM: isPM),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
+          LayoutBuilder(builder: (context, constraints) {
+            final isWide = constraints.maxWidth > 900;
+            final members = TeamMembersCard(
+              teamMembers: teamMembers,
+              isPM: isPM,
+              onMemberChanged: onMemberChanged,
+              authService: authService,
+            );
+            final github = GitHubCard(projectId: project.id, isPM: isPM);
+            if (isWide) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 3, child: members),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 2, child: github),
+                ],
+              );
+            }
+            return Column(
+              children: [
+                members,
+                const SizedBox(height: 12),
+                github,
+              ],
+            );
+          }),
+          const SizedBox(height: 16),
 
           // 팀원별 업무 현황
-          MemberWorkloadSection(
-            teamMembers: teamMembers,
-            isLoading: teamMembersLoading,
-            allTasks: allTasks,
-          ),
+          LayoutBuilder(builder: (context, constraints) {
+            final maxH = constraints.maxWidth > 900 ? 360.0 : 420.0;
+            return ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxH),
+              child: SingleChildScrollView(
+                child: MemberWorkloadSection(
+                  teamMembers: teamMembers,
+                  isLoading: teamMembersLoading,
+                  allTasks: allTasks,
+                ),
+              ),
+            );
+          }),
         ],
       ),
     );

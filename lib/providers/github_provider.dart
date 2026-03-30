@@ -19,9 +19,13 @@ class GitHubProvider extends ChangeNotifier {
   bool _hasMoreCommits = true;
   bool _hasMorePRs = true;
   bool _repoInfoLoaded = false;
+  bool _hasUserToken = false;
+  bool _userTokenStatusLoaded = false;
 
   GitHubRepo? get connectedRepo => _connectedRepo;
   bool get repoInfoLoaded => _repoInfoLoaded;
+  bool get hasUserToken => _hasUserToken;
+  bool get userTokenStatusLoaded => _userTokenStatusLoaded;
   List<GitHubCommit> get commits => _commits;
   List<GitHubBranch> get branches => _branches;
   List<GitHubPullRequest> get pullRequests => _pullRequests;
@@ -45,7 +49,52 @@ class GitHubProvider extends ChangeNotifier {
     _hasMorePRs = true;
     _errorMessage = null;
     _repoInfoLoaded = false;
+    _hasUserToken = false;
+    _userTokenStatusLoaded = false;
     notifyListeners();
+  }
+
+  Future<void> loadMyTokenStatus() async {
+    if (_userTokenStatusLoaded) return;
+    try {
+      _hasUserToken = await _service.getMyTokenStatus();
+    } catch (_) {
+      _hasUserToken = false;
+    }
+    _userTokenStatusLoaded = true;
+    notifyListeners();
+  }
+
+  Future<void> upsertMyToken(String token) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      await _service.upsertMyToken(token);
+      _hasUserToken = true;
+      _userTokenStatusLoaded = true;
+    } catch (e) {
+      _errorMessage = 'GitHub 토큰 저장 실패: $e';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteMyToken() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      await _service.deleteMyToken();
+      _hasUserToken = false;
+      _userTokenStatusLoaded = true;
+    } catch (e) {
+      _errorMessage = 'GitHub 토큰 삭제 실패: $e';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   /// 연결 정보 로드

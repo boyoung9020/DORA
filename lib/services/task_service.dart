@@ -94,6 +94,7 @@ class TaskService {
         'sprint_id': task.sprintId,
         'parent_task_id': task.parentTaskId,
         'document_links': task.documentLinks,
+        'site_tags': task.siteTags,
       };
 
       final response = await ApiClient.patch(

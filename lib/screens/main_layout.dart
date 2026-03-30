@@ -17,6 +17,7 @@ import '../providers/chat_provider.dart';
 import '../utils/api_client.dart';
 import '../providers/workspace_provider.dart';
 import '../providers/sprint_provider.dart';
+import '../providers/github_provider.dart';
 import '../models/notification.dart' as models;
 import '../models/project.dart';
 import '../models/user.dart';
@@ -3160,6 +3161,14 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
     final user = authProvider.currentUser;
     if (user == null) return const SizedBox.shrink();
 
+    final ghProvider = context.watch<GitHubProvider>();
+    if (!ghProvider.userTokenStatusLoaded && !ghProvider.isLoading) {
+      // 프로필 섹션 진입 시 1회 로드
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) ghProvider.loadMyTokenStatus();
+      });
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3187,7 +3196,104 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
                 _roleBadge(colorScheme, 'PM', colorScheme.secondary),
             ],
           ),
+        const SizedBox(height: 20),
+        _githubTokenCard(context, colorScheme, ghProvider),
       ],
+    );
+  }
+
+  Widget _githubTokenCard(
+    BuildContext context,
+    ColorScheme colorScheme,
+    GitHubProvider ghProvider,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.code, size: 18, color: colorScheme.onSurface),
+              const SizedBox(width: 8),
+              Text(
+                'GitHub 토큰',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const Spacer(),
+              if (ghProvider.hasUserToken)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.green.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Text(
+                    '연결됨',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.green.shade700,
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: colorScheme.outline.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Text(
+                    '미연결',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Private 레포 접근/태그 연동을 위해 필요합니다. 프로젝트 화면에서는 레포(owner/name)만 연결합니다.',
+            style: TextStyle(
+              fontSize: 12,
+              color: colorScheme.onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (ghProvider.errorMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                ghProvider.errorMessage!,
+                style: TextStyle(color: colorScheme.error, fontSize: 12),
+              ),
+            ),
+          _GitHubTokenEditor(colorScheme: colorScheme, ghProvider: ghProvider),
+        ],
+      ),
     );
   }
 
@@ -3833,5 +3939,101 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
     if (confirm != true) return;
     await wsProvider.leaveWorkspace();
     if (context.mounted) Navigator.of(context).pop();
+  }
+}
+
+class _GitHubTokenEditor extends StatefulWidget {
+  final ColorScheme colorScheme;
+  final GitHubProvider ghProvider;
+
+  const _GitHubTokenEditor({
+    required this.colorScheme,
+    required this.ghProvider,
+  });
+
+  @override
+  State<_GitHubTokenEditor> createState() => _GitHubTokenEditorState();
+}
+
+class _GitHubTokenEditorState extends State<_GitHubTokenEditor> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = widget.colorScheme;
+    final ghProvider = widget.ghProvider;
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _ctrl,
+            obscureText: true,
+            decoration: InputDecoration(
+              labelText: 'Personal Access Token',
+              hintText: 'ghp_…',
+              isDense: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        FilledButton(
+          onPressed: ghProvider.isLoading
+              ? null
+              : () async {
+                  final token = _ctrl.text.trim();
+                  if (token.isEmpty) return;
+                  await ghProvider.upsertMyToken(token);
+                  if (mounted) _ctrl.clear();
+                },
+          child: ghProvider.isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('저장'),
+        ),
+        const SizedBox(width: 8),
+        OutlinedButton(
+          onPressed: ghProvider.isLoading || !ghProvider.hasUserToken
+              ? null
+              : () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('GitHub 토큰 삭제'),
+                      content: const Text('저장된 GitHub 토큰을 삭제할까요?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('취소'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: colorScheme.error,
+                          ),
+                          child: const Text('삭제'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed == true) {
+                    await ghProvider.deleteMyToken();
+                  }
+                },
+          child: const Text('삭제'),
+        ),
+      ],
+    );
   }
 }

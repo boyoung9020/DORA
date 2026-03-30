@@ -48,6 +48,9 @@ class Task(Base):
     # 문서 링크 [{title: str, url: str}, ...]
     document_links = Column(JSON, default=[], nullable=False)
 
+    # 사이트 태그 (문자열 배열)
+    site_tags = Column(ARRAY(String), default=[], nullable=False)
+
     # 히스토리 데이터는 JSON으로 저장
     status_history = Column(JSON, default=[], nullable=False)
     assignment_history = Column(JSON, default=[], nullable=False)

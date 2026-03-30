@@ -12,6 +12,9 @@ from app.routers import (
     checklists,
     comments,
     github,
+    user_github_tokens,
+    patches,
+    project_sites,
     notifications,
     projects,
     search,
@@ -61,6 +64,42 @@ def ensure_image_urls_column() -> None:
 
 
 ensure_image_urls_column()
+
+
+def ensure_tasks_site_tags_column() -> None:
+    """Add tasks.site_tags column if missing."""
+    try:
+        conn = engine.connect()
+        try:
+            result = conn.execute(
+                text(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_name='tasks' AND column_name='site_tags'
+                    """
+                )
+            )
+            if result.fetchone() is None:
+                conn.execute(
+                    text(
+                        """
+                        ALTER TABLE tasks
+                        ADD COLUMN site_tags VARCHAR[] DEFAULT '{}' NOT NULL
+                        """
+                    )
+                )
+                conn.commit()
+                print("[main] added tasks.site_tags column")
+            else:
+                print("[main] tasks.site_tags column already exists")
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"[main] failed to ensure tasks.site_tags: {e}")
+
+
+ensure_tasks_site_tags_column()
 
 
 def ensure_notification_cascades() -> None:
@@ -189,6 +228,107 @@ def ensure_project_github_table() -> None:
 
 ensure_project_github_table()
 
+
+def ensure_user_github_tokens_table() -> None:
+    """user_github_tokens 테이블이 없으면 생성 (계정 단위 GitHub PAT)."""
+    try:
+        conn = engine.connect()
+        try:
+            result = conn.execute(text("SELECT to_regclass('public.user_github_tokens')"))
+            if result.scalar() is None:
+                conn.execute(text("""
+                    CREATE TABLE user_github_tokens (
+                        id VARCHAR PRIMARY KEY,
+                        user_id VARCHAR NOT NULL UNIQUE,
+                        access_token VARCHAR NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                    )
+                """))
+                conn.execute(text("CREATE INDEX ix_user_github_tokens_user_id ON user_github_tokens(user_id)"))
+                conn.execute(text("CREATE INDEX ix_user_github_tokens_id ON user_github_tokens(id)"))
+                conn.commit()
+                print("[main] created user_github_tokens table")
+            else:
+                print("[main] user_github_tokens table already exists")
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"[main] failed to ensure user_github_tokens table: {e}")
+
+
+ensure_user_github_tokens_table()
+
+
+def ensure_project_patches_table() -> None:
+    """project_patches 테이블이 없으면 생성 (패치 내역)."""
+    try:
+        conn = engine.connect()
+        try:
+            result = conn.execute(text("SELECT to_regclass('public.project_patches')"))
+            if result.scalar() is None:
+                conn.execute(text("""
+                    CREATE TABLE project_patches (
+                        id VARCHAR PRIMARY KEY,
+                        project_id VARCHAR NOT NULL,
+                        site VARCHAR NOT NULL,
+                        patch_date DATE NOT NULL,
+                        version VARCHAR NOT NULL DEFAULT '',
+                        content TEXT NOT NULL DEFAULT '',
+                        created_by VARCHAR,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                    )
+                """))
+                conn.execute(text("CREATE INDEX ix_project_patches_project_id ON project_patches(project_id)"))
+                conn.execute(text("CREATE INDEX ix_project_patches_site ON project_patches(site)"))
+                conn.execute(text("CREATE INDEX ix_project_patches_patch_date ON project_patches(patch_date)"))
+                conn.execute(text("CREATE INDEX ix_project_patches_id ON project_patches(id)"))
+                conn.commit()
+                print("[main] created project_patches table")
+            else:
+                print("[main] project_patches table already exists")
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"[main] failed to ensure project_patches table: {e}")
+
+
+ensure_project_patches_table()
+
+
+def ensure_project_sites_table() -> None:
+    """project_sites 테이블이 없으면 생성 (프로젝트 공용 사이트 목록)."""
+    try:
+        conn = engine.connect()
+        try:
+            result = conn.execute(text("SELECT to_regclass('public.project_sites')"))
+            if result.scalar() is None:
+                conn.execute(text("""
+                    CREATE TABLE project_sites (
+                        id VARCHAR PRIMARY KEY,
+                        project_id VARCHAR NOT NULL,
+                        name VARCHAR NOT NULL,
+                        created_by VARCHAR,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                    )
+                """))
+                conn.execute(text("CREATE INDEX ix_project_sites_project_id ON project_sites(project_id)"))
+                conn.execute(text("CREATE INDEX ix_project_sites_name ON project_sites(name)"))
+                conn.execute(text("CREATE INDEX ix_project_sites_id ON project_sites(id)"))
+                conn.commit()
+                print("[main] created project_sites table")
+            else:
+                print("[main] project_sites table already exists")
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"[main] failed to ensure project_sites table: {e}")
+
+
+ensure_project_sites_table()
+
 app = FastAPI(
     title="SYNC Project Manager API",
     description="SYNC project management backend API",
@@ -217,6 +357,9 @@ app.include_router(workspaces.router, prefix="/api/workspaces", tags=["Workspace
 app.include_router(sprints.router, prefix="/api/sprints", tags=["Sprints"])
 app.include_router(search.router, prefix="/api/search", tags=["Search"])
 app.include_router(github.router, prefix="/api/github", tags=["GitHub"])
+app.include_router(user_github_tokens.router, prefix="/api/github-token", tags=["GitHubToken"])
+app.include_router(patches.router, prefix="/api/patches", tags=["Patches"])
+app.include_router(project_sites.router, prefix="/api/project-sites", tags=["ProjectSites"])
 app.include_router(websocket.router, prefix="/api", tags=["WebSocket"])
 
 

@@ -15,7 +15,7 @@ class ProductivityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return GlassContainer(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       borderRadius: 16,
       blur: 20,
       gradientColors: [
@@ -24,55 +24,51 @@ class ProductivityCard extends StatelessWidget {
       ],
       shadowBlurRadius: 8,
       shadowOffset: const Offset(0, 2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Row(
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.trending_up_rounded,
+                size: 16, color: Colors.green.shade600),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('주간 생산성',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.onSurface.withValues(alpha: 0.6))),
+                const SizedBox(height: 2),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
                   children: [
-                    Text('주간 생산성',
+                    Text('$completedTasks',
                         style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: colorScheme.onSurface.withValues(alpha: 0.6))),
-                    const SizedBox(height: 4),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text('$completedTasks',
-                            style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w800,
-                                color: colorScheme.onSurface)),
-                        const SizedBox(width: 4),
-                        Text('건 완료',
-                            style: TextStyle(
-                                fontSize: 13,
-                                color: colorScheme.onSurface.withValues(alpha: 0.5))),
-                      ],
-                    ),
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: colorScheme.onSurface)),
+                    const SizedBox(width: 3),
+                    Text('건 완료',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: colorScheme.onSurface.withValues(alpha: 0.5))),
                   ],
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.trending_up_rounded,
-                    size: 20, color: Colors.green.shade600),
-              ),
-            ],
+              ],
+            ),
           ),
           SizedBox(
-            height: 36,
+            width: 60,
+            height: 28,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: List.generate(7, (i) {
@@ -80,15 +76,17 @@ class ProductivityCard extends StatelessWidget {
                 final isLast = i == 6;
                 return Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 1),
                     child: FractionallySizedBox(
                       heightFactor: heights[i],
                       alignment: Alignment.bottomCenter,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: isLast ? Colors.green.shade500 : Colors.green.shade100,
+                          color: isLast
+                              ? Colors.green.shade500
+                              : Colors.green.shade100,
                           borderRadius:
-                              const BorderRadius.vertical(top: Radius.circular(3)),
+                              const BorderRadius.vertical(top: Radius.circular(2)),
                         ),
                       ),
                     ),
