@@ -39,6 +39,7 @@ import 'notification_screen.dart';
 import 'chat_screen.dart';
 import 'search_screen.dart';
 import 'project_info_screen.dart';
+import 'site_screen.dart';
 
 /// 메인 레이아웃 - Slack 스타일 (왼쪽 사이드바 + 오른쪽 컨텐츠)
 class MainLayout extends StatefulWidget {
@@ -72,52 +73,46 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       index: 0,
     ),
     MenuItem(
+      icon: Icons.space_dashboard_outlined,
+      selectedIcon: Icons.space_dashboard,
+      label: '프로젝트',
+      index: 1,
+    ),
+    MenuItem(
       icon: Icons.view_kanban_outlined,
       selectedIcon: Icons.view_kanban,
       label: '칸반 보드',
-      index: 1,
+      index: 2,
     ),
     MenuItem(
       icon: Icons.calendar_today_outlined,
       selectedIcon: Icons.calendar_today,
       label: '달력',
-      index: 2,
+      index: 3,
     ),
     MenuItem(
       icon: Icons.timeline_outlined,
       selectedIcon: Icons.timeline,
       label: '간트 차트',
-      index: 3,
-    ),
-    MenuItem(
-      icon: Icons.add_task_outlined,
-      selectedIcon: Icons.add_task,
-      label: '빠른 추가',
       index: 4,
-    ),
-    MenuItem(
-      icon: Icons.bolt_outlined,
-      selectedIcon: Icons.bolt,
-      label: '스프린트',
-      index: 5,
     ),
     MenuItem(
       icon: Icons.chat_bubble_outline,
       selectedIcon: Icons.chat_bubble,
       label: '채팅',
-      index: 6,
+      index: 5,
     ),
     MenuItem(
       icon: Icons.notifications_outlined,
       selectedIcon: Icons.notifications,
       label: '알림',
-      index: 7,
+      index: 6,
     ),
     MenuItem(
-      icon: Icons.space_dashboard_outlined,
-      selectedIcon: Icons.space_dashboard,
-      label: '프로젝트',
-      index: 8,
+      icon: Icons.dns_outlined,
+      selectedIcon: Icons.dns,
+      label: '사이트',
+      index: 7,
     ),
   ];
 
@@ -567,52 +562,46 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         index: 0,
       ),
       MenuItem(
+        icon: Icons.space_dashboard_outlined,
+        selectedIcon: Icons.space_dashboard,
+        label: '프로젝트',
+        index: 1,
+      ),
+      MenuItem(
         icon: Icons.view_kanban_outlined,
         selectedIcon: Icons.view_kanban,
         label: '칸반 보드',
-        index: 1,
+        index: 2,
       ),
       MenuItem(
         icon: Icons.calendar_today_outlined,
         selectedIcon: Icons.calendar_today,
         label: '달력',
-        index: 2,
+        index: 3,
       ),
       MenuItem(
         icon: Icons.timeline_outlined,
         selectedIcon: Icons.timeline,
         label: '간트 차트',
-        index: 3,
-      ),
-      MenuItem(
-        icon: Icons.add_task_outlined,
-        selectedIcon: Icons.add_task,
-        label: '빠른 추가',
         index: 4,
-      ),
-      MenuItem(
-        icon: Icons.bolt_outlined,
-        selectedIcon: Icons.bolt,
-        label: '스프린트',
-        index: 5,
       ),
       MenuItem(
         icon: Icons.chat_bubble_outline,
         selectedIcon: Icons.chat_bubble,
         label: '채팅',
-        index: 6,
+        index: 5,
       ),
       MenuItem(
         icon: Icons.notifications_outlined,
         selectedIcon: Icons.notifications,
         label: '알림',
-        index: 7,
+        index: 6,
       ),
       MenuItem(
-        icon: Icons.space_dashboard_outlined,
-        selectedIcon: Icons.space_dashboard,
-        label: '프로젝트',
-        index: 8,
+        icon: Icons.dns_outlined,
+        selectedIcon: Icons.dns,
+        label: '사이트',
+        index: 7,
       ),
     ];
 
@@ -2635,6 +2624,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         return const AdminApprovalScreen();
       case '프로젝트':
         return const ProjectInfoScreen();
+      case '사이트':
+        return const SiteScreen();
       default:
         return const DashboardScreen();
     }

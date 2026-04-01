@@ -10,7 +10,7 @@ from app.database import get_db
 from app.models.patch import ProjectPatch
 from app.models.project import Project
 from app.models.user import User
-from app.schemas.patch import PatchCreate, PatchResponse
+from app.schemas.patch import PatchCreate, PatchUpdate, PatchResponse
 from app.utils.dependencies import get_current_user
 
 
@@ -72,4 +72,56 @@ async def create_patch(
     db.commit()
     db.refresh(patch)
     return patch
+
+
+@router.patch("/{patch_id}", response_model=PatchResponse)
+async def update_patch(
+    patch_id: str,
+    body: PatchUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    patch = db.query(ProjectPatch).filter(ProjectPatch.id == patch_id).first()
+    if not patch:
+        raise HTTPException(status_code=404, detail="패치를 찾을 수 없습니다")
+    _get_project_or_403(db, patch.project_id, current_user)
+
+    if body.site is not None:
+        patch.site = body.site.strip()
+    if body.patch_date is not None:
+        patch.patch_date = body.patch_date
+    if body.version is not None:
+        patch.version = body.version.strip()
+    if body.content is not None:
+        patch.content = body.content.strip()
+    if body.steps is not None:
+        patch.steps = body.steps
+    if body.test_items is not None:
+        patch.test_items = body.test_items
+    if body.status is not None:
+        allowed = {"pending", "in_progress", "done"}
+        if body.status in allowed:
+            patch.status = body.status
+    if body.notes is not None:
+        patch.notes = body.notes
+    if body.note_image_urls is not None:
+        patch.note_image_urls = body.note_image_urls
+
+    db.commit()
+    db.refresh(patch)
+    return patch
+
+
+@router.delete("/{patch_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_patch(
+    patch_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    patch = db.query(ProjectPatch).filter(ProjectPatch.id == patch_id).first()
+    if not patch:
+        raise HTTPException(status_code=404, detail="패치를 찾을 수 없습니다")
+    _get_project_or_403(db, patch.project_id, current_user)
+    db.delete(patch)
+    db.commit()
 

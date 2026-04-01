@@ -18,8 +18,7 @@ class PatchService {
     required String version,
     required String content,
   }) async {
-    final dateStr =
-        '${patchDate.year.toString().padLeft(4, '0')}-${patchDate.month.toString().padLeft(2, '0')}-${patchDate.day.toString().padLeft(2, '0')}';
+    final dateStr = _dateStr(patchDate);
     final resp = await ApiClient.post(
       '/api/patches/',
       body: {
@@ -33,5 +32,41 @@ class PatchService {
     final data = ApiClient.handleResponse(resp);
     return Patch.fromJson(data);
   }
-}
 
+  Future<Patch> updatePatch({
+    required String patchId,
+    String? site,
+    DateTime? patchDate,
+    String? version,
+    String? content,
+    List<CheckItem>? steps,
+    List<CheckItem>? testItems,
+    String? status,
+    String? notes,
+    List<String>? noteImageUrls,
+  }) async {
+    final body = <String, dynamic>{};
+    if (site != null) body['site'] = site;
+    if (patchDate != null) body['patch_date'] = _dateStr(patchDate);
+    if (version != null) body['version'] = version;
+    if (content != null) body['content'] = content;
+    if (steps != null) body['steps'] = steps.map((e) => e.toJson()).toList();
+    if (testItems != null) {
+      body['test_items'] = testItems.map((e) => e.toJson()).toList();
+    }
+    if (status != null) body['status'] = status;
+    if (notes != null) body['notes'] = notes;
+    if (noteImageUrls != null) body['note_image_urls'] = noteImageUrls;
+
+    final resp = await ApiClient.patch('/api/patches/$patchId', body: body);
+    final data = ApiClient.handleResponse(resp);
+    return Patch.fromJson(data);
+  }
+
+  Future<void> deletePatch({required String patchId}) async {
+    await ApiClient.delete('/api/patches/$patchId');
+  }
+
+  String _dateStr(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}

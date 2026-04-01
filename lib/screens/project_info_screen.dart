@@ -23,6 +23,7 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
     with SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
   List<User> _teamMembers = [];
+  List<User> _allUsers = [];
   bool _loadingMembers = false;
 
   final _nameController = TextEditingController();
@@ -65,7 +66,10 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
       final allUsers = await _authService.getAllUsers();
       final members =
           allUsers.where((u) => project.teamMemberIds.contains(u.id)).toList();
-      if (mounted) setState(() => _teamMembers = members);
+      if (mounted) setState(() {
+        _allUsers = allUsers;
+        _teamMembers = members;
+      });
     } catch (_) {}
     if (mounted) setState(() => _loadingMembers = false);
   }
@@ -120,6 +124,7 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
                 TasksTab(
                   allTasks: allTasks,
                   teamMembers: _teamMembers,
+                  allUsers: _allUsers,
                 ),
                 const PatchTab(),
                 SettingsTab(

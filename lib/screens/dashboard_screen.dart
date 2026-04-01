@@ -1112,6 +1112,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       child: Row(
         children: [
+          // ID
+          SizedBox(
+            width: 80,
+            child: _buildColumnHeader(
+              context, colorScheme,
+              label: 'ID',
+              sortColumn: null,
+              hasFilter: false,
+              isFilterActive: false,
+            ),
+          ),
           // 상태
           SizedBox(
             width: 120,
@@ -1583,6 +1594,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         child: Row(
           children: [
+            // ID
+            SizedBox(
+              width: 80,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  task.displayId != null ? '#${task.displayId}' : '-',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface.withValues(alpha: 0.4),
+                  ),
+                ),
+              ),
+            ),
             // 상태
             SizedBox(
               width: 120,

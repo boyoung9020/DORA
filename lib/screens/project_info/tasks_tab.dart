@@ -7,11 +7,13 @@ import '../task_detail_screen.dart';
 class TasksTab extends StatefulWidget {
   final List<Task> allTasks;
   final List<User> teamMembers;
+  final List<User> allUsers;
 
   const TasksTab({
     super.key,
     required this.allTasks,
     required this.teamMembers,
+    this.allUsers = const [],
   });
 
   @override
@@ -154,8 +156,9 @@ class _TasksTabState extends State<TasksTab> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final lookupUsers = widget.allUsers.isNotEmpty ? widget.allUsers : widget.teamMembers;
     final usernameById = {
-      for (final u in widget.teamMembers) u.id: u,
+      for (final u in lookupUsers) u.id: u,
     };
     final filteredTasks = _getFilteredTasks();
 

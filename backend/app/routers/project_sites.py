@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.project import Project
 from app.models.project_site import ProjectSite
+from app.models.site_detail import SiteDetail
 from app.models.task import Task
 from app.models.user import User
 from app.schemas.project_site import ProjectSiteCreate, ProjectSiteResponse
@@ -71,6 +72,20 @@ async def create_project_site(
     db.add(row)
     db.commit()
     db.refresh(row)
+
+    # site_details에도 동일 ID로 동기 생성
+    if not db.query(SiteDetail).filter(SiteDetail.id == row.id).first():
+        db.add(SiteDetail(
+            id=row.id,
+            project_id=row.project_id,
+            name=row.name,
+            description="",
+            servers=[],
+            databases=[],
+            services=[],
+        ))
+        db.commit()
+
     return row
 
 
@@ -92,6 +107,11 @@ async def delete_project_site(
         tags = list(t.site_tags or [])
         if row.name in tags:
             t.site_tags = [x for x in tags if x != row.name]
+
+    # site_details에서도 삭제
+    detail = db.query(SiteDetail).filter(SiteDetail.id == site_id).first()
+    if detail:
+        db.delete(detail)
 
     db.delete(row)
     db.commit()

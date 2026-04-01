@@ -55,6 +55,7 @@ class TaskReorderRequest(BaseModel):
 class TaskResponse(TaskBase):
     """태스크 응답 스키마"""
     id: str
+    display_id: Optional[int] = None
     creator_id: Optional[str] = None
     comment_ids: List[str]
     display_order: int = 0

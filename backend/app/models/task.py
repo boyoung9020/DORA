@@ -29,6 +29,7 @@ class Task(Base):
     __tablename__ = "tasks"
     
     id = Column(String, primary_key=True, index=True)
+    display_id = Column(Integer, nullable=True, index=True)  # auto-incremented sequential ID
     title = Column(String, nullable=False, index=True)
     description = Column(String, nullable=True, default="")
     status = Column(SQLEnum(TaskStatus), nullable=False, default=TaskStatus.BACKLOG, index=True)

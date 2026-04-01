@@ -154,6 +154,7 @@ class Task {
   final List<Map<String, String>> documentLinks;
   final List<String> siteTags; // 사이트 태그
   final int displayOrder; // 移몃컲 蹂대뱶 ???쒖떆 ?쒖꽌
+  final int? displayId; // 순차 ID (SERIAL)
   final String? creatorId; // 태스크 생성자 ID
   final String? parentTaskId; // 부모 태스크 ID (계층 구조)
   final DateTime createdAt;
@@ -179,6 +180,7 @@ class Task {
     List<Map<String, String>>? documentLinks,
     List<String>? siteTags,
     this.displayOrder = 0,
+    this.displayId,
     this.creatorId,
     this.parentTaskId,
     required this.createdAt,
@@ -372,6 +374,7 @@ class Task {
           ? List<String>.from(json['site_tags'])
           : [],
       displayOrder: json['display_order'] ?? 0,
+      displayId: json['display_id'] as int?,
       creatorId: json['creator_id'] as String?,
       parentTaskId: json['parent_task_id'] as String?,
       createdAt: createdAt,
@@ -400,6 +403,7 @@ class Task {
     List<Map<String, String>>? documentLinks,
     List<String>? siteTags,
     int? displayOrder,
+    int? displayId,
     String? creatorId,
     String? parentTaskId,
     DateTime? createdAt,
@@ -425,6 +429,7 @@ class Task {
       documentLinks: documentLinks ?? this.documentLinks,
       siteTags: siteTags ?? this.siteTags,
       displayOrder: displayOrder ?? this.displayOrder,
+      displayId: displayId ?? this.displayId,
       creatorId: creatorId ?? this.creatorId,
       parentTaskId: parentTaskId ?? this.parentTaskId,
       createdAt: createdAt ?? this.createdAt,

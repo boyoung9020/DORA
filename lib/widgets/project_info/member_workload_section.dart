@@ -128,11 +128,14 @@ class _MemberWorkloadCard extends StatelessWidget {
                     : null,
               ),
               const SizedBox(width: 10),
-              Text(member.username,
-                  style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.onSurface)),
+              Expanded(
+                child: Text(member.username,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurface)),
+              ),
               if (isCreator) ...[
                 const SizedBox(width: 6),
                 Container(
@@ -148,7 +151,7 @@ class _MemberWorkloadCard extends StatelessWidget {
                           color: Colors.amber.shade800)),
                 ),
               ],
-              const Spacer(),
+              const SizedBox(width: 8),
               _countBadge('$total건', colorScheme.primaryContainer,
                   colorScheme.onPrimaryContainer),
               const SizedBox(width: 6),

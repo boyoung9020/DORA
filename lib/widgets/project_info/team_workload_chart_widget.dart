@@ -55,13 +55,17 @@ class TeamWorkloadChart extends StatelessWidget {
           else
             SizedBox(
               height: 200,
-              child: Scrollbar(
-                thumbVisibility: true,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: memberWorkload.map((mw) {
+              child: LayoutBuilder(
+                builder: (context, constraints) => Scrollbar(
+                  thumbVisibility: true,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: memberWorkload.map((mw) {
                       final barRatio = mw.count / maxCount;
                       return SizedBox(
                         width: _barItemWidth,
@@ -129,6 +133,8 @@ class TeamWorkloadChart extends StatelessWidget {
                         ),
                       );
                     }).toList(),
+                      ),
+                    ),
                   ),
                 ),
               ),

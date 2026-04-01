@@ -15,6 +15,7 @@ from app.routers import (
     user_github_tokens,
     patches,
     project_sites,
+    site_details,
     notifications,
     projects,
     search,
@@ -360,7 +361,101 @@ app.include_router(github.router, prefix="/api/github", tags=["GitHub"])
 app.include_router(user_github_tokens.router, prefix="/api/github-token", tags=["GitHubToken"])
 app.include_router(patches.router, prefix="/api/patches", tags=["Patches"])
 app.include_router(project_sites.router, prefix="/api/project-sites", tags=["ProjectSites"])
+app.include_router(site_details.router, prefix="/api/site-details", tags=["SiteDetails"])
 app.include_router(websocket.router, prefix="/api", tags=["WebSocket"])
+
+
+def ensure_patch_checklist_columns() -> None:
+    """Add project_patches.steps, test_items, status columns if missing."""
+    migrations = [
+        ("steps", "ALTER TABLE project_patches ADD COLUMN steps JSONB DEFAULT '[]'::jsonb NOT NULL"),
+        ("test_items", "ALTER TABLE project_patches ADD COLUMN test_items JSONB DEFAULT '[]'::jsonb NOT NULL"),
+        ("status", "ALTER TABLE project_patches ADD COLUMN status VARCHAR DEFAULT 'pending' NOT NULL"),
+        ("notes", "ALTER TABLE project_patches ADD COLUMN notes TEXT DEFAULT '' NOT NULL"),
+        ("note_image_urls", "ALTER TABLE project_patches ADD COLUMN note_image_urls VARCHAR[] DEFAULT '{}' NOT NULL"),
+    ]
+    try:
+        conn = engine.connect()
+        try:
+            for col, sql in migrations:
+                result = conn.execute(
+                    text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name='project_patches' AND column_name=:col"
+                    ),
+                    {"col": col},
+                )
+                if result.fetchone() is None:
+                    conn.execute(text(sql))
+                    conn.commit()
+                    print(f"[main] added project_patches.{col} column")
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"[main] failed to ensure patch checklist columns: {e}")
+
+
+ensure_patch_checklist_columns()
+
+
+def ensure_tasks_display_id_column() -> None:
+    """Add tasks.display_id as SERIAL-equivalent (auto-incremented integer)."""
+    try:
+        conn = engine.connect()
+        try:
+            result = conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name='tasks' AND column_name='display_id'"
+            ))
+            if result.fetchone() is None:
+                conn.execute(text(
+                    "ALTER TABLE tasks ADD COLUMN display_id SERIAL"
+                ))
+                conn.commit()
+                print("[main] tasks.display_id column added (SERIAL)")
+            else:
+                print("[main] tasks.display_id column already exists")
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"[main] failed to ensure tasks.display_id: {e}")
+
+
+ensure_tasks_display_id_column()
+
+
+def migrate_project_sites_to_site_details() -> None:
+    """project_sites 테이블의 기존 사이트를 site_details로 마이그레이션."""
+    try:
+        conn = engine.connect()
+        try:
+            rows = conn.execute(text(
+                "SELECT id, project_id, name FROM project_sites"
+            )).fetchall()
+            migrated = 0
+            for row in rows:
+                existing = conn.execute(text(
+                    "SELECT id FROM site_details WHERE id = :id"
+                ), {"id": row[0]}).fetchone()
+                if existing is None:
+                    conn.execute(text(
+                        """INSERT INTO site_details
+                           (id, project_id, name, description, servers, databases, services, created_at, updated_at)
+                           VALUES (:id, :project_id, :name, '', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, now(), now())"""
+                    ), {"id": row[0], "project_id": row[1], "name": row[2]})
+                    migrated += 1
+            if migrated > 0:
+                conn.commit()
+                print(f"[main] migrated {migrated} project_sites → site_details")
+            else:
+                print("[main] project_sites migration: nothing to migrate")
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"[main] failed to migrate project_sites: {e}")
+
+
+migrate_project_sites_to_site_details()
 
 
 @app.get("/")
