@@ -24,7 +24,7 @@ class ServiceInfo(BaseModel):
 
 
 class SiteDetailCreate(BaseModel):
-    project_id: str
+    project_id: str          # 추가할 프로젝트 ID (같은 이름 사이트 있으면 자동 연결)
     name: str
     description: str = ""
     servers: List[Any] = []
@@ -42,7 +42,7 @@ class SiteDetailUpdate(BaseModel):
 
 class SiteDetailResponse(BaseModel):
     id: str
-    project_id: str
+    project_ids: List[str]
     name: str
     description: str
     servers: List[Any]

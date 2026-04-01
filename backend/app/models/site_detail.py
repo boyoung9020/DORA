@@ -10,7 +10,9 @@ class SiteDetail(Base):
     __tablename__ = "site_details"
 
     id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
-    project_id = Column(String, nullable=False, index=True)
+
+    # project_ids: 이 사이트가 연결된 프로젝트 ID 목록 (같은 이름 = 같은 사이트, 여러 프로젝트 공유)
+    project_ids = Column(JSON, nullable=False, default=list)
 
     # 사이트 기본 정보
     name = Column(String, nullable=False)

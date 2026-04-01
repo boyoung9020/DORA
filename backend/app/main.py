@@ -458,6 +458,41 @@ def migrate_project_sites_to_site_details() -> None:
 migrate_project_sites_to_site_details()
 
 
+def migrate_site_details_to_project_ids() -> None:
+    """site_details.project_id (단일) → project_ids (JSON 배열) 마이그레이션."""
+    try:
+        conn = engine.connect()
+        try:
+            # 1. project_ids 컬럼 추가 (없으면)
+            conn.execute(text(
+                "ALTER TABLE site_details ADD COLUMN IF NOT EXISTS project_ids JSON DEFAULT '[]'::json"
+            ))
+            conn.commit()
+
+            # 2. project_id 컬럼이 존재하면 project_ids로 데이터 이관
+            col_exists = conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name='site_details' AND column_name='project_id'"
+            )).fetchone()
+            if col_exists:
+                # project_ids가 비어있는 행만 이관
+                conn.execute(text(
+                    """UPDATE site_details
+                       SET project_ids = json_build_array(project_id)
+                       WHERE project_id IS NOT NULL
+                         AND (project_ids IS NULL OR project_ids::text = '[]')"""
+                ))
+                conn.commit()
+                print("[main] migrated site_details.project_id → project_ids")
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"[main] failed to migrate site_details project_ids: {e}")
+
+
+migrate_site_details_to_project_ids()
+
+
 @app.get("/")
 async def root():
     """Root endpoint."""

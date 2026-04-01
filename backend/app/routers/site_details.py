@@ -49,22 +49,18 @@ async def list_site_details(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    accessible_ids = set(_accessible_project_ids(db, current_user))
+    all_sites = (
+        db.query(SiteDetail)
+        .order_by(SiteDetail.name.asc(), SiteDetail.created_at.asc())
+        .all()
+    )
+    # 접근 가능한 프로젝트와 연결된 사이트만 반환
     if project_id:
         _get_project_or_403(db, project_id, current_user)
-        sites = (
-            db.query(SiteDetail)
-            .filter(SiteDetail.project_id == project_id)
-            .order_by(SiteDetail.name.asc(), SiteDetail.created_at.asc())
-            .all()
-        )
+        sites = [s for s in all_sites if project_id in (s.project_ids or [])]
     else:
-        project_ids = _accessible_project_ids(db, current_user)
-        sites = (
-            db.query(SiteDetail)
-            .filter(SiteDetail.project_id.in_(project_ids))
-            .order_by(SiteDetail.name.asc(), SiteDetail.created_at.asc())
-            .all()
-        )
+        sites = [s for s in all_sites if any(pid in accessible_ids for pid in (s.project_ids or []))]
     return sites
 
 
@@ -75,9 +71,21 @@ async def create_site_detail(
     current_user: User = Depends(get_current_user),
 ):
     _get_project_or_403(db, body.project_id, current_user)
+
+    # 같은 이름의 사이트가 이미 존재하면 project_id만 연결
+    existing = db.query(SiteDetail).filter(SiteDetail.name == body.name).first()
+    if existing:
+        ids: list = list(existing.project_ids or [])
+        if body.project_id not in ids:
+            ids.append(body.project_id)
+            existing.project_ids = ids
+            db.commit()
+            db.refresh(existing)
+        return existing
+
     site = SiteDetail(
         id=str(uuid.uuid4()),
-        project_id=body.project_id,
+        project_ids=[body.project_id],
         name=body.name,
         description=body.description,
         servers=body.servers,
@@ -100,7 +108,10 @@ async def update_site_detail(
     site = db.query(SiteDetail).filter(SiteDetail.id == site_id).first()
     if not site:
         raise HTTPException(status_code=404, detail="사이트를 찾을 수 없습니다.")
-    _get_project_or_403(db, site.project_id, current_user)
+    # 연결된 프로젝트 중 하나라도 접근 가능하면 편집 허용
+    accessible_ids = set(_accessible_project_ids(db, current_user))
+    if not any(pid in accessible_ids for pid in (site.project_ids or [])):
+        raise HTTPException(status_code=403, detail="접근 권한이 없습니다.")
 
     if body.name is not None:
         site.name = body.name
@@ -127,6 +138,8 @@ async def delete_site_detail(
     site = db.query(SiteDetail).filter(SiteDetail.id == site_id).first()
     if not site:
         raise HTTPException(status_code=404, detail="사이트를 찾을 수 없습니다.")
-    _get_project_or_403(db, site.project_id, current_user)
+    accessible_ids = set(_accessible_project_ids(db, current_user))
+    if not any(pid in accessible_ids for pid in (site.project_ids or [])):
+        raise HTTPException(status_code=403, detail="접근 권한이 없습니다.")
     db.delete(site)
     db.commit()

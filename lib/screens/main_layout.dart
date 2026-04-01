@@ -1513,10 +1513,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final isAllMode = projectProvider.isAllProjectsMode;
 
     List<User> users;
-    if (isAllMode || currentProject == null) {
-      users = allUsers;
-    } else {
+    if (!isAllMode && currentProject != null) {
       final memberIds = currentProject.teamMemberIds;
+      users = allUsers.where((u) => memberIds.contains(u.id)).toList();
+    } else {
+      // 전체 모드: 내가 속한 프로젝트들의 팀원만 표시
+      final myProjects = projectProvider.projects;
+      final memberIds = <String>{};
+      for (final p in myProjects) {
+        memberIds.addAll(p.teamMemberIds);
+      }
       users = allUsers.where((u) => memberIds.contains(u.id)).toList();
     }
 

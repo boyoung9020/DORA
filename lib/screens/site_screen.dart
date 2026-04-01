@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/patch.dart';
 import '../models/project.dart';
 import '../providers/project_provider.dart';
 import '../widgets/glass_container.dart';
 import '../utils/avatar_color.dart';
 import '../models/site_detail.dart';
+import '../services/patch_service.dart';
 import '../services/site_detail_service.dart';
 
 class SiteScreen extends StatefulWidget {
@@ -16,11 +18,14 @@ class SiteScreen extends StatefulWidget {
 
 class _SiteScreenState extends State<SiteScreen> {
   final SiteDetailService _service = SiteDetailService();
+  final PatchService _patchService = PatchService();
 
   bool _isLoading = false;
   String? _error;
   List<SiteDetail> _sites = [];
   SiteDetail? _selectedSite;
+  List<Patch> _sitePatch = [];
+  bool _patchesLoading = false;
   // 사이트 추가 시 선택된 프로젝트 ID
   String? _addProjectId;
 
@@ -68,7 +73,18 @@ class _SiteScreenState extends State<SiteScreen> {
     setState(() {
       _selectedSite = site;
       _isEditing = false;
+      _sitePatch = [];
     });
+    _loadSitePatches(site.name);
+  }
+
+  Future<void> _loadSitePatches(String siteName) async {
+    setState(() => _patchesLoading = true);
+    try {
+      final patches = await _patchService.getPatchesBySite(siteName: siteName);
+      if (mounted) setState(() => _sitePatch = patches);
+    } catch (_) {}
+    if (mounted) setState(() => _patchesLoading = false);
   }
 
   void _startEdit() {
@@ -376,7 +392,7 @@ class _SiteScreenState extends State<SiteScreen> {
       SiteDetail site, ColorScheme colorScheme, List<Project> projects) {
     final isSelected = _selectedSite?.id == site.id;
     final chipColor = AvatarColor.getColorForUser(site.name);
-    final project = projects.where((p) => p.id == site.projectId).firstOrNull;
+    final linkedProjects = projects.where((p) => site.projectIds.contains(p.id)).toList();
 
     return InkWell(
       onTap: () => _selectSite(site),
@@ -431,23 +447,31 @@ class _SiteScreenState extends State<SiteScreen> {
                   const SizedBox(height: 3),
                   Row(
                     children: [
-                      if (project != null) ...[
-                        Container(
+                      ...linkedProjects.take(2).map((p) => Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
-                            color: project.color.withValues(alpha: 0.15),
+                            color: p.color.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text(project.name,
+                          child: Text(p.name,
                               style: TextStyle(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w600,
-                                  color: project.color),
+                                  color: p.color),
                               overflow: TextOverflow.ellipsis),
                         ),
-                        const SizedBox(width: 4),
-                      ],
+                      )),
+                      if (linkedProjects.length > 2)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: Text('+${linkedProjects.length - 2}',
+                              style: TextStyle(
+                                  fontSize: 9,
+                                  color: colorScheme.onSurface.withValues(alpha: 0.5))),
+                        ),
                       _miniChip(
                           '서버 ${site.servers.length}',
                           Icons.computer,
@@ -509,6 +533,7 @@ class _SiteScreenState extends State<SiteScreen> {
   // ─── 상세 보기 패널
   Widget _buildDetailPanel(SiteDetail site, ColorScheme colorScheme) {
     final chipColor = AvatarColor.getColorForUser(site.name);
+    final allProjects = context.watch<ProjectProvider>().projects;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(28),
       child: Column(
@@ -641,8 +666,198 @@ class _SiteScreenState extends State<SiteScreen> {
               }).toList(),
             ),
           ),
+          const SizedBox(height: 20),
+
+          // ── 연결된 프로젝트
+          _buildConnectedProjects(site, colorScheme, allProjects),
+          const SizedBox(height: 20),
+
+          // ── 패치 이력
+          _buildPatchHistory(colorScheme, allProjects),
         ],
       ),
+    );
+  }
+
+  Widget _buildConnectedProjects(SiteDetail site, ColorScheme colorScheme, List<Project> allProjects) {
+    final linked = allProjects.where((p) => site.projectIds.contains(p.id)).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.folder_outlined, size: 16, color: colorScheme.primary),
+            const SizedBox(width: 6),
+            Text('연결된 프로젝트',
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface.withValues(alpha: 0.85))),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text('${linked.length}',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onPrimaryContainer)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (linked.isEmpty)
+          Text('연결된 프로젝트가 없습니다.',
+              style: TextStyle(
+                  fontSize: 13,
+                  color: colorScheme.onSurface.withValues(alpha: 0.35)))
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: linked.map((p) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: p.color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: p.color.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(width: 8, height: 8,
+                      decoration: BoxDecoration(color: p.color, shape: BoxShape.circle)),
+                  const SizedBox(width: 6),
+                  Text(p.name,
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: p.color)),
+                ],
+              ),
+            )).toList(),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPatchHistory(ColorScheme colorScheme, List<Project> allProjects) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.history, size: 16, color: colorScheme.primary),
+            const SizedBox(width: 6),
+            Text('패치 이력',
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface.withValues(alpha: 0.85))),
+            if (_patchesLoading) ...[
+              const SizedBox(width: 8),
+              SizedBox(width: 12, height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.primary)),
+            ],
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (!_patchesLoading && _sitePatch.isEmpty)
+          Text('패치 이력이 없습니다.',
+              style: TextStyle(
+                  fontSize: 13,
+                  color: colorScheme.onSurface.withValues(alpha: 0.35)))
+        else
+          ..._sitePatch.map((patch) {
+            final proj = allProjects.where((p) => p.id == patch.projectId).firstOrNull;
+            final statusColor = patch.status == 'done'
+                ? Colors.green
+                : patch.status == 'in_progress'
+                    ? Colors.orange
+                    : colorScheme.onSurface.withValues(alpha: 0.4);
+            final statusLabel = patch.status == 'done'
+                ? '완료'
+                : patch.status == 'in_progress'
+                    ? '진행 중'
+                    : '대기';
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            if (proj != null) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: proj.color.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(proj.name,
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: proj.color)),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            if (patch.version.isNotEmpty)
+                              Text(patch.version,
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: colorScheme.onSurface.withValues(alpha: 0.5))),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(patch.content,
+                            style: TextStyle(fontSize: 13, color: colorScheme.onSurface),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(patch.dateDisplay,
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: colorScheme.onSurface.withValues(alpha: 0.5))),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(statusLabel,
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: statusColor)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
+      ],
     );
   }
 

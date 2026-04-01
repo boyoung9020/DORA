@@ -5,6 +5,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from app.database import get_db
 from app.models.patch import ProjectPatch
@@ -26,12 +27,34 @@ def _get_project_or_403(db: Session, project_id: str, user: User) -> Project:
     return project
 
 
+def _accessible_project_ids(db: Session, user: User):
+    all_projects = db.query(Project).all()
+    return [
+        p.id for p in all_projects
+        if user.is_admin or p.creator_id == user.id or user.id in (p.team_member_ids or [])
+    ]
+
+
 @router.get("/", response_model=List[PatchResponse])
 async def list_patches(
-    project_id: str = Query(..., description="프로젝트 ID"),
+    project_id: Optional[str] = Query(None, description="프로젝트 ID"),
+    site_name: Optional[str] = Query(None, description="사이트명 (전체 프로젝트 대상 조회)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if site_name:
+        # 사이트명으로 전체 접근 가능 프로젝트의 패치 조회
+        accessible = set(_accessible_project_ids(db, current_user))
+        patches = (
+            db.query(ProjectPatch)
+            .filter(ProjectPatch.site == site_name)
+            .order_by(ProjectPatch.patch_date.desc(), ProjectPatch.created_at.desc())
+            .all()
+        )
+        return [p for p in patches if p.project_id in accessible]
+
+    if not project_id:
+        raise HTTPException(status_code=400, detail="project_id 또는 site_name이 필요합니다")
     _get_project_or_403(db, project_id, current_user)
     patches = (
         db.query(ProjectPatch)

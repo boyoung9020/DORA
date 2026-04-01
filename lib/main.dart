@@ -176,6 +176,15 @@ class MyApp extends StatelessWidget {
             ),
             // 珥덇린 ?붾㈃? 濡쒓렇???붾㈃
             // 濡쒓렇???곹깭???곕씪 ?먮룞?쇰줈 ???붾㈃?쇰줈 ?대룞?⑸땲??
+            // 웹에서 OS 화면 배율에 따른 텍스트 과확대 방지
+            builder: kIsWeb
+                ? (context, child) => MediaQuery(
+                      data: MediaQuery.of(context).copyWith(
+                        textScaler: TextScaler.noScaling,
+                      ),
+                      child: child!,
+                    )
+                : null,
             home: const AuthWrapper(),
           );
         },

@@ -81,7 +81,7 @@ class ServiceInfo {
 
 class SiteDetail {
   final String id;
-  final String projectId;
+  final List<String> projectIds;
   final String name;
   final String description;
   final List<ServerInfo> servers;
@@ -92,7 +92,7 @@ class SiteDetail {
 
   SiteDetail({
     required this.id,
-    required this.projectId,
+    required this.projectIds,
     required this.name,
     required this.description,
     required this.servers,
@@ -124,9 +124,21 @@ class SiteDetail {
           .toList();
     }
 
+    // project_ids (새 필드) 또는 project_id (구 필드) 모두 지원
+    List<String> parseProjectIds(dynamic raw, dynamic fallback) {
+      if (raw != null && raw is List) {
+        return raw.map((e) => e.toString()).toList();
+      }
+      if (fallback != null) return [fallback.toString()];
+      return [];
+    }
+
     return SiteDetail(
       id: json['id'] as String,
-      projectId: (json['project_id'] ?? json['projectId']) as String,
+      projectIds: parseProjectIds(
+        json['project_ids'] ?? json['projectIds'],
+        json['project_id'] ?? json['projectId'],
+      ),
       name: (json['name'] ?? '') as String,
       description: (json['description'] ?? '') as String,
       servers: parseServers(json['servers']),

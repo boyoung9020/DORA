@@ -66,21 +66,6 @@ class DescriptionAndUrgentTasksCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('프로젝트 설명',
-              style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onSurface)),
-          const SizedBox(height: 8),
-          Text(
-            project.description ?? '설명이 없습니다.',
-            style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: project.color.withValues(alpha: 0.9),
-                height: 1.5),
-          ),
-          const SizedBox(height: 20),
           // 마감 임박 작업 + 최우선 작업 나란히
           IntrinsicHeight(
            child: Row(

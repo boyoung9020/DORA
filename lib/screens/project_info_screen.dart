@@ -9,6 +9,7 @@ import '../widgets/project_info/project_header_widget.dart';
 import 'project_info/overview_tab.dart';
 import 'project_info/tasks_tab.dart';
 import 'project_info/patch_tab.dart';
+import 'project_info/members_tab.dart';
 import 'project_info/settings_tab.dart';
 
 /// 프로젝트 정보 화면 - 탭 기반 (개요 / 작업 목록 / 패치 내역 / 설정)
@@ -25,6 +26,7 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
   List<User> _teamMembers = [];
   List<User> _allUsers = [];
   bool _loadingMembers = false;
+  String? _lastProjectId;
 
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -34,7 +36,7 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadTeamMembers();
       _initSettingsControllers();
@@ -70,7 +72,9 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
         _allUsers = allUsers;
         _teamMembers = members;
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[ProjectInfo] _loadTeamMembers error: $e');
+    }
     if (mounted) setState(() => _loadingMembers = false);
   }
 
@@ -84,6 +88,14 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
 
     if (project == null) {
       return const Center(child: Text('프로젝트를 선택해주세요'));
+    }
+
+    if (project.id != _lastProjectId) {
+      _lastProjectId = project.id;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadTeamMembers();
+        _initSettingsControllers();
+      });
     }
 
     final allTasks = taskProvider.tasks;
@@ -116,10 +128,7 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
                   project: project,
                   allTasks: allTasks,
                   teamMembers: _teamMembers,
-                  teamMembersLoading: _loadingMembers,
                   isPM: isPM,
-                  onMemberChanged: _loadTeamMembers,
-                  authService: _authService,
                 ),
                 TasksTab(
                   allTasks: allTasks,
@@ -127,6 +136,15 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
                   allUsers: _allUsers,
                 ),
                 const PatchTab(),
+                MembersTab(
+                  project: project,
+                  allTasks: allTasks,
+                  teamMembers: _teamMembers,
+                  teamMembersLoading: _loadingMembers,
+                  isPM: isPM,
+                  onMemberChanged: _loadTeamMembers,
+                  authService: _authService,
+                ),
                 SettingsTab(
                   project: project,
                   isPM: isPM,
@@ -181,6 +199,13 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
               Icon(Icons.history_outlined, size: 18),
               SizedBox(width: 6),
               Text('패치 내역'),
+            ]),
+          ),
+          Tab(
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.people_outlined, size: 18),
+              SizedBox(width: 6),
+              Text('팀원 관리'),
             ]),
           ),
           Tab(

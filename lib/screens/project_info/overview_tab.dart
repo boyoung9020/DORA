@@ -6,30 +6,22 @@ import '../../widgets/project_info/active_team_widget.dart';
 import '../../widgets/project_info/dday_widget.dart';
 import '../../widgets/project_info/description_tasks_widget.dart';
 import '../../widgets/project_info/github_card_widget.dart';
-import '../../widgets/project_info/member_workload_section.dart';
 import '../../widgets/project_info/productivity_widget.dart';
 import '../../widgets/project_info/progress_widget.dart';
-import '../../widgets/project_info/team_members_card_widget.dart';
 import '../../widgets/project_info/team_workload_chart_widget.dart';
 
 class OverviewTab extends StatelessWidget {
   final Project project;
   final List<Task> allTasks;
   final List<User> teamMembers;
-  final bool teamMembersLoading;
   final bool isPM;
-  final VoidCallback onMemberChanged;
-  final dynamic authService;
 
   const OverviewTab({
     super.key,
     required this.project,
     required this.allTasks,
     required this.teamMembers,
-    required this.teamMembersLoading,
     required this.isPM,
-    required this.onMemberChanged,
-    required this.authService,
   });
 
   @override
@@ -89,10 +81,10 @@ class OverviewTab extends StatelessWidget {
           }),
           const SizedBox(height: 16),
 
-          // 프로젝트 설명 + 마감임박 / 팀원 막대 그래프
+          // 마감임박/최우선 작업 + 팀원 막대 그래프
           LayoutBuilder(builder: (context, constraints) {
             final isWide = constraints.maxWidth > 800;
-            final description = DescriptionAndUrgentTasksCard(
+            final urgentCard = DescriptionAndUrgentTasksCard(
               project: project,
               allTasks: allTasks,
               teamMembers: teamMembers,
@@ -102,64 +94,23 @@ class OverviewTab extends StatelessWidget {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(flex: 2, child: description),
+                  Expanded(flex: 2, child: urgentCard),
                   const SizedBox(width: 12),
                   Expanded(flex: 1, child: chart),
                 ],
               );
             }
             return Column(children: [
-              description,
+              urgentCard,
               const SizedBox(height: 12),
               chart,
             ]);
           }),
           const SizedBox(height: 16),
 
-          // 팀원 + GitHub
-          LayoutBuilder(builder: (context, constraints) {
-            final isWide = constraints.maxWidth > 900;
-            final members = TeamMembersCard(
-              teamMembers: teamMembers,
-              isPM: isPM,
-              onMemberChanged: onMemberChanged,
-              authService: authService,
-            );
-            final github = GitHubCard(projectId: project.id, isPM: isPM);
-            if (isWide) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(flex: 3, child: members),
-                  const SizedBox(width: 12),
-                  Expanded(flex: 2, child: github),
-                ],
-              );
-            }
-            return Column(
-              children: [
-                members,
-                const SizedBox(height: 12),
-                github,
-              ],
-            );
-          }),
+          // GitHub 카드
+          GitHubCard(projectId: project.id, isPM: isPM),
           const SizedBox(height: 16),
-
-          // 팀원별 업무 현황
-          LayoutBuilder(builder: (context, constraints) {
-            final maxH = constraints.maxWidth > 900 ? 360.0 : 420.0;
-            return ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: maxH),
-              child: SingleChildScrollView(
-                child: MemberWorkloadSection(
-                  teamMembers: teamMembers,
-                  isLoading: teamMembersLoading,
-                  allTasks: allTasks,
-                ),
-              ),
-            );
-          }),
         ],
       ),
     );
