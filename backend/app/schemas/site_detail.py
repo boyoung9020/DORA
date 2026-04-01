@@ -8,18 +8,28 @@ from pydantic import BaseModel
 class ServerInfo(BaseModel):
     ip: str = ""
     username: str = ""
+    password: str = ""
+    gpu: str = ""
+    mount: str = ""
     note: str = ""
 
 
 class DatabaseInfo(BaseModel):
     name: str = ""
     type: str = ""
+    user: str = ""
+    password: str = ""
+    ip: str = ""
+    port: str = ""
     note: str = ""
 
 
 class ServiceInfo(BaseModel):
     name: str = ""
     version: str = ""
+    server_ip: str = ""
+    workers: str = ""
+    gpu_usage: str = ""
     note: str = ""
 
 

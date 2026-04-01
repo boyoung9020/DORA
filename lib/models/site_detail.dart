@@ -1,26 +1,56 @@
 class ServerInfo {
   String ip;
   String username;
+  String password;
+  String gpu;
+  String mount;
   String note;
 
-  ServerInfo({this.ip = '', this.username = '', this.note = ''});
+  ServerInfo({
+    this.ip = '',
+    this.username = '',
+    this.password = '',
+    this.gpu = '',
+    this.mount = '',
+    this.note = '',
+  });
 
   factory ServerInfo.fromJson(Map<String, dynamic> json) => ServerInfo(
         ip: (json['ip'] ?? '') as String,
-        username: (json['username'] ?? '') as String,
+        username:
+            (json['username'] ?? json['id'] ?? json['ID'] ?? '') as String,
+        password: (json['password'] ??
+            json['passwd'] ??
+            json['PASSWD'] ??
+            '') as String,
+        gpu: (json['gpu'] ?? json['GPU'] ?? '') as String,
+        mount: (json['mount'] ?? '') as String,
         note: (json['note'] ?? '') as String,
       );
 
   Map<String, dynamic> toJson() => {
         'ip': ip,
         'username': username,
+        'password': password,
+        'gpu': gpu,
+        'mount': mount,
         'note': note,
       };
 
-  ServerInfo copyWith({String? ip, String? username, String? note}) =>
+  ServerInfo copyWith({
+    String? ip,
+    String? username,
+    String? password,
+    String? gpu,
+    String? mount,
+    String? note,
+  }) =>
       ServerInfo(
         ip: ip ?? this.ip,
         username: username ?? this.username,
+        password: password ?? this.password,
+        gpu: gpu ?? this.gpu,
+        mount: mount ?? this.mount,
         note: note ?? this.note,
       );
 }
@@ -28,26 +58,58 @@ class ServerInfo {
 class DatabaseInfo {
   String name;
   String type;
+  String user;
+  String password;
+  String ip;
+  String port;
   String note;
 
-  DatabaseInfo({this.name = '', this.type = '', this.note = ''});
+  DatabaseInfo({
+    this.name = '',
+    this.type = '',
+    this.user = '',
+    this.password = '',
+    this.ip = '',
+    this.port = '',
+    this.note = '',
+  });
 
   factory DatabaseInfo.fromJson(Map<String, dynamic> json) => DatabaseInfo(
-        name: (json['name'] ?? '') as String,
+        name: (json['name'] ?? json['db_name'] ?? '') as String,
         type: (json['type'] ?? '') as String,
+        user: (json['user'] ?? '') as String,
+        password: (json['password'] ?? json['pass_word'] ?? '') as String,
+        ip: (json['ip'] ?? '') as String,
+        port: (json['port'] ?? '') as String,
         note: (json['note'] ?? '') as String,
       );
 
   Map<String, dynamic> toJson() => {
         'name': name,
         'type': type,
+        'user': user,
+        'password': password,
+        'ip': ip,
+        'port': port,
         'note': note,
       };
 
-  DatabaseInfo copyWith({String? name, String? type, String? note}) =>
+  DatabaseInfo copyWith({
+    String? name,
+    String? type,
+    String? user,
+    String? password,
+    String? ip,
+    String? port,
+    String? note,
+  }) =>
       DatabaseInfo(
         name: name ?? this.name,
         type: type ?? this.type,
+        user: user ?? this.user,
+        password: password ?? this.password,
+        ip: ip ?? this.ip,
+        port: port ?? this.port,
         note: note ?? this.note,
       );
 }
@@ -55,26 +117,53 @@ class DatabaseInfo {
 class ServiceInfo {
   String name;
   String version;
+  /// 배포 호스트 IP (예: 10.158.108.111)
+  String serverIp;
+  String workers;
+  String gpuUsage;
   String note;
 
-  ServiceInfo({this.name = '', this.version = '', this.note = ''});
+  ServiceInfo({
+    this.name = '',
+    this.version = '',
+    this.serverIp = '',
+    this.workers = '',
+    this.gpuUsage = '',
+    this.note = '',
+  });
 
   factory ServiceInfo.fromJson(Map<String, dynamic> json) => ServiceInfo(
         name: (json['name'] ?? '') as String,
         version: (json['version'] ?? '') as String,
+        serverIp: (json['serverIp'] ?? json['server_ip'] ?? '') as String,
+        workers: (json['workers'] ?? '') as String,
+        gpuUsage: (json['gpuUsage'] ?? json['gpu_usage'] ?? '') as String,
         note: (json['note'] ?? '') as String,
       );
 
   Map<String, dynamic> toJson() => {
         'name': name,
         'version': version,
+        'serverIp': serverIp,
+        'workers': workers,
+        'gpuUsage': gpuUsage,
         'note': note,
       };
 
-  ServiceInfo copyWith({String? name, String? version, String? note}) =>
+  ServiceInfo copyWith({
+    String? name,
+    String? version,
+    String? serverIp,
+    String? workers,
+    String? gpuUsage,
+    String? note,
+  }) =>
       ServiceInfo(
         name: name ?? this.name,
         version: version ?? this.version,
+        serverIp: serverIp ?? this.serverIp,
+        workers: workers ?? this.workers,
+        gpuUsage: gpuUsage ?? this.gpuUsage,
         note: note ?? this.note,
       );
 }
@@ -124,7 +213,6 @@ class SiteDetail {
           .toList();
     }
 
-    // project_ids (새 필드) 또는 project_id (구 필드) 모두 지원
     List<String> parseProjectIds(dynamic raw, dynamic fallback) {
       if (raw != null && raw is List) {
         return raw.map((e) => e.toString()).toList();

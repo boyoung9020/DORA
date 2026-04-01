@@ -19,11 +19,11 @@ class SiteDetail(Base):
     description = Column(Text, nullable=False, default="")
 
     # JSON 배열로 저장되는 정보들
-    # servers: [{"ip": "...", "username": "...", "note": "..."}]
+    # servers: ip, username, password, gpu, mount, note (+ camelCase from 클라이언트)
     servers = Column(JSON, nullable=False, default=list)
-    # databases: [{"name": "...", "type": "...", "note": "..."}]
+    # databases: name, type, user, password, ip, port, note
     databases = Column(JSON, nullable=False, default=list)
-    # services: [{"name": "...", "version": "...", "note": "..."}]
+    # services: name, version, serverIp/server_ip, workers, gpuUsage/gpu_usage, note
     services = Column(JSON, nullable=False, default=list)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -91,9 +91,18 @@ class _SiteScreenState extends State<SiteScreen> {
     final site = _selectedSite!;
     _nameCtrl.text = site.name;
     _descCtrl.text = site.description;
-    _editServers = site.servers.map((s) => ServerInfo(ip: s.ip, username: s.username, note: s.note)).toList();
-    _editDatabases = site.databases.map((d) => DatabaseInfo(name: d.name, type: d.type, note: d.note)).toList();
-    _editServices = site.services.map((s) => ServiceInfo(name: s.name, version: s.version, note: s.note)).toList();
+    _editServers = site.servers.map((s) => ServerInfo(ip: s.ip, username: s.username, password: s.password, gpu: s.gpu, mount: s.mount, note: s.note)).toList();
+    _editDatabases = site.databases.map((d) => DatabaseInfo(name: d.name, type: d.type, user: d.user, password: d.password, ip: d.ip, port: d.port, note: d.note)).toList();
+    _editServices = site.services
+        .map((s) => ServiceInfo(
+              name: s.name,
+              version: s.version,
+              serverIp: s.serverIp,
+              workers: s.workers,
+              gpuUsage: s.gpuUsage,
+              note: s.note,
+            ))
+        .toList();
     setState(() => _isEditing = true);
   }
 
@@ -599,27 +608,11 @@ class _SiteScreenState extends State<SiteScreen> {
           ),
           const SizedBox(height: 28),
 
-          // ── 서버 정보
-          _buildSection(
-            icon: Icons.computer,
-            title: '서버 정보',
-            colorScheme: colorScheme,
-            isEmpty: site.servers.isEmpty,
-            emptyLabel: '등록된 서버 정보가 없습니다.',
-            child: Column(
-              children: site.servers.map((srv) {
-                return _buildInfoCard(
-                  colorScheme: colorScheme,
-                  rows: [
-                    _InfoRow(label: 'IP 주소', value: srv.ip),
-                    _InfoRow(label: '사용자', value: srv.username),
-                    if (srv.note.isNotEmpty)
-                      _InfoRow(label: '메모', value: srv.note),
-                  ],
-                );
-              }).toList(),
-            ),
-          ),
+          // ── 접속 정보 (ID / PASSWD / GPU / mount — IP 없는 행)
+          ..._buildServerAccessSections(site, colorScheme),
+
+          // ── 호스트별 IP가 있는 서버 행(선택)
+          ..._buildServerHostSections(site, colorScheme),
           const SizedBox(height: 20),
 
           // ── 데이터베이스
@@ -636,6 +629,17 @@ class _SiteScreenState extends State<SiteScreen> {
                   rows: [
                     _InfoRow(label: 'DB명', value: db.name),
                     _InfoRow(label: '종류', value: db.type),
+                    if (db.user.isNotEmpty)
+                      _InfoRow(label: 'DB 사용자', value: db.user),
+                    if (db.password.isNotEmpty)
+                      _InfoRow(
+                          label: 'DB 비밀번호',
+                          value: db.password,
+                          isSecret: true),
+                    if (db.ip.isNotEmpty)
+                      _InfoRow(label: '호스트 IP', value: db.ip),
+                    if (db.port.isNotEmpty)
+                      _InfoRow(label: '포트', value: db.port),
                     if (db.note.isNotEmpty)
                       _InfoRow(label: '메모', value: db.note),
                   ],
@@ -645,20 +649,24 @@ class _SiteScreenState extends State<SiteScreen> {
           ),
           const SizedBox(height: 20),
 
-          // ── 서비스
+          // ── 서버별 서비스 (원본 표: server / service / workers / GPU 사용량)
           _buildSection(
             icon: Icons.rocket_launch_outlined,
-            title: '배포 서비스',
+            title: '서버별 서비스',
             colorScheme: colorScheme,
             isEmpty: site.services.isEmpty,
-            emptyLabel: '등록된 서비스 정보가 없습니다.',
+            emptyLabel: '등록된 서비스(호스트·workers·GPU) 정보가 없습니다.',
             child: Column(
               children: site.services.map((svc) {
                 return _buildInfoCard(
                   colorScheme: colorScheme,
                   rows: [
-                    _InfoRow(label: '서비스명', value: svc.name),
-                    _InfoRow(label: '버전', value: svc.version),
+                    _InfoRow(label: '서버(IP)', value: svc.serverIp),
+                    _InfoRow(label: '서비스', value: svc.name),
+                    _InfoRow(label: 'Workers', value: svc.workers),
+                    _InfoRow(label: 'GPU 사용량', value: svc.gpuUsage),
+                    if (svc.version.isNotEmpty)
+                      _InfoRow(label: '버전', value: svc.version),
                     if (svc.note.isNotEmpty)
                       _InfoRow(label: '메모', value: svc.note),
                   ],
@@ -861,6 +869,83 @@ class _SiteScreenState extends State<SiteScreen> {
     );
   }
 
+  /// IP 없음 = 접속정보 표(ID / PASSWD / GPU / mount)
+  List<Widget> _buildServerAccessSections(
+      SiteDetail site, ColorScheme colorScheme) {
+    final access =
+        site.servers.where((s) => s.ip.trim().isEmpty).toList();
+    return [
+      _buildSection(
+        icon: Icons.badge_outlined,
+        title: '접속 정보',
+        colorScheme: colorScheme,
+        isEmpty: access.isEmpty,
+        emptyLabel: '등록된 접속 정보(ID·PASSWD·GPU·mount)가 없습니다.',
+        child: Column(
+          children: access.map((srv) {
+            return _buildInfoCard(
+              colorScheme: colorScheme,
+              rows: [
+                _InfoRow(label: 'ID', value: srv.username),
+                if (srv.password.isNotEmpty)
+                  _InfoRow(
+                      label: 'PASSWD',
+                      value: srv.password,
+                      isSecret: true)
+                else
+                  const _InfoRow(label: 'PASSWD', value: ''),
+                _InfoRow(label: 'GPU', value: srv.gpu),
+                _InfoRow(label: 'mount', value: srv.mount),
+                if (srv.note.isNotEmpty)
+                  _InfoRow(label: '메모', value: srv.note),
+              ],
+            );
+          }).toList(),
+        ),
+      ),
+      const SizedBox(height: 20),
+    ];
+  }
+
+  /// IP 있음 = 개별 호스트 행(선택)
+  List<Widget> _buildServerHostSections(
+      SiteDetail site, ColorScheme colorScheme) {
+    final hosts =
+        site.servers.where((s) => s.ip.trim().isNotEmpty).toList();
+    if (hosts.isEmpty) return [];
+    return [
+      _buildSection(
+        icon: Icons.dns_outlined,
+        title: '서버 호스트',
+        colorScheme: colorScheme,
+        isEmpty: false,
+        emptyLabel: '',
+        child: Column(
+          children: hosts.map((srv) {
+            return _buildInfoCard(
+              colorScheme: colorScheme,
+              rows: [
+                _InfoRow(label: 'IP 주소', value: srv.ip),
+                if (srv.username.isNotEmpty)
+                  _InfoRow(label: 'ID', value: srv.username),
+                if (srv.password.isNotEmpty)
+                  _InfoRow(
+                      label: 'PASSWD', value: srv.password, isSecret: true),
+                if (srv.gpu.isNotEmpty)
+                  _InfoRow(label: 'GPU', value: srv.gpu),
+                if (srv.mount.isNotEmpty)
+                  _InfoRow(label: 'mount', value: srv.mount),
+                if (srv.note.isNotEmpty)
+                  _InfoRow(label: '메모', value: srv.note),
+              ],
+            );
+          }).toList(),
+        ),
+      ),
+      const SizedBox(height: 20),
+    ];
+  }
+
   Widget _buildSection({
     required IconData icon,
     required String title,
@@ -912,35 +997,42 @@ class _SiteScreenState extends State<SiteScreen> {
             color: colorScheme.outlineVariant.withValues(alpha: 0.35)),
       ),
       child: Column(
-        children: rows
-            .map((r) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 72,
-                        child: Text(r.label,
-                            style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.onSurface
-                                    .withValues(alpha: 0.5))),
-                      ),
-                      Expanded(
-                        child: Text(
-                          r.value.isNotEmpty ? r.value : '—',
-                          style: TextStyle(
-                              fontSize: 13,
-                              color: r.value.isNotEmpty
-                                  ? colorScheme.onSurface
-                                  : colorScheme.onSurface
-                                      .withValues(alpha: 0.3)),
-                        ),
-                      ),
-                    ],
+        children: rows.map((r) => _buildDetailInfoRow(colorScheme, r))            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildDetailInfoRow(ColorScheme colorScheme, _InfoRow r) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 72,
+            child: Text(
+              r.label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+            ),
+          ),
+          Expanded(
+            child: r.isSecret && r.value.isNotEmpty
+                ? _RevealableSecret(value: r.value, colorScheme: colorScheme)
+                : Text(
+                    r.value.isNotEmpty ? r.value : '—',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: r.value.isNotEmpty
+                          ? colorScheme.onSurface
+                          : colorScheme.onSurface.withValues(alpha: 0.3),
+                    ),
                   ),
-                ))
-            .toList(),
+          ),
+        ],
       ),
     );
   }
@@ -981,8 +1073,16 @@ class _SiteScreenState extends State<SiteScreen> {
           _editTextField('설명', _descCtrl, '사이트에 대한 간단한 설명', maxLines: 2),
           const SizedBox(height: 24),
 
-          // 서버 정보
-          _editSectionTitle(Icons.computer, '서버 정보', colorScheme),
+          // 접속정보(IP 비움)·호스트(IP 기입) — 원본 표와 동일하게 저장
+          _editSectionTitle(Icons.computer, '접속·호스트 정보', colorScheme),
+          const SizedBox(height: 6),
+          Text(
+            'IP를 비우면 「접속 정보」(ID·PASSWD·GPU·mount) 행으로 쓰입니다. 서버별 서비스는 아래 「배포 서비스」에서 편집합니다.',
+            style: TextStyle(
+              fontSize: 11,
+              color: colorScheme.onSurface.withValues(alpha: 0.45),
+            ),
+          ),
           const SizedBox(height: 10),
           ..._editServers.asMap().entries.map((e) {
             final i = e.key;
@@ -994,15 +1094,34 @@ class _SiteScreenState extends State<SiteScreen> {
                 _EditField(
                     label: 'IP 주소',
                     value: srv.ip,
-                    hint: '예) 192.168.1.1',
+                    hint: '접속정보만: 비움 / 호스트: 10.158…',
                     onChanged: (v) =>
                         setState(() => _editServers[i] = srv.copyWith(ip: v))),
                 _EditField(
-                    label: '사용자명',
+                    label: 'ID',
                     value: srv.username,
-                    hint: '예) ubuntu',
+                    hint: '예) gemisoadmin',
                     onChanged: (v) => setState(
                         () => _editServers[i] = srv.copyWith(username: v))),
+                _EditField(
+                    label: 'PASSWD',
+                    value: srv.password,
+                    hint: '암호',
+                    obscure: true,
+                    onChanged: (v) => setState(
+                        () => _editServers[i] = srv.copyWith(password: v))),
+                _EditField(
+                    label: 'GPU',
+                    value: srv.gpu,
+                    hint: '예) A6000(50G), 서버 당 2개',
+                    onChanged: (v) => setState(
+                        () => _editServers[i] = srv.copyWith(gpu: v))),
+                _EditField(
+                    label: 'mount',
+                    value: srv.mount,
+                    hint: '예) /mnt/npsmain/root',
+                    onChanged: (v) => setState(
+                        () => _editServers[i] = srv.copyWith(mount: v))),
                 _EditField(
                     label: '메모',
                     value: srv.note,
@@ -1013,7 +1132,7 @@ class _SiteScreenState extends State<SiteScreen> {
             );
           }),
           _addItemButton(
-            label: '서버 추가',
+            label: '접속·호스트 행 추가',
             colorScheme: colorScheme,
             onTap: () => setState(() => _editServers.add(ServerInfo())),
           ),
@@ -1038,9 +1157,34 @@ class _SiteScreenState extends State<SiteScreen> {
                 _EditField(
                     label: '종류',
                     value: db.type,
-                    hint: '예) PostgreSQL 15',
+                    hint: '예) PostgreSQL 15 / Milvus',
                     onChanged: (v) => setState(
                         () => _editDatabases[i] = db.copyWith(type: v))),
+                _EditField(
+                    label: 'DB 사용자',
+                    value: db.user,
+                    hint: 'DB 계정',
+                    onChanged: (v) => setState(
+                        () => _editDatabases[i] = db.copyWith(user: v))),
+                _EditField(
+                    label: 'DB 비밀번호',
+                    value: db.password,
+                    hint: '암호',
+                    obscure: true,
+                    onChanged: (v) => setState(
+                        () => _editDatabases[i] = db.copyWith(password: v))),
+                _EditField(
+                    label: '호스트 IP',
+                    value: db.ip,
+                    hint: '예) 10.0.0.1',
+                    onChanged: (v) => setState(
+                        () => _editDatabases[i] = db.copyWith(ip: v))),
+                _EditField(
+                    label: '포트',
+                    value: db.port,
+                    hint: '예) 19530',
+                    onChanged: (v) => setState(
+                        () => _editDatabases[i] = db.copyWith(port: v))),
                 _EditField(
                     label: '메모',
                     value: db.note,
@@ -1058,9 +1202,9 @@ class _SiteScreenState extends State<SiteScreen> {
           ),
           const SizedBox(height: 24),
 
-          // 배포 서비스
+          // 서버별 서비스 (호스트 / service / workers / GPU)
           _editSectionTitle(
-              Icons.rocket_launch_outlined, '배포 서비스', colorScheme),
+              Icons.rocket_launch_outlined, '서버별 서비스', colorScheme),
           const SizedBox(height: 10),
           ..._editServices.asMap().entries.map((e) {
             final i = e.key;
@@ -1072,9 +1216,27 @@ class _SiteScreenState extends State<SiteScreen> {
                 _EditField(
                     label: '서비스명',
                     value: svc.name,
-                    hint: '예) Nginx',
+                    hint: '예) Face / OCR / Scene',
                     onChanged: (v) => setState(
                         () => _editServices[i] = svc.copyWith(name: v))),
+                _EditField(
+                    label: '서버(IP)',
+                    value: svc.serverIp,
+                    hint: '예) 10.158.108.111',
+                    onChanged: (v) => setState(
+                        () => _editServices[i] = svc.copyWith(serverIp: v))),
+                _EditField(
+                    label: 'Workers',
+                    value: svc.workers,
+                    hint: '비움 가능 (예: milvus)',
+                    onChanged: (v) => setState(
+                        () => _editServices[i] = svc.copyWith(workers: v))),
+                _EditField(
+                    label: 'GPU 사용량',
+                    value: svc.gpuUsage,
+                    hint: '비움 가능. 예: 33734, 8905 / 42000',
+                    onChanged: (v) => setState(
+                        () => _editServices[i] = svc.copyWith(gpuUsage: v))),
                 _EditField(
                     label: '버전',
                     value: svc.version,
@@ -1178,6 +1340,7 @@ class _SiteScreenState extends State<SiteScreen> {
                             Expanded(
                               child: TextFormField(
                                 initialValue: f.value,
+                                obscureText: f.obscure,
                                 decoration: InputDecoration(
                                   hintText: f.hint,
                                   hintStyle: TextStyle(
@@ -1253,18 +1416,68 @@ class _SiteScreenState extends State<SiteScreen> {
 class _InfoRow {
   final String label;
   final String value;
-  const _InfoRow({required this.label, required this.value});
+  final bool isSecret;
+  const _InfoRow({required this.label, required this.value, this.isSecret = false});
 }
 
 class _EditField {
   final String label;
   final String value;
   final String hint;
+  final bool obscure;
   final void Function(String) onChanged;
   const _EditField({
     required this.label,
     required this.value,
     required this.hint,
+    this.obscure = false,
     required this.onChanged,
   });
+}
+
+class _RevealableSecret extends StatefulWidget {
+  final String value;
+  final ColorScheme colorScheme;
+
+  const _RevealableSecret({
+    required this.value,
+    required this.colorScheme,
+  });
+
+  @override
+  State<_RevealableSecret> createState() => _RevealableSecretState();
+}
+
+class _RevealableSecretState extends State<_RevealableSecret> {
+  bool _visible = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: SelectableText(
+            _visible ? widget.value : '•' * 12,
+            style: TextStyle(
+              fontSize: 13,
+              color: _visible ? cs.onSurface : cs.onSurface.withValues(alpha: 0.45),
+            ),
+          ),
+        ),
+        IconButton(
+          tooltip: _visible ? '숨기기' : '표시',
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          icon: Icon(
+            _visible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+            size: 18,
+            color: cs.onSurface.withValues(alpha: 0.5),
+          ),
+          onPressed: () => setState(() => _visible = !_visible),
+        ),
+      ],
+    );
+  }
 }

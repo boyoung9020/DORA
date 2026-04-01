@@ -2,7 +2,9 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
+from copy import deepcopy
+
+from sqlalchemy import func, text
 
 from app.database import Base, engine
 from app.routers import (
@@ -491,6 +493,55 @@ def migrate_site_details_to_project_ids() -> None:
 
 
 migrate_site_details_to_project_ids()
+
+
+def seed_mbc_site_details_if_empty() -> None:
+    """이름이 MBC인 site_details에 servers/databases/services 중 비어 있는 항목만 기본 인프라로 채웁니다."""
+    try:
+        from app.database import SessionLocal
+        from app.models.site_detail import SiteDetail
+        from app.mbc_site_default_data import (
+            MBC_DATABASES,
+            MBC_SERVERS,
+            mbc_services_list,
+        )
+
+        db = SessionLocal()
+        try:
+            sites = (
+                db.query(SiteDetail)
+                .filter(func.lower(SiteDetail.name) == "mbc")
+                .all()
+            )
+            touched = 0
+            for site in sites:
+                s, d, v = site.servers or [], site.databases or [], site.services or []
+                changed = False
+                if len(s) == 0:
+                    site.servers = deepcopy(MBC_SERVERS)
+                    changed = True
+                if len(d) == 0:
+                    site.databases = deepcopy(MBC_DATABASES)
+                    changed = True
+                if len(v) == 0:
+                    site.services = mbc_services_list()
+                    changed = True
+                if changed:
+                    touched += 1
+                    print(f"[main] filled empty MBC infra fields for site_details id={site.id}")
+            if touched:
+                db.commit()
+            elif sites:
+                print("[main] MBC site infra already populated; skip seed")
+            else:
+                print("[main] no MBC site row; skip MBC infra seed")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[main] failed MBC site infra seed: {e}")
+
+
+seed_mbc_site_details_if_empty()
 
 
 @app.get("/")
