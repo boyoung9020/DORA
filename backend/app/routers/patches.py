@@ -22,7 +22,7 @@ def _get_project_or_403(db: Session, project_id: str, user: User) -> Project:
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="프로젝트를 찾을 수 없습니다")
-    if not user.is_admin and user.id not in (project.team_member_ids or []):
+    if not user.is_admin and user.id != project.creator_id and user.id not in (project.team_member_ids or []):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="이 프로젝트에 접근 권한이 없습니다")
     return project
 

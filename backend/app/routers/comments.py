@@ -108,7 +108,7 @@ async def create_comment(
 
         project = db.query(Project).filter(Project.id == task.project_id).first()
         if not current_user.is_admin and not current_user.is_pm:
-            if not project or current_user.id not in (project.team_member_ids or []):
+            if not project or (current_user.id != project.creator_id and current_user.id not in (project.team_member_ids or [])):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="해당 태스크에 댓글을 작성할 권한이 없습니다",

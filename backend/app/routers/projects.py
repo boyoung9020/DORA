@@ -69,7 +69,7 @@ async def get_project(
             detail="프로젝트를 찾을 수 없습니다"
         )
     if not current_user.is_admin:
-        if current_user.id not in (project.team_member_ids or []):
+        if current_user.id != project.creator_id and current_user.id not in (project.team_member_ids or []):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="이 프로젝트에 접근 권한이 없습니다"
