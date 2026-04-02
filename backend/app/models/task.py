@@ -1,7 +1,7 @@
 """
 태스크 모델 (SQLAlchemy)
 """
-from sqlalchemy import Column, String, DateTime, Integer, Enum as SQLEnum, ARRAY, JSON, ForeignKey
+from sqlalchemy import Column, String, DateTime, Integer, Enum as SQLEnum, ARRAY, JSON, ForeignKey, text
 from sqlalchemy.sql import func
 from app.database import Base
 import enum
@@ -29,7 +29,7 @@ class Task(Base):
     __tablename__ = "tasks"
     
     id = Column(String, primary_key=True, index=True)
-    display_id = Column(Integer, nullable=True, index=True)  # auto-incremented sequential ID
+    display_id = Column(Integer, nullable=True, index=True, server_default=text("nextval('tasks_display_id_seq')"))  # auto-incremented sequential ID
     title = Column(String, nullable=False, index=True)
     description = Column(String, nullable=True, default="")
     status = Column(SQLEnum(TaskStatus), nullable=False, default=TaskStatus.BACKLOG, index=True)
