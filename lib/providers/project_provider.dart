@@ -69,9 +69,10 @@ class ProjectProvider extends ChangeNotifier {
     } else {
       // PM 및 일반 사용자는 자신이 속한 프로젝트만 볼 수 있음
       _projects = _allProjects.where((project) {
+        final isCreator = project.creatorId == _currentUserId;
         final isMember = project.teamMemberIds.contains(_currentUserId);
-        print('[ProjectProvider] 프로젝트 "${project.name}" - 팀원 여부: $isMember (팀원 수: ${project.teamMemberIds.length})');
-        return isMember;
+        print('[ProjectProvider] 프로젝트 "${project.name}" - 생성자: $isCreator, 팀원 여부: $isMember (팀원 수: ${project.teamMemberIds.length})');
+        return isCreator || isMember;
       }).toList();
       print('[ProjectProvider] 사용자 - 필터링된 프로젝트: ${_projects.length}개');
     }
