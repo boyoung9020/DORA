@@ -53,7 +53,7 @@ echo "  완료"
 # 4. 서버에서 컨테이너 재시작
 echo ""
 echo "[4/4] 서버 재시작 중..."
-$SSH "$SERVER" 'cd ~/app && docker compose build --no-cache api && docker compose up -d api && docker compose up -d --force-recreate nginx && sleep 3 && docker compose ps'
+$SSH "$SERVER" 'cd ~/app && docker compose build --no-cache api && docker compose up -d api && docker compose stop nginx && docker compose rm -f nginx 2>/dev/null || true && docker compose up -d nginx && sleep 3 && docker compose ps'
 
 echo ""
 echo "  배포 헤더 확인 중..."

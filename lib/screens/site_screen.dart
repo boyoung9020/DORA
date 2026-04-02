@@ -694,22 +694,26 @@ class _ServerFlatSectionState extends State<_ServerFlatSection> {
               ),
           ]),
         ),
-        // 계정 정보 칩
-        Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-          child: widget.servers.isEmpty
-              ? Text('서버가 없습니다.', style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.35)))
-              : Wrap(spacing: 10, runSpacing: 8, children: [
-                  if (c.username.isNotEmpty) _chip(Icons.person_outline, 'ID', c.username, cs),
-                  if (c.password.isNotEmpty) _chip(Icons.lock_outline, '비밀번호', '••••••••', cs),
-                  if (c.gpu.isNotEmpty) _chip(Icons.memory_outlined, 'GPU', c.gpu, cs),
-                  if (c.mount.isNotEmpty) _chip(Icons.folder_outlined, 'Mount', c.mount, cs),
-                  if (c.note.isNotEmpty) _chip(Icons.notes_outlined, '비고', c.note, cs),
-                  if (c.username.isEmpty && c.password.isEmpty && c.gpu.isEmpty && c.mount.isEmpty)
-                    Text('계정 정보를 입력하세요 (편집 버튼)',
-                        style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.3))),
-                ]),
-        ),
+        // 계정 정보 행
+        if (widget.servers.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+            child: Text('서버가 없습니다.', style: TextStyle(fontSize: 13, color: cs.onSurface.withValues(alpha: 0.35))),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              if (c.username.isNotEmpty) _infoRow(Icons.person_outline, 'ID', c.username, cs),
+              if (c.password.isNotEmpty) _infoRow(Icons.lock_outline, '비밀번호', '••••••••', cs),
+              if (c.gpu.isNotEmpty) _infoRow(Icons.memory_outlined, 'GPU', c.gpu, cs),
+              if (c.mount.isNotEmpty) _infoRow(Icons.folder_outlined, 'Mount', c.mount, cs),
+              if (c.note.isNotEmpty) _infoRow(Icons.notes_outlined, '비고', c.note, cs),
+              if (c.username.isEmpty && c.password.isEmpty && c.gpu.isEmpty && c.mount.isEmpty)
+                Text('계정 정보를 입력하세요 (편집 버튼)',
+                    style: TextStyle(fontSize: 13, color: cs.onSurface.withValues(alpha: 0.3))),
+            ]),
+          ),
         // IP 목록
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
@@ -755,6 +759,25 @@ class _ServerFlatSectionState extends State<_ServerFlatSection> {
               ),
             ]),
           ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _infoRow(IconData icon, String label, String value, ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(children: [
+        Icon(icon, size: 14, color: _color.withValues(alpha: 0.55)),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 70,
+          child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+              color: cs.onSurface.withValues(alpha: 0.5))),
+        ),
+        Expanded(
+          child: Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+              color: cs.onSurface.withValues(alpha: 0.9))),
         ),
       ]),
     );
@@ -924,13 +947,13 @@ class _DatabaseEmbeddedSectionState extends State<_DatabaseEmbeddedSection> {
                         ],
                       ]),
                       const SizedBox(height: 6),
-                      Wrap(spacing: 8, runSpacing: 6, children: [
+                      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                         if (db.ip.isNotEmpty || db.port.isNotEmpty)
-                          _chip(Icons.dns_outlined, '접속',
+                          _infoRow(Icons.dns_outlined, '접속',
                               [if (db.ip.isNotEmpty) db.ip, if (db.port.isNotEmpty) ':${db.port}'].join(''), cs),
-                        if (db.user.isNotEmpty) _chip(Icons.person_outline, '계정', db.user, cs),
-                        if (db.password.isNotEmpty) _chip(Icons.lock_outline, '비밀번호', '••••••••', cs),
-                        if (db.note.isNotEmpty) _chip(Icons.notes_outlined, '비고', db.note, cs),
+                        if (db.user.isNotEmpty) _infoRow(Icons.person_outline, '계정', db.user, cs),
+                        if (db.password.isNotEmpty) _infoRow(Icons.lock_outline, '비밀번호', '••••••••', cs),
+                        if (db.note.isNotEmpty) _infoRow(Icons.notes_outlined, '비고', db.note, cs),
                       ]),
                     ]),
                   ),
@@ -957,21 +980,21 @@ class _DatabaseEmbeddedSectionState extends State<_DatabaseEmbeddedSection> {
     );
   }
 
-  Widget _chip(IconData icon, String label, String value, ColorScheme cs) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: _color.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: _color.withValues(alpha: 0.12)),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 11, color: _color.withValues(alpha: 0.6)),
-        const SizedBox(width: 5),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: _color.withValues(alpha: 0.6))),
-          Text(value, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: cs.onSurface.withValues(alpha: 0.85))),
-        ]),
+  Widget _infoRow(IconData icon, String label, String value, ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(children: [
+        Icon(icon, size: 14, color: _color.withValues(alpha: 0.55)),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 56,
+          child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+              color: cs.onSurface.withValues(alpha: 0.5))),
+        ),
+        Expanded(
+          child: Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+              color: cs.onSurface.withValues(alpha: 0.9))),
+        ),
       ]),
     );
   }
@@ -1227,20 +1250,53 @@ class _PatchHistoryView extends StatelessWidget {
     final grouped = _groupByYear();
     final years = grouped.keys.toList()..sort((a, b) => b.compareTo(a)); // 최신 연도 위
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-      itemCount: years.length,
-      itemBuilder: (_, i) {
-        final year = years[i];
-        final yearPatches = grouped[year]!;
-        return _YearGroup(
-          year: year,
-          patches: yearPatches,
-          projects: projects,
-          colorScheme: colorScheme,
-          isLast: i == years.length - 1,
-        );
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 헤더
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.25))),
+          ),
+          child: Row(children: [
+            Icon(Icons.history_outlined, size: 16, color: colorScheme.primary.withValues(alpha: 0.7)),
+            const SizedBox(width: 8),
+            Text('패치 내역',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text('${patches.length}',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                      color: colorScheme.primary)),
+            ),
+          ]),
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            itemCount: years.length,
+            itemBuilder: (_, i) {
+              final year = years[i];
+              final yearPatches = grouped[year]!;
+              return _YearGroup(
+                year: year,
+                patches: yearPatches,
+                projects: projects,
+                colorScheme: colorScheme,
+                isLast: i == years.length - 1,
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1383,7 +1439,8 @@ class _PatchTimelineItem extends StatelessWidget {
           // 내용
           Expanded(
             child: Text(patch.content,
-                style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.85)),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500,
+                    color: cs.onSurface.withValues(alpha: 0.9)),
                 maxLines: 2, overflow: TextOverflow.ellipsis),
           ),
           const SizedBox(width: 8),
