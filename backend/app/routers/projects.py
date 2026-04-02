@@ -44,8 +44,12 @@ async def get_all_projects(
     if current_user.is_admin:
         query = db.query(Project)
     else:
+        from sqlalchemy import or_
         query = db.query(Project).filter(
-            Project.team_member_ids.any(current_user.id)
+            or_(
+                Project.creator_id == current_user.id,
+                Project.team_member_ids.any(current_user.id)
+            )
         )
 
     if workspace_id:
