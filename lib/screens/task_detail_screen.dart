@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -256,6 +256,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   List<Checklist> _checklists = [];
   final ImagePicker _imagePicker = ImagePicker();
   final FocusNode _commentFocusNode = FocusNode();
+  final FocusNode _detailFocusNode = FocusNode();
   final ScrollController _timelineScrollController = ScrollController();
   bool _isCommentDropHover = false;
   List<Comment> _comments = [];
@@ -266,6 +267,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   List<XFile> _selectedCommentImages =
       []; // ?蹂????醫뤾문?????筌왖 (???怨쀫뮞?????⑤벏??
   List<XFile> _selectedDetailImages = []; // ?怨멸쉭 ??곸뒠???醫뤾문?????筌왖
+  List<String> _existingDetailImageUrls = []; // 편집 중 기존 저장 이미지 URL
   List<String> _uploadedCommentImageUrls = []; // ??낆쨮??뺣쭆 ?蹂? ???筌왖 URL
   List<String> _uploadedDetailImageUrls = []; // ??낆쨮??뺣쭆 ?怨멸쉭 ??곸뒠 ???筌왖 URL
   List<User>? _assignedMembers; // ?醫딅뼣??????筌?Ŋ??
@@ -357,6 +359,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _commentController.dispose();
     _editCommentController.dispose();
     _commentFocusNode.dispose();
+    _detailFocusNode.dispose();
     _timelineScrollController.dispose();
     super.dispose();
   }
@@ -1016,12 +1019,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   /// ???筌왖 ?醫뤾문 (?怨멸쉭 ??곸뒠??
   Future<void> _pickDetailImages() async {
+    final hadFocus = _detailFocusNode.hasFocus;
     try {
       final List<XFile> images = await _imagePicker.pickMultiImage();
       if (images.isNotEmpty) {
         setState(() {
           _selectedDetailImages = List<XFile>.from(images);
         });
+        // 이미지 선택 후 detail 필드 포커스 복구
+        if (hadFocus) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _detailFocusNode.requestFocus();
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -1601,8 +1611,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       _saveTask(context, taskProvider);
                                     } else {
                                       setState(() {
-                                        _isEditing = true;
-                                      });
+                        _isEditing = true;
+                        _existingDetailImageUrls = List<String>.from(currentTask.detailImageUrls);
+                      });
                                     }
                                   },
                                   colorScheme,
@@ -3213,7 +3224,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
     try {
       // ???筌왖 ??낆쨮??
-      List<String> imageUrls = List<String>.from(currentTask.detailImageUrls);
+      List<String> imageUrls = List<String>.from(_existingDetailImageUrls);
       if (_selectedDetailImages.isNotEmpty) {
         final uploadedUrls = await _uploadService.uploadImagesFromXFiles(
           _selectedDetailImages,
@@ -3233,6 +3244,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         _isEditing = false;
         _selectedDetailImages.clear();
         _uploadedDetailImageUrls.clear();
+        _existingDetailImageUrls.clear();
       });
     } catch (e) {
       if (mounted) {
@@ -4088,54 +4100,47 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 height: 1.5,
                               ),
                             ),
-                            // ?醫뤾문?????筌왖 沃섎챶?곮퉪?용┛
-                            if (_selectedDetailImages.isNotEmpty) ...[
+                            // 기존 저장된 이미지 URL 미리보기 (삭제 가능)
+                            if (_existingDetailImageUrls.isNotEmpty) ...[
                               const SizedBox(height: 8),
                               SizedBox(
                                 height: 100,
                                 child: ListView.builder(
                                   scrollDirection: Axis.horizontal,
-                                  itemCount: _selectedDetailImages.length,
+                                  itemCount: _existingDetailImageUrls.length,
                                   itemBuilder: (context, index) {
+                                    final url = _existingDetailImageUrls[index];
                                     return Padding(
                                       padding: const EdgeInsets.only(right: 8),
                                       child: Stack(
                                         children: [
                                           ClipRRect(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                            child: _XFileImage(
-                                              xfile:
-                                                  _selectedDetailImages[index],
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Image.network(
+                                              _resolveImageUrl(url),
                                               width: 100,
                                               height: 100,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) => Container(
+                                                width: 100, height: 100,
+                                                color: Colors.grey[200],
+                                                child: const Icon(Icons.broken_image_outlined),
+                                              ),
                                             ),
                                           ),
                                           Positioned(
-                                            top: 4,
-                                            right: 4,
+                                            top: 4, right: 4,
                                             child: GestureDetector(
-                                              onTap: () {
-                                                setState(() {
-                                                  _selectedDetailImages
-                                                      .removeAt(index);
-                                                });
-                                              },
+                                              onTap: () => setState(() {
+                                                _existingDetailImageUrls.removeAt(index);
+                                              }),
                                               child: Container(
-                                                padding: const EdgeInsets.all(
-                                                  4,
-                                                ),
+                                                padding: const EdgeInsets.all(4),
                                                 decoration: BoxDecoration(
-                                                  color: Colors.black
-                                                      .withValues(alpha: 0.6),
+                                                  color: Colors.black.withValues(alpha: 0.6),
                                                   shape: BoxShape.circle,
                                                 ),
-                                                child: const Icon(
-                                                  Icons.close,
-                                                  size: 16,
-                                                  color: Colors.white,
-                                                ),
+                                                child: const Icon(Icons.close, size: 16, color: Colors.white),
                                               ),
                                             ),
                                           ),
@@ -4146,6 +4151,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 ),
                               ),
                             ],
+                            // 새로 추가할 이미지 미리보기 - 별도 위젯으로 분리하여 부모 rebuild 방지
+                            _DetailImageList(
+                              images: _selectedDetailImages,
+                              onChanged: (updated) {
+                                _selectedDetailImages = updated.cast<XFile>();
+                              },
+                            ),
                             const SizedBox(height: 8),
                             IconButton(
                               icon: Icon(
@@ -4153,7 +4165,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 color: colorScheme.primary,
                               ),
                               onPressed: _pickDetailImages,
-                              tooltip: '???筌왖 ?곕떽?',
+                              tooltip: '이미지 추가',
                             ),
                           ],
                         )
@@ -5700,3 +5712,88 @@ class _XFileImage extends StatelessWidget {
     );
   }
 }
+
+/// 상세 설명 이미지 미리보기 위젯
+/// 별도 StatefulWidget으로 분리하여 이미지 추가/삭제 시 부모 rebuild 방지
+class _DetailImageList extends StatefulWidget {
+  final List<dynamic> images;
+  final void Function(List<dynamic>) onChanged;
+
+  const _DetailImageList({required this.images, required this.onChanged});
+
+  @override
+  State<_DetailImageList> createState() => _DetailImageListState();
+}
+
+class _DetailImageListState extends State<_DetailImageList> {
+  late List<dynamic> _images;
+
+  @override
+  void initState() {
+    super.initState();
+    _images = List.from(widget.images);
+  }
+
+  @override
+  void didUpdateWidget(_DetailImageList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.images != oldWidget.images) {
+      _images = List.from(widget.images);
+    }
+  }
+
+  void _remove(int index) {
+    setState(() => _images.removeAt(index));
+    widget.onChanged(_images);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_images.isEmpty) return const SizedBox.shrink();
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 100,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _images.length,
+            itemBuilder: (context, index) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: _XFileImage(
+                        xfile: _images[index],
+                        width: 100,
+                        height: 100,
+                      ),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () => _remove(index),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, size: 16, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+

@@ -9,6 +9,7 @@ import '../services/auth_service.dart';
 import '../utils/avatar_color.dart';
 import '../widgets/date_range_picker_dialog.dart';
 import '../widgets/glass_container.dart';
+import 'task_detail_screen.dart';
 
 /// 날짜별 그리드 페인터
 class _DateGridPainter extends CustomPainter {
@@ -976,9 +977,15 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
             Positioned(
               left: startOffset + 4,
               top: (rowHeight - 22) / 2,
-              child: Tooltip(
-                message: tooltipText,
-                child: Container(
+              child: GestureDetector(
+                onTap: () => showDialog(
+                  context: context,
+                  barrierColor: Colors.black.withValues(alpha: 0.2),
+                  builder: (_) => TaskDetailScreen(task: task),
+                ),
+                child: Tooltip(
+                  message: tooltipText,
+                  child: Container(
                   width: (barWidth - 8).clamp(4, double.infinity),
                   height: 22,
                   decoration: BoxDecoration(
@@ -1020,14 +1027,21 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                 ),
               ),
             ),
+          ),
           ] else ...[
             // 자식 태스크: 상태별 둥근 바
             Positioned(
               left: startOffset + 4,
               top: (rowHeight - 22) / 2,
-              child: Tooltip(
-                message: tooltipText,
-                child: Container(
+              child: GestureDetector(
+                onTap: () => showDialog(
+                  context: context,
+                  barrierColor: Colors.black.withValues(alpha: 0.2),
+                  builder: (_) => TaskDetailScreen(task: task),
+                ),
+                child: Tooltip(
+                  message: tooltipText,
+                  child: Container(
                   width: (barWidth - 8).clamp(4, double.infinity),
                   height: 22,
                   decoration: BoxDecoration(
@@ -1090,6 +1104,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                 ),
               ),
             ),
+          ),
           ],
         ],
       ),

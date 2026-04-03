@@ -73,12 +73,19 @@ async def create_project_site(
     db.commit()
     db.refresh(row)
 
-    # site_details에도 동일 ID로 동기 생성
-    if not db.query(SiteDetail).filter(SiteDetail.id == row.id).first():
+    # site_details 동기 생성: 같은 이름 사이트가 이미 있으면 project_ids에 추가, 없으면 신규 생성
+    existing_detail = db.query(SiteDetail).filter(SiteDetail.name == name).first()
+    if existing_detail:
+        ids: list = list(existing_detail.project_ids or [])
+        if body.project_id not in ids:
+            ids.append(body.project_id)
+            existing_detail.project_ids = ids
+            db.commit()
+    else:
         db.add(SiteDetail(
             id=row.id,
-            project_id=row.project_id,
-            name=row.name,
+            project_ids=[body.project_id],
+            name=name,
             description="",
             servers=[],
             databases=[],

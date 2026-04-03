@@ -1167,8 +1167,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       ),
       child: Row(
         children: [
-          // 프로젝트 드롭다운 버튼
-          PopupMenuButton<String>(
+          // 프로젝트 드롭다운 버튼 (사이트·채팅·알림 화면에서는 숨김)
+          if (!_isProjectBarHidden) PopupMenuButton<String>(
             offset: const Offset(0, 40),
             child: Material(
               color: Colors.transparent,
@@ -1395,9 +1395,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               }
             },
           ),
-          const SizedBox(width: 8),
-          // 작업 필터 드롭다운 (모든 작업 / 내 작업 / 팀원별)
-          Consumer<TaskProvider>(
+          // 인물 필터 드롭다운 (사이트·채팅·알림 화면에서는 숨김)
+          if (!_isProjectBarHidden) const SizedBox(width: 8),
+          if (!_isProjectBarHidden) Consumer<TaskProvider>(
             builder: (context, taskProv, _) {
               final filter = taskProv.taskOwnerFilter;
               final isFiltered = filter != null;
@@ -2595,6 +2595,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       return _getScreenByLabel(selectedItem.label);
     }
     return const DashboardScreen();
+  }
+
+  /// 프로젝트 바를 숨겨야 하는 화면 여부 (사이트·채팅·알림)
+  bool get _isProjectBarHidden {
+    if (!_isMenuStateReady) return false;
+    if (_selectedIndex >= 0 && _selectedIndex < _menuItems.length) {
+      const hideLabels = {'사이트', '채팅', '알림'};
+      return hideLabels.contains(_menuItems[_selectedIndex].label);
+    }
+    return false;
   }
 
   /// 현재 선택된 화면이 대시보드인지 확인

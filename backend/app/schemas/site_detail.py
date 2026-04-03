@@ -48,6 +48,7 @@ class SiteDetailUpdate(BaseModel):
     servers: Optional[List[Any]] = None
     databases: Optional[List[Any]] = None
     services: Optional[List[Any]] = None
+    project_ids: Optional[List[str]] = None
 
 
 class SiteDetailResponse(BaseModel):

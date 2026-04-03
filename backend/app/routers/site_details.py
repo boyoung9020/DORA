@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.site_detail import SiteDetail
+from app.models.project_site import ProjectSite
 from app.models.user import User
 from app.models.project import Project
 from app.schemas.site_detail import SiteDetailCreate, SiteDetailResponse, SiteDetailUpdate
@@ -123,6 +124,8 @@ async def update_site_detail(
         site.databases = body.databases
     if body.services is not None:
         site.services = body.services
+    if body.project_ids is not None:
+        site.project_ids = body.project_ids
 
     db.commit()
     db.refresh(site)
@@ -142,4 +145,8 @@ async def delete_site_detail(
     if not any(pid in accessible_ids for pid in (site.project_ids or [])):
         raise HTTPException(status_code=403, detail="접근 권한이 없습니다.")
     db.delete(site)
+    # project_sites에서도 같은 이름의 레코드 모두 삭제 (마이그레이션 시 재생성 방지)
+    ps_rows = db.query(ProjectSite).filter(ProjectSite.name == site.name).all()
+    for ps in ps_rows:
+        db.delete(ps)
     db.commit()
