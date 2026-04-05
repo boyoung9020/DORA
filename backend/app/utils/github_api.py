@@ -82,6 +82,50 @@ async def get_branches(
     return resp.json()
 
 
+async def get_tags(
+    owner: str,
+    repo: str,
+    token: Optional[str] = None,
+    page: int = 1,
+    per_page: int = 100,
+) -> List[Dict[str, Any]]:
+    """Fetch tags from a repository."""
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(
+                f"{_GITHUB_API}/repos/{owner}/{repo}/tags",
+                headers=_headers(token),
+                params={"page": page, "per_page": per_page},
+            )
+    except Exception as exc:
+        raise GitHubApiError(f"Failed to fetch tags: {exc}") from exc
+    if resp.status_code != 200:
+        raise GitHubApiError(f"GitHub API error ({resp.status_code}): {resp.text}")
+    return resp.json()
+
+
+async def get_user_repos(
+    token: str,
+    page: int = 1,
+    per_page: int = 100,
+) -> List[Dict[str, Any]]:
+    """Fetch repositories accessible to the authenticated user."""
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(
+                f"{_GITHUB_API}/user/repos",
+                headers=_headers(token),
+                params={"page": page, "per_page": per_page, "sort": "updated", "affiliation": "owner,collaborator,organization_member"},
+            )
+    except Exception as exc:
+        raise GitHubApiError(f"Failed to fetch user repos: {exc}") from exc
+    if resp.status_code == 401:
+        raise GitHubApiError("Invalid GitHub access token")
+    if resp.status_code != 200:
+        raise GitHubApiError(f"GitHub API error ({resp.status_code}): {resp.text}")
+    return resp.json()
+
+
 async def get_pull_requests(
     owner: str,
     repo: str,

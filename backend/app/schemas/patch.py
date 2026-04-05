@@ -12,6 +12,7 @@ class PatchCreate(BaseModel):
     patch_date: date
     version: str = ""
     content: str
+    git_tag: Optional[str] = None
 
 
 class PatchUpdate(BaseModel):
@@ -38,6 +39,7 @@ class PatchResponse(BaseModel):
     status: str = "pending"
     notes: str = ""
     note_image_urls: List[str] = []
+    git_tag: Optional[str] = None
     created_by: Optional[str] = None
     created_at: datetime
     updated_at: datetime

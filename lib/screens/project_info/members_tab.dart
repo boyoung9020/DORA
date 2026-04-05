@@ -4,6 +4,7 @@ import '../../models/task.dart';
 import '../../models/user.dart';
 import '../../widgets/project_info/member_workload_section.dart';
 import '../../widgets/project_info/team_members_card_widget.dart';
+import '../../widgets/project_info/team_workload_chart_widget.dart';
 
 class MembersTab extends StatelessWidget {
   final Project project;
@@ -27,11 +28,21 @@ class MembersTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final memberWorkload = teamMembers.map((member) {
+      final count =
+          allTasks.where((t) => t.assignedMemberIds.contains(member.id)).length;
+      return MemberWorkload(member: member, count: count);
+    }).toList();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 팀원별 작업 할당 막대 그래프
+          TeamWorkloadChart(memberWorkload: memberWorkload),
+          const SizedBox(height: 16),
+
           // 팀원 목록 (초대/제거)
           TeamMembersCard(
             teamMembers: teamMembers,
@@ -41,7 +52,7 @@ class MembersTab extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // 팀원별 업무 현황
+          // 팀원별 업무 상세 현황
           MemberWorkloadSection(
             teamMembers: teamMembers,
             isLoading: teamMembersLoading,

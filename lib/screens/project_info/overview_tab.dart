@@ -8,7 +8,6 @@ import '../../widgets/project_info/description_tasks_widget.dart';
 import '../../widgets/project_info/github_card_widget.dart';
 import '../../widgets/project_info/productivity_widget.dart';
 import '../../widgets/project_info/progress_widget.dart';
-import '../../widgets/project_info/team_workload_chart_widget.dart';
 
 class OverviewTab extends StatelessWidget {
   final Project project;
@@ -41,18 +40,12 @@ class OverviewTab extends StatelessWidget {
     final activeMembers =
         teamMembers.where((m) => activeAssigneeIds.contains(m.id)).toList();
 
-    final memberWorkload = teamMembers.map((member) {
-      final count =
-          allTasks.where((t) => t.assignedMemberIds.contains(member.id)).length;
-      return MemberWorkload(member: member, count: count);
-    }).toList();
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 4개 프리미엄 카드
+          // 상단 4개 지표 카드
           LayoutBuilder(builder: (context, constraints) {
             final crossCount = constraints.maxWidth > 900
                 ? 4
@@ -81,7 +74,7 @@ class OverviewTab extends StatelessWidget {
           }),
           const SizedBox(height: 16),
 
-          // 마감임박/최우선 작업 + 팀원 막대 그래프
+          // 마감임박/최우선 작업 (좌) + GitHub (우)
           LayoutBuilder(builder: (context, constraints) {
             final isWide = constraints.maxWidth > 800;
             final urgentCard = DescriptionAndUrgentTasksCard(
@@ -89,27 +82,24 @@ class OverviewTab extends StatelessWidget {
               allTasks: allTasks,
               teamMembers: teamMembers,
             );
-            final chart = TeamWorkloadChart(memberWorkload: memberWorkload);
+            final gitHub = GitHubCard(projectId: project.id, isPM: isPM);
+
             if (isWide) {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(flex: 2, child: urgentCard),
                   const SizedBox(width: 12),
-                  Expanded(flex: 1, child: chart),
+                  Expanded(flex: 1, child: gitHub),
                 ],
               );
             }
             return Column(children: [
               urgentCard,
               const SizedBox(height: 12),
-              chart,
+              gitHub,
             ]);
           }),
-          const SizedBox(height: 16),
-
-          // GitHub 카드
-          GitHubCard(projectId: project.id, isPM: isPM),
           const SizedBox(height: 16),
         ],
       ),

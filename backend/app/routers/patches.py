@@ -89,6 +89,7 @@ async def create_patch(
         patch_date=body.patch_date,
         version=version,
         content=content,
+        git_tag=body.git_tag,
         created_by=current_user.id,
     )
     db.add(patch)

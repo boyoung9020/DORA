@@ -3,6 +3,7 @@ import '../../models/project.dart';
 import '../../models/task.dart';
 import '../../models/user.dart';
 import '../../widgets/glass_container.dart';
+import '../../screens/task_detail_screen.dart';
 
 class DescriptionAndUrgentTasksCard extends StatelessWidget {
   final Project project;
@@ -101,7 +102,15 @@ class DescriptionAndUrgentTasksCard extends StatelessWidget {
                             : '미정';
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 6),
-                          child: Container(
+                          child: GestureDetector(
+                            onTap: () => showDialog(
+                              context: context,
+                              barrierColor: Colors.black.withValues(alpha: 0.2),
+                              builder: (_) => TaskDetailScreen(task: task),
+                            ),
+                            child: MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 9),
                             decoration: BoxDecoration(
@@ -155,6 +164,8 @@ class DescriptionAndUrgentTasksCard extends StatelessWidget {
                                             ? Colors.red.shade600
                                             : Colors.red.shade400)),
                               ],
+                            ),
+                          ),
                             ),
                           ),
                         );
@@ -213,49 +224,59 @@ class DescriptionAndUrgentTasksCard extends StatelessWidget {
                         final statusLabel = _statusLabel(task.status);
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 6),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 9),
-                            decoration: BoxDecoration(
-                              color: Colors.red.withValues(alpha: 0.04),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                  color: Colors.red.withValues(alpha: 0.2)),
+                          child: GestureDetector(
+                            onTap: () => showDialog(
+                              context: context,
+                              barrierColor: Colors.black.withValues(alpha: 0.2),
+                              builder: (_) => TaskDetailScreen(task: task),
                             ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                      color: statusColor,
-                                      shape: BoxShape.circle),
+                            child: MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 9),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withValues(alpha: 0.04),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                      color: Colors.red.withValues(alpha: 0.2)),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(task.title,
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                          color: colorScheme.onSurface),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                          color: statusColor,
+                                          shape: BoxShape.circle),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(task.title,
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                              color: colorScheme.onSurface),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis),
+                                    ),
+                                    if (assigneeName.isNotEmpty) ...[
+                                      const SizedBox(width: 6),
+                                      Text(assigneeName,
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              color: colorScheme.onSurface
+                                                  .withValues(alpha: 0.55))),
+                                    ],
+                                    const SizedBox(width: 8),
+                                    Text(statusLabel,
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                            color: statusColor)),
+                                  ],
                                 ),
-                                if (assigneeName.isNotEmpty) ...[
-                                  const SizedBox(width: 6),
-                                  Text(assigneeName,
-                                      style: TextStyle(
-                                          fontSize: 11,
-                                          color: colorScheme.onSurface
-                                              .withValues(alpha: 0.55))),
-                                ],
-                                const SizedBox(width: 8),
-                                Text(statusLabel,
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500,
-                                        color: statusColor)),
-                              ],
+                              ),
                             ),
                           ),
                         );

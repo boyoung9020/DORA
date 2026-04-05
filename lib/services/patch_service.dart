@@ -26,18 +26,18 @@ class PatchService {
     required DateTime patchDate,
     required String version,
     required String content,
+    String? gitTag,
   }) async {
     final dateStr = _dateStr(patchDate);
-    final resp = await ApiClient.post(
-      '/api/patches/',
-      body: {
-        'project_id': projectId,
-        'site': site,
-        'patch_date': dateStr,
-        'version': version,
-        'content': content,
-      },
-    );
+    final body = <String, dynamic>{
+      'project_id': projectId,
+      'site': site,
+      'patch_date': dateStr,
+      'version': version,
+      'content': content,
+    };
+    if (gitTag != null && gitTag.isNotEmpty) body['git_tag'] = gitTag;
+    final resp = await ApiClient.post('/api/patches/', body: body);
     final data = ApiClient.handleResponse(resp);
     return Patch.fromJson(data);
   }

@@ -42,6 +42,7 @@ class GitHubCommit {
   final String? authorAvatarUrl;
   final String date;
   final String url;
+  final List<String> parents;
 
   GitHubCommit({
     required this.sha,
@@ -51,6 +52,7 @@ class GitHubCommit {
     this.authorAvatarUrl,
     required this.date,
     required this.url,
+    this.parents = const [],
   });
 
   factory GitHubCommit.fromJson(Map<String, dynamic> json) {
@@ -62,6 +64,10 @@ class GitHubCommit {
       authorAvatarUrl: (json['author_avatar_url'] ?? json['authorAvatarUrl']) as String?,
       date: json['date'] as String,
       url: json['url'] as String,
+      parents: (json['parents'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
     );
   }
 
@@ -87,6 +93,23 @@ class GitHubBranch {
 
   String get shortSha => sha.length >= 7 ? sha.substring(0, 7) : sha;
 }
+
+class GitHubTag {
+  final String name;
+  final String sha;
+
+  GitHubTag({required this.name, required this.sha});
+
+  factory GitHubTag.fromJson(Map<String, dynamic> json) {
+    return GitHubTag(
+      name: json['name'] as String,
+      sha: json['sha'] as String,
+    );
+  }
+
+  String get shortSha => sha.length >= 7 ? sha.substring(0, 7) : sha;
+}
+
 
 class GitHubPullRequest {
   final int number;

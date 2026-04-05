@@ -15,6 +15,7 @@ import '../../models/patch.dart';
 import '../../services/patch_service.dart';
 import '../../models/project_site.dart';
 import '../../services/project_site_service.dart';
+import '../../providers/github_provider.dart';
 
 class PatchTab extends StatefulWidget {
   const PatchTab({super.key});
@@ -604,6 +605,13 @@ class _PatchTabState extends State<PatchTab> {
     final contentCtrl = TextEditingController();
     DateTime? selectedDate;
     Map<String, dynamic>? selectedPreset;
+    String? selectedGitTag;
+
+    // 태그 로드 트리거
+    final ghProvider = context.read<GitHubProvider>();
+    if (ghProvider.connectedRepo != null && ghProvider.tags.isEmpty) {
+      ghProvider.loadTags(projectId);
+    }
 
     showDialog(
       context: context,
@@ -706,6 +714,69 @@ class _PatchTabState extends State<PatchTab> {
                   ),
                   const SizedBox(height: 10),
                   _dialogField('버전', versionCtrl, '예) 1.0.0'),
+                  if (ghProvider.connectedRepo != null) ...[
+                    const SizedBox(height: 10),
+                    Text('Git 태그',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurface.withValues(alpha: 0.6))),
+                    const SizedBox(height: 6),
+                    ListenableBuilder(
+                      listenable: ghProvider,
+                      builder: (_, __) {
+                        final tags = ghProvider.tags;
+                        return InputDecorator(
+                          decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero),
+                          child: DropdownButton<String>(
+                            value: selectedGitTag,
+                            isExpanded: true,
+                            underline: const SizedBox.shrink(),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 2),
+                            hint: Text(
+                              tags.isEmpty ? '태그 없음' : '태그 선택 (선택사항)',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: colorScheme.onSurface
+                                      .withValues(alpha: 0.45)),
+                            ),
+                            items: tags
+                                .map((t) => DropdownMenuItem(
+                                      value: t.name,
+                                      child: Row(children: [
+                                        Icon(Icons.sell_outlined,
+                                            size: 13,
+                                            color: colorScheme.primary),
+                                        const SizedBox(width: 6),
+                                        Text(t.name,
+                                            style:
+                                                const TextStyle(fontSize: 13)),
+                                        const SizedBox(width: 6),
+                                        Text(t.shortSha,
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                color: colorScheme.onSurface
+                                                    .withValues(alpha: 0.4),
+                                                fontFamily: 'monospace')),
+                                      ]),
+                                    ))
+                                .toList(),
+                            onChanged: (val) => setDialogState(() {
+                              selectedGitTag = val;
+                              if (val != null &&
+                                  versionCtrl.text.trim().isEmpty) {
+                                versionCtrl.text = val;
+                              }
+                            }),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   _dialogField('패치 내용', contentCtrl, '패치 내용을 입력하세요'),
                   if (_presets.isNotEmpty) ...[
@@ -762,6 +833,7 @@ class _PatchTabState extends State<PatchTab> {
                                     patchDate: selectedDate!,
                                     version: versionCtrl.text.trim(),
                                     content: content,
+                                    gitTag: selectedGitTag,
                                   );
                                   if (selectedPreset != null) {
                                     await _applyPresetToNewPatch(patch.id, selectedPreset!);
@@ -1081,6 +1153,30 @@ class _PatchTabState extends State<PatchTab> {
                           fontSize: 11,
                           color: colorScheme.onSurface
                               .withValues(alpha: 0.65))),
+                ),
+              ],
+              if (patch.gitTag != null && patch.gitTag!.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(5),
+                    border: Border.all(
+                        color: colorScheme.primary.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.sell_outlined,
+                        size: 10,
+                        color: colorScheme.primary.withValues(alpha: 0.8)),
+                    const SizedBox(width: 3),
+                    Text(patch.gitTag!,
+                        style: TextStyle(
+                            fontSize: 11,
+                            color:
+                                colorScheme.primary.withValues(alpha: 0.9))),
+                  ]),
                 ),
               ],
               const Spacer(),

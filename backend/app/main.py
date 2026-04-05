@@ -426,6 +426,23 @@ def ensure_tasks_display_id_column() -> None:
 ensure_tasks_display_id_column()
 
 
+def ensure_patch_git_tag_column() -> None:
+    """project_patches 테이블에 git_tag 컬럼 추가."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("""
+                ALTER TABLE project_patches
+                ADD COLUMN IF NOT EXISTS git_tag VARCHAR;
+            """))
+            conn.commit()
+            print("[main] ensured project_patches.git_tag column")
+    except Exception as e:
+        print(f"[main] failed to ensure project_patches.git_tag: {e}")
+
+
+ensure_patch_git_tag_column()
+
+
 def migrate_project_sites_to_site_details() -> None:
     """project_sites 테이블의 기존 사이트를 site_details로 마이그레이션."""
     try:

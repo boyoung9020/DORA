@@ -97,6 +97,24 @@ class GitHubService {
     }
   }
 
+  /// 태그 목록 조회
+  Future<List<GitHubTag>> getTags(String projectId) async {
+    try {
+      final response = await ApiClient.get('/api/github/$projectId/tags');
+      final data = ApiClient.handleListResponse(response);
+      return data.map((json) => GitHubTag.fromJson(json as Map<String, dynamic>)).toList();
+    } catch (e) {
+      throw Exception('태그 목록 조회 실패: $e');
+    }
+  }
+
+  /// 내 GitHub 레포 목록 조회 (PAT 기반)
+  Future<List<Map<String, dynamic>>> getMyRepos() async {
+    final resp = await ApiClient.get('/api/github/my-repos');
+    final data = ApiClient.handleListResponse(resp);
+    return data.cast<Map<String, dynamic>>();
+  }
+
   /// (계정) GitHub 토큰 연결 여부
   Future<bool> getMyTokenStatus() async {
     final resp = await ApiClient.get('/api/github-token/me');

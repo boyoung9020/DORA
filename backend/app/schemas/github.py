@@ -1,6 +1,6 @@
 """GitHub 연동 Pydantic schemas."""
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -46,10 +46,17 @@ class GitHubCommitResponse(BaseModel):
     author_avatar_url: Optional[str] = None
     date: str
     url: str
+    parents: List[str] = []
 
 
 class GitHubBranchResponse(BaseModel):
     """브랜치 정보"""
+    name: str
+    sha: str
+
+
+class GitHubTagResponse(BaseModel):
+    """태그 정보"""
     name: str
     sha: str
 

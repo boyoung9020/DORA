@@ -38,7 +38,7 @@ cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 4000
 
 | Service    | Internal | Exposed |
 |------------|----------|---------|
-| API        | 8000     | 4000    |
+| API        | 4000     | 4000    |
 | PostgreSQL | 5432     | 5432    |
 | Nginx/Web  | 80       | 80      |
 
@@ -52,7 +52,8 @@ lib/
 ├── models/                      # Data models (fromJson/toJson/copyWith)
 ├── providers/                   # State (ChangeNotifier + Provider)
 ├── services/                    # API calls and business logic
-├── screens/                     # 20 UI screens
+├── screens/                     # UI screens; project_info/ is a tabbed sub-screen
+│   └── project_info/            #   (overview, members, tasks, patch, settings tabs)
 ├── widgets/                     # Reusable components
 └── utils/api_client.dart        # Centralized HTTP client
 
@@ -61,10 +62,16 @@ backend/app/
 ├── config.py                    # Pydantic-settings env config
 ├── database.py                  # SQLAlchemy engine + session (pool size 5, overflow 5)
 ├── init_db.py                   # DB init + admin account creation
+├── mbc_site_default_data.py     # Seed data for site defaults
 ├── models/                      # SQLAlchemy ORM (UUID PKs, ARRAY/JSON columns)
-├── routers/                     # API endpoints (/api/*)
+├── routers/                     # API endpoints (/api/*): auth, projects, tasks, sprints,
+│                                #   workspaces, users, chat, github, patches, project_sites,
+│                                #   site_details, checklists, comments, uploads, search,
+│                                #   notifications, websocket, ai
 ├── schemas/                     # Pydantic request/response schemas
-└── utils/                       # Security, dependencies, notifications
+├── migrations/                  # Standalone migration scripts (run manually if needed)
+└── utils/                       # security.py, dependencies.py, notifications.py,
+                                 #   github_api.py, social_auth.py (Google/Kakao OAuth)
 ```
 
 ## Key Patterns
@@ -105,8 +112,9 @@ backend/app/
 
 ### DB Migration Strategy
 - `Base.metadata.create_all()` is used only for fresh environments
-- Schema changes on existing tables use raw `ALTER TABLE` SQL called at startup in `main.py`
+- Schema changes on existing tables use raw `ALTER TABLE` SQL called at startup in `main.py` (see the `ensure_*` functions pattern)
 - **No Alembic** — add column changes as `ALTER TABLE` blocks in `main.py`
+- One-off migration scripts live in `backend/app/migrations/` and must be run manually
 
 ## Important Caveats
 

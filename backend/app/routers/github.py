@@ -16,6 +16,7 @@ from app.schemas.github import (
     GitHubPRResponse,
     GitHubRepoConnect,
     GitHubRepoResponse,
+    GitHubTagResponse,
 )
 from app.utils.dependencies import get_current_user
 from app.utils.github_api import (
@@ -23,6 +24,8 @@ from app.utils.github_api import (
     get_branches,
     get_commits,
     get_pull_requests,
+    get_tags,
+    get_user_repos,
     validate_repo,
 )
 from app.models.user_github_token import UserGitHubToken
@@ -63,6 +66,27 @@ def _to_repo_response(gh: ProjectGitHub) -> GitHubRepoResponse:
     )
 
 
+# ── 내 레포 목록 ──────────────────────────────────────────
+
+@router.get("/my-repos")
+async def list_my_repos(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """현재 사용자의 GitHub PAT로 접근 가능한 레포 목록을 반환합니다."""
+    token_rec = db.query(UserGitHubToken).filter(UserGitHubToken.user_id == current_user.id).first()
+    if not token_rec or not token_rec.access_token:
+        raise HTTPException(status_code=400, detail="GitHub token not set")
+    try:
+        repos = await get_user_repos(token_rec.access_token)
+    except GitHubApiError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    return [
+        {"full_name": r["full_name"], "owner": r["owner"]["login"], "name": r["name"], "private": r["private"]}
+        for r in repos
+    ]
+
+
 # ── 레포 연결/해제/조회 ──────────────────────────────────
 
 @router.post("/{project_id}/connect", response_model=GitHubRepoResponse, status_code=status.HTTP_201_CREATED)
@@ -76,20 +100,23 @@ async def connect_repo(
     project = _get_project_or_404(db, project_id)
     _check_project_member(project, current_user)
 
-    # 이미 연결된 레포가 있으면 에러
-    existing = db.query(ProjectGitHub).filter(ProjectGitHub.project_id == project_id).first()
-    if existing:
-        raise HTTPException(status_code=409, detail="A GitHub repository is already connected to this project")
-
     # GitHub 레포 유효성 검증
     try:
-        # 프로젝트 연결 시에는 "레포 정보만" 저장합니다.
-        # 검증/프라이빗 접근을 위해 현재 사용자 토큰을 우선 사용합니다.
         token_rec = db.query(UserGitHubToken).filter(UserGitHubToken.user_id == current_user.id).first()
         user_token = token_rec.access_token if token_rec else None
         await validate_repo(body.repo_owner, body.repo_name, user_token or body.access_token)
     except GitHubApiError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    # 이미 연결된 레포가 있으면 교체 (upsert)
+    existing = db.query(ProjectGitHub).filter(ProjectGitHub.project_id == project_id).first()
+    if existing:
+        existing.repo_owner = body.repo_owner
+        existing.repo_name = body.repo_name
+        existing.access_token = None
+        db.commit()
+        db.refresh(existing)
+        return _to_repo_response(existing)
 
     gh = ProjectGitHub(
         id=str(uuid.uuid4()),
@@ -181,6 +208,7 @@ async def list_commits(
         commit = item.get("commit", {})
         author = commit.get("author", {})
         gh_author = item.get("author") or {}
+        parent_shas = [p.get("sha", "") for p in item.get("parents", [])]
         results.append(GitHubCommitResponse(
             sha=item.get("sha", ""),
             message=commit.get("message", ""),
@@ -189,6 +217,7 @@ async def list_commits(
             author_avatar_url=gh_author.get("avatar_url"),
             date=author.get("date", ""),
             url=item.get("html_url", ""),
+            parents=parent_shas,
         ))
     return results
 
@@ -214,6 +243,30 @@ async def list_branches(
             sha=b.get("commit", {}).get("sha", ""),
         )
         for b in raw
+    ]
+
+
+@router.get("/{project_id}/tags", response_model=List[GitHubTagResponse])
+async def list_tags(
+    project_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """GitHub 태그 목록을 조회합니다."""
+    gh = _get_github_record(db, project_id, current_user)
+    token = _get_user_token(db, current_user) or gh.access_token
+
+    try:
+        raw = await get_tags(gh.repo_owner, gh.repo_name, token)
+    except GitHubApiError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    return [
+        GitHubTagResponse(
+            name=t.get("name", ""),
+            sha=t.get("commit", {}).get("sha", ""),
+        )
+        for t in raw
     ]
 
 

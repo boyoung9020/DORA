@@ -9,6 +9,7 @@ class GitHubProvider extends ChangeNotifier {
   GitHubRepo? _connectedRepo;
   List<GitHubCommit> _commits = [];
   List<GitHubBranch> _branches = [];
+  List<GitHubTag> _tags = [];
   List<GitHubPullRequest> _pullRequests = [];
   bool _isLoading = false;
   String? _errorMessage;
@@ -21,13 +22,18 @@ class GitHubProvider extends ChangeNotifier {
   bool _repoInfoLoaded = false;
   bool _hasUserToken = false;
   bool _userTokenStatusLoaded = false;
+  List<Map<String, dynamic>> _myRepos = [];
+  bool _myReposLoading = false;
 
   GitHubRepo? get connectedRepo => _connectedRepo;
   bool get repoInfoLoaded => _repoInfoLoaded;
   bool get hasUserToken => _hasUserToken;
   bool get userTokenStatusLoaded => _userTokenStatusLoaded;
+  List<Map<String, dynamic>> get myRepos => _myRepos;
+  bool get myReposLoading => _myReposLoading;
   List<GitHubCommit> get commits => _commits;
   List<GitHubBranch> get branches => _branches;
+  List<GitHubTag> get tags => _tags;
   List<GitHubPullRequest> get pullRequests => _pullRequests;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -40,6 +46,7 @@ class GitHubProvider extends ChangeNotifier {
     _connectedRepo = null;
     _commits = [];
     _branches = [];
+    _tags = [];
     _pullRequests = [];
     _selectedBranch = null;
     _commitsPage = 1;
@@ -97,6 +104,22 @@ class GitHubProvider extends ChangeNotifier {
     }
   }
 
+  /// 내 GitHub 레포 목록 로드
+  Future<void> loadMyRepos() async {
+    _myReposLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      _myRepos = await _service.getMyRepos();
+    } catch (e) {
+      _errorMessage = '레포 목록 조회 실패: $e';
+      _myRepos = [];
+    } finally {
+      _myReposLoading = false;
+      notifyListeners();
+    }
+  }
+
   /// 연결 정보 로드
   Future<void> loadRepoInfo(String projectId) async {
     _isLoading = true;
@@ -130,14 +153,13 @@ class GitHubProvider extends ChangeNotifier {
         repoName: repoName,
         accessToken: accessToken,
       );
-      notifyListeners();
       return true;
     } catch (e) {
       _errorMessage = '레포 연결 실패: $e';
-      notifyListeners();
       return false;
     } finally {
       _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -224,6 +246,17 @@ class GitHubProvider extends ChangeNotifier {
       _errorMessage = 'PR 목록 조회 실패: $e';
     } finally {
       _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 태그 목록 로드
+  Future<void> loadTags(String projectId) async {
+    try {
+      _tags = await _service.getTags(projectId);
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = '태그 목록 조회 실패: $e';
       notifyListeners();
     }
   }

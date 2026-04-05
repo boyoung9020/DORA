@@ -27,6 +27,7 @@ class Patch {
   final String status; // pending | in_progress | done
   final String notes;
   final List<String> noteImageUrls;
+  final String? gitTag;
 
   Patch({
     required this.id,
@@ -40,6 +41,7 @@ class Patch {
     required this.status,
     this.notes = '',
     List<String>? noteImageUrls,
+    this.gitTag,
   }) : noteImageUrls = noteImageUrls ?? [];
 
   factory Patch.fromJson(Map<String, dynamic> json) {
@@ -74,6 +76,7 @@ class Patch {
       noteImageUrls: json['note_image_urls'] != null
           ? List<String>.from(json['note_image_urls'])
           : [],
+      gitTag: json['git_tag'] as String?,
     );
   }
 
@@ -105,6 +108,7 @@ class Patch {
     String? status,
     String? notes,
     List<String>? noteImageUrls,
+    String? gitTag,
   }) =>
       Patch(
         id: id,
@@ -118,5 +122,6 @@ class Patch {
         status: status ?? this.status,
         notes: notes ?? this.notes,
         noteImageUrls: noteImageUrls ?? this.noteImageUrls,
+        gitTag: gitTag ?? this.gitTag,
       );
 }

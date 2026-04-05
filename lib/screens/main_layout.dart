@@ -3964,6 +3964,7 @@ class _GitHubTokenEditor extends StatefulWidget {
 
 class _GitHubTokenEditorState extends State<_GitHubTokenEditor> {
   final _ctrl = TextEditingController();
+  bool _isEditing = false;
 
   @override
   void dispose() {
@@ -3975,6 +3976,78 @@ class _GitHubTokenEditorState extends State<_GitHubTokenEditor> {
   Widget build(BuildContext context) {
     final colorScheme = widget.colorScheme;
     final ghProvider = widget.ghProvider;
+
+    // 연결됨 상태이고 편집 모드가 아니면 입력란 숨김
+    if (ghProvider.hasUserToken && !_isEditing) {
+      return Row(
+        children: [
+          Text(
+            '토큰이 저장되어 있습니다.',
+            style: TextStyle(
+              fontSize: 12,
+              color: colorScheme.onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            height: 28,
+            child: OutlinedButton.icon(
+              onPressed: () => setState(() => _isEditing = true),
+              icon: const Icon(Icons.edit, size: 13),
+              label: const Text('편집', style: TextStyle(fontSize: 12)),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            height: 28,
+            child: OutlinedButton(
+              onPressed: ghProvider.isLoading
+                  ? null
+                  : () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('GitHub 토큰 삭제'),
+                          content: const Text('저장된 GitHub 토큰을 삭제할까요?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('취소'),
+                            ),
+                            FilledButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: colorScheme.error,
+                              ),
+                              child: const Text('삭제'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirmed == true) {
+                        await ghProvider.deleteMyToken();
+                      }
+                    },
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                foregroundColor: colorScheme.error,
+                side: BorderSide(color: colorScheme.error.withValues(alpha: 0.4)),
+              ),
+              child: const Text('삭제', style: TextStyle(fontSize: 12)),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // 미연결 상태이거나 편집 모드일 때 입력란 표시
     return Row(
       children: [
         Expanded(
@@ -3999,7 +4072,10 @@ class _GitHubTokenEditorState extends State<_GitHubTokenEditor> {
                   final token = _ctrl.text.trim();
                   if (token.isEmpty) return;
                   await ghProvider.upsertMyToken(token);
-                  if (mounted) _ctrl.clear();
+                  if (mounted) {
+                    _ctrl.clear();
+                    setState(() => _isEditing = false);
+                  }
                 },
           child: ghProvider.isLoading
               ? const SizedBox(
@@ -4009,37 +4085,16 @@ class _GitHubTokenEditorState extends State<_GitHubTokenEditor> {
                 )
               : const Text('저장'),
         ),
-        const SizedBox(width: 8),
-        OutlinedButton(
-          onPressed: ghProvider.isLoading || !ghProvider.hasUserToken
-              ? null
-              : () async {
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('GitHub 토큰 삭제'),
-                      content: const Text('저장된 GitHub 토큰을 삭제할까요?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          child: const Text('취소'),
-                        ),
-                        FilledButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: colorScheme.error,
-                          ),
-                          child: const Text('삭제'),
-                        ),
-                      ],
-                    ),
-                  );
-                  if (confirmed == true) {
-                    await ghProvider.deleteMyToken();
-                  }
-                },
-          child: const Text('삭제'),
-        ),
+        if (_isEditing) ...[
+          const SizedBox(width: 8),
+          OutlinedButton(
+            onPressed: () => setState(() {
+              _isEditing = false;
+              _ctrl.clear();
+            }),
+            child: const Text('취소'),
+          ),
+        ],
       ],
     );
   }
