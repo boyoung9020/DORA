@@ -21,6 +21,13 @@ class GitHubRepoUpdate(BaseModel):
     access_token: Optional[str] = None
 
 
+class GitHubTagCreate(BaseModel):
+    """GitHub 경량 태그 생성 (git ref -> commit)"""
+
+    tag_name: str
+    commit_sha: str
+
+
 # ── Response schemas ─────────────────────────────────────
 
 class GitHubRepoResponse(BaseModel):
@@ -35,6 +42,17 @@ class GitHubRepoResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class GitHubRepoRemoteDetailsResponse(BaseModel):
+    """GitHub API /repos/{owner}/{repo} 에서 가져온 공개 메타데이터"""
+
+    description: Optional[str] = None
+    default_branch: str = ""
+    stargazers_count: int = 0
+    forks_count: int = 0
+    open_issues_count: int = 0
+    html_url: str = ""
 
 
 class GitHubCommitResponse(BaseModel):
@@ -59,6 +77,27 @@ class GitHubTagResponse(BaseModel):
     """태그 정보"""
     name: str
     sha: str
+
+
+class GitHubLanguageResponse(BaseModel):
+    """저장소 언어 비율 (GitHub /languages)"""
+
+    name: str
+    bytes: int
+    percentage: float
+
+
+class GitHubReleaseResponse(BaseModel):
+    """GitHub Release 정보 (published_at 기준 최신순)"""
+    id: int
+    tag_name: str
+    name: str
+    body: Optional[str] = None
+    draft: bool
+    prerelease: bool
+    published_at: Optional[str] = None
+    url: str
+    is_latest: bool = False
 
 
 class GitHubPRResponse(BaseModel):

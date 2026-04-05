@@ -74,8 +74,8 @@ class GlassContainer extends StatelessWidget {
     final Color bgColor;
     if (isDarkMode) {
       bgColor = gradientColors != null
-          ? const Color(0xFF161B2E)
-          : const Color(0xFF0F1219);
+          ? const Color(0xFF242019)
+          : const Color(0xFF17120F);
     } else {
       if (gradientColors != null) {
         final baseColor = gradientColors!.first.withAlpha(255);
@@ -164,7 +164,7 @@ class GlassTextField extends StatelessWidget {
       borderWidth: 1.0,
       gradientColors: [
         isDarkMode
-            ? const Color(0xFF0F1219)
+            ? const Color(0xFF17120F)
             : Colors.white,
       ],
       child: TextFormField(
@@ -175,7 +175,7 @@ class GlassTextField extends StatelessWidget {
         onFieldSubmitted: onFieldSubmitted,
         validator: validator,
         style: TextStyle(
-          color: isDarkMode ? Colors.white : const Color(0xFF0F172A),
+          color: isDarkMode ? Colors.white : const Color(0xFF3C2A1A),
           fontWeight: FontWeight.w500,
         ),
         decoration: InputDecoration(
@@ -244,17 +244,17 @@ class _GlassButtonState extends State<GlassButton> {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     final defaultColor = widget.gradientColors != null
-        ? (isDarkMode ? const Color(0xFF0F1219) : widget.gradientColors!.first)
+        ? (isDarkMode ? const Color(0xFF17120F) : widget.gradientColors!.first)
         : isDarkMode
-            ? const Color(0xFF0F1219)
+            ? const Color(0xFF17120F)
             : Colors.white;
 
     final hoverColor = widget.gradientColors != null
-        ? (isDarkMode ? const Color(0xFF0B0E14) : widget.gradientColors!.first.withValues(alpha: 
+        ? (isDarkMode ? const Color(0xFF110D0A) : widget.gradientColors!.first.withValues(alpha: 
             (widget.gradientColors!.first.a + 0.2).clamp(0.0, 1.0),
           ))
         : isDarkMode
-            ? const Color(0xFF0B0E14)
+            ? const Color(0xFF110D0A)
             : const Color(0xFFFFF3E6); // Indigo 50 hover
 
     return GlassContainer(
@@ -307,7 +307,7 @@ class _GlassButtonState extends State<GlassButton> {
                       style: TextStyle(
                         color: widget.gradientColors != null
                           ? Colors.white
-                          : const Color(0xFF0F172A),
+                          : const Color(0xFF3C2A1A),
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.2,

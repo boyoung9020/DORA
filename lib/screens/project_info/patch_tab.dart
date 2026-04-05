@@ -15,7 +15,9 @@ import '../../models/patch.dart';
 import '../../services/patch_service.dart';
 import '../../models/project_site.dart';
 import '../../services/project_site_service.dart';
+import '../../models/github.dart';
 import '../../providers/github_provider.dart';
+import '../../services/github_service.dart';
 
 class PatchTab extends StatefulWidget {
   const PatchTab({super.key});
@@ -382,7 +384,11 @@ class _PatchTabState extends State<PatchTab> {
       ],
     ).then((idx) {
       if (idx == null) return;
-      if (idx == -1) { _showManagePresetsDialog(context, colorScheme); return; }
+      if (!ctx.mounted) return;
+      if (idx == -1) {
+        _showManagePresetsDialog(ctx, colorScheme);
+        return;
+      }
       _applyPreset(_presets[idx]);
     });
   }
@@ -593,295 +599,753 @@ class _PatchTabState extends State<PatchTab> {
     );
   }
 
+  static const Color _patchDialogCtaOrange = Color(0xFFFF6B20);
+
+  InputDecoration _patchFormDecoration(
+    ColorScheme cs, {
+    String? hintText,
+    Widget? prefixIcon,
+    Widget? suffixIcon,
+    EdgeInsetsGeometry? contentPadding,
+  }) {
+    const r = 12.0;
+    final fill = cs.surfaceContainerHighest.withValues(alpha: 0.55);
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: TextStyle(
+        fontSize: 13,
+        color: cs.onSurface.withValues(alpha: 0.42),
+      ),
+      filled: true,
+      fillColor: fill,
+      isDense: true,
+      contentPadding: contentPadding ??
+          const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      prefixIcon: prefixIcon,
+      prefixIconConstraints:
+          const BoxConstraints(minWidth: 40, minHeight: 40, maxHeight: 40),
+      suffixIcon: suffixIcon,
+      suffixIconConstraints:
+          const BoxConstraints(minWidth: 36, minHeight: 36),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(r),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(r),
+        borderSide: BorderSide(
+          color: cs.outlineVariant.withValues(alpha: 0.35),
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(r),
+        borderSide: BorderSide(
+          color: _patchDialogCtaOrange.withValues(alpha: 0.85),
+          width: 1.5,
+        ),
+      ),
+    );
+  }
+
+  String _patchDateYmd(DateTime d) {
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    return '${d.year}-$m-$day';
+  }
+
   // ── 새 패치 등록 다이얼로그
-  void _showAddPatchDialog(
-      BuildContext context, List<String> allSites, ColorScheme colorScheme) {
+  Future<void> _showAddPatchDialog(
+      BuildContext context, List<String> allSites, ColorScheme colorScheme) async {
     final projectId = _currentProjectId;
     if (projectId == null) return;
 
     final siteCtrl = TextEditingController();
-    final dateCtrl = TextEditingController();
     final versionCtrl = TextEditingController();
     final contentCtrl = TextEditingController();
     DateTime? selectedDate;
     Map<String, dynamic>? selectedPreset;
     String? selectedGitTag;
 
-    // 태그 로드 트리거
     final ghProvider = context.read<GitHubProvider>();
-    if (ghProvider.connectedRepo != null && ghProvider.tags.isEmpty) {
-      ghProvider.loadTags(projectId);
+    final gitHubService = GitHubService();
+    await ghProvider.loadMyTokenStatus();
+    await ghProvider.loadRepoInfo(projectId);
+    // 전역 provider.tags는 다른 화면/프로젝트와 섞일 수 있으므로 이 다이얼로그용으로만 API로 직접 조회
+    List<GitHubTag> dialogGitTags = const [];
+    if (ghProvider.connectedRepo != null) {
+      try {
+        dialogGitTags = await gitHubService.getTags(projectId);
+      } catch (_) {
+        dialogGitTags = const [];
+      }
     }
+    if (!context.mounted) return;
+
+    final mq = MediaQuery.sizeOf(context);
+    final dialogH = (mq.height * 0.88).clamp(420.0, 700.0);
+    final labelStyle = TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      color: colorScheme.onSurface.withValues(alpha: 0.72),
+    );
+    final subtleColor = colorScheme.onSurface.withValues(alpha: 0.48);
+    final fieldFill =
+        colorScheme.surfaceContainerHighest.withValues(alpha: 0.55);
 
     showDialog(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(builder: (ctx, setDialogState) {
+      builder: (dialogContext) =>
+          StatefulBuilder(builder: (ctx, setDialogState) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          child: GlassContainer(
-            padding: const EdgeInsets.all(24),
-            borderRadius: 16,
-            blur: 25,
-            gradientColors: [
-              colorScheme.surface.withValues(alpha: 0.95),
-              colorScheme.surface.withValues(alpha: 0.9),
-            ],
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 22, vertical: 28),
+          child: Material(
+            color: colorScheme.surface,
+            elevation: 20,
+            shadowColor: Colors.black.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(20),
+            clipBehavior: Clip.antiAlias,
             child: SizedBox(
-              width: 400,
+              width: 460,
+              height: dialogH,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('새 패치 등록',
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface)),
-                  const SizedBox(height: 16),
-                  Text('사이트',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface.withValues(alpha: 0.6))),
-                  const SizedBox(height: 6),
-                  InkWell(
-                    onTap: () async {
-                      final picked = await _showProjectSiteDropdown(
-                          context: dialogContext,
-                          projectId: projectId,
-                          colorScheme: colorScheme);
-                      if (picked != null) {
-                        setDialogState(() => siteCtrl.text = picked);
-                      }
-                    },
-                    borderRadius: BorderRadius.circular(10),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10)),
-                      child: Row(children: [
-                        Expanded(
-                          child: Text(
-                            siteCtrl.text.trim().isEmpty
-                                ? '사이트 선택'
-                                : siteCtrl.text.trim(),
-                            style: TextStyle(
-                                fontSize: 13,
-                                color: siteCtrl.text.trim().isEmpty
-                                    ? colorScheme.onSurface
-                                        .withValues(alpha: 0.45)
-                                    : colorScheme.onSurface),
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 22, 12, 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '새 패치 등록',
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: colorScheme.onSurface,
+                                        letterSpacing: -0.2,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      '프로젝트의 새로운 변경 사항을 기록합니다.',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        height: 1.35,
+                                        color: subtleColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: '닫기',
+                                onPressed: () =>
+                                    Navigator.pop(dialogContext),
+                                icon: Icon(
+                                  Icons.close_rounded,
+                                  color: colorScheme.onSurface
+                                      .withValues(alpha: 0.5),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        Icon(Icons.arrow_drop_down,
-                            color:
-                                colorScheme.onSurface.withValues(alpha: 0.6)),
-                      ]),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text('날짜',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color:
-                              colorScheme.onSurface.withValues(alpha: 0.6))),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: dateCtrl,
-                    readOnly: true,
-                    decoration: const InputDecoration(
-                        hintText: '날짜 선택',
-                        border: OutlineInputBorder(),
-                        isDense: true),
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: dialogContext,
-                        initialDate: selectedDate ?? DateTime.now(),
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                      );
-                      if (picked != null) {
-                        setDialogState(() {
-                          selectedDate = picked;
-                          dateCtrl.text =
-                              '${picked.year}.${picked.month}.${picked.day}';
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  _dialogField('버전', versionCtrl, '예) 1.0.0'),
-                  if (ghProvider.connectedRepo != null) ...[
-                    const SizedBox(height: 10),
-                    Text('Git 태그',
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.onSurface.withValues(alpha: 0.6))),
-                    const SizedBox(height: 6),
-                    ListenableBuilder(
-                      listenable: ghProvider,
-                      builder: (_, __) {
-                        final tags = ghProvider.tags;
-                        return InputDecorator(
-                          decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero),
-                          child: DropdownButton<String>(
-                            value: selectedGitTag,
-                            isExpanded: true,
-                            underline: const SizedBox.shrink(),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 2),
-                            hint: Text(
-                              tags.isEmpty ? '태그 없음' : '태그 선택 (선택사항)',
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  color: colorScheme.onSurface
-                                      .withValues(alpha: 0.45)),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            padding:
+                                const EdgeInsets.fromLTRB(24, 8, 24, 8),
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.stretch,
+                              children: [
+                                Text('사이트', style: labelStyle),
+                                const SizedBox(height: 8),
+                                Material(
+                                  color: fieldFill,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: InkWell(
+                                    onTap: () async {
+                                      final picked =
+                                          await _showProjectSiteDropdown(
+                                        context: dialogContext,
+                                        projectId: projectId,
+                                        colorScheme: colorScheme,
+                                      );
+                                      if (picked != null) {
+                                        setDialogState(
+                                            () => siteCtrl.text = picked);
+                                      }
+                                    },
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 14),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.public_outlined,
+                                              size: 21,
+                                              color: colorScheme.onSurface
+                                                  .withValues(alpha: 0.48)),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              siteCtrl.text.trim().isEmpty
+                                                  ? '사이트 선택'
+                                                  : siteCtrl.text.trim(),
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: siteCtrl.text
+                                                        .trim()
+                                                        .isEmpty
+                                                    ? colorScheme.onSurface
+                                                        .withValues(
+                                                            alpha: 0.42)
+                                                    : colorScheme.onSurface,
+                                              ),
+                                            ),
+                                          ),
+                                          Icon(
+                                            Icons.keyboard_arrow_down_rounded,
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.45),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 18),
+                                Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text('날짜', style: labelStyle),
+                                          const SizedBox(height: 8),
+                                          Material(
+                                            color: fieldFill,
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            child: InkWell(
+                                              onTap: () async {
+                                                final picked =
+                                                    await showDatePicker(
+                                                  context: dialogContext,
+                                                  initialDate:
+                                                      selectedDate ??
+                                                          DateTime.now(),
+                                                  firstDate: DateTime(2000),
+                                                  lastDate: DateTime(2100),
+                                                );
+                                                if (picked != null) {
+                                                  setDialogState(() =>
+                                                      selectedDate = picked);
+                                                }
+                                              },
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 10,
+                                                        vertical: 12),
+                                                child: Row(
+                                                  children: [
+                                                    Icon(
+                                                      Icons
+                                                          .calendar_today_rounded,
+                                                      size: 20,
+                                                      color:
+                                                          _patchDialogCtaOrange,
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Text(
+                                                        selectedDate != null
+                                                            ? _patchDateYmd(
+                                                                selectedDate!)
+                                                            : '연도-월-일',
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          color: selectedDate !=
+                                                                  null
+                                                              ? colorScheme
+                                                                  .onSurface
+                                                              : colorScheme
+                                                                  .onSurface
+                                                                  .withValues(
+                                                                      alpha:
+                                                                          0.42),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Icon(
+                                                      Icons
+                                                          .calendar_month_outlined,
+                                                      size: 22,
+                                                      color: colorScheme
+                                                          .onSurface
+                                                          .withValues(
+                                                              alpha: 0.4),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text('버전', style: labelStyle),
+                                          const SizedBox(height: 8),
+                                          TextField(
+                                            controller: versionCtrl,
+                                            style: const TextStyle(
+                                                fontSize: 13),
+                                            decoration:
+                                                _patchFormDecoration(
+                                                  colorScheme,
+                                                  hintText: ghProvider
+                                                              .connectedRepo !=
+                                                          null
+                                                      ? '태그 또는 직접 입력'
+                                                      : '예) 1.0.0',
+                                                  prefixIcon: Icon(
+                                                    Icons.sell_outlined,
+                                                    size: 20,
+                                                    color: colorScheme
+                                                        .onSurface
+                                                        .withValues(
+                                                            alpha: 0.48),
+                                                  ),
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (ghProvider.connectedRepo != null) ...[
+                                  const SizedBox(height: 18),
+                                  Text('GIT 태그 (선택사항)',
+                                      style: labelStyle),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    ghProvider.connectedRepo!.fullName,
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        height: 1.25,
+                                        color: subtleColor),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Material(
+                                    color: fieldFill,
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(
+                                          left: 4, right: 4),
+                                      child: Row(
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                                left: 8, right: 2),
+                                            child: Icon(
+                                              Icons.call_split_rounded,
+                                              size: 22,
+                                              color: colorScheme.onSurface
+                                                  .withValues(alpha: 0.45),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: DropdownButton<String?>(
+                                              value: selectedGitTag,
+                                              isExpanded: true,
+                                              underline:
+                                                  const SizedBox.shrink(),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              hint: Text(
+                                                dialogGitTags.isEmpty
+                                                    ? '태그 없음 (버전 직접 입력)'
+                                                    : '태그 선택',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: colorScheme
+                                                      .onSurface
+                                                      .withValues(
+                                                          alpha: 0.42),
+                                                ),
+                                              ),
+                                              items: [
+                                                DropdownMenuItem<String?>(
+                                                  value: null,
+                                                  child: Text(
+                                                    dialogGitTags.isEmpty
+                                                        ? '— 태그 없음 —'
+                                                        : '— 선택 안 함 —',
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      color: colorScheme
+                                                          .onSurface
+                                                          .withValues(
+                                                              alpha: 0.52),
+                                                    ),
+                                                  ),
+                                                ),
+                                                ...dialogGitTags.map(
+                                                  (t) =>
+                                                      DropdownMenuItem<
+                                                          String?>(
+                                                    value: t.name,
+                                                    child: Row(
+                                                      children: [
+                                                        Icon(
+                                                          Icons
+                                                              .sell_outlined,
+                                                          size: 14,
+                                                          color: colorScheme
+                                                              .primary,
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 6),
+                                                        Expanded(
+                                                          child: Text(
+                                                            t.name,
+                                                            style:
+                                                                const TextStyle(
+                                                                    fontSize:
+                                                                        13),
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                        ),
+                                                        Text(
+                                                          t.shortSha,
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            color: colorScheme
+                                                                .onSurface
+                                                                .withValues(
+                                                                    alpha:
+                                                                        0.4),
+                                                            fontFamily:
+                                                                'monospace',
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                              onChanged: (val) =>
+                                                  setDialogState(() {
+                                                selectedGitTag = val;
+                                                if (val != null &&
+                                                    val.isNotEmpty) {
+                                                  versionCtrl.text = val;
+                                                }
+                                              }),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 18),
+                                Text('패치 내용', style: labelStyle),
+                                const SizedBox(height: 8),
+                                Material(
+                                  color: fieldFill,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                        4, 6, 12, 10),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                              left: 8, top: 10),
+                                          child: Icon(
+                                            Icons.description_outlined,
+                                            size: 22,
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.45),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: contentCtrl,
+                                            maxLines: 6,
+                                            minLines: 4,
+                                            style: const TextStyle(
+                                                fontSize: 13),
+                                            decoration: InputDecoration(
+                                              hintText:
+                                                  '패치 상세 내용을 입력하세요...',
+                                              hintStyle: TextStyle(
+                                                fontSize: 13,
+                                                color: colorScheme
+                                                    .onSurface
+                                                    .withValues(
+                                                        alpha: 0.42),
+                                              ),
+                                              border: InputBorder.none,
+                                              isDense: true,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                      vertical: 10),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                if (_presets.isNotEmpty) ...[
+                                  const SizedBox(height: 18),
+                                  Text('체크리스트 프리셋 (선택)',
+                                      style: labelStyle),
+                                  const SizedBox(height: 8),
+                                  Material(
+                                    color: fieldFill,
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 4, vertical: 0),
+                                      child: Row(
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                                left: 10, right: 2),
+                                            child: Icon(
+                                              Icons.bookmark_outline,
+                                              size: 22,
+                                              color: colorScheme.onSurface
+                                                  .withValues(alpha: 0.45),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: DropdownButton<int>(
+                                              value: selectedPreset == null
+                                                  ? -1
+                                                  : _presets.indexOf(
+                                                      selectedPreset!),
+                                              isExpanded: true,
+                                              underline:
+                                                  const SizedBox.shrink(),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              hint: const Text('프리셋'),
+                                              items: [
+                                                DropdownMenuItem<int>(
+                                                  value: -1,
+                                                  child: Text(
+                                                    '적용 안 함',
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      color: colorScheme
+                                                          .onSurface
+                                                          .withValues(
+                                                              alpha: 0.45),
+                                                    ),
+                                                  ),
+                                                ),
+                                                ..._presets
+                                                    .asMap()
+                                                    .entries
+                                                    .map(
+                                                      (e) => DropdownMenuItem<
+                                                          int>(
+                                                        value: e.key,
+                                                        child: Row(
+                                                          children: [
+                                                            Icon(
+                                                              Icons
+                                                                  .bookmark_outline,
+                                                              size: 14,
+                                                              color: colorScheme
+                                                                  .primary,
+                                                            ),
+                                                            const SizedBox(
+                                                                width: 6),
+                                                            Expanded(
+                                                              child: Text(
+                                                                e.value['name']
+                                                                    as String,
+                                                                style:
+                                                                    const TextStyle(
+                                                                        fontSize:
+                                                                            13),
+                                                              ),
+                                                            ),
+                                                            Text(
+                                                              '${(e.value['steps'] as List).length}+${(e.value['test_items'] as List).length}',
+                                                              style:
+                                                                  TextStyle(
+                                                                fontSize: 11,
+                                                                color: colorScheme
+                                                                    .onSurface
+                                                                    .withValues(
+                                                                        alpha:
+                                                                            0.4),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                              ],
+                                              onChanged: (idx) =>
+                                                  setDialogState(() =>
+                                                      selectedPreset =
+                                                          (idx == null ||
+                                                                  idx < 0)
+                                                              ? null
+                                                              : _presets[
+                                                                  idx]),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
-                            items: tags
-                                .map((t) => DropdownMenuItem(
-                                      value: t.name,
-                                      child: Row(children: [
-                                        Icon(Icons.sell_outlined,
-                                            size: 13,
-                                            color: colorScheme.primary),
-                                        const SizedBox(width: 6),
-                                        Text(t.name,
-                                            style:
-                                                const TextStyle(fontSize: 13)),
-                                        const SizedBox(width: 6),
-                                        Text(t.shortSha,
-                                            style: TextStyle(
-                                                fontSize: 11,
-                                                color: colorScheme.onSurface
-                                                    .withValues(alpha: 0.4),
-                                                fontFamily: 'monospace')),
-                                      ]),
-                                    ))
-                                .toList(),
-                            onChanged: (val) => setDialogState(() {
-                              selectedGitTag = val;
-                              if (val != null &&
-                                  versionCtrl.text.trim().isEmpty) {
-                                versionCtrl.text = val;
-                              }
-                            }),
                           ),
-                        );
-                      },
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  _dialogField('패치 내용', contentCtrl, '패치 내용을 입력하세요'),
-                  if (_presets.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Text('프리셋 적용',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                            color: colorScheme.onSurface.withValues(alpha: 0.6))),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<int>(
-                      value: selectedPreset == null ? -1 : _presets.indexOf(selectedPreset!),
-                      decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                      items: [
-                        DropdownMenuItem<int>(value: -1,
-                          child: Text('적용 안함', style: TextStyle(fontSize: 13,
-                              color: colorScheme.onSurface.withValues(alpha: 0.45)))),
-                        ..._presets.asMap().entries.map((e) => DropdownMenuItem<int>(
-                          value: e.key,
-                          child: Row(children: [
-                            Icon(Icons.bookmark_outline, size: 13, color: colorScheme.primary),
-                            const SizedBox(width: 6),
-                            Expanded(child: Text(e.value['name'] as String, style: const TextStyle(fontSize: 13))),
-                            Text('${(e.value['steps'] as List).length}+${(e.value['test_items'] as List).length}',
-                                style: TextStyle(fontSize: 11, color: colorScheme.onSurface.withValues(alpha: 0.4))),
-                          ]),
-                        )),
+                        ),
+                        Padding(
+                          padding:
+                              const EdgeInsets.fromLTRB(24, 4, 24, 22),
+                          child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.stretch,
+                            children: [
+                              Divider(
+                                height: 1,
+                                thickness: 1,
+                                color: colorScheme.outlineVariant
+                                    .withValues(alpha: 0.35),
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  const Spacer(),
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext),
+                                    child: Text(
+                                      '취소',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: colorScheme.onSurface
+                                            .withValues(alpha: 0.55),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  FilledButton(
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor:
+                                          _patchDialogCtaOrange,
+                                      foregroundColor: Colors.white,
+                                      elevation: 3,
+                                      shadowColor: _patchDialogCtaOrange
+                                          .withValues(alpha: 0.45),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 32,
+                                        vertical: 16,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(14),
+                                      ),
+                                    ),
+                                    onPressed: _isLoading
+                                        ? null
+                                        : () async {
+                                            final site =
+                                                siteCtrl.text.trim();
+                                            final content =
+                                                contentCtrl.text.trim();
+                                            if (site.isEmpty ||
+                                                selectedDate == null ||
+                                                content.isEmpty) {
+                                              return;
+                                            }
+                                            try {
+                                              setState(
+                                                  () => _isLoading = true);
+                                              final patch =
+                                                  await _service.createPatch(
+                                                projectId: projectId,
+                                                site: site,
+                                                patchDate: selectedDate!,
+                                                version: versionCtrl.text
+                                                    .trim(),
+                                                content: content,
+                                                gitTag: selectedGitTag,
+                                              );
+                                              if (selectedPreset != null) {
+                                                await _applyPresetToNewPatch(
+                                                    patch.id,
+                                                    selectedPreset!);
+                                              }
+                                              if (!mounted) return;
+                                              await _loadPatches(
+                                                  projectId);
+                                              if (!mounted) return;
+                                              if (dialogContext.mounted) {
+                                                Navigator.pop(
+                                                    dialogContext);
+                                              }
+                                            } finally {
+                                              if (mounted) {
+                                                setState(() =>
+                                                    _isLoading = false);
+                                              }
+                                            }
+                                          },
+                                    child: const Text(
+                                      '등록하기',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
-                      onChanged: (idx) => setDialogState(() =>
-                          selectedPreset = (idx == null || idx < 0) ? null : _presets[idx]),
                     ),
-                  ],
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(dialogContext),
-                          child: const Text('취소')),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        onPressed: _isLoading
-                            ? null
-                            : () async {
-                                final site = siteCtrl.text.trim();
-                                final content = contentCtrl.text.trim();
-                                if (site.isEmpty ||
-                                    selectedDate == null ||
-                                    content.isEmpty) return;
-                                try {
-                                  setState(() => _isLoading = true);
-                                  final patch = await _service.createPatch(
-                                    projectId: projectId,
-                                    site: site,
-                                    patchDate: selectedDate!,
-                                    version: versionCtrl.text.trim(),
-                                    content: content,
-                                    gitTag: selectedGitTag,
-                                  );
-                                  if (selectedPreset != null) {
-                                    await _applyPresetToNewPatch(patch.id, selectedPreset!);
-                                  }
-                                  if (!mounted) return;
-                                  await _loadPatches(projectId);
-                                  if (!mounted) return;
-                                  Navigator.pop(dialogContext);
-                                } finally {
-                                  if (mounted) {
-                                    setState(() => _isLoading = false);
-                                  }
-                                }
-                              },
-                        child: const Text('등록'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
             ),
           ),
         );
       }),
-    );
-  }
-
-  Widget _dialogField(String label, TextEditingController ctrl, String hint) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-            style:
-                const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
-        TextField(
-          controller: ctrl,
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(fontSize: 13),
-            border: const OutlineInputBorder(),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            isDense: true,
-          ),
-          style: const TextStyle(fontSize: 13),
-        ),
-      ],
     );
   }
 
@@ -2247,7 +2711,8 @@ class _ProjectSiteDropdownState extends State<_ProjectSiteDropdown> {
                     icon: Icon(Icons.close, size: 18, color: cs.error),
                     tooltip: '삭제',
                     onPressed: () async {
-                      await widget.service.deleteSite(siteId: site.id);
+                      await widget.service.deleteSite(
+                          siteId: site.id, projectId: widget.projectId);
                       await _load();
                     },
                   ),

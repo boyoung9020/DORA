@@ -25,8 +25,15 @@ class ProjectSiteService {
     return ProjectSite.fromJson(data);
   }
 
-  Future<void> deleteSite({required String siteId}) async {
-    final resp = await ApiClient.delete('/api/project-sites/$siteId');
+  Future<void> deleteSite({required String siteId, String? projectId}) async {
+    final qp = <String, String>{};
+    if (projectId != null && projectId.isNotEmpty) {
+      qp['project_id'] = projectId;
+    }
+    final resp = await ApiClient.delete(
+      '/api/project-sites/$siteId',
+      queryParams: qp.isEmpty ? null : qp,
+    );
     ApiClient.handleResponse(resp);
   }
 }

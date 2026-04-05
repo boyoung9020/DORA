@@ -39,16 +39,41 @@ class MembersTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 팀원별 작업 할당 막대 그래프
-          TeamWorkloadChart(memberWorkload: memberWorkload),
-          const SizedBox(height: 16),
-
-          // 팀원 목록 (초대/제거)
-          TeamMembersCard(
-            teamMembers: teamMembers,
-            isPM: isPM,
-            onMemberChanged: onMemberChanged,
-            authService: authService,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= 720;
+              final topRow = Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TeamMembersCard(
+                      teamMembers: teamMembers,
+                      isPM: isPM,
+                      onMemberChanged: onMemberChanged,
+                      authService: authService,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TeamWorkloadChart(memberWorkload: memberWorkload),
+                  ),
+                ],
+              );
+              if (wide) return topRow;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TeamMembersCard(
+                    teamMembers: teamMembers,
+                    isPM: isPM,
+                    onMemberChanged: onMemberChanged,
+                    authService: authService,
+                  ),
+                  const SizedBox(height: 16),
+                  TeamWorkloadChart(memberWorkload: memberWorkload),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
 

@@ -69,6 +69,7 @@ dependencies:
   google_sign_in: ^6.3.0
   kakao_flutter_sdk_user: ^1.9.7+3
   google_fonts: ^6.2.1
+  contribution_heatmap: ^0.5.3
 
 dev_dependencies:
   flutter_test:

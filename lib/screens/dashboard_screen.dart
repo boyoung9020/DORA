@@ -620,7 +620,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildAiManagerSection(BuildContext context, ColorScheme colorScheme) {
     final gradientColors = colorScheme.brightness == Brightness.dark
-        ? const [Color(0xFF232840), Color(0xFF1D2236)]
+        ? const [Color(0xFF2E2822), Color(0xFF242019)]
         : const [Color(0xFFF3EDFF), Color(0xFFE9F0FF)];
 
     return Container(

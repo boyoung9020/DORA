@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/project.dart';
 import '../services/project_service.dart';
 
@@ -15,14 +16,49 @@ class ProjectProvider extends ChangeNotifier {
   String? _currentUserId; // 현재 사용자 ID
   bool _isAdmin = false; // 관리자 여부
   bool _isPM = false; // PM 여부
+  Set<String> _favoriteIds = {}; // 즐겨찾기 프로젝트 ID
+
+  static const _favKey = 'project_favorites';
 
   List<Project> get projects => _projects;
   Project? get currentProject => _currentProject;
   bool get isAllProjectsMode => _isAllProjectsMode;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  Set<String> get favoriteIds => _favoriteIds;
+
+  /// 즐겨찾기 여부
+  bool isFavorite(String projectId) => _favoriteIds.contains(projectId);
+
+  /// 즐겨찾기 토글 (SharedPreferences에 영구 저장)
+  Future<void> toggleFavorite(String projectId) async {
+    if (_favoriteIds.contains(projectId)) {
+      _favoriteIds.remove(projectId);
+    } else {
+      _favoriteIds.add(projectId);
+    }
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_favKey, _favoriteIds.toList());
+  }
+
+  /// 즐겨찾기 목록 로드 (앱 시작 / 로그인 시 1회)
+  Future<void> loadFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getStringList(_favKey) ?? [];
+    _favoriteIds = saved.toSet();
+    notifyListeners();
+  }
+
+  /// 즐겨찾기 우선 정렬된 프로젝트 목록
+  List<Project> get sortedProjects {
+    final favs = _projects.where((p) => _favoriteIds.contains(p.id)).toList();
+    final rest = _projects.where((p) => !_favoriteIds.contains(p.id)).toList();
+    return [...favs, ...rest];
+  }
 
   ProjectProvider() {
+    loadFavorites();
     // 사용자 정보가 설정된 후에 loadProjects가 호출되므로 여기서는 호출하지 않음
     // MainLayout의 initState에서 _updateProjectProviderUserInfo()를 통해 호출됨
   }

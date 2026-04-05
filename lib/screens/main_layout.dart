@@ -64,6 +64,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   bool _isMenuStateReady = false; // 메뉴 순서/선택 탭 복원 완료 여부
   WebSocketService? _webSocketService; // WebSocket 서비스
 
+  // 프로젝트 드롭다운 오버레이
+  final _projectBtnKey = GlobalKey();
+  OverlayEntry? _projectDropdownEntry;
+
   // 메뉴 항목 정의 (상태로 관리하여 드래그로 순서 변경 가능)
   List<MenuItem> _menuItems = [
     MenuItem(
@@ -133,7 +137,222 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this); // 생명주기 관찰자 제거
     _webSocketService?.disconnect(); // WebSocket 연결 해제
+    _closeProjectDropdown();
     super.dispose();
+  }
+
+  // ── 프로젝트 드롭다운 오버레이 ─────────────────────────────────────────
+
+  void _closeProjectDropdown() {
+    final pp = _projectDropdownEntry != null
+        ? context.read<ProjectProvider>()
+        : null;
+    pp?.removeListener(_rebuildProjectDropdown);
+    _projectDropdownEntry?.remove();
+    _projectDropdownEntry = null;
+  }
+
+  void _rebuildProjectDropdown() {
+    _projectDropdownEntry?.markNeedsBuild();
+  }
+
+  void _openProjectDropdown() {
+    if (_projectDropdownEntry != null) {
+      _closeProjectDropdown();
+      return;
+    }
+
+    final pp = context.read<ProjectProvider>();
+    final auth = context.read<AuthProvider>();
+    final taskProv = context.read<TaskProvider>();
+    final sprintProv = context.read<SprintProvider>();
+
+    // 버튼 위치 계산
+    final box = _projectBtnKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final offset = box.localToGlobal(Offset(0, box.size.height + 4));
+
+    pp.addListener(_rebuildProjectDropdown);
+
+    _projectDropdownEntry = OverlayEntry(
+      builder: (_) {
+        final cs = Theme.of(context).colorScheme;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final sorted = pp.sortedProjects;
+        final hasFavs = sorted.any((p) => pp.isFavorite(p.id));
+        final hasNonFavs = sorted.any((p) => !pp.isFavorite(p.id));
+
+        return Stack(
+          children: [
+            // 바깥 탭 → 닫기
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _closeProjectDropdown,
+              ),
+            ),
+            // 드롭다운 패널
+            Positioned(
+              left: offset.dx,
+              top: offset.dy,
+              child: Material(
+                elevation: 8,
+                borderRadius: BorderRadius.circular(10),
+                color: cs.surface,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 220, maxWidth: 300),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // ── 전체 항목 ──
+                      _dropdownItem(
+                        cs: cs,
+                        leading: Icon(Icons.layers, size: 18,
+                            color: pp.isAllProjectsMode ? cs.primary : cs.onSurface),
+                        label: '전체',
+                        isSelected: pp.isAllProjectsMode,
+                        onTap: () async {
+                          _closeProjectDropdown();
+                          pp.selectAllProjects();
+                          final wsProjectIds = pp.projects.map((p) => p.id).toList();
+                          await taskProv.loadTasks();
+                          taskProv.filterByProjectIds(wsProjectIds);
+                          await sprintProv.loadSprints();
+                        },
+                      ),
+                      Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.4)),
+
+                      // ── 프로젝트 목록 ──
+                      ...() {
+                        final widgets = <Widget>[];
+                        bool dividerDone = false;
+                        for (final project in sorted) {
+                          final isFav = pp.isFavorite(project.id);
+                          final isSelected = pp.currentProject?.id == project.id;
+
+                          if (!isFav && hasFavs && hasNonFavs && !dividerDone) {
+                            widgets.add(Divider(
+                                height: 1,
+                                color: cs.outlineVariant.withValues(alpha: 0.4)));
+                            dividerDone = true;
+                          }
+
+                          widgets.add(
+                            GestureDetector(
+                              onSecondaryTapDown: (d) {
+                                _closeProjectDropdown();
+                                _showProjectContextMenu(
+                                    context, project, pp, auth, d.globalPosition);
+                              },
+                              child: _dropdownItem(
+                                cs: cs,
+                                leading: Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                      color: project.color, shape: BoxShape.circle),
+                                ),
+                                label: project.name,
+                                isSelected: isSelected,
+                                isDark: isDark,
+                                trailing: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () => pp.toggleFavorite(project.id),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                                    child: Icon(
+                                      isFav ? Icons.star_rounded : Icons.star_border_rounded,
+                                      size: 18,
+                                      color: isFav
+                                          ? Colors.amber.shade600
+                                          : cs.onSurface.withValues(alpha: 0.28),
+                                    ),
+                                  ),
+                                ),
+                                onTap: () async {
+                                  _closeProjectDropdown();
+                                  await pp.setCurrentProject(project.id);
+                                  if (!mounted) return;
+                                  await taskProv.loadTasks(projectId: project.id);
+                                  await sprintProv.loadSprints(projectId: project.id);
+                                },
+                              ),
+                            ),
+                          );
+                        }
+                        return widgets;
+                      }(),
+
+                      // ── 새 프로젝트 ──
+                      Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.4)),
+                      _dropdownItem(
+                        cs: cs,
+                        leading: Icon(Icons.add_circle_outline, size: 20, color: cs.primary),
+                        label: '새 프로젝트',
+                        labelColor: cs.primary,
+                        bold: true,
+                        onTap: () {
+                          _closeProjectDropdown();
+                          _showCreateProjectDialog(context);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    Overlay.of(context).insert(_projectDropdownEntry!);
+  }
+
+  /// 드롭다운 공용 항목 빌더
+  Widget _dropdownItem({
+    required ColorScheme cs,
+    required Widget leading,
+    required String label,
+    required VoidCallback onTap,
+    bool isSelected = false,
+    bool isDark = false,
+    bool bold = false,
+    Color? labelColor,
+    Widget? trailing,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        color: isSelected
+            ? cs.primary.withValues(alpha: 0.08)
+            : Colors.transparent,
+        child: Row(
+          children: [
+            leading,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight:
+                      (isSelected || bold) ? FontWeight.w600 : FontWeight.normal,
+                  color: labelColor ??
+                      (isSelected ? cs.primary : cs.onSurface),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check, size: 16, color: cs.primary),
+            if (trailing != null) trailing,
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -414,8 +633,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           ],
         ),
         backgroundColor: isDarkMode
-            ? const Color(0xFF1E293B)
-            : const Color(0xFF334155),
+            ? const Color(0xFF2E2822)
+            : const Color(0xFF38312B),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
@@ -682,7 +901,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final shellColor = isDarkMode
-        ? const Color(0xFF1F2937)
+        ? const Color(0xFF2E2822)
         : const Color(0xFFF7E9DC);
 
     return Scaffold(
@@ -729,7 +948,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                             child: Container(
                               decoration: BoxDecoration(
                                 color: isDarkMode
-                                    ? const Color(0xFF161B2E)
+                                    ? const Color(0xFF1E1916)
                                     : Colors.white,
                                 gradient: null,
                                 borderRadius: const BorderRadius.only(
@@ -787,10 +1006,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   Widget _buildWorkspaceRail(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final railColor = isDarkMode
-        ? const Color(0xFF111827)
+        ? const Color(0xFF1E1916)
         : const Color(0xFFE2B993);
     final railForeground = isDarkMode
-        ? const Color(0xFFD1D5DB)
+        ? const Color(0xFFCDB8AF)
         : const Color(0xFF8A5731);
 
     return Consumer<WorkspaceProvider>(
@@ -961,10 +1180,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     Color shellColor,
   ) {
     final sidebarColor = isDarkMode
-        ? const Color(0xFF1F2937)
+        ? const Color(0xFF2E2822)
         : const Color(0xFFF7E9DC);
     final sidebarTextColor = isDarkMode
-        ? const Color(0xFFE5E7EB)
+        ? const Color(0xFFEDE0D9)
         : const Color(0xFF8A5731).withValues(alpha: 0.9);
 
     return Container(
@@ -1155,245 +1374,66 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final projectProvider = Provider.of<ProjectProvider>(context);
     final currentProject = projectProvider.currentProject;
-    final authProvider = Provider.of<AuthProvider>(context);
-    final taskProvider = context.read<TaskProvider>();
-    final sprintProvider = context.read<SprintProvider>();
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
       decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF1F2937) : const Color(0xFFF7E9DC),
+        color: isDarkMode ? const Color(0xFF2E2822) : const Color(0xFFF7E9DC),
       ),
       child: Row(
         children: [
           // 프로젝트 드롭다운 버튼 (사이트·채팅·알림 화면에서는 숨김)
-          if (!_isProjectBarHidden) PopupMenuButton<String>(
-            offset: const Offset(0, 40),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (projectProvider.isAllProjectsMode) ...[
-                        Icon(
-                          Icons.layers,
-                          size: 18,
-                          color: isDarkMode
-                              ? colorScheme.onSurface
-                              : const Color(0xFF8A5731),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          '전체',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: isDarkMode
-                                ? colorScheme.onSurface
-                                : const Color(0xFF8A5731),
-                          ),
-                        ),
-                      ] else if (currentProject != null) ...[
-                        Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: currentProject.color,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          currentProject.name,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: isDarkMode
-                                ? colorScheme.onSurface
-                                : const Color(0xFF8A5731),
-                          ),
-                        ),
-                      ] else ...[
-                        Icon(
-                          Icons.folder_outlined,
-                          size: 20,
+          if (!_isProjectBarHidden) InkWell(
+            key: _projectBtnKey,
+            borderRadius: BorderRadius.circular(8),
+            onTap: _openProjectDropdown,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (projectProvider.isAllProjectsMode) ...[
+                    Icon(Icons.layers, size: 18,
+                        color: isDarkMode ? colorScheme.onSurface : const Color(0xFF8A5731)),
+                    const SizedBox(width: 12),
+                    Text('전체',
+                        style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold,
+                          color: isDarkMode ? colorScheme.onSurface : const Color(0xFF8A5731),
+                        )),
+                  ] else if (currentProject != null) ...[
+                    Container(
+                      width: 12, height: 12,
+                      decoration: BoxDecoration(color: currentProject.color, shape: BoxShape.circle),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(currentProject.name,
+                        style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold,
+                          color: isDarkMode ? colorScheme.onSurface : const Color(0xFF8A5731),
+                        )),
+                  ] else ...[
+                    Icon(Icons.folder_outlined, size: 20,
+                        color: isDarkMode
+                            ? colorScheme.onSurface.withValues(alpha: 0.7)
+                            : const Color(0xFF8A5731).withValues(alpha: 0.75)),
+                    const SizedBox(width: 12),
+                    Text('프로젝트를 선택하세요',
+                        style: TextStyle(fontSize: 16,
                           color: isDarkMode
                               ? colorScheme.onSurface.withValues(alpha: 0.7)
                               : const Color(0xFF8A5731).withValues(alpha: 0.75),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          '프로젝트를 선택하세요',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: isDarkMode
-                                ? colorScheme.onSurface.withValues(alpha: 0.7)
-                                : const Color(
-                                    0xFF8A5731,
-                                  ).withValues(alpha: 0.75),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(width: 8),
-                      Icon(
-                        Icons.arrow_drop_down,
-                        color: isDarkMode
-                            ? colorScheme.onSurface.withValues(alpha: 0.7)
-                            : const Color(0xFF8A5731).withValues(alpha: 0.75),
-                        size: 24,
-                      ),
-                    ],
-                  ),
-                ),
+                        )),
+                  ],
+                  const SizedBox(width: 8),
+                  Icon(Icons.arrow_drop_down, size: 24,
+                      color: isDarkMode
+                          ? colorScheme.onSurface.withValues(alpha: 0.7)
+                          : const Color(0xFF8A5731).withValues(alpha: 0.75)),
+                ],
               ),
             ),
-            itemBuilder: (BuildContext context) {
-              final items = <PopupMenuEntry<String>>[];
-
-              // '전체' 항목
-              items.add(
-                PopupMenuItem<String>(
-                  value: '__all__',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.layers,
-                        size: 18,
-                        color: projectProvider.isAllProjectsMode
-                            ? colorScheme.primary
-                            : colorScheme.onSurface,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        '전체',
-                        style: TextStyle(
-                          fontWeight: projectProvider.isAllProjectsMode
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                          color: projectProvider.isAllProjectsMode
-                              ? colorScheme.primary
-                              : colorScheme.onSurface,
-                        ),
-                      ),
-                      if (projectProvider.isAllProjectsMode) ...[
-                        const Spacer(),
-                        Icon(Icons.check, color: colorScheme.primary, size: 20),
-                      ],
-                    ],
-                  ),
-                ),
-              );
-              items.add(const PopupMenuDivider());
-
-              // 프로젝트 목록
-              for (var project in projectProvider.projects) {
-                items.add(
-                  PopupMenuItem<String>(
-                    value: project.id,
-                    child: GestureDetector(
-                      // 오른쪽 클릭 감지
-                      onSecondaryTapDown: (details) {
-                        // 드롭다운을 닫지 않고 컨텍스트 메뉴를 바로 표시
-                        _showProjectContextMenu(
-                          context,
-                          project,
-                          projectProvider,
-                          authProvider,
-                          details.globalPosition,
-                        );
-                      },
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 12,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: project.color,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            project.name,
-                            style: TextStyle(
-                              fontWeight: currentProject?.id == project.id
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              color: currentProject?.id == project.id
-                                  ? colorScheme.primary
-                                  : colorScheme.onSurface,
-                            ),
-                          ),
-                          if (currentProject?.id == project.id) ...[
-                            const Spacer(),
-                            Icon(
-                              Icons.check,
-                              color: colorScheme.primary,
-                              size: 20,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }
-
-              // 구분선과 새 프로젝트 버튼 (모든 워크스페이스 멤버)
-              if (true) {
-                items.add(const PopupMenuDivider());
-                items.add(
-                  PopupMenuItem<String>(
-                    value: '__create_new__',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.add_circle_outline,
-                          color: colorScheme.primary,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          '새 프로젝트',
-                          style: TextStyle(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
-
-              return items;
-            },
-            onSelected: (String value) async {
-              if (value == '__create_new__') {
-                _showCreateProjectDialog(context);
-              } else if (value == '__all__') {
-                projectProvider.selectAllProjects();
-                if (!mounted) return;
-                // 워크스페이스 범위 내 프로젝트의 태스크만 로드
-                final wsProjectIds = projectProvider.projects.map((p) => p.id).toList();
-                await taskProvider.loadTasks();
-                taskProvider.filterByProjectIds(wsProjectIds);
-                await sprintProvider.loadSprints();
-              } else {
-                await projectProvider.setCurrentProject(value);
-                if (!mounted) return;
-                await taskProvider.loadTasks(projectId: value);
-                await sprintProvider.loadSprints(projectId: value);
-              }
-            },
           ),
           // 인물 필터 드롭다운 (사이트·채팅·알림 화면에서는 숨김)
           if (!_isProjectBarHidden) const SizedBox(width: 8),
@@ -1844,10 +1884,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         : 0;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final sidebarColor = isDarkMode
-        ? const Color(0xFF1F2937)
+        ? const Color(0xFF2E2822)
         : const Color(0xFFF7E9DC);
     final menuTextColor = isDarkMode
-        ? const Color(0xFFE5E7EB)
+        ? const Color(0xFFEDE0D9)
         : const Color(0xFF8A5731);
 
     return Padding(

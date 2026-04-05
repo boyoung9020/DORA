@@ -8,11 +8,13 @@ import '../services/auth_service.dart';
 import '../widgets/project_info/project_header_widget.dart';
 import 'project_info/overview_tab.dart';
 import 'project_info/tasks_tab.dart';
+import 'project_info/documents_tab.dart';
+import 'project_info/github_tab.dart';
 import 'project_info/patch_tab.dart';
 import 'project_info/members_tab.dart';
 import 'project_info/settings_tab.dart';
 
-/// 프로젝트 정보 화면 - 탭 기반 (개요 / 작업 목록 / 패치 내역 / 설정)
+/// 프로젝트 정보 화면 — 개요 / 작업 목록 / 문서 / GitHub / 패치 / 팀원 / 설정
 class ProjectInfoScreen extends StatefulWidget {
   const ProjectInfoScreen({super.key});
 
@@ -36,7 +38,7 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadTeamMembers();
       _initSettingsControllers();
@@ -68,10 +70,12 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
       final allUsers = await _authService.getAllUsers();
       final members =
           allUsers.where((u) => project.teamMemberIds.contains(u.id)).toList();
-      if (mounted) setState(() {
-        _allUsers = allUsers;
-        _teamMembers = members;
-      });
+      if (mounted) {
+        setState(() {
+          _allUsers = allUsers;
+          _teamMembers = members;
+        });
+      }
     } catch (e) {
       debugPrint('[ProjectInfo] _loadTeamMembers error: $e');
     }
@@ -129,12 +133,19 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
                   allTasks: allTasks,
                   teamMembers: _teamMembers,
                   isPM: isPM,
+                  onOpenGitHubTab: () => _tabController.animateTo(3),
                 ),
                 TasksTab(
                   allTasks: allTasks,
                   teamMembers: _teamMembers,
                   allUsers: _allUsers,
                 ),
+                DocumentsTab(
+                  allTasks: allTasks,
+                  teamMembers: _teamMembers,
+                  allUsers: _allUsers,
+                ),
+                GitHubTab(projectId: project.id),
                 const PatchTab(),
                 MembersTab(
                   project: project,
@@ -192,6 +203,20 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
               Icon(Icons.checklist_outlined, size: 18),
               SizedBox(width: 6),
               Text('작업 목록'),
+            ]),
+          ),
+          Tab(
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.description_outlined, size: 18),
+              SizedBox(width: 6),
+              Text('문서'),
+            ]),
+          ),
+          Tab(
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.code, size: 18),
+              SizedBox(width: 6),
+              Text('GitHub'),
             ]),
           ),
           Tab(

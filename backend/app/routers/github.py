@@ -1,7 +1,8 @@
 """GitHub 연동 API router."""
 
+import re
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -13,9 +14,13 @@ from app.models.user import User
 from app.schemas.github import (
     GitHubBranchResponse,
     GitHubCommitResponse,
+    GitHubLanguageResponse,
     GitHubPRResponse,
+    GitHubReleaseResponse,
     GitHubRepoConnect,
+    GitHubRepoRemoteDetailsResponse,
     GitHubRepoResponse,
+    GitHubTagCreate,
     GitHubTagResponse,
 )
 from app.utils.dependencies import get_current_user
@@ -23,7 +28,10 @@ from app.utils.github_api import (
     GitHubApiError,
     get_branches,
     get_commits,
+    get_languages,
     get_pull_requests,
+    get_releases,
+    create_tag_ref,
     get_tags,
     get_user_repos,
     validate_repo,
@@ -31,6 +39,26 @@ from app.utils.github_api import (
 from app.models.user_github_token import UserGitHubToken
 
 router = APIRouter()
+
+
+def _validate_tag_create_body(body: GitHubTagCreate) -> Tuple[str, str]:
+    name = body.tag_name.strip()
+    sha = body.commit_sha.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="tag_name is required")
+    if not sha:
+        raise HTTPException(status_code=400, detail="commit_sha is required")
+    if name.startswith("refs/"):
+        raise HTTPException(
+            status_code=400, detail="tag_name must not use a refs/ prefix"
+        )
+    if ".." in name or re.search(r"[\s\u0000-\u001f]", name):
+        raise HTTPException(status_code=400, detail="Invalid tag_name")
+    if not re.fullmatch(r"[0-9a-fA-F]{7,40}", sha):
+        raise HTTPException(
+            status_code=400, detail="commit_sha must be 7–40 hexadecimal characters"
+        )
+    return name, sha
 
 
 def _get_project_or_404(db: Session, project_id: str) -> Project:
@@ -166,6 +194,31 @@ async def get_repo_info(
     return _to_repo_response(gh)
 
 
+@router.get("/{project_id}/repo-details", response_model=GitHubRepoRemoteDetailsResponse)
+async def get_repo_remote_details(
+    project_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """연결된 저장소의 GitHub 공개 메타데이터(설명·스타·기본 브랜치 등)를 조회합니다."""
+    gh = _get_github_record(db, project_id, current_user)
+    token = _get_user_token(db, current_user) or gh.access_token
+
+    try:
+        raw = await validate_repo(gh.repo_owner, gh.repo_name, token)
+    except GitHubApiError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    return GitHubRepoRemoteDetailsResponse(
+        description=raw.get("description"),
+        default_branch=raw.get("default_branch") or "",
+        stargazers_count=int(raw.get("stargazers_count") or 0),
+        forks_count=int(raw.get("forks_count") or 0),
+        open_issues_count=int(raw.get("open_issues_count") or 0),
+        html_url=str(raw.get("html_url") or ""),
+    )
+
+
 # ── 커밋/브랜치/PR 조회 ──────────────────────────────────
 
 def _get_github_record(db: Session, project_id: str, user: User) -> ProjectGitHub:
@@ -268,6 +321,95 @@ async def list_tags(
         )
         for t in raw
     ]
+
+
+@router.get("/{project_id}/releases", response_model=List[GitHubReleaseResponse])
+async def list_releases(
+    project_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """GitHub Releases 목록 (published_at 기준 최신순)."""
+    gh = _get_github_record(db, project_id, current_user)
+    token = _get_user_token(db, current_user) or gh.access_token
+
+    try:
+        raw = await get_releases(gh.repo_owner, gh.repo_name, token)
+    except GitHubApiError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    results = []
+    for i, r in enumerate(raw):
+        results.append(GitHubReleaseResponse(
+            id=r.get("id", 0),
+            tag_name=r.get("tag_name", ""),
+            name=r.get("name", "") or r.get("tag_name", ""),
+            body=r.get("body") or None,
+            draft=r.get("draft", False),
+            prerelease=r.get("prerelease", False),
+            published_at=r.get("published_at"),
+            url=r.get("html_url", ""),
+            is_latest=(i == 0 and not r.get("draft", False) and not r.get("prerelease", False)),
+        ))
+    return results
+
+
+@router.post(
+    "/{project_id}/tags",
+    response_model=GitHubTagResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_tag(
+    project_id: str,
+    body: GitHubTagCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """경량 Git 태그를 지정 커밋에 생성합니다. PAT에 저장소 쓰기 권한이 필요합니다."""
+    tag_name, commit_sha = _validate_tag_create_body(body)
+    gh = _get_github_record(db, project_id, current_user)
+    token = _get_user_token(db, current_user) or gh.access_token
+
+    try:
+        created = await create_tag_ref(
+            gh.repo_owner, gh.repo_name, tag_name, commit_sha, token
+        )
+    except GitHubApiError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    obj = created.get("object") or {}
+    out_sha = obj.get("sha") or commit_sha
+    return GitHubTagResponse(name=tag_name, sha=out_sha)
+
+
+@router.get("/{project_id}/languages", response_model=List[GitHubLanguageResponse])
+async def list_repo_languages(
+    project_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """연결된 저장소의 언어 비율 (기술 스택용)."""
+    gh = _get_github_record(db, project_id, current_user)
+    token = _get_user_token(db, current_user) or gh.access_token
+
+    try:
+        raw = await get_languages(gh.repo_owner, gh.repo_name, token)
+    except GitHubApiError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    total = sum(raw.values()) or 1
+    items = sorted(
+        (
+            GitHubLanguageResponse(
+                name=name,
+                bytes=bts,
+                percentage=round(bts / total * 100, 1),
+            )
+            for name, bts in raw.items()
+        ),
+        key=lambda x: -x.bytes,
+    )
+    return items[:16]
 
 
 @router.get("/{project_id}/pulls", response_model=List[GitHubPRResponse])

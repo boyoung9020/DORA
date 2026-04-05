@@ -117,7 +117,7 @@ class _ChecklistWidgetState extends State<ChecklistWidget> {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A1F35) : const Color(0xFFFAFAFC),
+        color: isDark ? const Color(0xFF242019) : const Color(0xFFFAFAFC),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isDark

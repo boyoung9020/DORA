@@ -155,23 +155,47 @@ class MyApp extends StatelessWidget {
                   Typography.material2021().white,
                 ),
               ),
-              scaffoldBackgroundColor: const Color(0xFF1A120C),
-              colorScheme:
-                  ColorScheme.fromSeed(
-                    seedColor: const Color(0xFFD86B27),
-                    brightness: Brightness.dark,
-                  ).copyWith(
-                    surface: const Color(0xFF1A120C),
-                    surfaceContainerHighest: const Color(0xFF2A1B12),
-                    onSurface: const Color(0xFFF7EBDD),
-                    onSurfaceVariant: const Color(0xFFD3B79E),
-                    primary: const Color(0xFFE3833D),
-                    primaryContainer: const Color(0xFF6A3A19),
-                    onPrimary: Colors.white,
-                    secondary: const Color(0xFF5FC5A0),
-                    secondaryContainer: const Color(0xFF1E4D3D),
-                    error: const Color(0xFFF87171),
-                  ),
+              scaffoldBackgroundColor: const Color(0xFF17120F),
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: const Color(0xFFD86B27),
+                brightness: Brightness.dark,
+              ).copyWith(
+                // Surface 계층 (M3 tone 기준, 5단계)
+                surface:                 const Color(0xFF17120F),
+                surfaceContainerLowest:  const Color(0xFF110D0A),
+                surfaceContainerLow:     const Color(0xFF1E1916),
+                surfaceContainer:        const Color(0xFF242019),
+                surfaceContainerHigh:    const Color(0xFF2E2822),
+                surfaceContainerHighest: const Color(0xFF38312B),
+                // 텍스트 / 아이콘
+                onSurface:        const Color(0xFFEDE0D9),
+                onSurfaceVariant: const Color(0xFFCDB8AF),
+                // 브랜드 오렌지 (기존 유지)
+                primary:            const Color(0xFFE3833D),
+                onPrimary:          Colors.white,
+                primaryContainer:   const Color(0xFF6A3A19),
+                onPrimaryContainer: const Color(0xFFFFDCC8),
+                // 보조 색상 (초록)
+                secondary:            const Color(0xFF5CC8A5),
+                onSecondary:          Colors.white,
+                secondaryContainer:   const Color(0xFF1B4A3A),
+                onSecondaryContainer: const Color(0xFFA0EDD5),
+                // 테두리
+                outline:        const Color(0xFF9A8480),
+                outlineVariant: const Color(0xFF4C4140),
+                // 에러
+                error:            const Color(0xFFFFB4AB),
+                onError:          const Color(0xFF690005),
+                errorContainer:   const Color(0xFF93000A),
+                onErrorContainer: const Color(0xFFFFDAD6),
+                // elevation tint 비활성화 (파란빛 오버레이 제거)
+                surfaceTint: Colors.transparent,
+              ),
+              // Card elevation tint 전역 제거
+              cardTheme: const CardThemeData(
+                surfaceTintColor: Colors.transparent,
+                elevation: 0,
+              ),
               useMaterial3: true,
             ),
             // 珥덇린 ?붾㈃? 濡쒓렇???붾㈃

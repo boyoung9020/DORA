@@ -159,11 +159,15 @@ class ApiClient {
   /// DELETE 요청
   static Future<http.Response> delete(
     String endpoint, {
+    Map<String, String>? queryParams,
     bool includeAuth = true,
   }) async {
     try {
-      final uri = Uri.parse('$baseUrl$endpoint');
-      
+      var uri = Uri.parse('$baseUrl$endpoint');
+      if (queryParams != null && queryParams.isNotEmpty) {
+        uri = uri.replace(queryParameters: queryParams);
+      }
+
       final response = await http.delete(
         uri,
         headers: await _getHeaders(includeAuth: includeAuth),

@@ -34,6 +34,44 @@ class GitHubRepo {
   String get fullName => '$repoOwner/$repoName';
 }
 
+/// GitHub API 저장소 공개 메타데이터 (/api/github/.../repo-details)
+class GitHubRepoRemoteDetails {
+  final String? description;
+  final String defaultBranch;
+  final int stargazersCount;
+  final int forksCount;
+  final int openIssuesCount;
+  final String htmlUrl;
+
+  GitHubRepoRemoteDetails({
+    this.description,
+    required this.defaultBranch,
+    required this.stargazersCount,
+    required this.forksCount,
+    required this.openIssuesCount,
+    required this.htmlUrl,
+  });
+
+  factory GitHubRepoRemoteDetails.fromJson(Map<String, dynamic> json) {
+    int n(dynamic v) {
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      return 0;
+    }
+
+    return GitHubRepoRemoteDetails(
+      description: json['description'] as String?,
+      defaultBranch:
+          (json['default_branch'] ?? json['defaultBranch'] ?? '') as String,
+      stargazersCount: n(json['stargazers_count'] ?? json['stargazersCount']),
+      forksCount: n(json['forks_count'] ?? json['forksCount']),
+      openIssuesCount:
+          n(json['open_issues_count'] ?? json['openIssuesCount']),
+      htmlUrl: (json['html_url'] ?? json['htmlUrl'] ?? '') as String,
+    );
+  }
+}
+
 class GitHubCommit {
   final String sha;
   final String message;
@@ -108,6 +146,76 @@ class GitHubTag {
   }
 
   String get shortSha => sha.length >= 7 ? sha.substring(0, 7) : sha;
+}
+
+/// GitHub /languages 한 항목 (저장소 기술 스택)
+class GitHubLanguage {
+  final String name;
+  final int bytes;
+  final double percentage;
+
+  GitHubLanguage({
+    required this.name,
+    required this.bytes,
+    required this.percentage,
+  });
+
+  factory GitHubLanguage.fromJson(Map<String, dynamic> json) {
+    return GitHubLanguage(
+      name: json['name'] as String,
+      bytes: (json['bytes'] as num).toInt(),
+      percentage: (json['percentage'] as num).toDouble(),
+    );
+  }
+}
+
+
+class GitHubRelease {
+  final int id;
+  final String tagName;
+  final String name;
+  final String? body;
+  final bool draft;
+  final bool prerelease;
+  final String? publishedAt;
+  final String url;
+  final bool isLatest;
+
+  GitHubRelease({
+    required this.id,
+    required this.tagName,
+    required this.name,
+    this.body,
+    required this.draft,
+    required this.prerelease,
+    this.publishedAt,
+    required this.url,
+    required this.isLatest,
+  });
+
+  factory GitHubRelease.fromJson(Map<String, dynamic> json) {
+    return GitHubRelease(
+      id: (json['id'] as num).toInt(),
+      tagName: (json['tag_name'] ?? json['tagName']) as String,
+      name: json['name'] as String,
+      body: json['body'] as String?,
+      draft: (json['draft'] ?? false) as bool,
+      prerelease: (json['prerelease'] ?? false) as bool,
+      publishedAt: (json['published_at'] ?? json['publishedAt']) as String?,
+      url: json['url'] as String,
+      isLatest: (json['is_latest'] ?? json['isLatest'] ?? false) as bool,
+    );
+  }
+
+  String get displayDate {
+    if (publishedAt == null) return '';
+    try {
+      final dt = DateTime.parse(publishedAt!).toLocal();
+      return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return publishedAt!;
+    }
+  }
 }
 
 

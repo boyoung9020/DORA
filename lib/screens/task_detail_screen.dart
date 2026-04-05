@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -5538,7 +5538,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 onAssign: (name) =>
                     assignSite(name, () => Navigator.pop(dialogContext)),
                 onDelete: (site) async {
-                  await _projectSiteService.deleteSite(siteId: site.id);
+                  await _projectSiteService.deleteSite(
+                      siteId: site.id, projectId: projectId);
                   if ((_siteName ?? '').trim() == site.name.trim()) {
                     // 현재 태스크에 할당된 사이트가 삭제되면 즉시 해제
                     await assignSite('', () {});

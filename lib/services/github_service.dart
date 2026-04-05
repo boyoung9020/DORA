@@ -47,6 +47,14 @@ class GitHubService {
     }
   }
 
+  /// GitHub 원격 저장소 요약 (설명·스타·기본 브랜치 등)
+  Future<GitHubRepoRemoteDetails> getRepoDetails(String projectId) async {
+    final response =
+        await ApiClient.get('/api/github/$projectId/repo-details');
+    final data = ApiClient.handleResponse(response);
+    return GitHubRepoRemoteDetails.fromJson(data);
+  }
+
   /// 커밋 목록 조회
   Future<List<GitHubCommit>> getCommits(
     String projectId, {
@@ -97,6 +105,17 @@ class GitHubService {
     }
   }
 
+  /// Releases 목록 조회 (published_at 기준 최신순)
+  Future<List<GitHubRelease>> getReleases(String projectId) async {
+    try {
+      final response = await ApiClient.get('/api/github/$projectId/releases');
+      final data = ApiClient.handleListResponse(response);
+      return data.map((json) => GitHubRelease.fromJson(json as Map<String, dynamic>)).toList();
+    } catch (e) {
+      throw Exception('릴리즈 목록 조회 실패: $e');
+    }
+  }
+
   /// 태그 목록 조회
   Future<List<GitHubTag>> getTags(String projectId) async {
     try {
@@ -105,6 +124,36 @@ class GitHubService {
       return data.map((json) => GitHubTag.fromJson(json as Map<String, dynamic>)).toList();
     } catch (e) {
       throw Exception('태그 목록 조회 실패: $e');
+    }
+  }
+
+  /// 경량 태그 생성 (지정 커밋 SHA)
+  Future<GitHubTag> createTag(
+    String projectId, {
+    required String tagName,
+    required String commitSha,
+  }) async {
+    final response = await ApiClient.post(
+      '/api/github/$projectId/tags',
+      body: {
+        'tag_name': tagName,
+        'commit_sha': commitSha,
+      },
+    );
+    final data = ApiClient.handleResponse(response);
+    return GitHubTag.fromJson(data);
+  }
+
+  /// 저장소 언어 비율 (기술 스택)
+  Future<List<GitHubLanguage>> getLanguages(String projectId) async {
+    try {
+      final response = await ApiClient.get('/api/github/$projectId/languages');
+      final data = ApiClient.handleListResponse(response);
+      return data
+          .map((json) => GitHubLanguage.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      throw Exception('언어 정보 조회 실패: $e');
     }
   }
 

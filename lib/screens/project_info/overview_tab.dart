@@ -14,6 +14,7 @@ class OverviewTab extends StatelessWidget {
   final List<Task> allTasks;
   final List<User> teamMembers;
   final bool isPM;
+  final VoidCallback? onOpenGitHubTab;
 
   const OverviewTab({
     super.key,
@@ -21,6 +22,7 @@ class OverviewTab extends StatelessWidget {
     required this.allTasks,
     required this.teamMembers,
     required this.isPM,
+    this.onOpenGitHubTab,
   });
 
   @override
@@ -63,7 +65,8 @@ class OverviewTab extends StatelessWidget {
                 ProgressCard(percent: progressPercent),
                 ProductivityCard(
                     completedTasks: doneTasks,
-                    inProgressTasks: inProgressTasks),
+                    inProgressTasks: inProgressTasks,
+                    allTasks: allTasks),
                 ActiveTeamCard(activeMembers: activeMembers),
                 DDayCard(
                     createdAt: project.createdAt,
@@ -82,7 +85,11 @@ class OverviewTab extends StatelessWidget {
               allTasks: allTasks,
               teamMembers: teamMembers,
             );
-            final gitHub = GitHubCard(projectId: project.id, isPM: isPM);
+            final gitHub = GitHubCard(
+              projectId: project.id,
+              isPM: isPM,
+              onOpenFullGitHubTab: onOpenGitHubTab,
+            );
 
             if (isWide) {
               return Row(
@@ -100,7 +107,6 @@ class OverviewTab extends StatelessWidget {
               gitHub,
             ]);
           }),
-          const SizedBox(height: 16),
         ],
       ),
     );

@@ -140,6 +140,95 @@ class GitGraphLayout {
 
     return GitGraphLayout(nodes: nodeList, maxLane: maxLane);
   }
+
+  /// 카드 미리보기용: 항상 같은 열에 점을 찍고, 인접 행끼리만 세로로 연결.
+  /// (부모 SHA가 잘린 목록에서도 줄·노드가 행과 정확히 맞음)
+  static GitGraphLayout computeSimpleSpine(int rowCount) {
+    if (rowCount <= 0) {
+      return GitGraphLayout(nodes: [], maxLane: 0);
+    }
+    final nodes = <GitGraphNode>[];
+    for (int row = 0; row < rowCount; row++) {
+      final edges = <GitGraphEdge>[];
+      if (row < rowCount - 1) {
+        edges.add(GitGraphEdge(
+          fromLane: 0,
+          toLane: 0,
+          toRow: row + 1,
+          color: colorForLane(0),
+        ));
+      }
+      nodes.add(GitGraphNode(lane: 0, edges: edges));
+    }
+    return GitGraphLayout(nodes: nodes, maxLane: 0);
+  }
+}
+
+/// 커밋 한 줄(행)에 대응 — 텍스트와 같은 [Row] 안에 두어 세로 정렬을 맞춤
+class GitGraphRowPainter extends CustomPainter {
+  final double laneWidth;
+  final double nodeRadius;
+  final bool isMerge;
+  final Color branchColor;
+
+  GitGraphRowPainter({
+    required this.laneWidth,
+    this.nodeRadius = 4,
+    this.isMerge = false,
+    required this.branchColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = laneWidth / 2;
+    final cy = size.height / 2;
+    final linePaint = Paint()
+      ..color = branchColor.withValues(alpha: 0.7)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    canvas.drawLine(Offset(cx, 0), Offset(cx, size.height), linePaint);
+
+    canvas.drawCircle(
+      Offset(cx, cy),
+      nodeRadius + 2,
+      Paint()..color = Colors.white,
+    );
+
+    if (isMerge) {
+      canvas.drawCircle(
+        Offset(cx, cy),
+        nodeRadius,
+        Paint()..color = branchColor ..style = PaintingStyle.fill,
+      );
+      canvas.drawCircle(
+        Offset(cx, cy),
+        nodeRadius - 1.5,
+        Paint()..color = Colors.white,
+      );
+      canvas.drawCircle(
+        Offset(cx, cy),
+        nodeRadius - 1.5,
+        Paint()
+          ..color = branchColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5,
+      );
+    } else {
+      canvas.drawCircle(
+        Offset(cx, cy),
+        nodeRadius,
+        Paint()..color = branchColor,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant GitGraphRowPainter old) =>
+      old.laneWidth != laneWidth ||
+      old.nodeRadius != nodeRadius ||
+      old.isMerge != isMerge ||
+      old.branchColor != branchColor;
 }
 
 /// 그래프 선을 그리는 CustomPainter
@@ -198,7 +287,9 @@ class GitGraphPainter extends CustomPainter {
         final fromX = _laneX(edge.fromLane);
         final fromY = _rowY(row);
         final toX = _laneX(edge.toLane);
-        final toRow = edge.toRow.clamp(startRow, end - 1);
+        var toRow = edge.toRow;
+        if (toRow < startRow) toRow = startRow;
+        if (toRow >= end) toRow = end - 1;
         final toY = _rowY(toRow);
 
         if (edge.fromLane == edge.toLane) {
