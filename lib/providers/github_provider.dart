@@ -12,6 +12,7 @@ class GitHubProvider extends ChangeNotifier {
   List<GitHubTag> _tags = [];
   List<GitHubRelease> _releases = [];
   List<GitHubPullRequest> _pullRequests = [];
+  List<GitHubIssue> _issues = [];
   List<GitHubLanguage> _languages = [];
   bool _languagesLoading = false;
   GitHubRepoRemoteDetails? _repoRemoteDetails;
@@ -24,8 +25,15 @@ class GitHubProvider extends ChangeNotifier {
   int _commitsPage = 1;
   int _prPage = 1;
   String _prState = 'open';
+  int _issuePage = 1;
+  String _issueState = 'open';
   bool _hasMoreCommits = true;
   bool _hasMorePRs = true;
+  bool _hasMoreIssues = true;
+  List<GitHubCommit> _graphCommits = [];
+  bool _hasMoreGraph = true;
+  int _graphPage = 1;
+  bool _graphLoading = false;
   bool _repoInfoLoaded = false;
   bool _hasUserToken = false;
   bool _userTokenStatusLoaded = false;
@@ -44,14 +52,20 @@ class GitHubProvider extends ChangeNotifier {
   List<GitHubTag> get tags => _tags;
   List<GitHubRelease> get releases => _releases;
   List<GitHubPullRequest> get pullRequests => _pullRequests;
+  List<GitHubIssue> get issues => _issues;
   List<GitHubLanguage> get languages => _languages;
   bool get languagesLoading => _languagesLoading;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   String? get selectedBranch => _selectedBranch;
   String get prState => _prState;
+  String get issueState => _issueState;
   bool get hasMoreCommits => _hasMoreCommits;
   bool get hasMorePRs => _hasMorePRs;
+  bool get hasMoreIssues => _hasMoreIssues;
+  List<GitHubCommit> get graphCommits => _graphCommits;
+  bool get hasMoreGraph => _hasMoreGraph;
+  bool get graphLoading => _graphLoading;
   GitHubRepoRemoteDetails? get repoRemoteDetails => _repoRemoteDetails;
   Map<String, int> get commitActivityByDay =>
       Map.unmodifiable(_commitActivityByDay);
@@ -64,14 +78,22 @@ class GitHubProvider extends ChangeNotifier {
     _tags = [];
     _releases = [];
     _pullRequests = [];
+    _issues = [];
     _languages = [];
     _languagesLoading = false;
     _selectedBranch = null;
     _commitsPage = 1;
     _prPage = 1;
     _prState = 'open';
+    _issuePage = 1;
+    _issueState = 'open';
     _hasMoreCommits = true;
     _hasMorePRs = true;
+    _hasMoreIssues = true;
+    _graphCommits = [];
+    _hasMoreGraph = true;
+    _graphPage = 1;
+    _graphLoading = false;
     _errorMessage = null;
     _repoInfoLoaded = false;
     _repoInfoProjectId = null;
@@ -337,6 +359,43 @@ class GitHubProvider extends ChangeNotifier {
     }
   }
 
+  /// 전체 브랜치 커밋 그래프 로드 (초기화)
+  Future<void> loadGraph(String projectId) async {
+    _graphLoading = true;
+    _graphPage = 1;
+    _hasMoreGraph = true;
+    _graphCommits = [];
+    notifyListeners();
+    try {
+      final result = await _service.getGraph(projectId, page: 1);
+      _graphCommits = result.commits;
+      _hasMoreGraph = result.hasMore;
+    } catch (e) {
+      _errorMessage = '그래프 조회 실패: $e';
+    } finally {
+      _graphLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 전체 브랜치 커밋 그래프 추가 로드
+  Future<void> loadMoreGraph(String projectId) async {
+    if (!_hasMoreGraph || _graphLoading) return;
+    _graphPage++;
+    _graphLoading = true;
+    notifyListeners();
+    try {
+      final result = await _service.getGraph(projectId, page: _graphPage);
+      _graphCommits = [..._graphCommits, ...result.commits];
+      _hasMoreGraph = result.hasMore;
+    } catch (e) {
+      _graphPage--;
+    } finally {
+      _graphLoading = false;
+      notifyListeners();
+    }
+  }
+
   /// PR 목록 로드 (초기화)
   Future<void> loadPullRequests(
     String projectId, {
@@ -438,6 +497,49 @@ class GitHubProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _prPage--;
+    }
+  }
+
+  /// Issue 목록 로드
+  Future<void> loadIssues(
+    String projectId, {
+    String? state,
+    bool showGlobalLoading = false,
+  }) async {
+    if (showGlobalLoading) {
+      _isLoading = true;
+      notifyListeners();
+    }
+    _issuePage = 1;
+    _hasMoreIssues = true;
+    if (state != null) _issueState = state;
+    try {
+      final result = await _service.getIssues(projectId, state: _issueState);
+      _issues = result;
+      if (result.length < 30) _hasMoreIssues = false;
+    } catch (e) {
+      _errorMessage = 'Issue 목록 조회 실패: $e';
+    } finally {
+      if (showGlobalLoading) _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Issue 더 불러오기
+  Future<void> loadMoreIssues(String projectId) async {
+    if (!_hasMoreIssues) return;
+    _issuePage++;
+    try {
+      final result = await _service.getIssues(
+        projectId,
+        state: _issueState,
+        page: _issuePage,
+      );
+      _issues = [..._issues, ...result];
+      if (result.length < 30) _hasMoreIssues = false;
+      notifyListeners();
+    } catch (e) {
+      _issuePage--;
     }
   }
 

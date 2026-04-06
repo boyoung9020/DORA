@@ -31,11 +31,17 @@ class CommentService {
     required String username,
     required String content,
     List<String> imageUrls = const [],
+    List<String> fileUrls = const [],
   }) async {
     try {
       final response = await ApiClient.post(
         '/api/comments/',
-        body: {'task_id': taskId, 'content': content, 'image_urls': imageUrls},
+        body: {
+          'task_id': taskId,
+          'content': content,
+          'image_urls': imageUrls,
+          'file_urls': fileUrls,
+        },
       );
 
       final commentData = ApiClient.handleResponse(response);
@@ -50,7 +56,11 @@ class CommentService {
     try {
       final response = await ApiClient.patch(
         '/api/comments/${comment.id}',
-        body: {'content': comment.content, 'image_urls': comment.imageUrls},
+        body: {
+          'content': comment.content,
+          'image_urls': comment.imageUrls,
+          'file_urls': comment.fileUrls,
+        },
       );
 
       ApiClient.handleResponse(response);

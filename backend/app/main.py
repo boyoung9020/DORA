@@ -17,6 +17,7 @@ from app.routers import (
     user_github_tokens,
     patches,
     project_sites,
+    request_issue,
     site_details,
     notifications,
     projects,
@@ -364,6 +365,7 @@ app.include_router(user_github_tokens.router, prefix="/api/github-token", tags=[
 app.include_router(patches.router, prefix="/api/patches", tags=["Patches"])
 app.include_router(project_sites.router, prefix="/api/project-sites", tags=["ProjectSites"])
 app.include_router(site_details.router, prefix="/api/site-details", tags=["SiteDetails"])
+app.include_router(request_issue.router, prefix="/api/ri", tags=["RequestIssue"])
 app.include_router(websocket.router, prefix="/api", tags=["WebSocket"])
 
 
@@ -441,6 +443,40 @@ def ensure_patch_git_tag_column() -> None:
 
 
 ensure_patch_git_tag_column()
+
+
+def ensure_comment_file_urls_column() -> None:
+    """Add comments.file_urls column if missing."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("""
+                ALTER TABLE comments
+                ADD COLUMN IF NOT EXISTS file_urls VARCHAR[] DEFAULT '{}' NOT NULL;
+            """))
+            conn.commit()
+            print("[main] ensured comments.file_urls column")
+    except Exception as e:
+        print(f"[main] failed to ensure comments.file_urls: {e}")
+
+
+ensure_comment_file_urls_column()
+
+
+def ensure_favorite_project_ids_column() -> None:
+    """Add users.favorite_project_ids column if missing."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("""
+                ALTER TABLE users
+                ADD COLUMN IF NOT EXISTS favorite_project_ids VARCHAR[] DEFAULT '{}' NOT NULL;
+            """))
+            conn.commit()
+            print("[main] ensured users.favorite_project_ids column")
+    except Exception as e:
+        print(f"[main] failed to ensure users.favorite_project_ids: {e}")
+
+
+ensure_favorite_project_ids_column()
 
 
 def migrate_project_sites_to_site_details() -> None:

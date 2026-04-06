@@ -16,11 +16,9 @@ String _tableDate(String iso) {
   }
 }
 
-String? _branchTipName(GitHubCommit c, List<GitHubBranch> branches) {
-  for (final b in branches) {
-    if (b.sha == c.sha) return b.name;
-  }
-  return null;
+List<String> _allBranchNames(GitHubCommit c, List<GitHubBranch> branches) {
+  if (c.branchNames.isNotEmpty) return c.branchNames;
+  return branches.where((b) => b.sha == c.sha).map((b) => b.name).toList();
 }
 
 /// Git Graph 스타일: 그래프 | 설명(브랜치 뱃지) | 날짜 | 작성자 | 커밋
@@ -37,7 +35,15 @@ class GitHubCommitsGraphTable extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Consumer<GitHubProvider>(
       builder: (context, gh, _) {
-        final commits = gh.commits;
+        // 전체 브랜치 뷰: graphCommits, 특정 브랜치: commits
+        final useGraph = gh.selectedBranch == null && gh.graphCommits.isNotEmpty;
+        final commits = useGraph ? gh.graphCommits : gh.commits;
+        final hasMore = useGraph ? gh.hasMoreGraph : gh.hasMoreCommits;
+        final isLoading = useGraph ? gh.graphLoading : gh.isLoading;
+
+        if (commits.isEmpty && isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
         if (commits.isEmpty) {
           return Center(
             child: Text(
@@ -58,14 +64,16 @@ class GitHubCommitsGraphTable extends StatelessWidget {
               _headerRow(graphW, cs),
               Expanded(
                 child: ListView.builder(
-                  itemCount: commits.length + (gh.hasMoreCommits ? 1 : 0),
+                  itemCount: commits.length + (hasMore ? 1 : 0),
                   itemBuilder: (ctx, i) {
                     if (i == commits.length) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         child: Center(
                           child: TextButton.icon(
-                            onPressed: () => gh.loadMoreCommits(projectId),
+                            onPressed: () => useGraph
+                                ? gh.loadMoreGraph(projectId)
+                                : gh.loadMoreCommits(projectId),
                             icon: Icon(Icons.expand_more,
                                 size: 18, color: cs.primary),
                             label: Text(
@@ -154,7 +162,8 @@ class GitHubCommitsGraphTable extends StatelessWidget {
     final node = layout.nodes[row];
     final isMerge = commit.parents.length > 1;
     final laneColor = GitGraphLayout.colorForLane(node.lane);
-    final branchName = _branchTipName(commit, gh.branches);
+    final branchNames = _allBranchNames(commit, gh.branches);
+    final branchName = branchNames.isNotEmpty ? branchNames.first : null;
 
     return Material(
       color: Colors.transparent,
@@ -225,6 +234,40 @@ class GitHubCommitsGraphTable extends StatelessWidget {
                             ),
                           ),
                         ),
+                      // 브랜치 뱃지 (두 번째 이후 브랜치)
+                      ...branchNames.skip(1).map((name) => Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: cs.primary.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: cs.primary.withValues(alpha: 0.3)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.account_tree, size: 11, color: laneColor),
+                            const SizedBox(width: 4),
+                            Text(name, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: laneColor)),
+                          ]),
+                        ),
+                      )),
+                      // 태그 뱃지
+                      ...commit.tagNames.map((tag) => Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD4A843).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFD4A843).withValues(alpha: 0.5)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.local_offer, size: 11, color: Color(0xFFD4A843)),
+                            const SizedBox(width: 4),
+                            Text(tag, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFD4A843))),
+                          ]),
+                        ),
+                      )),
                       if (isMerge && branchName == null)
                         Padding(
                           padding: const EdgeInsets.only(right: 6),

@@ -156,6 +156,24 @@ class WorkspaceProvider extends ChangeNotifier {
     }
   }
 
+  /// 워크스페이스 삭제 (owner만)
+  Future<bool> deleteWorkspace() async {
+    if (_currentWorkspace == null) return false;
+    try {
+      await _service.deleteWorkspace(_currentWorkspace!.id);
+      _workspaces.removeWhere((w) => w.id == _currentWorkspace!.id);
+      _currentWorkspace = _workspaces.isNotEmpty ? _workspaces.first : null;
+      _currentMembers = [];
+      if (_currentWorkspace != null) await _loadCurrentMembers();
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = '삭제 중 오류: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// 워크스페이스 탈퇴
   Future<bool> leaveWorkspace() async {
     if (_currentWorkspace == null) return false;

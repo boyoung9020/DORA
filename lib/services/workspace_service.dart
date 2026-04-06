@@ -47,6 +47,12 @@ class WorkspaceService {
     ApiClient.handleResponse(response);
   }
 
+  /// 워크스페이스 삭제 (owner만)
+  Future<void> deleteWorkspace(String workspaceId) async {
+    final response = await ApiClient.delete('/api/workspaces/$workspaceId');
+    ApiClient.handleResponse(response);
+  }
+
   /// ?뚰겕?ㅽ럹?댁뒪 ?덊눜
   Future<void> leaveWorkspace(String workspaceId) async {
     final response = await ApiClient.delete('/api/workspaces/$workspaceId/leave');

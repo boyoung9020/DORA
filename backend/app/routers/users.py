@@ -54,6 +54,27 @@ async def get_approved_users(db: Session = Depends(get_db)):
     return users
 
 
+@router.get("/me/favorites", response_model=List[str])
+async def get_favorite_projects(
+    current_user: User = Depends(get_current_user),
+):
+    """현재 사용자의 즐겨찾기 프로젝트 ID 목록"""
+    return current_user.favorite_project_ids or []
+
+
+@router.put("/me/favorites", response_model=List[str])
+async def set_favorite_projects(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """현재 사용자의 즐겨찾기 프로젝트 ID 목록 저장"""
+    current_user.favorite_project_ids = data.get("project_ids", [])
+    db.commit()
+    db.refresh(current_user)
+    return current_user.favorite_project_ids or []
+
+
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: str,

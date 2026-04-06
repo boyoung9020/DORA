@@ -16,6 +16,7 @@ class Comment(Base):
     username = Column(String, nullable=False)
     content = Column(String, nullable=False)
     image_urls = Column(ARRAY(String), default=[], nullable=False)  # 이미지 URL 배열
+    file_urls = Column(ARRAY(String), server_default='{}', nullable=False)   # 파일 URL 배열
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=True)
     

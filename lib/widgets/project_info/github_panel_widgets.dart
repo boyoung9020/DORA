@@ -58,11 +58,15 @@ class GitHubBranchSelectorDropdown extends StatelessWidget {
             ],
             onChanged: (v) {
               gh.selectBranch(v);
-              gh.loadCommits(
-                projectId,
-                branch: v,
-                showGlobalLoading: !quietRefresh,
-              );
+              if (v == null) {
+                gh.loadGraph(projectId);
+              } else {
+                gh.loadCommits(
+                  projectId,
+                  branch: v,
+                  showGlobalLoading: !quietRefresh,
+                );
+              }
             },
           ),
         );
@@ -847,6 +851,178 @@ class _CreateGitTagDialogState extends State<CreateGitTagDialog> {
               : const Text('생성'),
         ),
       ],
+    );
+  }
+}
+
+/// Issue 상태 필터 (open / closed / all)
+class GitHubIssueFilterSegmented extends StatelessWidget {
+  final String projectId;
+
+  const GitHubIssueFilterSegmented({
+    super.key,
+    required this.projectId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<GitHubProvider>(
+      builder: (context, gh, _) {
+        return SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'open', label: Text('Open')),
+            ButtonSegment(value: 'closed', label: Text('Closed')),
+            ButtonSegment(value: 'all', label: Text('All')),
+          ],
+          selected: {gh.issueState},
+          onSelectionChanged: (v) {
+            gh.loadIssues(projectId, state: v.first);
+          },
+          style: ButtonStyle(
+            visualDensity: VisualDensity.compact,
+            textStyle: WidgetStateProperty.all(const TextStyle(fontSize: 12)),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Issue 목록 위젯
+class GitHubIssuesList extends StatelessWidget {
+  final String projectId;
+  final EdgeInsets? padding;
+
+  const GitHubIssuesList({
+    super.key,
+    required this.projectId,
+    this.padding,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Consumer<GitHubProvider>(
+      builder: (context, gh, _) {
+        if (gh.issues.isEmpty) {
+          return Center(
+            child: Text(
+              'Issue가 없습니다',
+              style: TextStyle(
+                color: colorScheme.onSurface.withValues(alpha: 0.5),
+                fontSize: 13,
+              ),
+            ),
+          );
+        }
+        return ListView.builder(
+          padding: padding,
+          itemCount: gh.issues.length + (gh.hasMoreIssues ? 1 : 0),
+          itemBuilder: (ctx, i) {
+            if (i == gh.issues.length) {
+              return Center(
+                child: TextButton(
+                  onPressed: () => gh.loadMoreIssues(projectId),
+                  child: const Text('더 불러오기'),
+                ),
+              );
+            }
+            final issue = gh.issues[i];
+            final stateColor =
+                issue.state == 'open' ? Colors.green : Colors.purple.shade400;
+            return ListTile(
+              dense: true,
+              leading: issue.authorAvatarUrl != null
+                  ? CircleAvatar(
+                      radius: 16,
+                      backgroundImage: NetworkImage(issue.authorAvatarUrl!))
+                  : CircleAvatar(
+                      radius: 16,
+                      child: Text(
+                          issue.author.isNotEmpty ? issue.author[0] : '?')),
+              title: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      issue.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: stateColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      issue.state,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: stateColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              subtitle: Row(
+                children: [
+                  Text(
+                    '#${issue.number} · ${issue.author}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  if (issue.comments > 0) ...[
+                    const SizedBox(width: 6),
+                    Icon(Icons.chat_bubble_outline,
+                        size: 11,
+                        color: colorScheme.onSurface.withValues(alpha: 0.4)),
+                    const SizedBox(width: 2),
+                    Text(
+                      '${issue.comments}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colorScheme.onSurface.withValues(alpha: 0.4),
+                      ),
+                    ),
+                  ],
+                  if (issue.labels.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    ...issue.labels.take(2).map((label) => Container(
+                          margin: const EdgeInsets.only(right: 3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        )),
+                  ],
+                ],
+              ),
+              onTap: () async {
+                final uri = Uri.parse(issue.url);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+            );
+          },
+        );
+      },
     );
   }
 }

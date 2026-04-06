@@ -1,7 +1,7 @@
 """
 사용자 모델 (SQLAlchemy)
 """
-from sqlalchemy import Column, String, Boolean, DateTime
+from sqlalchemy import Column, String, Boolean, DateTime, ARRAY
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -18,6 +18,7 @@ class User(Base):
     is_approved = Column(Boolean, default=False, nullable=False)
     is_pm = Column(Boolean, default=False, nullable=False)
     profile_image_url = Column(String, nullable=True)
+    favorite_project_ids = Column(ARRAY(String), nullable=False, server_default='{}')
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
     def __repr__(self):

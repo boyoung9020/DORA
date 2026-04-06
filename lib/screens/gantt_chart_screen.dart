@@ -767,6 +767,74 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            // 담당자 아바타 (하위 태스크만)
+            if (!isParent && task.assignedMemberIds.isNotEmpty) ...[
+              const SizedBox(width: 6),
+              FutureBuilder<List<User>>(
+                future: _loadAssignedMembers(task.assignedMemberIds),
+                builder: (context, snapshot) {
+                  final members = snapshot.data ?? [];
+                  if (members.isEmpty) return const SizedBox.shrink();
+                  const avatarSize = 18.0;
+                  const overlap = 10.0;
+                  final shown = members.take(3).toList();
+                  final extra = members.length - shown.length;
+                  return SizedBox(
+                    width: avatarSize + (shown.length - 1) * overlap + (extra > 0 ? overlap : 0),
+                    height: avatarSize,
+                    child: Stack(
+                      children: [
+                        ...shown.asMap().entries.map((e) {
+                          final idx = e.key;
+                          final member = e.value;
+                          final color = AvatarColor.getColorForUser(member.id);
+                          return Positioned(
+                            left: idx * overlap,
+                            child: Tooltip(
+                              message: member.username,
+                              waitDuration: const Duration(milliseconds: 300),
+                              child: CircleAvatar(
+                                radius: avatarSize / 2,
+                                backgroundColor: color,
+                                child: Text(
+                                  AvatarColor.getInitial(member.username),
+                                  style: const TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                        if (extra > 0)
+                          Positioned(
+                            left: shown.length * overlap,
+                            child: Tooltip(
+                              message: members.skip(3).map((m) => m.username).join(', '),
+                              waitDuration: const Duration(milliseconds: 300),
+                              child: CircleAvatar(
+                                radius: avatarSize / 2,
+                                backgroundColor: colorScheme.onSurface.withValues(alpha: 0.2),
+                                child: Text(
+                                  '+$extra',
+                                  style: TextStyle(
+                                    fontSize: 7,
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+            const SizedBox(width: 6),
             // 상태 뱃지
             _buildStatusBadge(task.status, colorScheme),
             if (isParent && row.childCount > 0) ...[

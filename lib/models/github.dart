@@ -81,6 +81,8 @@ class GitHubCommit {
   final String date;
   final String url;
   final List<String> parents;
+  final List<String> branchNames;
+  final List<String> tagNames;
 
   GitHubCommit({
     required this.sha,
@@ -91,6 +93,8 @@ class GitHubCommit {
     required this.date,
     required this.url,
     this.parents = const [],
+    this.branchNames = const [],
+    this.tagNames = const [],
   });
 
   factory GitHubCommit.fromJson(Map<String, dynamic> json) {
@@ -103,6 +107,14 @@ class GitHubCommit {
       date: json['date'] as String,
       url: json['url'] as String,
       parents: (json['parents'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
+      branchNames: (json['branch_names'] ?? json['branchNames'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
+      tagNames: (json['tag_names'] ?? json['tagNames'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],
@@ -256,6 +268,47 @@ class GitHubPullRequest {
       url: json['url'] as String,
       headBranch: (json['head_branch'] ?? json['headBranch']) as String,
       baseBranch: (json['base_branch'] ?? json['baseBranch']) as String,
+    );
+  }
+}
+
+class GitHubIssue {
+  final int number;
+  final String title;
+  final String state;
+  final String author;
+  final String? authorAvatarUrl;
+  final String createdAt;
+  final String updatedAt;
+  final String url;
+  final List<String> labels;
+  final int comments;
+
+  GitHubIssue({
+    required this.number,
+    required this.title,
+    required this.state,
+    required this.author,
+    this.authorAvatarUrl,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.url,
+    this.labels = const [],
+    this.comments = 0,
+  });
+
+  factory GitHubIssue.fromJson(Map<String, dynamic> json) {
+    return GitHubIssue(
+      number: json['number'] as int,
+      title: json['title'] as String,
+      state: json['state'] as String,
+      author: json['author'] as String,
+      authorAvatarUrl: (json['author_avatar_url'] ?? json['authorAvatarUrl']) as String?,
+      createdAt: (json['created_at'] ?? json['createdAt']) as String,
+      updatedAt: (json['updated_at'] ?? json['updatedAt']) as String,
+      url: json['url'] as String,
+      labels: (json['labels'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      comments: (json['comments'] as int?) ?? 0,
     );
   }
 }

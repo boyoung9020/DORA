@@ -55,6 +55,23 @@ class UploadService {
     return urls;
   }
 
+  /// XFile로 일반 파일 업로드 → URL만 반환
+  Future<String> uploadFileFromXFile(XFile xfile) async {
+    final bytes = await xfile.readAsBytes();
+    final result = await uploadFileBytes(bytes, xfile.name);
+    return result['url'] as String;
+  }
+
+  /// XFile 리스트 일괄 파일 업로드 → URL 목록
+  Future<List<String>> uploadFilesFromXFiles(List<XFile> xfiles) async {
+    final urls = <String>[];
+    for (final xfile in xfiles) {
+      final url = await uploadFileFromXFile(xfile);
+      urls.add(url);
+    }
+    return urls;
+  }
+
   /// 일반 파일 업로드 (바이트 기반)
   Future<Map<String, dynamic>> uploadFileBytes(Uint8List bytes, String fileName) async {
     try {

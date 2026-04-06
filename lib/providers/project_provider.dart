@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/project.dart';
 import '../services/project_service.dart';
 
@@ -18,8 +17,6 @@ class ProjectProvider extends ChangeNotifier {
   bool _isPM = false; // PM 여부
   Set<String> _favoriteIds = {}; // 즐겨찾기 프로젝트 ID
 
-  static const _favKey = 'project_favorites';
-
   List<Project> get projects => _projects;
   Project? get currentProject => _currentProject;
   bool get isAllProjectsMode => _isAllProjectsMode;
@@ -30,7 +27,7 @@ class ProjectProvider extends ChangeNotifier {
   /// 즐겨찾기 여부
   bool isFavorite(String projectId) => _favoriteIds.contains(projectId);
 
-  /// 즐겨찾기 토글 (SharedPreferences에 영구 저장)
+  /// 즐겨찾기 토글 (서버에 저장)
   Future<void> toggleFavorite(String projectId) async {
     if (_favoriteIds.contains(projectId)) {
       _favoriteIds.remove(projectId);
@@ -38,15 +35,12 @@ class ProjectProvider extends ChangeNotifier {
       _favoriteIds.add(projectId);
     }
     notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_favKey, _favoriteIds.toList());
+    await _projectService.saveFavorites(_favoriteIds);
   }
 
-  /// 즐겨찾기 목록 로드 (앱 시작 / 로그인 시 1회)
+  /// 즐겨찾기 목록 서버에서 로드
   Future<void> loadFavorites() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getStringList(_favKey) ?? [];
-    _favoriteIds = saved.toSet();
+    _favoriteIds = await _projectService.fetchFavorites();
     notifyListeners();
   }
 
@@ -57,11 +51,8 @@ class ProjectProvider extends ChangeNotifier {
     return [...favs, ...rest];
   }
 
-  ProjectProvider() {
-    loadFavorites();
-    // 사용자 정보가 설정된 후에 loadProjects가 호출되므로 여기서는 호출하지 않음
-    // MainLayout의 initState에서 _updateProjectProviderUserInfo()를 통해 호출됨
-  }
+  ProjectProvider();
+  // loadFavorites()는 loadProjects() 내에서 인증 후 자동 호출됨
 
   /// 전체 프로젝트 모드 선택
   void selectAllProjects() {
@@ -139,8 +130,14 @@ class ProjectProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _allProjects = await _projectService.getAllProjects(workspaceId: workspaceId);
-      
+      // 즐겨찾기와 프로젝트 목록을 병렬로 가져옴
+      final results = await Future.wait([
+        _projectService.getAllProjects(workspaceId: workspaceId),
+        _projectService.fetchFavorites(),
+      ]);
+      _allProjects = results[0] as List<Project>;
+      _favoriteIds = results[1] as Set<String>;
+
       // 사용자 정보 업데이트
       if (userId != null) {
         _currentUserId = userId;

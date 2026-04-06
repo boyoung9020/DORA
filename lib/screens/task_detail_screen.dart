@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -267,7 +268,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   List<XFile> _selectedCommentImages =
       []; // ?蹂????醫뤾문?????筌왖 (???怨쀫뮞?????⑤벏??
   List<XFile> _selectedDetailImages = []; // ?怨멸쉭 ??곸뒠???醫뤾문?????筌왖
+  List<XFile> _selectedCommentFiles = []; // 댓글 첨부 파일
   List<String> _existingDetailImageUrls = []; // 편집 중 기존 저장 이미지 URL
+  List<String> _editingCommentImageUrls = []; // 댓글 수정 중 기존 이미지 URLs
   List<String> _uploadedCommentImageUrls = []; // ??낆쨮??뺣쭆 ?蹂? ???筌왖 URL
   List<String> _uploadedDetailImageUrls = []; // ??낆쨮??뺣쭆 ?怨멸쉭 ??곸뒠 ???筌왖 URL
   List<User>? _assignedMembers; // ?醫딅뼣??????筌?Ŋ??
@@ -781,16 +784,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return Builder(
       builder: (context) {
         int cbIdx = 0;
-        return Actions(
-          actions: {
-            CopySelectionTextIntent: CallbackAction<CopySelectionTextIntent>(
-              onInvoke: (_) {
-                Clipboard.setData(ClipboardData(text: comment.content));
-                return null;
-              },
-            ),
-          },
-          child: SelectionArea(
+        return SelectionArea(
             child: MarkdownBody(
               data: _addCheckboxStrikethrough(processed),
               selectable: false,
@@ -819,7 +813,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               },
               styleSheet: _buildMarkdownStyleSheet(colorScheme),
             ),
-          ),
         );
       },
     );
@@ -1002,7 +995,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       final List<XFile> images = await _imagePicker.pickMultiImage();
       if (images.isNotEmpty) {
         setState(() {
-          _selectedCommentImages = List<XFile>.from(images);
+          _selectedCommentImages.addAll(images);
         });
       }
     } catch (e) {
@@ -1017,6 +1010,39 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
+  Future<void> _pickCommentFiles() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        withData: true, // 웹에서 bytes 필수
+      );
+      if (result == null || result.files.isEmpty) return;
+      final xfiles = <XFile>[];
+      for (final f in result.files) {
+        // bytes-first: 웹에서 f.path 참조 시 예외 발생할 수 있으며, bytes가 있으면 항상 유효함
+        if (f.bytes != null) {
+          xfiles.add(XFile.fromData(f.bytes!, name: f.name));
+        } else if (f.path != null && f.path!.isNotEmpty) {
+          xfiles.add(XFile(f.path!, name: f.name));
+        }
+      }
+      if (xfiles.isNotEmpty) {
+        setState(() {
+          _selectedCommentFiles.addAll(xfiles);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('파일 선택 중 오류가 발생했습니다: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   /// ???筌왖 ?醫뤾문 (?怨멸쉭 ??곸뒠??
   Future<void> _pickDetailImages() async {
     final hadFocus = _detailFocusNode.hasFocus;
@@ -1024,7 +1050,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       final List<XFile> images = await _imagePicker.pickMultiImage();
       if (images.isNotEmpty) {
         setState(() {
-          _selectedDetailImages = List<XFile>.from(images);
+          _selectedDetailImages.addAll(images);
         });
         // 이미지 선택 후 detail 필드 포커스 복구
         if (hadFocus) {
@@ -1048,7 +1074,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   /// ?蹂? ?곕떽?
   Future<void> _addComment() async {
     if (_commentController.text.trim().isEmpty &&
-        _selectedCommentImages.isEmpty)
+        _selectedCommentImages.isEmpty &&
+        _selectedCommentFiles.isEmpty)
       return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -1066,12 +1093,33 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         );
       }
 
+      // 파일 피커로 선택한 파일을 이미지(이미지업로드)vs일반파일로 분류
+      final commentFileImages = _selectedCommentFiles
+          .where((f) => _isSupportedImageFile(f.name))
+          .toList();
+      final commentFileOthers = _selectedCommentFiles
+          .where((f) => !_isSupportedImageFile(f.name))
+          .toList();
+
+      if (commentFileImages.isNotEmpty) {
+        final extraImageUrls = await _uploadService.uploadImagesFromXFiles(commentFileImages);
+        imageUrls.addAll(extraImageUrls);
+      }
+
+      List<String> fileUrls = [];
+      if (commentFileOthers.isNotEmpty) {
+        fileUrls = await _uploadService.uploadFilesFromXFiles(
+          commentFileOthers,
+        );
+      }
+
       final comment = await _commentService.createComment(
         taskId: widget.task.id,
         userId: user.id,
         username: user.username,
         content: _commentController.text.trim(),
         imageUrls: imageUrls,
+        fileUrls: fileUrls,
       );
 
       // Task???蹂? ID ?곕떽?
@@ -1101,6 +1149,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       // ??낆젾 ?袁⑤굡 ?λ뜃由??
       _commentController.clear();
       _selectedCommentImages.clear();
+      _selectedCommentFiles.clear();
       _uploadedCommentImageUrls.clear();
       _showMentionSuggestions = false;
       _filteredMentionUsers = [];
@@ -1140,6 +1189,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     setState(() {
       _editingCommentId = comment.id;
       _editCommentController.text = comment.content;
+      _editingCommentImageUrls = List<String>.from(comment.imageUrls);
     });
   }
 
@@ -1148,6 +1198,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     setState(() {
       _editingCommentId = null;
       _editCommentController.clear();
+      _editingCommentImageUrls = [];
     });
   }
 
@@ -1163,6 +1214,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         commentId,
         _editCommentController.text.trim(),
         clearEditingState: true,
+        imageUrls: _editingCommentImageUrls,
       );
     } catch (e) {
       if (mounted) {
@@ -1180,10 +1232,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     String commentId,
     String newContent, {
     bool clearEditingState = false,
+    List<String>? imageUrls,
   }) async {
     final comment = _comments.firstWhere((c) => c.id == commentId);
     final updatedComment = comment.copyWith(
       content: newContent,
+      imageUrls: imageUrls ?? comment.imageUrls,
       updatedAt: DateTime.now(),
     );
 
@@ -1197,6 +1251,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         if (clearEditingState) {
           _editingCommentId = null;
           _editCommentController.clear();
+          _editingCommentImageUrls = [];
         }
       });
     }
@@ -4024,23 +4079,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               Colors.white.withValues(alpha: 0.8),
               Colors.white.withValues(alpha: 0.7),
             ],
-            child: Actions(
-              actions: {
-                CopySelectionTextIntent:
-                    CallbackAction<CopySelectionTextIntent>(
-                      onInvoke: (_) {
-                        Clipboard.setData(ClipboardData(text: description));
-                        return null;
-                      },
-                    ),
-              },
-              child: SelectionArea(
-                child: MarkdownBody(
-                  data: _normalizeMarkdownNewlines(description),
-                  selectable: false,
-                  softLineBreak: true,
-                  styleSheet: _buildMarkdownStyleSheet(colorScheme),
-                ),
+            child: SelectionArea(
+              child: MarkdownBody(
+                data: _normalizeMarkdownNewlines(description),
+                selectable: false,
+                softLineBreak: true,
+                styleSheet: _buildMarkdownStyleSheet(colorScheme),
               ),
             ),
           ),
@@ -4176,23 +4220,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               Builder(
                                 builder: (context) {
                                   int cbIdx = 0;
-                                  return Actions(
-                                    actions: {
-                                      CopySelectionTextIntent:
-                                          CallbackAction<
-                                            CopySelectionTextIntent
-                                          >(
-                                            onInvoke: (_) {
-                                              Clipboard.setData(
-                                                ClipboardData(
-                                                  text: task.detail,
-                                                ),
-                                              );
-                                              return null;
-                                            },
-                                          ),
-                                    },
-                                    child: SelectionArea(
+                                  return SelectionArea(
                                       child: MarkdownBody(
                                         data: _addCheckboxStrikethrough(
                                           _normalizeMarkdownNewlines(
@@ -4238,7 +4266,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           colorScheme,
                                         ),
                                       ),
-                                    ),
                                   );
                                 },
                               )
@@ -4471,6 +4498,46 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 height: 1.5,
                               ),
                             ),
+                            if (_editingCommentImageUrls.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                height: 80,
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: _editingCommentImageUrls.length,
+                                  itemBuilder: (context, index) {
+                                    final url = _resolveImageUrl(_editingCommentImageUrls[index]);
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: Stack(
+                                        children: [
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(6),
+                                            child: Image.network(url, width: 80, height: 80, fit: BoxFit.cover),
+                                          ),
+                                          Positioned(
+                                            top: 2, right: 2,
+                                            child: GestureDetector(
+                                              onTap: () => setState(() {
+                                                _editingCommentImageUrls.removeAt(index);
+                                              }),
+                                              child: Container(
+                                                padding: const EdgeInsets.all(2),
+                                                decoration: const BoxDecoration(
+                                                  color: Colors.black54,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(Icons.close, size: 12, color: Colors.white),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 8),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
@@ -4552,6 +4619,52 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                     );
                                   }).toList();
                                 }(),
+                              ),
+                            ],
+                            // 첨부 파일 ���시
+                            if (comment.fileUrls.isNotEmpty) ...[
+                              if (comment.content.isNotEmpty || comment.imageUrls.isNotEmpty)
+                                const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                children: comment.fileUrls.map((url) {
+                                  final fileName = url.split('/').last.split('?').first;
+                                  return InkWell(
+                                    onTap: () async {
+                                      // 상대경로를 절대 URL로 변환
+                                      final resolvedUrl = url.startsWith('http')
+                                          ? url
+                                          : '${ApiClient.baseUrl}${url.startsWith('/') ? '' : '/'}$url';
+                                      final uri = Uri.parse(resolvedUrl);
+                                      if (await canLaunchUrl(uri)) {
+                                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                      }
+                                    },
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: colorScheme.outline.withValues(alpha: 0.3),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.insert_drive_file, size: 16, color: colorScheme.primary),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            fileName,
+                                            style: TextStyle(fontSize: 13, color: colorScheme.primary),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
                               ),
                             ],
                             const SizedBox(height: 8),
@@ -4744,27 +4857,26 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 },
                 onDragDone: (details) {
                   setState(() => _isCommentDropHover = false);
-                  final dropped = details.files
+                  // 웹에서 file.path는 blob URL(확자없윌)이미로 file.name으로 판별
+                  final imageDropped = details.files
                       .where(
                         (file) =>
-                            file.path.isNotEmpty &&
-                            _isSupportedImageFile(file.path),
+                            file.name.isNotEmpty &&
+                            _isSupportedImageFile(file.name),
                       )
-                      .map((file) => XFile(file.path))
+                      .map((file) => XFile(file.path, name: file.name))
                       .toList();
-                  if (dropped.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text(
-                          '지원하지 않는 이미지 형식입니다. (png, jpg, jpeg, gif, webp)',
-                        ),
-                        backgroundColor: Theme.of(context).colorScheme.error,
-                      ),
-                    );
-                    return;
-                  }
+                  final fileDropped = details.files
+                      .where(
+                        (file) =>
+                            file.name.isNotEmpty &&
+                            !_isSupportedImageFile(file.name),
+                      )
+                      .map((file) => XFile(file.path, name: file.name))
+                      .toList();
                   setState(() {
-                    _selectedCommentImages.addAll(dropped);
+                    _selectedCommentImages.addAll(imageDropped);
+                    _selectedCommentFiles.addAll(fileDropped);
                   });
                 },
                 child: Shortcuts(
@@ -4787,7 +4899,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           CallbackAction<_SubmitCommentIntent>(
                             onInvoke: (intent) {
                               if (_commentController.text.trim().isNotEmpty ||
-                                  _selectedCommentImages.isNotEmpty) {
+                                  _selectedCommentImages.isNotEmpty ||
+                                  _selectedCommentFiles.isNotEmpty) {
                                 _addComment();
                               }
                               return null;
@@ -4840,12 +4953,29 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             return;
                           }
                         }
-                        // Shift+Enter 제외 Enter로 댓글 제출
+                        // Shift+Enter, Alt+Enter: 줄바꿈 삽입
+                        if (event.logicalKey == LogicalKeyboardKey.enter &&
+                            (HardwareKeyboard.instance.isShiftPressed ||
+                                HardwareKeyboard.instance.isAltPressed) &&
+                            _commentFocusNode.hasFocus) {
+                          final ctrl = _commentController;
+                          final sel = ctrl.selection;
+                          final text = ctrl.text;
+                          final newText = text.replaceRange(sel.start, sel.end, '\n');
+                          ctrl.value = TextEditingValue(
+                            text: newText,
+                            selection: TextSelection.collapsed(offset: sel.start + 1),
+                          );
+                          return;
+                        }
+                        // Enter로 댓글 제출
                         if (event.logicalKey == LogicalKeyboardKey.enter &&
                             !HardwareKeyboard.instance.isShiftPressed &&
+                            !HardwareKeyboard.instance.isAltPressed &&
                             _commentFocusNode.hasFocus) {
                           if (_commentController.text.trim().isNotEmpty ||
-                              _selectedCommentImages.isNotEmpty) {
+                              _selectedCommentImages.isNotEmpty ||
+                              _selectedCommentFiles.isNotEmpty) {
                             _addComment();
                           }
                         }
@@ -4882,7 +5012,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 onChanged: _handleCommentChanged,
                                 decoration: InputDecoration(
                                   hintText:
-                                      '댓글을 입력하세요... (Enter로 제출, Shift+Enter로 줄바꿈, 이미지는 드래그 또는 Ctrl+V로 붙여넣기)',
+                                      '댓글을 입력하세요... (Enter로 제출, Shift+Enter / Alt+Enter로 줄바꿈)',
                                   border: InputBorder.none,
                                   hintStyle: TextStyle(
                                     color: colorScheme.onSurface.withValues(
@@ -4956,6 +5086,42 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   ),
                                 ),
                               ],
+                              // 첨부 파일 프리뷰
+                              if (_selectedCommentFiles.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children: _selectedCommentFiles
+                                      .asMap()
+                                      .entries
+                                      .map((entry) {
+                                        final i = entry.key;
+                                        final f = entry.value;
+                                        return Chip(
+                                          avatar: const Icon(
+                                            Icons.insert_drive_file,
+                                            size: 16,
+                                          ),
+                                          label: Text(
+                                            f.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          deleteIcon: const Icon(
+                                            Icons.close,
+                                            size: 16,
+                                          ),
+                                          onDeleted: () {
+                                            setState(() {
+                                              _selectedCommentFiles.removeAt(i);
+                                            });
+                                          },
+                                        );
+                                      })
+                                      .toList(),
+                                ),
+                              ],
                               const SizedBox(height: 8),
                               Row(
                                 mainAxisAlignment:
@@ -4971,6 +5137,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                         ),
                                         onPressed: _pickCommentImages,
                                         tooltip: '이미지 추가',
+                                      ),
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.attach_file,
+                                          color: colorScheme.primary,
+                                        ),
+                                        onPressed: _pickCommentFiles,
+                                        tooltip: '파일 첨부',
                                       ),
                                       IconButton(
                                         icon: Icon(
@@ -5011,11 +5185,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   bool _isSupportedImageFile(String path) {
     final lower = path.toLowerCase();
-    return lower.endsWith('.png') ||
-        lower.endsWith('.jpg') ||
-        lower.endsWith('.jpeg') ||
-        lower.endsWith('.gif') ||
-        lower.endsWith('.webp');
+    const exts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.avif', '.svg', '.tiff', '.tif', '.ico'];
+    return exts.any((e) => lower.endsWith(e));
   }
 
   /// ?븐늿肉?節딅┛ 筌ｌ꼶??
@@ -5092,7 +5263,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: const Text(
-                          '지원하지 않는 이미지 형식은 붙여넣을 수 없습니다. (png, jpg, jpeg, gif, webp)',
+                          '지원하지 않는 이미지 형식은 붙여넣을 수 없습니다. (png, jpg, gif, webp, bmp, avif, svg, tiff, ico)',
                         ),
                         backgroundColor: Theme.of(context).colorScheme.error,
                       ),

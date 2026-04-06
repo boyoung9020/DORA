@@ -34,6 +34,30 @@ async def validate_repo(owner: str, repo: str, token: Optional[str] = None) -> D
     return resp.json()
 
 
+async def get_issues(
+    owner: str,
+    repo: str,
+    token: Optional[str] = None,
+    state: str = "open",
+    page: int = 1,
+    per_page: int = 30,
+) -> List[Dict[str, Any]]:
+    """Fetch issues from a repository (PRs excluded)."""
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(
+                f"{_GITHUB_API}/repos/{owner}/{repo}/issues",
+                headers=_headers(token),
+                params={"state": state, "page": page, "per_page": per_page},
+            )
+    except Exception as exc:
+        raise GitHubApiError(f"Failed to fetch issues: {exc}") from exc
+    if resp.status_code != 200:
+        raise GitHubApiError(f"GitHub API error ({resp.status_code}): {resp.text}")
+    # GitHub /issues API returns both issues and PRs; filter out PRs
+    return [item for item in resp.json() if "pull_request" not in item]
+
+
 async def get_commits(
     owner: str,
     repo: str,

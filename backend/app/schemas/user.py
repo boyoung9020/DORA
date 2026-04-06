@@ -4,7 +4,7 @@ API 요청/응답 데이터 검증 및 직렬화
 """
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 
 class UserBase(BaseModel):
@@ -32,6 +32,7 @@ class UserResponse(UserBase):
     is_approved: bool
     is_pm: bool
     profile_image_url: Optional[str] = None
+    favorite_project_ids: List[str] = []
     created_at: datetime
 
     class Config:

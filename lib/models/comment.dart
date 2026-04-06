@@ -8,6 +8,7 @@ class Comment {
   final String username;
   final String content;
   final List<String> imageUrls; // 이미지 URL 배열
+  final List<String> fileUrls;  // 파일 URL 배열
   final Map<String, List<String>> reactions;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -19,6 +20,7 @@ class Comment {
     required this.username,
     required this.content,
     this.imageUrls = const [],
+    this.fileUrls = const [],
     this.reactions = const {},
     required this.createdAt,
     this.updatedAt,
@@ -33,6 +35,7 @@ class Comment {
       'username': username,
       'content': content,
       'image_urls': imageUrls,
+      'file_urls': fileUrls,
       'reactions': reactions,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
@@ -44,20 +47,12 @@ class Comment {
     // API 응답은 snake_case, 로컬 저장은 camelCase 지원
     final taskIdKey = json.containsKey('task_id') ? 'task_id' : 'taskId';
     final userIdKey = json.containsKey('user_id') ? 'user_id' : 'userId';
-    final createdAtKey = json.containsKey('created_at')
-        ? 'created_at'
-        : 'createdAt';
-    final updatedAtKey = json.containsKey('updated_at')
-        ? 'updated_at'
-        : 'updatedAt';
-    final imageUrlsKey = json.containsKey('image_urls')
-        ? 'image_urls'
-        : 'imageUrls';
-    final reactionsKey = json.containsKey('reactions')
-        ? 'reactions'
-        : 'reactions';
+    final createdAtKey = json.containsKey('created_at') ? 'created_at' : 'createdAt';
+    final updatedAtKey = json.containsKey('updated_at') ? 'updated_at' : 'updatedAt';
+    final imageUrlsKey = json.containsKey('image_urls') ? 'image_urls' : 'imageUrls';
+    final fileUrlsKey = json.containsKey('file_urls') ? 'file_urls' : 'fileUrls';
 
-    final rawReactions = json[reactionsKey] as Map<String, dynamic>?;
+    final rawReactions = json['reactions'] as Map<String, dynamic>?;
     final parsedReactions = <String, List<String>>{};
     if (rawReactions != null) {
       rawReactions.forEach((emoji, users) {
@@ -72,9 +67,8 @@ class Comment {
       userId: json[userIdKey],
       username: json['username'],
       content: json['content'],
-      imageUrls: json[imageUrlsKey] != null
-          ? List<String>.from(json[imageUrlsKey])
-          : [],
+      imageUrls: json[imageUrlsKey] != null ? List<String>.from(json[imageUrlsKey]) : [],
+      fileUrls: json[fileUrlsKey] != null ? List<String>.from(json[fileUrlsKey]) : [],
       reactions: parsedReactions,
       createdAt: parseUtcToLocal(json[createdAtKey]),
       updatedAt: parseUtcToLocalOrNull(json[updatedAtKey]),
@@ -89,6 +83,7 @@ class Comment {
     String? username,
     String? content,
     List<String>? imageUrls,
+    List<String>? fileUrls,
     Map<String, List<String>>? reactions,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -100,6 +95,7 @@ class Comment {
       username: username ?? this.username,
       content: content ?? this.content,
       imageUrls: imageUrls ?? this.imageUrls,
+      fileUrls: fileUrls ?? this.fileUrls,
       reactions: reactions ?? this.reactions,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

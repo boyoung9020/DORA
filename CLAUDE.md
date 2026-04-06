@@ -53,7 +53,7 @@ lib/
 ├── providers/                   # State (ChangeNotifier + Provider)
 ├── services/                    # API calls and business logic
 ├── screens/                     # UI screens; project_info/ is a tabbed sub-screen
-│   └── project_info/            #   (overview, members, tasks, patch, settings tabs)
+│   └── project_info/            #   (overview, members, tasks, patch, documents, github, settings tabs)
 ├── widgets/                     # Reusable components
 └── utils/api_client.dart        # Centralized HTTP client
 
@@ -65,9 +65,9 @@ backend/app/
 ├── mbc_site_default_data.py     # Seed data for site defaults
 ├── models/                      # SQLAlchemy ORM (UUID PKs, ARRAY/JSON columns)
 ├── routers/                     # API endpoints (/api/*): auth, projects, tasks, sprints,
-│                                #   workspaces, users, chat, github, patches, project_sites,
-│                                #   site_details, checklists, comments, uploads, search,
-│                                #   notifications, websocket, ai
+│                                #   workspaces, users, chat, github, user_github_tokens, patches,
+│                                #   project_sites, site_details, checklists, comments, uploads,
+│                                #   search, notifications, websocket, ai
 ├── schemas/                     # Pydantic request/response schemas
 ├── migrations/                  # Standalone migration scripts (run manually if needed)
 └── utils/                       # security.py, dependencies.py, notifications.py,
@@ -78,7 +78,7 @@ backend/app/
 
 ### Frontend State Management
 - All providers registered globally in `main.dart` via `MultiProvider`
-- Providers: `AuthProvider`, `TaskProvider`, `ProjectProvider`, `ThemeProvider`, `NotificationProvider`, `ChatProvider`, `WorkspaceProvider`, `SprintProvider`, `GitHubProvider`
+- Providers: `AuthProvider`, `TaskProvider`, `ProjectProvider`, `ThemeProvider`, `NotificationProvider`, `ChatProvider`, `WorkspaceProvider`, `SprintProvider`, `GitHubProvider`, `CommentProvider`
 - Use `Consumer<T>` in widgets; `Provider.of<T>(context, listen: false)` for one-shot calls
 
 ### API Client
@@ -121,9 +121,12 @@ backend/app/
 - **Windows Desktop + file uploads**: Do NOT use `dart:io` `File` class or `MultipartFile.fromPath()`. Use `XFile.readAsBytes()` + `MultipartFile.fromBytes()`. Windows namespace paths cause `_Namespace` errors.
 - **DB migrations**: `SQLAlchemy create_all()` does NOT add columns to existing tables. Always use `ALTER TABLE`.
 - **CORS**: Currently allows all origins (`*`) — dev only. Must restrict before production.
-- **`bitsdojo_window`**: Used for custom window chrome on Windows desktop; stubbed for web.
+- **`bitsdojo_window`**: Used for custom window chrome on Windows desktop; stubbed for web (`lib/bitsdojo_window_stub.dart`).
 - **File downloads**: Platform-specific implementations exist for web, IO (desktop), and a stub.
 - **Task display order**: Persisted in DB; reorderable in kanban view.
+- **Custom font**: `NanumSquareRound` (weights 300/400/700/800) — loaded from `font/nanum-square-round/`. Use this family for all text styles.
+- **Markdown rendering**: Use `flutter_markdown` package for any markdown content display.
+- **File picking**: Use `image_picker` (cross-platform) + `desktop_drop` (drag-and-drop on desktop) — never use `dart:io File` directly on Windows (see file upload caveat above).
 
 ## Default Admin
 

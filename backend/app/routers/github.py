@@ -1,5 +1,6 @@
 """GitHub 연동 API router."""
 
+import asyncio
 import re
 import uuid
 from typing import List, Optional, Tuple
@@ -14,6 +15,9 @@ from app.models.user import User
 from app.schemas.github import (
     GitHubBranchResponse,
     GitHubCommitResponse,
+    GitHubGraphCommitResponse,
+    GitHubGraphResponse,
+    GitHubIssueResponse,
     GitHubLanguageResponse,
     GitHubPRResponse,
     GitHubReleaseResponse,
@@ -28,6 +32,7 @@ from app.utils.github_api import (
     GitHubApiError,
     get_branches,
     get_commits,
+    get_issues,
     get_languages,
     get_pull_requests,
     get_releases,
@@ -323,6 +328,92 @@ async def list_tags(
     ]
 
 
+@router.get("/{project_id}/graph", response_model=GitHubGraphResponse)
+async def get_commit_graph(
+    project_id: str,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(100, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """전체 브랜치 커밋 그래프. 브랜치별 커밋을 병렬 fetch → 중복 제거 → 날짜순 정렬."""
+    gh = _get_github_record(db, project_id, current_user)
+    token = _get_user_token(db, current_user) or gh.access_token
+
+    # 브랜치/태그 목록
+    try:
+        branches_raw, tags_raw = await asyncio.gather(
+            get_branches(gh.repo_owner, gh.repo_name, token),
+            get_tags(gh.repo_owner, gh.repo_name, token),
+        )
+    except GitHubApiError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    branch_sha_to_names: dict[str, list[str]] = {}
+    for b in branches_raw:
+        sha = b.get("commit", {}).get("sha", "")
+        branch_sha_to_names.setdefault(sha, []).append(b.get("name", ""))
+
+    tag_sha_to_names: dict[str, list[str]] = {}
+    for t in tags_raw:
+        sha = t.get("commit", {}).get("sha", "")
+        tag_sha_to_names.setdefault(sha, []).append(t.get("name", ""))
+
+    branch_names = [b.get("name", "") for b in branches_raw]
+    if not branch_names:
+        return GitHubGraphResponse(commits=[], has_more=False)
+
+    # 브랜치별 커밋 병렬 fetch
+    async def _fetch(branch: str):
+        try:
+            return await get_commits(gh.repo_owner, gh.repo_name, token, branch, page, per_page)
+        except GitHubApiError:
+            return []
+
+    results = await asyncio.gather(*[_fetch(b) for b in branch_names])
+
+    # 중복 제거 (SHA 기준)
+    seen: set[str] = set()
+    merged: list[dict] = []
+    for commits_list in results:
+        for item in commits_list:
+            sha = item.get("sha", "")
+            if sha and sha not in seen:
+                seen.add(sha)
+                merged.append(item)
+
+    # 날짜 내림차순 정렬
+    def _date_key(item: dict) -> str:
+        return item.get("commit", {}).get("author", {}).get("date", "")
+
+    merged.sort(key=_date_key, reverse=True)
+
+    has_more = len(merged) >= per_page
+    commits_page = merged[:per_page]
+
+    result_commits = []
+    for item in commits_page:
+        commit = item.get("commit", {})
+        author = commit.get("author", {})
+        gh_author = item.get("author") or {}
+        sha = item.get("sha", "")
+        parent_shas = [p.get("sha", "") for p in item.get("parents", [])]
+        result_commits.append(GitHubGraphCommitResponse(
+            sha=sha,
+            message=commit.get("message", ""),
+            author_name=author.get("name", ""),
+            author_email=author.get("email"),
+            author_avatar_url=gh_author.get("avatar_url"),
+            date=author.get("date", ""),
+            url=item.get("html_url", ""),
+            parents=parent_shas,
+            branch_names=branch_sha_to_names.get(sha, []),
+            tag_names=tag_sha_to_names.get(sha, []),
+        ))
+
+    return GitHubGraphResponse(commits=result_commits, has_more=has_more)
+
+
 @router.get("/{project_id}/releases", response_model=List[GitHubReleaseResponse])
 async def list_releases(
     project_id: str,
@@ -444,4 +535,39 @@ async def list_pull_requests(
             base_branch=pr.get("base", {}).get("ref", ""),
         )
         for pr in raw
+    ]
+
+
+@router.get("/{project_id}/issues", response_model=List[GitHubIssueResponse])
+async def list_issues(
+    project_id: str,
+    state: str = Query("open", regex="^(open|closed|all)$"),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(30, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """GitHub Issue 목록을 조회합니다 (PR 제외)."""
+    gh = _get_github_record(db, project_id, current_user)
+    token = _get_user_token(db, current_user) or gh.access_token
+
+    try:
+        raw = await get_issues(gh.repo_owner, gh.repo_name, token, state, page, per_page)
+    except GitHubApiError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    return [
+        GitHubIssueResponse(
+            number=issue.get("number", 0),
+            title=issue.get("title", ""),
+            state=issue.get("state", ""),
+            author=issue.get("user", {}).get("login", ""),
+            author_avatar_url=issue.get("user", {}).get("avatar_url"),
+            created_at=issue.get("created_at", ""),
+            updated_at=issue.get("updated_at", ""),
+            url=issue.get("html_url", ""),
+            labels=[lb.get("name", "") for lb in issue.get("labels", [])],
+            comments=issue.get("comments", 0),
+        )
+        for issue in raw
     ]

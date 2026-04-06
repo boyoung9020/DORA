@@ -112,3 +112,29 @@ class GitHubPRResponse(BaseModel):
     url: str
     head_branch: str
     base_branch: str
+
+
+class GitHubIssueResponse(BaseModel):
+    """Issue 정보"""
+    number: int
+    title: str
+    state: str
+    author: str
+    author_avatar_url: Optional[str] = None
+    created_at: str
+    updated_at: str
+    url: str
+    labels: List[str] = []
+    comments: int = 0
+
+
+class GitHubGraphCommitResponse(GitHubCommitResponse):
+    """그래프용 커밋 — 브랜치/태그 레이블 포함"""
+    branch_names: List[str] = []
+    tag_names: List[str] = []
+
+
+class GitHubGraphResponse(BaseModel):
+    """전체 브랜치 커밋 그래프 응답"""
+    commits: List[GitHubGraphCommitResponse]
+    has_more: bool

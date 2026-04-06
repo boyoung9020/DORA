@@ -36,6 +36,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   DateTime? _aiGeneratedAt;
   String? _lastAiScopeKey;
   String? _lastTaskRefreshKey;
+  String? _lastUserFutureKey; // 유저 future 새로고침용 (workspace 단위)
   bool _aiCollapsed = false;
   /// AI 요약 범위: mine(내 할당), others(다른 팀원 할당), all(전체)
   String _aiSummaryScope = 'all';
@@ -88,19 +89,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final workspaceId =
         Provider.of<WorkspaceProvider>(context).currentWorkspaceId ?? '';
     final userId = Provider.of<AuthProvider>(context).currentUser?.id ?? '';
-    final scopeKey = '$userId|$workspaceId';
+    // ProjectProvider도 구독 → 새 워크스페이스의 프로젝트가 로드 완료되면 자동 감지
+    final projectIds = Provider.of<ProjectProvider>(context)
+        .projects
+        .map((p) => p.id)
+        .toList()
+      ..sort();
 
-    if (_lastTaskRefreshKey != scopeKey) {
-      _lastTaskRefreshKey = scopeKey;
+    final workspaceScopeKey = '$userId|$workspaceId';
+    // 프로젝트 ID까지 포함한 태스크 갱신 키: 프로젝트 목록이 바뀌면 새로 반응
+    final taskRefreshKey = '$workspaceScopeKey|${projectIds.join(',')}';
+
+    // 워크스페이스가 바뀌면 유저 future만 즉시 갱신 (프로젝트 로드 여부 무관)
+    if (_lastUserFutureKey != workspaceScopeKey) {
+      _lastUserFutureKey = workspaceScopeKey;
       if (workspaceId.isNotEmpty) {
         setState(() {
           _usersFuture = AuthService().getUsersByWorkspace(workspaceId);
         });
       }
+    }
+
+    // 프로젝트 목록이 실제로 갱신된 후에만 태스크 재로드
+    // (이전: workspaceId만 체크 → 프로젝트 로드 전에 구 목록으로 loadAllTasks 호출하던 버그 수정)
+    if (_lastTaskRefreshKey != taskRefreshKey &&
+        workspaceId.isNotEmpty &&
+        projectIds.isNotEmpty) {
+      _lastTaskRefreshKey = taskRefreshKey;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          final projectIds = context.read<ProjectProvider>().projects.map((p) => p.id).toList();
-          context.read<TaskProvider>().loadAllTasks(projectIds: projectIds);
+          context
+              .read<TaskProvider>()
+              .loadAllTasks(projectIds: projectIds);
           final authProv = context.read<AuthProvider>();
           if (authProv.currentUser != null) {
             context.read<NotificationProvider>().loadNotifications(
@@ -112,8 +132,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
     }
 
-    if (_lastAiScopeKey != null && _lastAiScopeKey != scopeKey) {
-      _lastAiScopeKey = scopeKey;
+    if (_lastAiScopeKey != null && _lastAiScopeKey != workspaceScopeKey) {
+      _lastAiScopeKey = workspaceScopeKey;
       _loadAISummary();
     }
   }

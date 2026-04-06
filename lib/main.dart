@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'services/workspace_service.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
@@ -52,8 +53,22 @@ TextTheme _buildAppTextTheme(TextTheme base) {
   );
 }
 
+/// 앱 시작 시 /join/{token} URL에서 파싱한 초대 토큰을 보관
+class PendingInvite {
+  static String? token;
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 웹에서 /join/{token} URL로 접근한 경우 토큰 추출
+  if (kIsWeb) {
+    final path = Uri.base.path;
+    final match = RegExp(r'^/join/(.+)$').firstMatch(path);
+    if (match != null) {
+      PendingInvite.token = match.group(1);
+    }
+  }
   const kakaoNativeAppKey = String.fromEnvironment('KAKAO_NATIVE_APP_KEY');
   const kakaoJavascriptAppKey = String.fromEnvironment(
     'KAKAO_JAVASCRIPT_APP_KEY',
@@ -226,11 +241,30 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
+  bool _isJoiningWorkspace = false;
+
+  Future<void> _tryAutoJoinWorkspace(WorkspaceProvider wsProvider) async {
+    final token = PendingInvite.token;
+    if (token == null) return;
+    PendingInvite.token = null; // 중복 실행 방지
+
+    setState(() => _isJoiningWorkspace = true);
+    try {
+      await WorkspaceService().joinByToken(token);
+      await wsProvider.loadWorkspaces();
+    } catch (e) {
+      // 이미 가입된 경우 등 무시하고 계속 진행
+      debugPrint('[PendingInvite] join error: $e');
+    } finally {
+      if (mounted) setState(() => _isJoiningWorkspace = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, _) {
-        if (authProvider.isLoading) {
+        if (authProvider.isLoading || _isJoiningWorkspace) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
@@ -246,13 +280,24 @@ class _AuthWrapperState extends State<AuthWrapper> {
                 builder: (context, wsProvider, _) {
                   if (!wsProvider.hasLoaded) {
                     if (!wsProvider.isLoading) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        wsProvider.loadWorkspaces();
+                      WidgetsBinding.instance.addPostFrameCallback((_) async {
+                        await wsProvider.loadWorkspaces();
+                        // 로그인 후 초대 URL로 접근한 경우 자동 가입
+                        if (mounted && PendingInvite.token != null) {
+                          await _tryAutoJoinWorkspace(wsProvider);
+                        }
                       });
                     }
                     return const Scaffold(
                       body: Center(child: CircularProgressIndicator()),
                     );
+                  }
+
+                  // 워크스페이스 로드 완료 후에도 대기 중인 초대 토큰이 있으면 처리
+                  if (PendingInvite.token != null) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _tryAutoJoinWorkspace(wsProvider);
+                    });
                   }
 
                   if (wsProvider.currentWorkspace != null) {

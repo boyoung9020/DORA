@@ -77,6 +77,26 @@ class GitHubService {
     }
   }
 
+  /// 전체 브랜치 커밋 그래프 조회
+  Future<({List<GitHubCommit> commits, bool hasMore})> getGraph(
+    String projectId, {
+    int page = 1,
+    int perPage = 100,
+  }) async {
+    try {
+      final query = 'page=$page&per_page=$perPage';
+      final response = await ApiClient.get('/api/github/$projectId/graph?$query');
+      final data = ApiClient.handleResponse(response);
+      final commits = (data['commits'] as List<dynamic>)
+          .map((json) => GitHubCommit.fromJson(json as Map<String, dynamic>))
+          .toList();
+      final hasMore = (data['has_more'] ?? false) as bool;
+      return (commits: commits, hasMore: hasMore);
+    } catch (e) {
+      throw Exception('그래프 조회 실패: $e');
+    }
+  }
+
   /// 브랜치 목록 조회
   Future<List<GitHubBranch>> getBranches(String projectId) async {
     try {
@@ -85,6 +105,23 @@ class GitHubService {
       return data.map((json) => GitHubBranch.fromJson(json as Map<String, dynamic>)).toList();
     } catch (e) {
       throw Exception('브랜치 목록 조회 실패: $e');
+    }
+  }
+
+  /// Issue 목록 조회
+  Future<List<GitHubIssue>> getIssues(
+    String projectId, {
+    String state = 'open',
+    int page = 1,
+    int perPage = 30,
+  }) async {
+    try {
+      final query = 'state=$state&page=$page&per_page=$perPage';
+      final response = await ApiClient.get('/api/github/$projectId/issues?$query');
+      final data = ApiClient.handleListResponse(response);
+      return data.map((json) => GitHubIssue.fromJson(json as Map<String, dynamic>)).toList();
+    } catch (e) {
+      throw Exception('Issue 목록 조회 실패: $e');
     }
   }
 

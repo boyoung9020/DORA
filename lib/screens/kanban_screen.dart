@@ -11,6 +11,7 @@ import '../services/auth_service.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/date_range_picker_dialog.dart';
 import '../utils/avatar_color.dart';
+import '../utils/api_client.dart';
 import 'task_detail_screen.dart';
 
 /// 칸반 보드 화면
@@ -735,6 +736,15 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 child: () {
                   final member = _usersById[task.assignedMemberIds.first];
                   if (member == null) return const SizedBox.shrink();
+                  if (member.profileImageUrl != null && member.profileImageUrl!.isNotEmpty) {
+                    final url = member.profileImageUrl!.startsWith('/')
+                        ? '${ApiClient.baseUrl}${member.profileImageUrl!}'
+                        : member.profileImageUrl!;
+                    return CircleAvatar(
+                      radius: 12,
+                      backgroundImage: NetworkImage(url),
+                    );
+                  }
                   return CircleAvatar(
                     radius: 12,
                     backgroundColor: AvatarColor.getColorForUser(member.id),

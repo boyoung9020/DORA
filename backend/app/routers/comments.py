@@ -93,11 +93,12 @@ async def create_comment(
     try:
         content = comment_data.content or ""
         image_urls = comment_data.image_urls or []
+        file_urls = comment_data.file_urls or []
 
-        if not content.strip() and not image_urls:
+        if not content.strip() and not image_urls and not file_urls:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="댓글 내용 또는 이미지가 필요합니다",
+                detail="댓글 내용 또는 첨부파일이 필요합니다",
             )
 
         task = db.query(Task).filter(Task.id == comment_data.task_id).first()
@@ -121,6 +122,7 @@ async def create_comment(
             username=current_user.username,
             content=content,
             image_urls=image_urls,
+            file_urls=file_urls,
         )
         db.add(new_comment)
 
@@ -226,6 +228,8 @@ async def update_comment(
     comment.content = comment_data.content
     if comment_data.image_urls is not None:
         comment.image_urls = comment_data.image_urls
+    if comment_data.file_urls is not None:
+        comment.file_urls = comment_data.file_urls
     db.commit()
     db.refresh(comment)
     _attach_comment_reactions(db, [comment])

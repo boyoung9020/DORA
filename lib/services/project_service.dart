@@ -136,4 +136,24 @@ class ProjectService {
       throw Exception('팀원 제거 실패: $e');
     }
   }
+
+  /// 서버에서 즐겨찾기 목록 가져오기
+  Future<Set<String>> fetchFavorites() async {
+    try {
+      final response = await ApiClient.get('/api/users/me/favorites');
+      final list = ApiClient.handleListResponse(response);
+      return list.cast<String>().toSet();
+    } catch (e) {
+      return {};
+    }
+  }
+
+  /// 서버에 즐겨찾기 목록 저장
+  Future<void> saveFavorites(Set<String> ids) async {
+    try {
+      await ApiClient.put('/api/users/me/favorites', body: {'project_ids': ids.toList()});
+    } catch (e) {
+      throw Exception('즐겨찾기 저장 실패: $e');
+    }
+  }
 }

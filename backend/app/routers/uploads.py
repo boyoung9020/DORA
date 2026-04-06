@@ -23,17 +23,12 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # 허용된 이미지 확장자
-ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-
-# 허용된 일반 파일 확장자
-ALLOWED_FILE_EXTENSIONS = {
+ALLOWED_IMAGE_EXTENSIONS = {
     ".jpg", ".jpeg", ".png", ".gif", ".webp",
-    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-    ".txt", ".csv", ".json", ".xml", ".yaml", ".yml",
-    ".zip", ".rar", ".7z", ".tar", ".gz",
-    ".mp4", ".mp3", ".wav",
-    ".py", ".js", ".ts", ".dart", ".html", ".css",
+    ".bmp", ".avif", ".svg", ".tiff", ".tif", ".ico",
 }
+
+# 일반 파일: 형식 제한 없음 (크기만 제한)
 
 
 def is_allowed_image(filename: str) -> bool:
@@ -42,10 +37,6 @@ def is_allowed_image(filename: str) -> bool:
     return ext in ALLOWED_IMAGE_EXTENSIONS
 
 
-def is_allowed_file(filename: str) -> bool:
-    """일반 파일 확장자 확인"""
-    ext = Path(filename).suffix.lower()
-    return ext in ALLOWED_FILE_EXTENSIONS
 
 
 async def _stream_upload(file: UploadFile, dest: Path, max_size: int) -> int:
@@ -78,7 +69,7 @@ async def upload_image(
     if not is_allowed_image(file.filename):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="허용되지 않은 파일 형식입니다. (jpg, jpeg, png, gif, webp만 가능)"
+            detail="허용되지 않은 파일 형식입니다. (jpg, jpeg, png, gif, webp, bmp, avif, svg, tiff, ico만 가능)"
         )
 
     file_ext = Path(file.filename).suffix.lower()
@@ -121,14 +112,8 @@ async def upload_file(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
 ):
-    """일반 파일 업로드"""
-    if not is_allowed_file(file.filename):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="허용되지 않은 파일 형식입니다."
-        )
-
-    file_ext = Path(file.filename).suffix.lower()
+    """일반 파일 업로드 (형식 제한 없음, 50MB 이하)"""
+    file_ext = Path(file.filename).suffix.lower() if file.filename else ""
     unique_filename = f"{uuid.uuid4()}{file_ext}"
     file_path = UPLOAD_DIR / unique_filename
 

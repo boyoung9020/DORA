@@ -53,8 +53,9 @@ class _GitHubTabState extends State<GitHubTab> {
       ]);
       if (!mounted) return;
       await Future.wait([
-        gh.loadCommits(widget.projectId, showGlobalLoading: false),
+        gh.loadGraph(widget.projectId),
         gh.loadPullRequests(widget.projectId, showGlobalLoading: false),
+        gh.loadIssues(widget.projectId),
         gh.loadCommitActivityHeatmap(widget.projectId),
       ]);
     }
@@ -64,7 +65,7 @@ class _GitHubTabState extends State<GitHubTab> {
     final gh = context.read<GitHubProvider>();
     await Future.wait([
       gh.loadCommitActivityHeatmap(widget.projectId),
-      gh.loadCommits(widget.projectId, showGlobalLoading: false),
+      gh.loadGraph(widget.projectId),
     ]);
   }
 
@@ -431,40 +432,10 @@ class _GitHubTabState extends State<GitHubTab> {
           ),
         ),
         const SizedBox(height: 8),
-        // PR
-        Row(
-          children: [
-            Icon(Icons.merge_type, size: 16, color: cs.primary),
-            const SizedBox(width: 6),
-            Text('Pull requests',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: cs.onSurface)),
-            const Spacer(),
-            GitHubPRFilterSegmented(
-              projectId: widget.projectId,
-              quietRefresh: true,
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
+        // PR + Issues 탭
         Expanded(
           flex: 4,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border.all(
-                  color: cs.outlineVariant.withValues(alpha: 0.35)),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(9),
-              child: GitHubPullRequestsList(
-                projectId: widget.projectId,
-                padding: const EdgeInsets.symmetric(vertical: 2),
-              ),
-            ),
-          ),
+          child: _PRIssuesPanel(projectId: widget.projectId, cs: cs),
         ),
       ],
     );
@@ -530,6 +501,115 @@ class _GitHubTabState extends State<GitHubTab> {
               ],
             );
           }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+/// PR + Issues 탭 패널 (탭에 따라 필터 버튼 전환)
+class _PRIssuesPanel extends StatefulWidget {
+  final String projectId;
+  final ColorScheme cs;
+
+  const _PRIssuesPanel({required this.projectId, required this.cs});
+
+  @override
+  State<_PRIssuesPanel> createState() => _PRIssuesPanelState();
+}
+
+class _PRIssuesPanelState extends State<_PRIssuesPanel>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  int _currentTab = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (mounted) setState(() => _currentTab = _tabController.index);
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TabBar(
+                controller: _tabController,
+                tabs: const [
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.merge_type, size: 14),
+                        SizedBox(width: 4),
+                        Text('Pull Requests', style: TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.bug_report_outlined, size: 14),
+                        SizedBox(width: 4),
+                        Text('Issues', style: TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ],
+                labelColor: cs.primary,
+                unselectedLabelColor: cs.onSurface.withValues(alpha: 0.5),
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                tabAlignment: TabAlignment.fill,
+              ),
+            ),
+            if (_currentTab == 0)
+              GitHubPRFilterSegmented(
+                  projectId: widget.projectId, quietRefresh: true)
+            else
+              GitHubIssueFilterSegmented(projectId: widget.projectId),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Expanded(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border:
+                  Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(9),
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  GitHubPullRequestsList(
+                    projectId: widget.projectId,
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                  ),
+                  GitHubIssuesList(
+                    projectId: widget.projectId,
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ],
     );

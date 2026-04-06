@@ -197,6 +197,25 @@ async def remove_workspace_member(
     return {"message": "멤버가 강퇴되었습니다"}
 
 
+@router.delete("/{workspace_id}")
+async def delete_workspace(
+    workspace_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """워크스페이스 삭제 (owner만 가능)"""
+    ws = _get_workspace_or_404(db, workspace_id)
+    if ws.owner_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="오너만 워크스페이스를 삭제할 수 있습니다"
+        )
+    db.query(WorkspaceMember).filter(WorkspaceMember.workspace_id == workspace_id).delete()
+    db.delete(ws)
+    db.commit()
+    return {"message": "워크스페이스가 삭제되었습니다"}
+
+
 @router.delete("/{workspace_id}/leave")
 async def leave_workspace(
     workspace_id: str,

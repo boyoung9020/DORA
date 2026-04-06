@@ -5,6 +5,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:http/http.dart' as http;
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import '../utils/api_client.dart';
@@ -57,6 +58,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isHoveringToolbar = false;
   bool _isEmojiPickerOpen = false;
   bool _isHoveringMessageMenu = false;
+  bool _isChatDropHover = false;
   static const List<String> _reactionPresets = [
     '✅',
     '👍',
@@ -271,7 +273,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (file.bytes == null) return;
 
     final ext = file.extension?.toLowerCase() ?? '';
-    final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext);
+    final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'avif', 'svg', 'tiff', 'tif', 'ico'].contains(ext);
 
     setState(() {
       _pendingAttachments.add(
@@ -2028,7 +2030,33 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildInputBar(User user, ColorScheme colorScheme, bool isDarkMode) {
-    return Column(
+    return DropTarget(
+      onDragEntered: (_) => setState(() => _isChatDropHover = true),
+      onDragExited: (_) => setState(() => _isChatDropHover = false),
+      onDragDone: (details) {
+        setState(() => _isChatDropHover = false);
+        for (final xfile in details.files) {
+          xfile.readAsBytes().then((bytes) {
+            final name = xfile.name;
+            final ext = name.split('.').last.toLowerCase();
+            final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'avif', 'svg', 'tiff', 'tif', 'ico'].contains(ext);
+            setState(() {
+              _pendingAttachments.add(
+                _PendingAttachment(bytes: bytes, fileName: name, isImage: isImage),
+              );
+            });
+          });
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: _isChatDropHover
+            ? BoxDecoration(
+                border: Border.all(color: colorScheme.primary, width: 2),
+                borderRadius: BorderRadius.circular(14),
+              )
+            : null,
+        child: Column(
       children: [
         if (_pendingAttachments.isNotEmpty)
           Container(
@@ -2378,6 +2406,8 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ),
       ],
+        ),
+      ),
     );
   }
 

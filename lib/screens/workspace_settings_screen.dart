@@ -59,6 +59,34 @@ class _WorkspaceSettingsScreenState extends State<WorkspaceSettingsScreen> {
     await wsProvider.regenerateInviteToken();
   }
 
+  Future<void> _deleteWorkspace(WorkspaceProvider wsProvider, String wsName) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('워크스페이스 삭제'),
+        content: Text(
+          '"$wsName" 워크스페이스를 삭제하면 모든 멤버가 즉시 퇴장되며 복구할 수 없습니다. 정말 삭제하시겠습니까?',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    final success = await wsProvider.deleteWorkspace();
+    if (mounted) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(success ? '워크스페이스가 삭제되었습니다' : wsProvider.errorMessage ?? '삭제에 실패했습니다')),
+      );
+    }
+  }
+
   Future<void> _removeMember(WorkspaceProvider wsProvider, WorkspaceMember member) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -136,6 +164,12 @@ class _WorkspaceSettingsScreenState extends State<WorkspaceSettingsScreen> {
                   ],
                 ),
               ),
+              if (isOwner)
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  onPressed: () => _deleteWorkspace(wsProvider, ws.name),
+                  tooltip: '워크스페이스 삭제',
+                ),
               IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.of(context).pop(),
@@ -216,6 +250,7 @@ class _WorkspaceSettingsScreenState extends State<WorkspaceSettingsScreen> {
                   )
                 else
                   ...wsProvider.currentMembers.map((member) {
+
                     final avatarColor = AvatarColor.getColorForUser(member.username);
                     final isMe = member.userId == currentUserId;
                     return ListTile(

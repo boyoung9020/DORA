@@ -259,8 +259,8 @@ class _GitHubCardState extends State<GitHubCard> {
     const laneW = 14.0;
 
     final visible = commits.take(maxRows).toList();
-    final graphW = laneW + 18;
-    final spineColor = GitGraphLayout.colorForLane(0);
+    final layout = GitGraphLayout.compute(visible);
+    final graphW = (layout.maxLane + 1) * laneW + 18.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,7 +292,7 @@ class _GitHubCardState extends State<GitHubCard> {
           children: List.generate(visible.length, (i) {
             final commit = visible[i];
             final isMerge = commit.parents.length > 1;
-            final laneColor = spineColor;
+            final laneColor = GitGraphLayout.colorForLane(layout.nodes[i].lane);
             return SizedBox(
               height: rowH,
               child: Row(
@@ -302,11 +302,13 @@ class _GitHubCardState extends State<GitHubCard> {
                     width: graphW,
                     height: rowH,
                     child: CustomPaint(
-                      painter: GitGraphRowPainter(
+                      painter: GitGraphPainter(
+                        layout: layout,
+                        rowHeight: rowH,
                         laneWidth: laneW,
                         nodeRadius: 4,
-                        isMerge: isMerge,
-                        branchColor: laneColor,
+                        startRow: i,
+                        endRow: (i + 2).clamp(0, visible.length),
                       ),
                     ),
                   ),
