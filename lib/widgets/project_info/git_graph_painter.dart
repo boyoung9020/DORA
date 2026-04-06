@@ -9,10 +9,14 @@ class GitGraphNode {
   /// 이 행을 단순히 통과하는 레인 번호 목록 (커밋 없이 수직선만 그림)
   final List<int> passThroughLanes;
 
+  /// 위쪽(자식 커밋)에서 이 노드로 연결되는 선이 있는지
+  final bool connectedFromTop;
+
   GitGraphNode({
     required this.lane,
     required this.edges,
     this.passThroughLanes = const [],
+    this.connectedFromTop = false,
   });
 }
 
@@ -63,6 +67,15 @@ class GitGraphLayout {
       shaToRow[commits[i].sha] = i;
     }
 
+    // ── DEBUG: 데이터 확인 ─────────────────────────────
+    debugPrint('═══ GitGraphLayout.compute ═══');
+    debugPrint('commits count: ${commits.length}');
+    for (int i = 0; i < commits.length && i < 5; i++) {
+      final c = commits[i];
+      final parentInMap = c.parents.map((p) => '${p.substring(0, 7)}(${shaToRow.containsKey(p) ? "✓" : "✗"})').join(', ');
+      debugPrint('  [$i] sha=${c.sha.substring(0, 7)} parents=[$parentInMap] msg=${c.message.substring(0, c.message.length.clamp(0, 30))}');
+    }
+
     // 레인 할당: 각 레인을 어떤 sha가 "예약"하고 있는지 추적
     // null = 비어있음
     final activeLanes = <String?>[];
@@ -76,6 +89,7 @@ class GitGraphLayout {
 
       // 이 커밋이 어느 레인에 배치될지 찾기
       int lane = activeLanes.indexOf(sha);
+      final bool connectedFromTop = lane != -1;
       if (lane == -1) {
         // 새 레인: 비어있는 슬롯 찾거나 새로 추가
         lane = activeLanes.indexOf(null);
@@ -102,9 +116,10 @@ class GitGraphLayout {
         // 첫 번째 부모: 직선 연결 — 같은 레인 유지
         final firstParent = parentShas[0];
         final firstParentRow = shaToRow[firstParent];
-        activeLanes[lane] = firstParent;
 
+        // 부모가 데이터셋에 있을 때만 레인 예약 (없으면 좀비 레인 방지)
         if (firstParentRow != null) {
+          activeLanes[lane] = firstParent;
           edges.add(GitGraphEdge(
             fromLane: lane,
             toLane: lane,
@@ -118,6 +133,9 @@ class GitGraphLayout {
           final parentSha = parentShas[p];
           final parentRow = shaToRow[parentSha];
 
+          // 부모가 데이터셋에 없으면 레인 할당하지 않음
+          if (parentRow == null) continue;
+
           int parentLane = activeLanes.indexOf(parentSha);
           if (parentLane == -1) {
             parentLane = activeLanes.indexOf(null);
@@ -129,21 +147,25 @@ class GitGraphLayout {
             }
           }
 
-          if (parentRow != null) {
-            edges.add(GitGraphEdge(
-              fromLane: lane,
-              toLane: parentLane,
-              toRow: parentRow,
-              color: colorForLane(parentLane),
-            ));
-          }
+          edges.add(GitGraphEdge(
+            fromLane: lane,
+            toLane: parentLane,
+            toRow: parentRow,
+            color: colorForLane(parentLane),
+          ));
         }
+      }
+
+      // 뒤쪽 빈 레인 정리 (불필요한 레인 확장 방지)
+      while (activeLanes.isNotEmpty && activeLanes.last == null) {
+        activeLanes.removeLast();
       }
 
       nodeList.add(GitGraphNode(
         lane: lane,
         edges: edges,
         passThroughLanes: passThroughLanes,
+        connectedFromTop: connectedFromTop,
       ));
 
       // maxLane 갱신
@@ -153,6 +175,7 @@ class GitGraphLayout {
       }
     }
 
+    debugPrint('═══ Result: maxLane=$maxLane, lanes=${nodeList.map((n) => n.lane).toList()} ═══');
     return GitGraphLayout(nodes: nodeList, maxLane: maxLane);
   }
 
@@ -205,12 +228,15 @@ class GitGraphPainter extends CustomPainter {
 
     for (int row = startRow; row < end && row < layout.nodes.length; row++) {
       final node = layout.nodes[row];
+      final cx = _laneX(node.lane);
+      final cy = _rowY(row);
+      final topY = cy - rowHeight / 2;
+      final botY = cy + rowHeight / 2;
+      final nodeColor = GitGraphLayout.colorForLane(node.lane);
 
       // ── 1. 통과 레인: 행 전체 높이에 수직선 ────────────────────────────
       for (final ptLane in node.passThroughLanes) {
         final ptX = _laneX(ptLane);
-        final topY = _rowY(row) - rowHeight / 2;
-        final botY = _rowY(row) + rowHeight / 2;
         canvas.drawLine(
           Offset(ptX, topY),
           Offset(ptX, botY),
@@ -221,44 +247,56 @@ class GitGraphPainter extends CustomPainter {
         );
       }
 
-      // ── 2. 엣지 (커밋 → 부모) ────────────────────────────────────────
+      // ── 2. 노드 자신의 레인 수직 연결 ──────────────────────────────────
+      // 위쪽 연결: 자식 커밋에서 이 노드로 이어지는 선
+      if (node.connectedFromTop) {
+        canvas.drawLine(
+          Offset(cx, topY),
+          Offset(cx, cy),
+          Paint()
+            ..color = nodeColor.withValues(alpha: 0.8)
+            ..strokeWidth = 2.0,
+        );
+      }
+
+      // 아래쪽 연결: 같은 레인의 부모로 이어지는 선
+      final hasSameLaneParent = node.edges.any((e) => e.fromLane == e.toLane);
+      if (hasSameLaneParent) {
+        canvas.drawLine(
+          Offset(cx, cy),
+          Offset(cx, botY),
+          Paint()
+            ..color = nodeColor.withValues(alpha: 0.8)
+            ..strokeWidth = 2.0,
+        );
+      }
+
+      // ── 3. 머지/분기 곡선 (다른 레인으로 가는 엣지) ────────────────────
       for (final edge in node.edges) {
-        final paint = Paint()
-          ..color = edge.color.withValues(alpha: 0.8)
-          ..strokeWidth = 2.0
-          ..style = PaintingStyle.stroke;
+        if (edge.fromLane != edge.toLane) {
+          final toX = _laneX(edge.toLane);
+          final paint = Paint()
+            ..color = edge.color.withValues(alpha: 0.8)
+            ..strokeWidth = 2.0
+            ..style = PaintingStyle.stroke;
 
-        final fromX = _laneX(edge.fromLane);
-        final fromY = _rowY(row);
-        final toX = _laneX(edge.toLane);
-
-        // 가시 범위 내로 toRow 클램프
-        int toRow = edge.toRow;
-        if (toRow >= end) toRow = end - 1;
-        if (toRow < startRow) toRow = startRow;
-        final toY = _rowY(toRow);
-
-        if (edge.fromLane == edge.toLane) {
-          // 직선 (같은 레인)
-          canvas.drawLine(Offset(fromX, fromY), Offset(toX, toY), paint);
-        } else {
-          // 베지어 곡선 (머지)
           final path = Path();
-          path.moveTo(fromX, fromY);
-          final midY = fromY + (toY - fromY) * 0.5;
-          path.cubicTo(fromX, midY, toX, midY, toX, toY);
+          path.moveTo(cx, cy);
+          // 한 행 높이 내에서 베지어 곡선으로 다른 레인에 연결
+          final midY = (cy + botY) / 2;
+          path.cubicTo(cx, midY, toX, midY, toX, botY);
           canvas.drawPath(path, paint);
         }
       }
     }
 
-    // ── 3. 노드 (원) ────────────────────────────────────────────────────
+    // ── 4. 노드 (원) — 선 위에 그려야 하므로 마지막 ─────────────────────
     for (int row = startRow; row < end && row < layout.nodes.length; row++) {
       final node = layout.nodes[row];
       final cx = _laneX(node.lane);
       final cy = _rowY(row);
       final color = GitGraphLayout.colorForLane(node.lane);
-      final isMerge = layout.nodes[row].edges.length > 1;
+      final isMerge = node.edges.length > 1;
 
       // 흰 배경 원 (선 위에 덮음)
       canvas.drawCircle(

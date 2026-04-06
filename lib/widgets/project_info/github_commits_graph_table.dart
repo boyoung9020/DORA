@@ -192,7 +192,7 @@ class GitHubCommitsGraphTable extends StatelessWidget {
                     rowHeight: _rowH,
                     laneWidth: _laneW,
                     startRow: row,
-                    endRow: (row + 2).clamp(0, commits.length),
+                    endRow: row + 1,
                   ),
                   size: Size(graphW, _rowH),
                 ),

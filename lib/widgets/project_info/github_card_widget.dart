@@ -308,7 +308,7 @@ class _GitHubCardState extends State<GitHubCard> {
                         laneWidth: laneW,
                         nodeRadius: 4,
                         startRow: i,
-                        endRow: (i + 2).clamp(0, visible.length),
+                        endRow: i + 1,
                       ),
                     ),
                   ),

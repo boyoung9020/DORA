@@ -104,6 +104,15 @@ class ProjectProvider extends ChangeNotifier {
       print('[ProjectProvider] 사용자 - 필터링된 프로젝트: ${_projects.length}개');
     }
 
+    // 즐겨찾기 우선 정렬
+    _projects.sort((a, b) {
+      final aFav = _favoriteIds.contains(a.id);
+      final bFav = _favoriteIds.contains(b.id);
+      if (aFav && !bFav) return -1;
+      if (!aFav && bFav) return 1;
+      return 0;
+    });
+
     // '전체' 모드면 currentProject는 항상 null 유지
     if (_isAllProjectsMode) {
       _currentProject = null;

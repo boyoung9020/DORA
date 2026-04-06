@@ -601,7 +601,7 @@ class _ServerFlatSectionState extends State<_ServerFlatSection> {
             children: List.generate(5, (i) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: TextField(
-                controller: ctrls[i], autofocus: i == 0, obscureText: i == 1,
+                controller: ctrls[i], autofocus: i == 0,
                 decoration: InputDecoration(
                   labelText: labels[i], border: const OutlineInputBorder(), isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -836,7 +836,7 @@ class _DatabaseEmbeddedSectionState extends State<_DatabaseEmbeddedSection> {
             children: List.generate(7, (i) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: TextField(
-                controller: ctrls[i], autofocus: i == 0, obscureText: i == 3,
+                controller: ctrls[i], autofocus: i == 0,
                 decoration: InputDecoration(
                   labelText: labels[i], hintText: hints[i],
                   border: const OutlineInputBorder(), isDense: true,
@@ -1491,7 +1491,6 @@ class _ServerCardViewState extends State<_ServerCardView> {
               child: TextField(
                 controller: ctrls[i],
                 autofocus: i == 0,
-                obscureText: i == 2,
                 decoration: InputDecoration(
                   labelText: labels[i], hintText: hints[i],
                   border: const OutlineInputBorder(), isDense: true,
@@ -1534,7 +1533,7 @@ class _ServerCardViewState extends State<_ServerCardView> {
             children: List.generate(6, (i) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: TextField(
-                controller: ctrls[i], obscureText: i == 2,
+                controller: ctrls[i],
                 decoration: InputDecoration(
                   labelText: labels[i], border: const OutlineInputBorder(), isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1715,7 +1714,7 @@ class _DatabaseCardViewState extends State<_DatabaseCardView> {
             children: List.generate(7, (i) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: TextField(
-                controller: ctrls[i], autofocus: i == 0, obscureText: i == 3,
+                controller: ctrls[i], autofocus: i == 0,
                 decoration: InputDecoration(
                   labelText: labels[i], hintText: hints[i],
                   border: const OutlineInputBorder(), isDense: true,
@@ -1896,7 +1895,6 @@ abstract class _InlineTableState<T, W extends _InlineTable<T>> extends State<W> 
   String get title;
   List<String> get columns;
   List<double> get colWidths; // 0 = flex
-  List<bool> get isPassword;
 
   List<T> getItems();
   List<String> itemToStrings(T item);
@@ -2064,7 +2062,6 @@ abstract class _InlineTableState<T, W extends _InlineTable<T>> extends State<W> 
     return _InlineRow(
       controllers: _ctrls[rowIndex],
       colWidths: colWidths,
-      isPassword: isPassword,
       colorScheme: widget.colorScheme,
       accentColor: color,
       onChange: (_) => _scheduleSave(rowIndex),
@@ -2080,7 +2077,6 @@ abstract class _InlineTableState<T, W extends _InlineTable<T>> extends State<W> 
         ...List.generate(columns.length, (i) {
           final cell = _InlineCell(
             controller: _newRowCtrls[i],
-            isPassword: i < isPassword.length && isPassword[i],
             accentColor: color,
             colorScheme: widget.colorScheme,
             autofocus: i == 0,
@@ -2113,7 +2109,6 @@ abstract class _InlineTableState<T, W extends _InlineTable<T>> extends State<W> 
 class _InlineRow extends StatefulWidget {
   final List<TextEditingController> controllers;
   final List<double> colWidths;
-  final List<bool> isPassword;
   final ColorScheme colorScheme;
   final Color accentColor;
   final void Function(String) onChange;
@@ -2122,7 +2117,6 @@ class _InlineRow extends StatefulWidget {
   const _InlineRow({
     required this.controllers,
     required this.colWidths,
-    required this.isPassword,
     required this.colorScheme,
     required this.accentColor,
     required this.onChange,
@@ -2149,7 +2143,6 @@ class _InlineRowState extends State<_InlineRow> {
           ...List.generate(widget.controllers.length, (i) {
             final cell = _InlineCell(
               controller: widget.controllers[i],
-              isPassword: i < widget.isPassword.length && widget.isPassword[i],
               accentColor: widget.accentColor,
               colorScheme: widget.colorScheme,
               onChange: widget.onChange,
@@ -2181,7 +2174,6 @@ class _InlineRowState extends State<_InlineRow> {
 // ── 인라인 셀
 class _InlineCell extends StatefulWidget {
   final TextEditingController controller;
-  final bool isPassword;
   final Color accentColor;
   final ColorScheme colorScheme;
   final void Function(String)? onChange;
@@ -2190,7 +2182,6 @@ class _InlineCell extends StatefulWidget {
 
   const _InlineCell({
     required this.controller,
-    required this.isPassword,
     required this.accentColor,
     required this.colorScheme,
     this.onChange,
@@ -2204,7 +2195,6 @@ class _InlineCell extends StatefulWidget {
 
 class _InlineCellState extends State<_InlineCell> {
   bool _focused = false;
-  bool _obscure = true;
 
   @override
   Widget build(BuildContext context) {
@@ -2223,7 +2213,6 @@ class _InlineCellState extends State<_InlineCell> {
             child: TextField(
               controller: widget.controller,
               autofocus: widget.autofocus,
-              obscureText: widget.isPassword && _obscure,
               onChanged: widget.onChange,
               onSubmitted: widget.onSubmitted,
               style: TextStyle(
@@ -2240,17 +2229,7 @@ class _InlineCellState extends State<_InlineCell> {
               ),
             ),
           ),
-          if (widget.isPassword)
-            InkWell(
-              onTap: () => setState(() => _obscure = !_obscure),
-              child: Icon(
-                _obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                size: 12,
-                color: widget.colorScheme.onSurface.withValues(
-                    alpha: widget.controller.text.isNotEmpty ? 0.4 : 0.2),
-              ),
-            ),
-          if (!widget.isPassword && widget.controller.text.isNotEmpty && _focused)
+          if (widget.controller.text.isNotEmpty && _focused)
             InkWell(
               onTap: () => Clipboard.setData(ClipboardData(text: widget.controller.text)),
               child: Icon(Icons.copy_outlined, size: 11,
@@ -2277,7 +2256,6 @@ class _ServerTableState extends _InlineTableState<ServerInfo, _ServerTable> {
   @override String get title => '서버 정보';
   @override List<String> get columns => ['IP 주소', 'ID', '비밀번호', 'GPU', '마운트 경로', '비고'];
   @override List<double> get colWidths => [145, 100, 115, 80, 140, 0];
-  @override List<bool> get isPassword => [false, false, true, false, false, false];
   @override List<ServerInfo> getItems() => widget.site.servers;
   @override List<String> itemToStrings(ServerInfo i) => [i.ip, i.username, i.password, i.gpu, i.mount, i.note];
   @override ServerInfo stringsToItem(List<String> v) =>
@@ -2300,7 +2278,6 @@ class _DatabaseTableState extends _InlineTableState<DatabaseInfo, _DatabaseTable
   @override String get title => 'DB 정보';
   @override List<String> get columns => ['DB명', '종류', '계정', '비밀번호', 'IP 주소', '포트', '비고'];
   @override List<double> get colWidths => [110, 90, 100, 115, 140, 60, 0];
-  @override List<bool> get isPassword => [false, false, false, true, false, false, false];
   @override List<DatabaseInfo> getItems() => widget.site.databases;
   @override List<String> itemToStrings(DatabaseInfo i) => [i.name, i.type, i.user, i.password, i.ip, i.port, i.note];
   @override DatabaseInfo stringsToItem(List<String> v) =>
@@ -2323,7 +2300,6 @@ class _ServiceTableState extends _InlineTableState<ServiceInfo, _ServiceTable> {
   @override String get title => '서비스 정보';
   @override List<String> get columns => ['서비스명', '버전', '서버 IP', 'Workers', 'GPU 사용량', '비고'];
   @override List<double> get colWidths => [110, 70, 145, 75, 110, 0];
-  @override List<bool> get isPassword => [false, false, false, false, false, false];
   @override List<ServiceInfo> getItems() => widget.site.services;
   @override List<String> itemToStrings(ServiceInfo i) => [i.name, i.version, i.serverIp, i.workers, i.gpuUsage, i.note];
   @override ServiceInfo stringsToItem(List<String> v) =>

@@ -18,6 +18,42 @@ class SettingsTab extends StatelessWidget {
     required this.descriptionController,
   });
 
+  Future<void> _confirmDelete(BuildContext context, ColorScheme colorScheme) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(Icons.delete_forever_rounded, size: 40, color: colorScheme.error),
+        title: const Text('프로젝트 삭제'),
+        content: Text(
+          "${project.name} 프로젝트를 정말 삭제하시겠습니까?\n\n모든 작업, 문서, 설정이 영구적으로 삭제됩니다.",
+          style: const TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: colorScheme.error),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final provider = context.read<ProjectProvider>();
+    final success = await provider.deleteProject(project.id);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success ? '프로젝트가 삭제되었습니다' : '삭제 중 오류가 발생했습니다'),
+          backgroundColor: success ? colorScheme.primary : colorScheme.error,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -149,6 +185,47 @@ class SettingsTab extends StatelessWidget {
                   ],
                 ),
               ),
+              // 프로젝트 삭제
+              if (isPM) ...[
+                Divider(height: 1, color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, size: 20,
+                          color: colorScheme.error.withValues(alpha: 0.7)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('프로젝트 삭제',
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.error)),
+                            const SizedBox(height: 2),
+                            Text('삭제된 프로젝트는 복구할 수 없습니다.',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: colorScheme.onSurface.withValues(alpha: 0.5))),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => _confirmDelete(context, colorScheme),
+                        icon: Icon(Icons.delete_outline, color: colorScheme.error),
+                        tooltip: '프로젝트 삭제',
+                        style: IconButton.styleFrom(
+                          backgroundColor: colorScheme.error.withValues(alpha: 0.08),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),
