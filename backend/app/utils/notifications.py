@@ -10,6 +10,7 @@ from app.models.notification import Notification, NotificationType
 from app.models.project import Project
 from app.models.task import Task
 from app.models.user import User
+from app.utils.mattermost import send_mattermost_notification
 
 
 def create_notification(
@@ -38,6 +39,18 @@ def create_notification(
     db.add(notification)
     db.commit()
     db.refresh(notification)
+
+    # Mattermost 웹훅 전송 (사용자별 설정 확인)
+    try:
+        send_mattermost_notification(
+            db=db,
+            user_id=user_id,
+            notification_type=notification_type,
+            title=title,
+            message=message,
+        )
+    except Exception as e:
+        print(f"[Mattermost] 알림 전송 오류: {e}")
 
     # Push realtime notification event to the target user.
     try:

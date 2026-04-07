@@ -8,6 +8,8 @@ import '../providers/task_provider.dart';
 import '../providers/project_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
+import '../services/site_detail_service.dart';
+import '../models/site_detail.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/date_range_picker_dialog.dart';
 import '../utils/avatar_color.dart';
@@ -884,10 +886,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
   }
 
   /// 특정 상태로 태스크 추가 다이얼로그
-  void _showAddTaskDialogForStatus(
+  Future<void> _showAddTaskDialogForStatus(
     BuildContext context,
     TaskStatus initialStatus,
-  ) {
+  ) async {
     final projectProvider = context.read<ProjectProvider>();
     if (projectProvider.isAllProjectsMode) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -899,10 +901,18 @@ class _KanbanScreenState extends State<KanbanScreen> {
       return;
     }
     final titleController = TextEditingController();
+    final siteController = TextEditingController();
     TaskStatus selectedStatus = initialStatus;
     TaskPriority selectedPriority = TaskPriority.p1;
     DateTime? startDate;
     DateTime? endDate;
+    String? selectedSiteName;
+    List<SiteDetail> availableSites = [];
+    try {
+      availableSites = await SiteDetailService().listSites();
+    } catch (_) {}
+
+    if (!context.mounted) return;
 
     showDialog(
       context: context,
@@ -1161,6 +1171,70 @@ class _KanbanScreenState extends State<KanbanScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 20),
+                      // 사이트 선택
+                      Text(
+                        '사이트',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (availableSites.isNotEmpty)
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            FilterChip(
+                              label: const Text('없음'),
+                              selected: selectedSiteName == null,
+                              onSelected: (_) => setState(() {
+                                selectedSiteName = null;
+                                siteController.clear();
+                              }),
+                              selectedColor: colorScheme.surfaceContainerHighest,
+                              labelStyle: TextStyle(
+                                color: selectedSiteName == null
+                                    ? colorScheme.onSurface
+                                    : colorScheme.onSurface.withValues(alpha: 0.6),
+                                fontWeight: selectedSiteName == null
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                            ...availableSites.map((site) => FilterChip(
+                              label: Text(site.name),
+                              selected: selectedSiteName == site.name,
+                              onSelected: (_) => setState(() {
+                                selectedSiteName = selectedSiteName == site.name ? null : site.name;
+                                siteController.text = selectedSiteName ?? '';
+                              }),
+                              selectedColor: colorScheme.primary.withValues(alpha: 0.2),
+                              labelStyle: TextStyle(
+                                color: selectedSiteName == site.name
+                                    ? colorScheme.primary
+                                    : colorScheme.onSurface.withValues(alpha: 0.8),
+                                fontWeight: selectedSiteName == site.name
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            )),
+                          ],
+                        ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: siteController,
+                        decoration: InputDecoration(
+                          hintText: availableSites.isNotEmpty ? '직접 입력 (선택)' : '사이트명 입력 (선택)',
+                          isDense: true,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onChanged: (v) {
+                          selectedSiteName = v.trim().isEmpty ? null : v.trim();
+                        },
+                      ),
                       const SizedBox(height: 24),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
@@ -1205,6 +1279,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                     endDate: endDate,
                                     priority: selectedPriority,
                                     assignedMemberIds: [currentUserId],
+                                    siteTags: selectedSiteName != null ? [selectedSiteName!] : [],
                                   );
                                 }
                                 Navigator.of(context).pop();

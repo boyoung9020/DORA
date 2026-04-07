@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     KAKAO_REST_API_KEY: str = ""
     KAKAO_CLIENT_SECRET: str = ""
 
+    # Mattermost (채널 Incoming Webhook URL — 관리자가 생성한 것)
+    MATTERMOST_WEBHOOK_URL: str = ""
+
     class Config:
         env_file = ".env"
         case_sensitive = True

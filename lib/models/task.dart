@@ -134,6 +134,8 @@ class PriorityChangeHistory {
 /// - createdAt: ?앹꽦 ?쒓컙
 /// - updatedAt: ?섏젙 ?쒓컙
 /// - assignedMemberIds: ?좊떦??????ъ슜??ID 紐⑸줉
+const _sentinel = Object();
+
 class Task {
   final String id;
   final String title;
@@ -328,11 +330,11 @@ class Task {
     
     // start_date ?먮뒗 startDate 泥섎━
     final startDateKey = getKey('startDate', 'start_date');
-    final startDate = parseUtcToLocalOrNull(json[startDateKey]);
+    final startDate = parseDateOnly(json[startDateKey] as String?);
 
     // end_date ?먮뒗 endDate 泥섎━
     final endDateKey = getKey('endDate', 'end_date');
-    final endDate = parseUtcToLocalOrNull(json[endDateKey]);
+    final endDate = parseDateOnly(json[endDateKey] as String?);
 
     // created_at ?먮뒗 createdAt 泥섎━
     final createdAtKey = getKey('createdAt', 'created_at');
@@ -390,8 +392,8 @@ class Task {
     TaskStatus? status,
     String? projectId,
     String? sprintId,
-    DateTime? startDate,
-    DateTime? endDate,
+    Object? startDate = _sentinel,
+    Object? endDate = _sentinel,
     String? detail,
     List<String>? detailImageUrls,
     List<String>? assignedMemberIds,
@@ -416,8 +418,8 @@ class Task {
       status: status ?? this.status,
       projectId: projectId ?? this.projectId,
       sprintId: sprintId ?? this.sprintId,
-      startDate: startDate ?? this.startDate,
-      endDate: endDate ?? this.endDate,
+      startDate: startDate == _sentinel ? this.startDate : startDate as DateTime?,
+      endDate: endDate == _sentinel ? this.endDate : endDate as DateTime?,
       detail: detail ?? this.detail,
       detailImageUrls: detailImageUrls ?? this.detailImageUrls,
       assignedMemberIds: assignedMemberIds ?? this.assignedMemberIds,

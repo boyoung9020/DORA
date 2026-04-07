@@ -4907,21 +4907,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             },
                           ),
                     },
-                    child: KeyboardListener(
-                      focusNode: FocusNode(),
-                      onKeyEvent: (event) {
-                        if (event is! KeyDownEvent) return;
+                    child: Focus(
+                      onKeyEvent: (node, event) {
+                        if (event is! KeyDownEvent) return KeyEventResult.ignored;
                         // 멘션 목록이 열려있을 때: 방향키/Enter로 선택
                         if (_showMentionSuggestions &&
                             _filteredMentionUsers.isNotEmpty) {
-                          if (event.logicalKey ==
-                              LogicalKeyboardKey.arrowDown) {
+                          if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
                             setState(() {
                               _selectedMentionIndex =
                                   (_selectedMentionIndex + 1) %
                                   _filteredMentionUsers.length;
                             });
-                            return;
+                            return KeyEventResult.handled;
                           }
                           if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
                             setState(() {
@@ -4931,7 +4929,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       _filteredMentionUsers.length) %
                                   _filteredMentionUsers.length;
                             });
-                            return;
+                            return KeyEventResult.handled;
                           }
                           if (event.logicalKey == LogicalKeyboardKey.enter) {
                             if (_selectedMentionIndex >= 0 &&
@@ -4941,7 +4939,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 _filteredMentionUsers[_selectedMentionIndex],
                               );
                             }
-                            return;
+                            return KeyEventResult.handled;
                           }
                           if (event.logicalKey == LogicalKeyboardKey.escape) {
                             setState(() {
@@ -4950,10 +4948,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               _mentionStartIndex = -1;
                               _selectedMentionIndex = -1;
                             });
-                            return;
+                            return KeyEventResult.handled;
                           }
                         }
-                        // Shift+Enter, Alt+Enter: 줄바꿈 삽입
+                        // Shift+Enter 또는 Alt+Enter: 줄바꿈 삽입
                         if (event.logicalKey == LogicalKeyboardKey.enter &&
                             (HardwareKeyboard.instance.isShiftPressed ||
                                 HardwareKeyboard.instance.isAltPressed) &&
@@ -4966,19 +4964,22 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             text: newText,
                             selection: TextSelection.collapsed(offset: sel.start + 1),
                           );
-                          return;
+                          return KeyEventResult.handled;
                         }
-                        // Enter로 댓글 제출
+                        // Enter로 댓글 제출 (Shift/Alt/Ctrl 없을 때)
                         if (event.logicalKey == LogicalKeyboardKey.enter &&
                             !HardwareKeyboard.instance.isShiftPressed &&
                             !HardwareKeyboard.instance.isAltPressed &&
+                            !HardwareKeyboard.instance.isControlPressed &&
                             _commentFocusNode.hasFocus) {
                           if (_commentController.text.trim().isNotEmpty ||
                               _selectedCommentImages.isNotEmpty ||
                               _selectedCommentFiles.isNotEmpty) {
                             _addComment();
                           }
+                          return KeyEventResult.handled;
                         }
+                        return KeyEventResult.ignored;
                       },
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),

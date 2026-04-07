@@ -144,6 +144,7 @@ class TaskProvider extends ChangeNotifier {
     List<String>? assignedMemberIds,
     String? sprintId,
     String? parentTaskId,
+    List<String> siteTags = const [],
   }) async {
     try {
       final task = await _taskService.createTask(
@@ -158,6 +159,7 @@ class TaskProvider extends ChangeNotifier {
         assignedMemberIds: assignedMemberIds,
         sprintId: sprintId,
         parentTaskId: parentTaskId,
+        siteTags: siteTags,
       );
       _tasks.add(task);
       _allTasks.add(task);

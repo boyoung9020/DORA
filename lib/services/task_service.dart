@@ -1,5 +1,6 @@
 import '../models/task.dart';
 import '../utils/api_client.dart';
+import '../utils/date_utils.dart';
 
 /// 태스크 서비스 클래스
 ///
@@ -51,6 +52,7 @@ class TaskService {
     List<String>? assignedMemberIds,
     String? sprintId,
     String? parentTaskId,
+    List<String> siteTags = const [],
   }) async {
     try {
       final response = await ApiClient.post(
@@ -60,14 +62,15 @@ class TaskService {
           'description': description,
           'status': status.name,
           'project_id': projectId,
-          'start_date': startDate?.toIso8601String(),
-          'end_date': endDate?.toIso8601String(),
+          'start_date': formatDateOnly(startDate),
+          'end_date': formatDateOnly(endDate),
           'detail': detail,
           'detail_image_urls': detailImageUrls,
           'priority': priority.name,
           'assigned_member_ids': assignedMemberIds ?? [],
           'sprint_id': sprintId,
           'parent_task_id': parentTaskId,
+          'site_tags': siteTags,
         },
       );
 
@@ -85,8 +88,8 @@ class TaskService {
         'title': task.title,
         'description': task.description,
         'status': task.status.name,
-        'start_date': task.startDate?.toIso8601String(),
-        'end_date': task.endDate?.toIso8601String(),
+        'start_date': formatDateOnly(task.startDate),
+        'end_date': formatDateOnly(task.endDate),
         'detail': task.detail,
         'detail_image_urls': task.detailImageUrls,
         'priority': task.priority.name,

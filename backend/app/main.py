@@ -15,6 +15,7 @@ from app.routers import (
     comments,
     github,
     user_github_tokens,
+    user_mattermost_settings,
     patches,
     project_sites,
     request_issue,
@@ -264,6 +265,49 @@ def ensure_user_github_tokens_table() -> None:
 ensure_user_github_tokens_table()
 
 
+def ensure_user_mattermost_settings_table() -> None:
+    """user_mattermost_settings 테이블이 없으면 생성, 있으면 컬럼 추가."""
+    try:
+        conn = engine.connect()
+        try:
+            result = conn.execute(text("SELECT to_regclass('public.user_mattermost_settings')"))
+            if result.scalar() is None:
+                conn.execute(text("""
+                    CREATE TABLE user_mattermost_settings (
+                        id VARCHAR PRIMARY KEY,
+                        user_id VARCHAR NOT NULL UNIQUE,
+                        mattermost_username VARCHAR,
+                        webhook_url VARCHAR,
+                        is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                    )
+                """))
+                conn.execute(text("CREATE INDEX ix_user_mattermost_settings_user_id ON user_mattermost_settings(user_id)"))
+                conn.commit()
+                print("[main] created user_mattermost_settings table")
+            else:
+                # mattermost_username 컬럼 추가 (신규 DM 방식)
+                conn.execute(text("""
+                    ALTER TABLE user_mattermost_settings
+                    ADD COLUMN IF NOT EXISTS mattermost_username VARCHAR
+                """))
+                # webhook_url NOT NULL → NULL 허용으로 완화
+                conn.execute(text("""
+                    ALTER TABLE user_mattermost_settings
+                    ALTER COLUMN webhook_url DROP NOT NULL
+                """))
+                conn.commit()
+                print("[main] user_mattermost_settings table migrated (mattermost_username added)")
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"[main] failed to ensure user_mattermost_settings table: {e}")
+
+
+ensure_user_mattermost_settings_table()
+
+
 def ensure_project_patches_table() -> None:
     """project_patches 테이블이 없으면 생성 (패치 내역)."""
     try:
@@ -362,6 +406,7 @@ app.include_router(sprints.router, prefix="/api/sprints", tags=["Sprints"])
 app.include_router(search.router, prefix="/api/search", tags=["Search"])
 app.include_router(github.router, prefix="/api/github", tags=["GitHub"])
 app.include_router(user_github_tokens.router, prefix="/api/github-token", tags=["GitHubToken"])
+app.include_router(user_mattermost_settings.router, prefix="/api/mattermost-setting", tags=["MattermostSetting"])
 app.include_router(patches.router, prefix="/api/patches", tags=["Patches"])
 app.include_router(project_sites.router, prefix="/api/project-sites", tags=["ProjectSites"])
 app.include_router(site_details.router, prefix="/api/site-details", tags=["SiteDetails"])

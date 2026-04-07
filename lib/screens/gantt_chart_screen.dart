@@ -93,6 +93,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
   final ScrollController _bodyHScrollController = ScrollController();
   final ScrollController _taskVScrollController = ScrollController();
   final ScrollController _barVScrollController = ScrollController();
+  final ScrollController _bottomScrollController = ScrollController();
   bool _syncingHScroll = false;
   bool _syncingVScroll = false;
 
@@ -112,6 +113,20 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
       _syncingHScroll = true;
       if (_headerHScrollController.hasClients) {
         _headerHScrollController.jumpTo(_bodyHScrollController.offset);
+      }
+      if (_bottomScrollController.hasClients) {
+        _bottomScrollController.jumpTo(_bodyHScrollController.offset);
+      }
+      _syncingHScroll = false;
+    });
+    _bottomScrollController.addListener(() {
+      if (_syncingHScroll) return;
+      _syncingHScroll = true;
+      if (_bodyHScrollController.hasClients) {
+        _bodyHScrollController.jumpTo(_bottomScrollController.offset);
+      }
+      if (_headerHScrollController.hasClients) {
+        _headerHScrollController.jumpTo(_bottomScrollController.offset);
       }
       _syncingHScroll = false;
     });
@@ -139,6 +154,7 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
     _bodyHScrollController.dispose();
     _taskVScrollController.dispose();
     _barVScrollController.dispose();
+    _bottomScrollController.dispose();
     super.dispose();
   }
 
@@ -676,6 +692,30 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
                 ],
               ),
             ),
+            // 하단 횡스크롤바
+            Container(
+              height: 16,
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                border: Border(top: BorderSide(color: borderColor, width: 1)),
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(width: 320),
+                  Expanded(
+                    child: Scrollbar(
+                      controller: _bottomScrollController,
+                      thumbVisibility: true,
+                      child: SingleChildScrollView(
+                        controller: _bottomScrollController,
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(width: days * dayWidth, height: 16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -1007,8 +1047,8 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
         ? 0.0
         : taskStart.difference(_startDate).inDays * dayWidth;
     final endOffset = taskEnd.isAfter(_endDate)
-        ? _endDate.difference(_startDate).inDays * dayWidth
-        : taskEnd.difference(_startDate).inDays * dayWidth;
+        ? (_endDate.difference(_startDate).inDays + 1) * dayWidth
+        : (taskEnd.difference(_startDate).inDays + 1) * dayWidth;
     final barWidth = (endOffset - startOffset).clamp(dayWidth, double.infinity);
 
     final days = _endDate.difference(_startDate).inDays;

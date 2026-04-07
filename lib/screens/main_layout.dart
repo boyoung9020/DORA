@@ -18,6 +18,7 @@ import '../utils/api_client.dart';
 import '../providers/workspace_provider.dart';
 import '../providers/sprint_provider.dart';
 import '../providers/github_provider.dart';
+import '../services/mattermost_service.dart';
 import '../models/notification.dart' as models;
 import '../models/project.dart';
 import '../models/user.dart';
@@ -3245,6 +3246,8 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
           ),
         const SizedBox(height: 20),
         _githubTokenCard(context, colorScheme, ghProvider),
+        const SizedBox(height: 16),
+        _MattermostSettingCard(colorScheme: colorScheme),
       ],
     );
   }
@@ -4001,6 +4004,270 @@ class _GitHubTokenEditor extends StatefulWidget {
   @override
   State<_GitHubTokenEditor> createState() => _GitHubTokenEditorState();
 }
+
+// ── Mattermost 설정 카드 ─────────────────────────────────────────────────────
+
+class _MattermostSettingCard extends StatefulWidget {
+  final ColorScheme colorScheme;
+
+  const _MattermostSettingCard({required this.colorScheme});
+
+  @override
+  State<_MattermostSettingCard> createState() => _MattermostSettingCardState();
+}
+
+class _MattermostSettingCardState extends State<_MattermostSettingCard> {
+  final _service = MattermostService();
+  final _urlCtrl = TextEditingController();
+  bool _hasSetting = false;
+  bool _isEnabled = false;
+  bool _isEditing = false;
+  bool _isLoading = true;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _urlCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final setting = await _service.getMySetting();
+      if (!mounted) return;
+      setState(() {
+        _hasSetting = setting.hasSetting;
+        _isEnabled = setting.isEnabled;
+        _urlCtrl.text = setting.webhookUrl;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _save() async {
+    final url = _urlCtrl.text.trim();
+    if (url.isEmpty) return;
+    setState(() => _isSaving = true);
+    try {
+      await _service.upsertMySetting(webhookUrl: url, isEnabled: _isEnabled);
+      if (!mounted) return;
+      setState(() {
+        _hasSetting = true;
+        _isEditing = false;
+        _isSaving = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mattermost 설정이 저장되었습니다')),
+      );
+    } catch (_) {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _toggleEnabled(bool value) async {
+    setState(() => _isEnabled = value);
+    if (_hasSetting) {
+      try {
+        await _service.upsertMySetting(webhookUrl: _urlCtrl.text.trim(), isEnabled: value);
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Mattermost 설정 삭제'),
+        content: const Text('저장된 웹훅 설정을 삭제할까요?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: widget.colorScheme.error),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _service.deleteMySetting();
+    if (!mounted) return;
+    setState(() {
+      _hasSetting = false;
+      _isEnabled = false;
+      _urlCtrl.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = widget.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 헤더
+          Row(
+            children: [
+              Icon(Icons.chat_bubble_outline, size: 18, color: colorScheme.onSurface),
+              const SizedBox(width: 8),
+              Text(
+                'Mattermost 알림',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const Spacer(),
+              if (_isLoading)
+                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              else if (_hasSetting)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.green.withValues(alpha: 0.25)),
+                  ),
+                  child: Text(
+                    '연결됨',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.green.shade700),
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: colorScheme.outline.withValues(alpha: 0.2)),
+                  ),
+                  child: Text(
+                    '미연결',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: colorScheme.onSurface.withValues(alpha: 0.6)),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '작업 할당, 상태 변경, 코멘트 등의 알림을 Mattermost로 받습니다.',
+            style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.55)),
+          ),
+          const SizedBox(height: 10),
+          if (!_isLoading) ...[
+            // 활성화 토글 (설정이 있을 때만)
+            if (_hasSetting) ...[
+              Row(
+                children: [
+                  Text(
+                    '알림 활성화',
+                    style: TextStyle(fontSize: 13, color: colorScheme.onSurface),
+                  ),
+                  const Spacer(),
+                  Switch(
+                    value: _isEnabled,
+                    onChanged: _toggleEnabled,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+            // 연결된 상태 + 편집 아님
+            if (_hasSetting && !_isEditing)
+              Row(
+                children: [
+                  Text(
+                    '웹훅이 저장되어 있습니다.',
+                    style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.55)),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 28,
+                    child: OutlinedButton.icon(
+                      onPressed: () => setState(() => _isEditing = true),
+                      icon: const Icon(Icons.edit, size: 13),
+                      label: const Text('편집', style: TextStyle(fontSize: 12)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 28,
+                    child: OutlinedButton(
+                      onPressed: _delete,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        foregroundColor: colorScheme.error,
+                        side: BorderSide(color: colorScheme.error.withValues(alpha: 0.4)),
+                      ),
+                      child: const Text('삭제', style: TextStyle(fontSize: 12)),
+                    ),
+                  ),
+                ],
+              )
+            // 미연결 또는 편집 모드
+            else if (!_hasSetting || _isEditing)
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _urlCtrl,
+                      decoration: InputDecoration(
+                        labelText: '웹훅 URL',
+                        hintText: 'https://chat.example.com/hooks/...',
+                        isDense: true,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _isSaving ? null : _save,
+                    child: _isSaving
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Text('저장'),
+                  ),
+                  if (_isEditing) ...[
+                    const SizedBox(width: 8),
+                    OutlinedButton(
+                      onPressed: () => setState(() => _isEditing = false),
+                      child: const Text('취소'),
+                    ),
+                  ],
+                ],
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _GitHubTokenEditorState extends State<_GitHubTokenEditor> {
   final _ctrl = TextEditingController();
