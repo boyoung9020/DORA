@@ -9,6 +9,7 @@ import '../../widgets/project_info/github_commits_graph_table.dart';
 import '../../widgets/project_info/github_contribution_heatmap.dart';
 import '../../widgets/project_info/github_panel_widgets.dart';
 import '../../widgets/project_info/github_repo_connect_dialog.dart';
+import '../../widgets/expandable_side_panel.dart';
 
 /// 프로젝트 정보 — GitHub 전용 탭 (스크롤 없이 한 화면 레이아웃)
 class GitHubTab extends StatefulWidget {
@@ -538,6 +539,30 @@ class _PRIssuesPanelState extends State<_PRIssuesPanel>
     super.dispose();
   }
 
+  void _openPRIssuesSidePanel(BuildContext context) {
+    final currentTab = _currentTab;
+    showExpandableSidePanel(
+      context: context,
+      title: currentTab == 0 ? 'Pull Requests' : 'Issues',
+      icon: currentTab == 0 ? Icons.merge_type : Icons.bug_report_outlined,
+      headerTrailing: currentTab == 0
+          ? GitHubPRFilterSegmented(
+              projectId: widget.projectId, quietRefresh: true)
+          : GitHubIssueFilterSegmented(projectId: widget.projectId),
+      bodyBuilder: (ctx) {
+        return currentTab == 0
+            ? GitHubPullRequestsList(
+                projectId: widget.projectId,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+              )
+            : GitHubIssuesList(
+                projectId: widget.projectId,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+              );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = widget.cs;
@@ -583,6 +608,21 @@ class _PRIssuesPanelState extends State<_PRIssuesPanel>
                   projectId: widget.projectId, quietRefresh: true)
             else
               GitHubIssueFilterSegmented(projectId: widget.projectId),
+            const SizedBox(width: 4),
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                iconSize: 16,
+                icon: Icon(
+                  Icons.open_in_new,
+                  color: cs.onSurface.withValues(alpha: 0.5),
+                ),
+                onPressed: () => _openPRIssuesSidePanel(context),
+                tooltip: '크게 보기',
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 4),

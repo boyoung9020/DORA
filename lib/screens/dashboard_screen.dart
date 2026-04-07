@@ -16,8 +16,11 @@ import '../services/auth_service.dart';
 import '../services/task_service.dart';
 import '../widgets/glass_container.dart';
 import '../utils/avatar_color.dart';
-import '../utils/api_client.dart';
 import 'task_detail_screen.dart';
+import '../widgets/expandable_side_panel.dart';
+import '../widgets/dashboard/today_task_row.dart';
+import '../widgets/dashboard/activity_list_item.dart';
+import '../widgets/dashboard/export_report_dialog.dart';
 
 /// 대시보드 화면 - AI 매니저 + 작업 테이블
 class DashboardScreen extends StatefulWidget {
@@ -972,7 +975,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(width: 8),
             // Export 버튼
             InkWell(
-              onTap: () => _showExportDialog(context, allProjects),
+              onTap: () => showExportReportDialog(
+                context: context,
+                allProjects: allProjects,
+                usersFuture: _usersFuture,
+              ),
               borderRadius: BorderRadius.circular(8),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -1926,6 +1933,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding: EdgeInsets.zero,
                   iconSize: 16,
                   icon: Icon(
+                    Icons.open_in_new,
+                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                  onPressed: () => _openTodayTasksSidePanel(context, colorScheme, todayTasks, projects),
+                  tooltip: '크게 보기',
+                ),
+              ),
+              const SizedBox(width: 2),
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  iconSize: 16,
+                  icon: Icon(
                     _todayTasksCollapsed
                         ? Icons.keyboard_arrow_down
                         : Icons.keyboard_arrow_up,
@@ -1943,235 +1965,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           if (!_todayTasksCollapsed) ...[
             const SizedBox(height: 8),
-            // 테이블 헤더
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: colorScheme.onSurface.withValues(alpha: 0.03),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-              ),
-              child: Row(
-                children: [
-                  // 완료 체크
-                  const SizedBox(width: 36),
-                  // 제목
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                      child: Text(
-                        '제목',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ),
-                  ),
-                  // 프로젝트
-                  SizedBox(
-                    width: 90,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                      child: Text(
-                        '프로젝트',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ),
-                  ),
-                  // 우선순위
-                  SizedBox(
-                    width: 60,
-                    child: Center(
-                      child: Text(
-                        '우선순위',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            const TodayTaskHeader(),
             Divider(height: 1, color: colorScheme.onSurface.withValues(alpha: 0.08)),
-            // 테이블 본문
             Expanded(
               child: todayTasks.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.check_circle_outline,
-                            size: 40,
-                            color: colorScheme.onSurface.withValues(alpha: 0.3),
-                          ),
+                          Icon(Icons.check_circle_outline, size: 40,
+                              color: colorScheme.onSurface.withValues(alpha: 0.3)),
                           const SizedBox(height: 8),
-                          Text(
-                            '오늘 할 작업이 없습니다',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: colorScheme.onSurface.withValues(alpha: 0.5),
-                            ),
-                          ),
+                          Text('오늘 할 작업이 없습니다',
+                              style: TextStyle(fontSize: 13,
+                                  color: colorScheme.onSurface.withValues(alpha: 0.5))),
                         ],
                       ),
                     )
                   : ListView.separated(
                       itemCount: todayTasks.length,
                       separatorBuilder: (_, __) => Divider(
-                        height: 1,
-                        color: colorScheme.onSurface.withValues(alpha: 0.06),
-                      ),
+                          height: 1, color: colorScheme.onSurface.withValues(alpha: 0.06)),
                       itemBuilder: (context, index) {
                         final task = todayTasks[index];
-                        final isDone = task.status == TaskStatus.done;
-                        final project = projects[task.projectId];
-                        final priorityColor = task.priority.color;
-
-                        return InkWell(
-                          onTap: () {
-                            showGeneralDialog(
-                              context: context,
-                              transitionDuration: Duration.zero,
-                              pageBuilder: (context, animation, secondaryAnimation) =>
-                                  TaskDetailScreen(task: task),
-                              transitionBuilder:
-                                  (context, animation, secondaryAnimation, child) => child,
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            child: Row(
-                              children: [
-                                // 체크박스
-                                SizedBox(
-                                  width: 36,
-                                  child: Center(
-                                    child: SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: Checkbox(
-                                        value: isDone,
-                                        onChanged: (value) async {
-                                          if (value == true && !isDone) {
-                                            final taskProvider = context.read<TaskProvider>();
-                                            final authProvider = context.read<AuthProvider>();
-                                            await taskProvider.updateTask(
-                                              task.copyWith(status: TaskStatus.done),
-                                              userId: authProvider.currentUser?.id,
-                                              username: authProvider.currentUser?.username,
-                                            );
-                                          }
-                                        },
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(3),
-                                        ),
-                                        activeColor: TaskStatus.done.color,
-                                        side: BorderSide(
-                                          color: colorScheme.onSurface.withValues(alpha: 0.3),
-                                          width: 1.5,
-                                        ),
-                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                        visualDensity: VisualDensity.compact,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // 제목
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                                    child: Text(
-                                      task.title,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                        color: isDone
-                                            ? colorScheme.onSurface.withValues(alpha: 0.4)
-                                            : colorScheme.onSurface,
-                                        decoration: isDone
-                                            ? TextDecoration.lineThrough
-                                            : null,
-                                        decorationColor: colorScheme.onSurface.withValues(alpha: 0.4),
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                                // 프로젝트
-                                SizedBox(
-                                  width: 90,
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                                    child: Row(
-                                      children: [
-                                        if (project != null) ...[
-                                          Container(
-                                            width: 6,
-                                            height: 6,
-                                            decoration: BoxDecoration(
-                                              color: project.color,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                        ],
-                                        Expanded(
-                                          child: Text(
-                                            project?.name ?? '-',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: isDone
-                                                  ? colorScheme.onSurface.withValues(alpha: 0.35)
-                                                  : colorScheme.onSurface.withValues(alpha: 0.6),
-                                              decoration: isDone
-                                                  ? TextDecoration.lineThrough
-                                                  : null,
-                                              decorationColor: colorScheme.onSurface.withValues(alpha: 0.3),
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                // 우선순위
-                                SizedBox(
-                                  width: 60,
-                                  child: Center(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: priorityColor.withValues(alpha: isDone ? 0.08 : 0.15),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        task.priority.displayName,
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: isDone
-                                              ? priorityColor.withValues(alpha: 0.4)
-                                              : priorityColor,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                        return TodayTaskRow(
+                          task: task,
+                          project: projects[task.projectId],
                         );
                       },
                     ),
@@ -2182,60 +2001,108 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // ─── 사이드 패널: 오늘 할 작업 ─────────────────────────────────────
+
+  void _openTodayTasksSidePanel(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<Task> todayTasks,
+    Map<String, Project> projects,
+  ) {
+    showExpandableSidePanel(
+      context: context,
+      title: '오늘 할 작업',
+      icon: Icons.today,
+      bodyBuilder: (ctx) {
+        if (todayTasks.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle_outline, size: 48,
+                    color: colorScheme.onSurface.withValues(alpha: 0.3)),
+                const SizedBox(height: 12),
+                Text('오늘 할 작업이 없습니다',
+                    style: TextStyle(fontSize: 14,
+                        color: colorScheme.onSurface.withValues(alpha: 0.5))),
+              ],
+            ),
+          );
+        }
+        return Column(
+          children: [
+            const TodayTaskHeader(expanded: true),
+            Divider(height: 1, color: colorScheme.onSurface.withValues(alpha: 0.08)),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                itemCount: todayTasks.length,
+                separatorBuilder: (_, __) => Divider(
+                    height: 1, color: colorScheme.onSurface.withValues(alpha: 0.06)),
+                itemBuilder: (context, index) {
+                  final task = todayTasks[index];
+                  return TodayTaskRow(
+                    task: task,
+                    project: projects[task.projectId],
+                    expanded: true,
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ─── 사이드 패널: 최근 활동 ─────────────────────────────────────
+
+  void _openRecentActivitySidePanel(
+    BuildContext context,
+    ColorScheme colorScheme,
+  ) {
+    final notificationProvider = context.read<NotificationProvider>();
+    final notifications = notificationProvider.notifications.toList();
+
+    showExpandableSidePanel(
+      context: context,
+      title: '최근 활동',
+      icon: Icons.history,
+      bodyBuilder: (ctx) {
+        if (notifications.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.notifications_none, size: 48,
+                    color: colorScheme.onSurface.withValues(alpha: 0.3)),
+                const SizedBox(height: 12),
+                Text('최근 활동이 없습니다',
+                    style: TextStyle(fontSize: 14,
+                        color: colorScheme.onSurface.withValues(alpha: 0.5))),
+              ],
+            ),
+          );
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: notifications.length,
+          separatorBuilder: (_, __) => Divider(
+              height: 1, color: colorScheme.onSurface.withValues(alpha: 0.06)),
+          itemBuilder: (context, index) {
+            final notification = notifications[index];
+            return ActivityListItem(
+              notification: notification,
+              onTap: () => _handleActivityTap(notification),
+              expanded: true,
+            );
+          },
+        );
+      },
+    );
+  }
+
   // ─── 최근 활동 섹션 ─────────────────────────────────────────────
-
-  IconData _getNotificationIcon(app_notification.NotificationType type) {
-    switch (type) {
-      case app_notification.NotificationType.projectMemberAdded:
-        return Icons.group_add;
-      case app_notification.NotificationType.taskAssigned:
-        return Icons.assignment_ind;
-      case app_notification.NotificationType.taskOptionChanged:
-        return Icons.settings;
-      case app_notification.NotificationType.taskCommentAdded:
-        return Icons.comment;
-      case app_notification.NotificationType.taskMentioned:
-        return Icons.alternate_email;
-    }
-  }
-
-  Color _getNotificationColor(app_notification.NotificationType type) {
-    switch (type) {
-      case app_notification.NotificationType.projectMemberAdded:
-        return const Color(0xFF4F46E5);
-      case app_notification.NotificationType.taskAssigned:
-        return const Color(0xFFF59E0B);
-      case app_notification.NotificationType.taskOptionChanged:
-        return const Color(0xFF8B5CF6);
-      case app_notification.NotificationType.taskCommentAdded:
-        return const Color(0xFF10B981);
-      case app_notification.NotificationType.taskMentioned:
-        return const Color(0xFF2563EB);
-    }
-  }
-
-  String _formatRelativeTime(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date);
-
-    if (diff.inSeconds < 60) {
-      return '방금 전';
-    } else if (diff.inMinutes < 60) {
-      return '${diff.inMinutes}분 전';
-    } else if (diff.inHours < 24) {
-      return '${diff.inHours}시간 전';
-    } else if (diff.inDays < 2) {
-      return '어제';
-    } else if (diff.inDays < 7) {
-      return '${diff.inDays}일 전';
-    } else if (diff.inDays < 30) {
-      final weeks = (diff.inDays / 7).floor();
-      return '$weeks주 전';
-    } else {
-      final months = (diff.inDays / 30).floor();
-      return '$months개월 전';
-    }
-  }
 
   void _handleActivityTap(app_notification.Notification notification) async {
     final notificationProvider = context.read<NotificationProvider>();
@@ -2313,6 +2180,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding: EdgeInsets.zero,
                   iconSize: 16,
                   icon: Icon(
+                    Icons.open_in_new,
+                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                  onPressed: () => _openRecentActivitySidePanel(context, colorScheme),
+                  tooltip: '크게 보기',
+                ),
+              ),
+              const SizedBox(width: 2),
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  iconSize: 16,
+                  icon: Icon(
                     _activityCollapsed
                         ? Icons.keyboard_arrow_down
                         : Icons.keyboard_arrow_up,
@@ -2362,10 +2244,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       itemBuilder: (context, index) {
                         final notification = notifications[index];
-                        return _buildActivityItem(
-                          context,
-                          colorScheme,
-                          notification,
+                        return ActivityListItem(
+                          notification: notification,
+                          onTap: () => _handleActivityTap(notification),
                         );
                       },
                     ),
@@ -2376,672 +2257,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildActivityItem(
-      BuildContext context,
-      ColorScheme colorScheme,
-      app_notification.Notification notification,
-      ) {
-    final icon = _getNotificationIcon(notification.type);
-    final typeColor = _getNotificationColor(notification.type);
-    final isUnread = !notification.isRead;
-
-    return InkWell(
-      onTap: () => _handleActivityTap(notification),
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 아이콘
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: typeColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, size: 16, color: typeColor),
-            ),
-            const SizedBox(width: 10),
-            // 내용
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    notification.title,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: isUnread ? FontWeight.w700 : FontWeight.w500,
-                      color: colorScheme.onSurface,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    notification.message,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: colorScheme.onSurface.withValues(alpha: 0.55),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 6),
-            // 시간 + 읽지 않음 인디케이터
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  _formatRelativeTime(notification.createdAt),
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: colorScheme.onSurface.withValues(alpha: 0.45),
-                  ),
-                ),
-                if (isUnread) ...[
-                  const SizedBox(height: 4),
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      color: colorScheme.primary,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ─── Export 기능 ─────────────────────────────────────────────
-
-  Future<void> _showExportDialog(BuildContext context, List<Project> allProjects) async {
-    final colorScheme = Theme.of(context).colorScheme;
-    final workspaceId = context.read<WorkspaceProvider>().currentWorkspaceId;
-
-    final allUsers = await (_usersFuture ?? Future.value(<User>[]));
-    if (!context.mounted) return;
-    final memberIdSet = <String>{};
-    for (final p in allProjects) {
-      memberIdSet.addAll(p.teamMemberIds);
-    }
-    final teamUsers = allUsers.where((u) => memberIdSet.contains(u.id)).toList()
-      ..sort((a, b) => a.username.toLowerCase().compareTo(b.username.toLowerCase()));
-
-    final selectedProjectIds = <String>{};
-    final exportAssigneeIds = <String>{};
-    String exportFormat = 'docs'; // 'docs' or 'md'
-    DateTime exportStart = DateTime.now().subtract(const Duration(days: 7));
-    DateTime exportEnd = DateTime.now();
-    // 보고서 제목 기본값:보내기를 여는 당일(로컬) 기준 YYMMDD — 기간과 무관, 필드에서 수정 가능
-    String defaultExportTitleForDate(DateTime d) {
-      final y = (d.year % 100).toString().padLeft(2, '0');
-      final m = d.month.toString().padLeft(2, '0');
-      final day = d.day.toString().padLeft(2, '0');
-      return '$y$m$day 업무 보고';
-    }
-
-    final titleController = TextEditingController(
-      text: defaultExportTitleForDate(DateTime.now()),
-    );
-    bool isLoading = false;
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) {
-            return Dialog(
-              backgroundColor: Colors.transparent,
-              child: GlassContainer(
-                padding: const EdgeInsets.all(24),
-                borderRadius: 20.0,
-                blur: 25.0,
-                gradientColors: [
-                  colorScheme.surface.withValues(alpha: 0.95),
-                  colorScheme.surface.withValues(alpha: 0.9),
-                ],
-                child: SizedBox(
-                  width: 460,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.ios_share_outlined, size: 20, color: colorScheme.primary),
-                          const SizedBox(width: 8),
-                          Text(
-                            '업무 보고서 내보내기',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            icon: Icon(Icons.close, size: 20, color: colorScheme.onSurface.withValues(alpha: 0.5)),
-                            onPressed: () => Navigator.of(dialogContext).pop(),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      // 제목
-                      Text('제목', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: titleController,
-                        decoration: InputDecoration(
-                          hintText: '기본: 오늘 날짜(YYMMDD) 기준 — 필요 시 수정',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          isDense: true,
-                        ),
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // 프로젝트 선택 (멀티셀렉트)
-                      Row(
-                        children: [
-                          Text('프로젝트', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
-                          const Spacer(),
-                          InkWell(
-                            onTap: () {
-                              setDialogState(() {
-                                if (selectedProjectIds.length == allProjects.length) {
-                                  selectedProjectIds.clear();
-                                } else {
-                                  selectedProjectIds.clear();
-                                  selectedProjectIds.addAll(allProjects.map((p) => p.id));
-                                }
-                              });
-                            },
-                            child: Text(
-                              selectedProjectIds.length == allProjects.length ? '전체 해제' : '전체 선택',
-                              style: TextStyle(fontSize: 12, color: colorScheme.primary, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        constraints: const BoxConstraints(maxHeight: 140),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: colorScheme.outline),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: SingleChildScrollView(
-                          child: Column(
-                            children: allProjects.map((project) {
-                              final isSelected = selectedProjectIds.contains(project.id);
-                              return InkWell(
-                                onTap: () {
-                                  setDialogState(() {
-                                    if (isSelected) {
-                                      selectedProjectIds.remove(project.id);
-                                    } else {
-                                      selectedProjectIds.add(project.id);
-                                    }
-                                  });
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        isSelected ? Icons.check_box : Icons.check_box_outline_blank,
-                                        size: 18,
-                                        color: isSelected ? colorScheme.primary : colorScheme.onSurface.withValues(alpha: 0.4),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          project.name,
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: colorScheme.onSurface,
-                                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ),
-                      if (selectedProjectIds.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(
-                            '${selectedProjectIds.length}개 선택됨',
-                            style: TextStyle(fontSize: 11, color: colorScheme.onSurface.withValues(alpha: 0.5)),
-                          ),
-                        ),
-                      const SizedBox(height: 16),
-
-                      // 기간 선택
-                      Text('기간', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
-                      const SizedBox(height: 6),
-                      InkWell(
-                        onTap: () async {
-                          final picked = await showDateRangePicker(
-                            context: ctx,
-                            firstDate: DateTime(2024),
-                            lastDate: DateTime(2030),
-                            initialDateRange: DateTimeRange(start: exportStart, end: exportEnd),
-                          );
-                          if (picked != null) {
-                            setDialogState(() {
-                              exportStart = picked.start;
-                              exportEnd = picked.end;
-                            });
-                          }
-                        },
-                        borderRadius: BorderRadius.circular(10),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: colorScheme.outline),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.calendar_today, size: 16, color: colorScheme.onSurface.withValues(alpha: 0.6)),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${exportStart.month}/${exportStart.day} ~ ${exportEnd.month}/${exportEnd.day}',
-                                style: TextStyle(fontSize: 14, color: colorScheme.onSurface),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // 담당자 (작업 테이블 담당자 필터와 동일: 멀티 선택 · 아바타 · 초기화)
-                      Row(
-                        children: [
-                          Text(
-                            '담당자',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.onSurface),
-                          ),
-                          const Spacer(),
-                          InkWell(
-                            onTap: () => setDialogState(() => exportAssigneeIds.clear()),
-                            borderRadius: BorderRadius.circular(8),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.clear_all, size: 16, color: colorScheme.onSurface.withValues(alpha: 0.5)),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '초기화',
-                                    style: TextStyle(fontSize: 12, color: colorScheme.primary, fontWeight: FontWeight.w600),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '선택하지 않으면 기간·프로젝트 내 전체 작업입니다. 선택 시 해당 담당자가 할당된 작업만 포함합니다.',
-                        style: TextStyle(fontSize: 11, color: colorScheme.onSurface.withValues(alpha: 0.5)),
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        constraints: const BoxConstraints(maxHeight: 160),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: colorScheme.outline),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: teamUsers.isEmpty
-                            ? Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Text(
-                                  '표시할 팀원이 없습니다. 프로젝트에 팀원이 있는지 확인해 주세요.',
-                                  style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.55)),
-                                ),
-                              )
-                            : SingleChildScrollView(
-                                child: Column(
-                                  children: teamUsers.map((user) {
-                                    final isSelected = exportAssigneeIds.contains(user.id);
-                                    return InkWell(
-                                      onTap: () {
-                                        setDialogState(() {
-                                          if (isSelected) {
-                                            exportAssigneeIds.remove(user.id);
-                                          } else {
-                                            exportAssigneeIds.add(user.id);
-                                          }
-                                        });
-                                      },
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              isSelected ? Icons.check_box : Icons.check_box_outline_blank,
-                                              size: 18,
-                                              color: isSelected ? colorScheme.primary : colorScheme.onSurface.withValues(alpha: 0.4),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            CircleAvatar(
-                                              radius: 10,
-                                              backgroundColor: AvatarColor.getColorForUser(user.id),
-                                              child: Text(
-                                                AvatarColor.getInitial(user.username),
-                                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                user.username,
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: colorScheme.onSurface,
-                                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                      ),
-                      if (exportAssigneeIds.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(
-                            '${exportAssigneeIds.length}명 선택됨',
-                            style: TextStyle(fontSize: 11, color: colorScheme.onSurface.withValues(alpha: 0.5)),
-                          ),
-                        ),
-                      const SizedBox(height: 16),
-
-                      // 형식 선택
-                      Text('형식', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: () => setDialogState(() => exportFormat = 'docs'),
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: exportFormat == 'docs'
-                                      ? colorScheme.primary.withValues(alpha: 0.12)
-                                      : Colors.transparent,
-                                  border: Border.all(
-                                    color: exportFormat == 'docs'
-                                        ? colorScheme.primary
-                                        : colorScheme.outline,
-                                  ),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.description_outlined, size: 16,
-                                      color: exportFormat == 'docs' ? colorScheme.primary : colorScheme.onSurface.withValues(alpha: 0.6)),
-                                    const SizedBox(width: 6),
-                                    Text('Google Docs',
-                                      style: TextStyle(fontSize: 13,
-                                        color: exportFormat == 'docs' ? colorScheme.primary : colorScheme.onSurface,
-                                        fontWeight: exportFormat == 'docs' ? FontWeight.w600 : FontWeight.normal)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: InkWell(
-                              onTap: () => setDialogState(() => exportFormat = 'md'),
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: exportFormat == 'md'
-                                      ? colorScheme.primary.withValues(alpha: 0.12)
-                                      : Colors.transparent,
-                                  border: Border.all(
-                                    color: exportFormat == 'md'
-                                        ? colorScheme.primary
-                                        : colorScheme.outline,
-                                  ),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.code, size: 16,
-                                      color: exportFormat == 'md' ? colorScheme.primary : colorScheme.onSurface.withValues(alpha: 0.6)),
-                                    const SizedBox(width: 6),
-                                    Text('Markdown',
-                                      style: TextStyle(fontSize: 13,
-                                        color: exportFormat == 'md' ? colorScheme.primary : colorScheme.onSurface,
-                                        fontWeight: exportFormat == 'md' ? FontWeight.w600 : FontWeight.normal)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-
-                      // 내보내기 버튼
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: isLoading ? null : () async {
-                            setDialogState(() => isLoading = true);
-                            try {
-                              final report = await _callExportApi(
-                                title: titleController.text,
-                                workspaceId: workspaceId,
-                                projectIds: selectedProjectIds.isEmpty ? null : selectedProjectIds.toList(),
-                                startDate: exportStart,
-                                endDate: exportEnd,
-                                format: exportFormat,
-                                assigneeIds: exportAssigneeIds.isEmpty ? null : exportAssigneeIds.toList(),
-                              );
-                              if (ctx.mounted) {
-                                Navigator.of(dialogContext).pop();
-                                _showExportResultDialog(context, report, exportFormat);
-                              }
-                            } catch (e) {
-                              setDialogState(() => isLoading = false);
-                              if (ctx.mounted) {
-                                ScaffoldMessenger.of(ctx).showSnackBar(
-                                  SnackBar(content: Text('보고서 생성 실패: $e'), backgroundColor: Colors.red),
-                                );
-                              }
-                            }
-                          },
-                          icon: isLoading
-                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                              : const Icon(Icons.auto_awesome, size: 18),
-                          label: Text(isLoading ? 'AI 보고서 생성 중...' : 'AI 보고서 생성'),
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    ).then((_) => titleController.dispose());
-  }
-
-  Future<String> _callExportApi({
-    required String title,
-    String? workspaceId,
-    List<String>? projectIds,
-    required DateTime startDate,
-    required DateTime endDate,
-    required String format,
-    List<String>? assigneeIds,
-  }) async {
-    final body = <String, dynamic>{
-      'title': title,
-      'project_ids': projectIds,
-      'start_date': startDate.toIso8601String(),
-      'end_date': endDate.toIso8601String(),
-      'format': format,
-      'task_scope': 'all',
-    };
-    if (workspaceId != null && workspaceId.isNotEmpty) {
-      body['workspace_id'] = workspaceId;
-    }
-    if (assigneeIds != null && assigneeIds.isNotEmpty) {
-      body['assignee_ids'] = assigneeIds;
-    }
-    final response = await ApiClient.post(
-      '/api/ai/export-report',
-      body: body,
-    );
-    final data = ApiClient.handleResponse(response);
-    return data['report'] as String;
-  }
-
-  void _showExportResultDialog(BuildContext context, String report, String format) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final scrollController = ScrollController();
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: GlassContainer(
-            padding: const EdgeInsets.all(24),
-            borderRadius: 20.0,
-            blur: 25.0,
-            gradientColors: [
-              colorScheme.surface.withValues(alpha: 0.95),
-              colorScheme.surface.withValues(alpha: 0.9),
-            ],
-            child: SizedBox(
-              width: 600,
-              height: 600,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.article_outlined, size: 20, color: colorScheme.primary),
-                      const SizedBox(width: 8),
-                      Text(
-                        '보고서',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
-                      ),
-                      const Spacer(),
-                      FilledButton.tonalIcon(
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(text: report));
-                          ScaffoldMessenger.of(dialogContext).showSnackBar(
-                            const SnackBar(content: Text('클립보드에 복사되었습니다'), duration: Duration(seconds: 2)),
-                          );
-                        },
-                        icon: const Icon(Icons.copy, size: 16),
-                        label: const Text('복사'),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          textStyle: const TextStyle(fontSize: 13),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: Icon(Icons.close, size: 20, color: colorScheme.onSurface.withValues(alpha: 0.5)),
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerLowest,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
-                      ),
-                      child: format == 'md'
-                          ? Markdown(
-                              data: report,
-                              selectable: true,
-                              controller: scrollController,
-                              padding: EdgeInsets.zero,
-                              styleSheet: MarkdownStyleSheet(
-                                h2: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
-                                h3: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: colorScheme.primary),
-                                p: TextStyle(fontSize: 13, height: 1.6, color: colorScheme.onSurface),
-                                listBullet: TextStyle(fontSize: 13, color: colorScheme.onSurface),
-                                strong: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.onSurface),
-                                h2Padding: const EdgeInsets.only(bottom: 8),
-                                h3Padding: const EdgeInsets.only(top: 12, bottom: 4),
-                                blockSpacing: 6,
-                              ),
-                            )
-                          : Scrollbar(
-                              controller: scrollController,
-                              thumbVisibility: true,
-                              child: SingleChildScrollView(
-                                controller: scrollController,
-                                child: SelectableText(
-                                  report,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    height: 1.6,
-                                    color: colorScheme.onSurface,
-                                  ),
-                                ),
-                              ),
-                            ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
 }
 
 /// 필터 아이콘 버튼 - 위치 정보를 전달하기 위해 별도 위젯으로 분리
