@@ -3,6 +3,7 @@
 enum NotificationType {
   projectMemberAdded,
   taskAssigned,
+  taskCreated,
   taskOptionChanged,
   taskCommentAdded,
   taskMentioned,
@@ -15,6 +16,8 @@ extension NotificationTypeExtension on NotificationType {
         return '프로젝트 멤버 추가';
       case NotificationType.taskAssigned:
         return '작업 할당';
+      case NotificationType.taskCreated:
+        return '새 작업';
       case NotificationType.taskOptionChanged:
         return '작업 옵션 변경';
       case NotificationType.taskCommentAdded:
@@ -30,6 +33,8 @@ extension NotificationTypeExtension on NotificationType {
         return '프로젝트 팀원으로 추가되었습니다';
       case NotificationType.taskAssigned:
         return '작업 담당자로 지정되었습니다';
+      case NotificationType.taskCreated:
+        return '프로젝트에 새 작업이 추가되었습니다';
       case NotificationType.taskOptionChanged:
         return '작업 옵션이 변경되었습니다';
       case NotificationType.taskCommentAdded:

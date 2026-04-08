@@ -109,6 +109,31 @@ def notify_project_member_added(
     )
 
 
+def notify_task_created(
+    db: Session,
+    task: Task,
+    project: Project,
+    created_by_user: User
+):
+    """새 작업 생성 알림 — 프로젝트 팀원 전체 (생성자 제외)"""
+    # 팀원 + 프로젝트 생성자(PM) 모두에게 알림, 중복 제거
+    recipients = set(project.team_member_ids or [])
+    if project.creator_id:
+        recipients.add(project.creator_id)
+    recipients.discard(created_by_user.id)  # 본인 제외
+
+    for user_id in recipients:
+        create_notification(
+            db=db,
+            notification_type=NotificationType.TASK_CREATED,
+            user_id=user_id,
+            title=f"[{project.name}] 새 작업이 추가되었습니다",
+            message=f"{created_by_user.username}님이 '{task.title}' 작업을 추가했습니다.",
+            project_id=task.project_id,
+            task_id=task.id,
+        )
+
+
 def notify_task_assigned(
     db: Session,
     task: Task,

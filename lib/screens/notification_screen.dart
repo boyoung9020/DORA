@@ -157,6 +157,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return Icons.group_add;
       case app_notification.NotificationType.taskAssigned:
         return Icons.assignment_ind;
+      case app_notification.NotificationType.taskCreated:
+        return Icons.add_task;
       case app_notification.NotificationType.taskOptionChanged:
         return Icons.settings;
       case app_notification.NotificationType.taskCommentAdded:
@@ -173,6 +175,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return const Color(0xFF4F46E5); // 인디고
       case app_notification.NotificationType.taskAssigned:
         return const Color(0xFFF59E0B); // 앰버
+      case app_notification.NotificationType.taskCreated:
+        return const Color(0xFF059669); // 에메랄드 그린
       case app_notification.NotificationType.taskOptionChanged:
         return const Color(0xFF8B5CF6); // 바이올렛
       case app_notification.NotificationType.taskCommentAdded:
@@ -304,6 +308,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final authProvider = context.watch<AuthProvider>();
     final notifications = notificationProvider.unreadNotifications;
     final totalCount = notifications.length;
+    final taskCreatedCount = notifications
+        .where((n) => n.type == app_notification.NotificationType.taskCreated)
+        .length;
     final taskAssignedCount = notifications
         .where((n) => n.type == app_notification.NotificationType.taskAssigned)
         .length;
@@ -447,6 +454,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   '전체',
                   Icons.notifications_none,
                   totalCount,
+                  colorScheme,
+                ),
+                const SizedBox(width: 8),
+                _buildFilterChip(
+                  app_notification.NotificationType.taskCreated,
+                  '새 작업',
+                  Icons.add_task,
+                  taskCreatedCount,
                   colorScheme,
                 ),
                 const SizedBox(width: 8),

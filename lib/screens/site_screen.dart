@@ -543,6 +543,7 @@ class _SiteScreenState extends State<SiteScreen> {
                       const SizedBox(height: 16),
                       _ServiceEmbeddedSection(
                         key: ValueKey('svc_${site.id}'),
+                        servers: site.servers,
                         services: site.services,
                         colorScheme: colorScheme,
                         onSave: _saveServices,
@@ -1004,54 +1005,30 @@ class _DatabaseEmbeddedSectionState extends State<_DatabaseEmbeddedSection> {
 // 서비스 섹션 (임베드용, IP 그룹)
 // ═══════════════════════════════════════
 class _ServiceEmbeddedSection extends StatefulWidget {
+  final List<ServerInfo> servers;
   final List<ServiceInfo> services;
   final ColorScheme colorScheme;
   final Future<void> Function(List<ServiceInfo>) onSave;
-  const _ServiceEmbeddedSection({super.key, required this.services, required this.colorScheme, required this.onSave});
+  const _ServiceEmbeddedSection({super.key, required this.servers, required this.services, required this.colorScheme, required this.onSave});
   @override State<_ServiceEmbeddedSection> createState() => _ServiceEmbeddedSectionState();
 }
 
 class _ServiceEmbeddedSectionState extends State<_ServiceEmbeddedSection> {
   static const _color = Colors.deepPurple;
 
+  /// 서버 정보에 등록된 IP 순서대로 반환
   List<String> _serverIps() {
-    final seen = <String>{};
     final result = <String>[];
-    for (final s in widget.services) {
-      final ip = s.serverIp.trim();
-      if (!seen.contains(ip)) { seen.add(ip); result.add(ip); }
+    final seen = <String>{};
+    for (final s in widget.servers) {
+      final ip = s.ip.trim();
+      if (ip.isNotEmpty && !seen.contains(ip)) { seen.add(ip); result.add(ip); }
     }
     return result;
   }
 
   List<ServiceInfo> _servicesFor(String ip) =>
       widget.services.where((s) => s.serverIp.trim() == ip).toList();
-
-  Future<void> _addServer() async {
-    final ctrl = TextEditingController();
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('서버 IP 추가', style: TextStyle(fontSize: 15)),
-        content: TextField(
-          controller: ctrl, autofocus: true,
-          decoration: const InputDecoration(
-            labelText: '서버 IP', hintText: '예) 10.158.108.111',
-            border: OutlineInputBorder(), isDense: true,
-          ),
-          onSubmitted: (_) => Navigator.pop(ctx, true),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('추가')),
-        ],
-      ),
-    );
-    final ip = ctrl.text.trim();
-    ctrl.dispose();
-    if (result != true || ip.isEmpty) return;
-    await widget.onSave([...widget.services, ServiceInfo(serverIp: ip)]);
-  }
 
   Future<void> _addService(String serverIp) async {
     final ctrls = [TextEditingController(), TextEditingController(),
@@ -1099,10 +1076,6 @@ class _ServiceEmbeddedSectionState extends State<_ServiceEmbeddedSection> {
     await widget.onSave(widget.services.where((s) => s != target).toList());
   }
 
-  Future<void> _deleteServer(String ip) async {
-    await widget.onSave(widget.services.where((s) => s.serverIp.trim() != ip).toList());
-  }
-
   @override
   Widget build(BuildContext context) {
     final ips = _serverIps();
@@ -1129,25 +1102,12 @@ class _ServiceEmbeddedSectionState extends State<_ServiceEmbeddedSection> {
               child: const Icon(Icons.apps_outlined, size: 15, color: _color)),
             const SizedBox(width: 10),
             const Text('서비스', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _color)),
-            const Spacer(),
-            InkWell(
-              onTap: _addServer,
-              borderRadius: BorderRadius.circular(6),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.add, size: 14, color: _color),
-                  const SizedBox(width: 3),
-                  const Text('서버 추가', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _color)),
-                ]),
-              ),
-            ),
           ]),
         ),
         if (ips.isEmpty)
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Text('등록된 서비스가 없습니다.',
+            child: Text('서버 정보에 서버 IP를 먼저 등록해주세요.',
                 style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.35))),
           )
         else
@@ -1163,7 +1123,7 @@ class _ServiceEmbeddedSectionState extends State<_ServiceEmbeddedSection> {
                 child: Row(children: [
                   Icon(Icons.computer_outlined, size: 13, color: _color.withValues(alpha: 0.7)),
                   const SizedBox(width: 6),
-                  Text(ip.isEmpty ? '(IP 없음)' : ip,
+                  Text(ip,
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
                           color: _color, fontFamily: 'monospace')),
                   const Spacer(),
@@ -1175,11 +1135,6 @@ class _ServiceEmbeddedSectionState extends State<_ServiceEmbeddedSection> {
                       Text('서비스 추가', style: TextStyle(fontSize: 11,
                           fontWeight: FontWeight.w600, color: _color.withValues(alpha: 0.6))),
                     ]),
-                  ),
-                  const SizedBox(width: 8),
-                  InkWell(
-                    onTap: () => _deleteServer(ip),
-                    child: Icon(Icons.delete_outline, size: 14, color: cs.onSurface.withValues(alpha: 0.3)),
                   ),
                 ]),
               ),

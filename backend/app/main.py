@@ -9,6 +9,7 @@ from sqlalchemy import func, text
 from app.database import Base, engine
 from app.routers import (
     ai,
+    api_tokens,
     auth,
     chat,
     checklists,
@@ -410,6 +411,7 @@ app.include_router(user_mattermost_settings.router, prefix="/api/mattermost-sett
 app.include_router(patches.router, prefix="/api/patches", tags=["Patches"])
 app.include_router(project_sites.router, prefix="/api/project-sites", tags=["ProjectSites"])
 app.include_router(site_details.router, prefix="/api/site-details", tags=["SiteDetails"])
+app.include_router(api_tokens.router, prefix="/api/tokens", tags=["ApiTokens"])
 app.include_router(request_issue.router, prefix="/api/ri", tags=["RequestIssue"])
 app.include_router(websocket.router, prefix="/api", tags=["WebSocket"])
 
@@ -524,6 +526,30 @@ def ensure_favorite_project_ids_column() -> None:
 ensure_favorite_project_ids_column()
 
 
+def ensure_notification_type_task_created() -> None:
+    """notifications.type enum에 'taskCreated' 값 추가 (기존 DB 마이그레이션)."""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT 1 FROM pg_enum
+                WHERE enumlabel = 'taskCreated'
+                  AND enumtypid = (
+                    SELECT oid FROM pg_type WHERE typname = 'notificationtype'
+                  )
+            """))
+            if result.fetchone() is None:
+                conn.execute(text("ALTER TYPE notificationtype ADD VALUE 'taskCreated'"))
+                conn.commit()
+                print("[main] added 'taskCreated' to notificationtype enum")
+            else:
+                print("[main] notificationtype 'taskCreated' already exists")
+    except Exception as e:
+        print(f"[main] failed to ensure notificationtype taskCreated: {e}")
+
+
+ensure_notification_type_task_created()
+
+
 def migrate_project_sites_to_site_details() -> None:
     """project_sites 테이블의 기존 사이트를 site_details로 마이그레이션."""
     try:
@@ -591,6 +617,35 @@ def migrate_site_details_to_project_ids() -> None:
 
 
 migrate_site_details_to_project_ids()
+
+
+def ensure_api_tokens_table() -> None:
+    """api_tokens 테이블이 없으면 생성 (외부 서비스 연동용 API 토큰)."""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT to_regclass('public.api_tokens')"))
+            if result.scalar() is None:
+                conn.execute(text("""
+                    CREATE TABLE api_tokens (
+                        id VARCHAR PRIMARY KEY,
+                        user_id VARCHAR NOT NULL,
+                        name VARCHAR NOT NULL,
+                        token_hash VARCHAR NOT NULL UNIQUE,
+                        token_prefix VARCHAR NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                    )
+                """))
+                conn.execute(text("CREATE INDEX ix_api_tokens_user_id ON api_tokens(user_id)"))
+                conn.execute(text("CREATE INDEX ix_api_tokens_token_hash ON api_tokens(token_hash)"))
+                conn.commit()
+                print("[main] created api_tokens table")
+            else:
+                print("[main] api_tokens table already exists")
+    except Exception as e:
+        print(f"[main] failed to ensure api_tokens table: {e}")
+
+
+ensure_api_tokens_table()
 
 
 def seed_mbc_site_details_if_empty() -> None:

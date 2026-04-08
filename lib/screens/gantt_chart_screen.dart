@@ -88,6 +88,9 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
   // 부모 태스크 접기/펼치기 상태
   final Map<String, bool> _expandedParents = {};
 
+  // status 필터 (비어 있으면 전체)
+  final Set<TaskStatus> _selectedStatuses = {};
+
   // 스크롤 동기화용 컨트롤러
   final ScrollController _headerHScrollController = ScrollController();
   final ScrollController _bodyHScrollController = ScrollController();
@@ -293,6 +296,11 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
       projectTasks = projectTasks.where((task) => task.assignedMemberIds.contains(ownerFilter)).toList();
     }
 
+    // status 필터
+    if (_selectedStatuses.isNotEmpty) {
+      projectTasks = projectTasks.where((task) => _selectedStatuses.contains(task.status)).toList();
+    }
+
     // 태스크 기반 날짜 범위 자동 계산: 모든 태스크를 포함하되 오늘 기준 최소 ±90일
     if (projectTasks.isNotEmpty && !_userOverrodeRange) {
       DateTime? earliestDate;
@@ -361,7 +369,10 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
         children: [
           // 헤더 컨트롤
           _buildToolbar(context, colorScheme),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
+          // status 필터칩
+          _buildStatusFilterRow(colorScheme),
+          const SizedBox(height: 8),
           // 간트 차트
           Expanded(child: _buildGanttChart(context, projectTasks, colorScheme)),
         ],
@@ -390,6 +401,97 @@ class _GanttChartScreenState extends State<GanttChartScreen> {
         curve: Curves.easeOut,
       );
     }
+  }
+
+  Widget _buildStatusFilterRow(ColorScheme colorScheme) {
+    // backlog은 간트차트에서 이미 제외되어 있으므로 나머지 4개만 표시
+    const statuses = [
+      TaskStatus.ready,
+      TaskStatus.inProgress,
+      TaskStatus.inReview,
+      TaskStatus.done,
+    ];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          // '전체' 칩
+          _buildFilterChip(
+            label: '전체',
+            color: colorScheme.onSurface.withValues(alpha: 0.55),
+            selected: _selectedStatuses.isEmpty,
+            onTap: () => setState(() => _selectedStatuses.clear()),
+            colorScheme: colorScheme,
+          ),
+          const SizedBox(width: 6),
+          ...statuses.map((status) {
+            final selected = _selectedStatuses.contains(status);
+            return Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: _buildFilterChip(
+                label: status.displayName,
+                color: status.color,
+                selected: selected,
+                onTap: () => setState(() {
+                  if (selected) {
+                    _selectedStatuses.remove(status);
+                  } else {
+                    _selectedStatuses.add(status);
+                  }
+                }),
+                colorScheme: colorScheme,
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required Color color,
+    required bool selected,
+    required VoidCallback onTap,
+    required ColorScheme colorScheme,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: selected ? color.withValues(alpha: 0.15) : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          border: Border.all(
+            color: selected ? color.withValues(alpha: 0.7) : colorScheme.outline.withValues(alpha: 0.2),
+            width: selected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (selected) ...[
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 5),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                color: selected ? color : colorScheme.onSurface.withValues(alpha: 0.65),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildToolbar(BuildContext context, ColorScheme colorScheme) {

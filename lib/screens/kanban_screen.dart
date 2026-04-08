@@ -1250,7 +1250,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                           Expanded(
                             child: GlassButton(
                               text: '추가',
-                              onPressed: () {
+                              onPressed: () async {
                                 if (titleController.text.trim().isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
@@ -1270,7 +1270,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                     authProvider.currentUser?.id;
                                 if (currentProjectId != null &&
                                     currentUserId != null) {
-                                  context.read<TaskProvider>().createTask(
+                                  await context.read<TaskProvider>().createTask(
                                     title: titleController.text.trim(),
                                     description: '',
                                     status: selectedStatus,
@@ -1282,7 +1282,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                     siteTags: selectedSiteName != null ? [selectedSiteName!] : [],
                                   );
                                 }
-                                Navigator.of(context).pop();
+                                if (context.mounted) Navigator.of(context).pop();
                               },
                               gradientColors: [
                                 colorScheme.primary.withValues(alpha: 0.5),

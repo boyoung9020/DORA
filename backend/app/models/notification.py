@@ -11,6 +11,7 @@ class NotificationType(str, enum.Enum):
     """알림 타입 열거형"""
     PROJECT_MEMBER_ADDED = "projectMemberAdded"      # 프로젝트 팀원으로 추가됨
     TASK_ASSIGNED = "taskAssigned"                    # 작업 할당자로 임명됨
+    TASK_CREATED = "taskCreated"                      # 프로젝트에 새 작업 추가됨
     TASK_OPTION_CHANGED = "taskOptionChanged"        # 작업 옵션 변경 (중요도, 상태, 날짜)
     TASK_COMMENT_ADDED = "taskCommentAdded"           # 작업에 코멘트 추가됨
     TASK_MENTIONED = "taskMentioned"                  # 댓글에서 멘션됨

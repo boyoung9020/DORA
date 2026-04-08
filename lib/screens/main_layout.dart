@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../services/api_token_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -575,6 +576,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       case models.NotificationType.taskAssigned:
         accentColor = const Color(0xFFF59E0B);
         icon = Icons.assignment_ind;
+        break;
+      case models.NotificationType.taskCreated:
+        accentColor = const Color(0xFF059669);
+        icon = Icons.add_task;
         break;
       case models.NotificationType.taskOptionChanged:
         accentColor = const Color(0xFF8B5CF6);
@@ -2873,11 +2878,12 @@ class _SettingsDialogContent extends StatefulWidget {
 class _SettingsDialogContentState extends State<_SettingsDialogContent> {
   int _selectedSection = 0; // 0=프로필, 1=워크스페이스, 2=테마
 
-  static const _sectionLabels = ['프로필', '워크스페이스', '테마'];
+  static const _sectionLabels = ['프로필', '워크스페이스', '테마', 'API 토큰'];
   static const _sectionIcons = [
     Icons.person_outline,
     Icons.group_outlined,
     Icons.palette_outlined,
+    Icons.vpn_key_outlined,
   ];
 
   @override
@@ -3195,6 +3201,8 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
         return _buildWorkspaceSection(context, colorScheme);
       case 2:
         return _buildThemeSection(colorScheme, themeProvider);
+      case 3:
+        return const _ApiTokenSection();
       default:
         return _buildProfileSection(context, colorScheme, authProvider);
     }
@@ -4403,6 +4411,338 @@ class _GitHubTokenEditorState extends State<_GitHubTokenEditor> {
           ),
         ],
       ],
+    );
+  }
+}
+
+// ── API 토큰 섹션 ────────────────────────────────────────────────────────────
+
+class _ApiTokenSection extends StatefulWidget {
+  const _ApiTokenSection();
+
+  @override
+  State<_ApiTokenSection> createState() => _ApiTokenSectionState();
+}
+
+class _ApiTokenSectionState extends State<_ApiTokenSection> {
+  final _service = ApiTokenService();
+  List<ApiTokenInfo> _tokens = [];
+  bool _loading = true;
+  String? _newlyCreatedToken; // 방금 발급된 원문 토큰 (딱 한 번 표시)
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTokens();
+  }
+
+  Future<void> _loadTokens() async {
+    setState(() => _loading = true);
+    try {
+      final tokens = await _service.listTokens();
+      if (mounted) setState(() => _tokens = tokens);
+    } catch (_) {
+      // 에러 무시 — 빈 목록으로 표시
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _showGenerateDialog() async {
+    final nameCtrl = TextEditingController();
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('새 API 토큰 발급'),
+        content: TextField(
+          controller: nameCtrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: '토큰 이름',
+            hintText: 'ex) request-issue-app',
+          ),
+          onSubmitted: (_) => Navigator.of(ctx).pop(true),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('발급'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || nameCtrl.text.trim().isEmpty) return;
+
+    try {
+      final result = await _service.generateToken(nameCtrl.text.trim());
+      setState(() => _newlyCreatedToken = result['token'] as String);
+      await _loadTokens();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('토큰 발급 실패: $e'),
+            backgroundColor: colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _revokeToken(ApiTokenInfo token) async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('토큰 폐기'),
+        content: Text('"${token.name}" 토큰을 폐기하면 해당 토큰으로 연동된 서비스가 즉시 인증 불가 상태가 됩니다. 계속할까요?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: colorScheme.error),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('폐기'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await _service.revokeToken(token.id);
+      await _loadTokens();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('토큰 폐기 실패: $e'),
+            backgroundColor: colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  String _formatDate(DateTime dt) {
+    return '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '외부 서비스 연동용 API 토큰을 발급하고 관리합니다.',
+          style: TextStyle(
+            fontSize: 13,
+            color: colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Base URL: http://서버주소:4000/api/ri',
+          style: TextStyle(
+            fontSize: 12,
+            fontFamily: 'monospace',
+            color: colorScheme.onSurface.withValues(alpha: 0.45),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // 방금 발급된 토큰 표시 배너
+        if (_newlyCreatedToken != null) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: colorScheme.primary.withValues(alpha: 0.4)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, size: 16, color: colorScheme.primary),
+                    const SizedBox(width: 6),
+                    Text(
+                      '토큰이 발급되었습니다. 지금만 확인 가능합니다.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SelectableText(
+                        _newlyCreatedToken!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      iconSize: 18,
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: _newlyCreatedToken!));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('토큰이 클립보드에 복사되었습니다'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.copy),
+                      tooltip: '복사',
+                    ),
+                    IconButton(
+                      iconSize: 18,
+                      onPressed: () => setState(() => _newlyCreatedToken = null),
+                      icon: Icon(Icons.close, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                      tooltip: '닫기',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // 토큰 목록 헤더
+        Row(
+          children: [
+            Text(
+              '발급된 토큰',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            const Spacer(),
+            FilledButton.icon(
+              onPressed: _showGenerateDialog,
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('새 토큰'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                textStyle: const TextStyle(fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        if (_loading)
+          const Center(child: Padding(
+            padding: EdgeInsets.all(24),
+            child: CircularProgressIndicator(),
+          ))
+        else if (_tokens.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                '발급된 토큰이 없습니다',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colorScheme.onSurface.withValues(alpha: 0.45),
+                ),
+              ),
+            ),
+          )
+        else
+          ...(_tokens.map((token) => _TokenListItem(
+            token: token,
+            onRevoke: () => _revokeToken(token),
+            formatDate: _formatDate,
+          ))),
+      ],
+    );
+  }
+}
+
+class _TokenListItem extends StatelessWidget {
+  const _TokenListItem({
+    required this.token,
+    required this.onRevoke,
+    required this.formatDate,
+  });
+
+  final ApiTokenInfo token;
+  final VoidCallback onRevoke;
+  final String Function(DateTime) formatDate;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colorScheme.outline.withValues(alpha: 0.15)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.vpn_key, size: 16, color: colorScheme.primary.withValues(alpha: 0.7)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    token.name,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  Text(
+                    '${token.tokenPrefix}••••••••  ·  ${formatDate(token.createdAt)} 발급',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                      color: colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              iconSize: 18,
+              onPressed: onRevoke,
+              icon: Icon(Icons.delete_outline, color: colorScheme.error.withValues(alpha: 0.7)),
+              tooltip: '폐기',
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

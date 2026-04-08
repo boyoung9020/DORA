@@ -68,7 +68,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
     super.dispose();
   }
 
-  void _addTask() {
+  Future<void> _addTask() async {
     final projectProvider = context.read<ProjectProvider>();
     if (projectProvider.isAllProjectsMode) return;
 
@@ -91,7 +91,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
     if (currentUserId == null) return;
 
     final taskProvider = context.read<TaskProvider>();
-    taskProvider.createTask(
+    await taskProvider.createTask(
       title: text,
       description: '',
       status: TaskStatus.backlog,

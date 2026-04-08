@@ -2,6 +2,8 @@
 FastAPI 의존성 함수들
 인증된 사용자 확인 등
 """
+import hashlib
+
 from fastapi import Depends, HTTPException, status, WebSocket
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -74,6 +76,38 @@ def get_current_admin_or_pm_user(current_user: User = Depends(get_current_user))
             detail="관리자 또는 PM 권한이 필요합니다"
         )
     return current_user
+
+
+def get_user_by_api_token(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+) -> User:
+    """
+    외부 서비스 연동 API 토큰으로 사용자 인증
+    /api/ri/* 엔드포인트에서 사용
+    """
+    from app.models.api_token import ApiToken
+
+    raw_token = credentials.credentials
+    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+
+    api_token = db.query(ApiToken).filter(ApiToken.token_hash == token_hash).first()
+    if api_token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="유효하지 않은 API 토큰입니다",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = db.query(User).filter(User.id == api_token.user_id).first()
+    if user is None or not user.is_approved:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="유효하지 않은 API 토큰입니다",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return user
 
 
 async def get_current_user_ws(

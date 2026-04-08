@@ -15,7 +15,7 @@ from app.utils.dependencies import get_current_user
 from app.models.project import Project
 from app.models.notification import Notification
 from app.models.comment import Comment
-from app.utils.notifications import notify_task_assigned, notify_task_option_changed
+from app.utils.notifications import notify_task_assigned, notify_task_option_changed, notify_task_created
 from sqlalchemy import or_
 from app.routers.websocket import manager
 
@@ -120,6 +120,12 @@ async def create_task(
         "type": "task_created",
         "data": {"task_id": new_task.id, "project_id": new_task.project_id}
     }, project.team_member_ids, exclude_user_id=current_user.id))
+
+    # 프로젝트 팀원에게 새 작업 알림 (실패해도 태스크 생성에 영향 없음)
+    try:
+        notify_task_created(db, new_task, project, current_user)
+    except Exception as e:
+        print(f"[notify_task_created] 알림 생성 실패 (무시): {e}")
 
     return new_task
 
