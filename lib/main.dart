@@ -126,11 +126,11 @@ class MyApp extends StatelessWidget {
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
+          final accent = themeProvider.accentColor;
           return MaterialApp(
             title: 'Sync - 프로젝트 관리',
             debugShowCheckedModeBanner: false,
             themeMode: themeProvider.themeMode,
-            // ?? Light Theme: Clean Indigo ??
             theme: ThemeData(
               fontFamily: GoogleFonts.notoSansKr().fontFamily,
               textTheme: _buildAppTextTheme(
@@ -141,19 +141,19 @@ class MyApp extends StatelessWidget {
               scaffoldBackgroundColor: Colors.white,
               colorScheme:
                   ColorScheme.fromSeed(
-                    seedColor: const Color(0xFFD86B27),
+                    seedColor: accent,
                     brightness: Brightness.light,
                   ).copyWith(
                     surface: Colors.white,
                     surfaceContainerHighest: Colors.white,
                     onSurface: const Color(
                       0xFF3C2A1A,
-                    ), // Indigo 950 ??源딆? ?몃뵒怨?釉붾옓
+                    ),
                     onSurfaceVariant: const Color(
                       0xFF8A6647,
-                    ), // ?몃뵒怨????쒕툕 ?띿뒪??
-                    primary: const Color(0xFFD86B27),
-                    primaryContainer: const Color(0xFFF3DECA), // Indigo 100
+                    ),
+                    primary: accent,
+                    primaryContainer: const Color(0xFFF3DECA),
                     onPrimary: Colors.white,
                     secondary: const Color(0xFF2C9271),
                     secondaryContainer: const Color(0xFFD8F0E7),
@@ -162,7 +162,6 @@ class MyApp extends StatelessWidget {
                   ),
               useMaterial3: true,
             ),
-            // ?? Dark Theme: Deep Indigo ??
             darkTheme: ThemeData(
               fontFamily: GoogleFonts.notoSansKr().fontFamily,
               textTheme: _buildAppTextTheme(
@@ -172,7 +171,7 @@ class MyApp extends StatelessWidget {
               ),
               scaffoldBackgroundColor: const Color(0xFF17120F),
               colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFFD86B27),
+                seedColor: accent,
                 brightness: Brightness.dark,
               ).copyWith(
                 // Surface 계층 (M3 tone 기준, 5단계)
@@ -185,8 +184,7 @@ class MyApp extends StatelessWidget {
                 // 텍스트 / 아이콘
                 onSurface:        const Color(0xFFEDE0D9),
                 onSurfaceVariant: const Color(0xFFCDB8AF),
-                // 브랜드 오렌지 (기존 유지)
-                primary:            const Color(0xFFE3833D),
+                primary:            Color.lerp(accent, Colors.white, 0.12) ?? accent,
                 onPrimary:          Colors.white,
                 primaryContainer:   const Color(0xFF6A3A19),
                 onPrimaryContainer: const Color(0xFFFFDCC8),
@@ -215,15 +213,16 @@ class MyApp extends StatelessWidget {
             ),
             // 珥덇린 ?붾㈃? 濡쒓렇???붾㈃
             // 濡쒓렇???곹깭???곕씪 ?먮룞?쇰줈 ???붾㈃?쇰줈 ?대룞?⑸땲??
-            // 웹에서 OS 화면 배율에 따른 텍스트 과확대 방지
-            builder: kIsWeb
-                ? (context, child) => MediaQuery(
-                      data: MediaQuery.of(context).copyWith(
-                        textScaler: TextScaler.noScaling,
-                      ),
-                      child: child!,
-                    )
-                : null,
+            builder: (context, child) {
+              final mq = MediaQuery.of(context);
+              final systemFactor = mq.textScaler.scale(14) / 14.0;
+              final factor =
+                  kIsWeb ? themeProvider.textScale : themeProvider.textScale * systemFactor;
+              return MediaQuery(
+                data: mq.copyWith(textScaler: TextScaler.linear(factor)),
+                child: child!,
+              );
+            },
             home: const AuthWrapper(),
           );
         },

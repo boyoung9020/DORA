@@ -64,6 +64,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   int _selectedIndex = 0; // 선택된 메뉴 인덱스
   bool _isMenuStateReady = false; // 메뉴 순서/선택 탭 복원 완료 여부
+  /// 좌측 내비(아이콘) 열 표시 — 접으면 워크스페이스 레일만 남김
+  bool _mainMenuVisible = true;
   WebSocketService? _webSocketService; // WebSocket 서비스
 
   // 프로젝트 드롭다운 오버레이
@@ -127,6 +129,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this); // 생명주기 관찰자 등록
     _loadMenuItems();
+    _loadMainMenuVisibility();
     // 로그인 시 사용자 정보를 ProjectProvider에 전달
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateProjectProviderUserInfo();
@@ -897,6 +900,24 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _loadMainMenuVisibility() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _mainMenuVisible = prefs.getBool('main_menu_visible') ?? true;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _setMainMenuVisible(bool visible) async {
+    setState(() => _mainMenuVisible = visible);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('main_menu_visible', visible);
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -917,7 +938,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           // 커스텀 타이틀바
           AppTitleBar(
             backgroundColor: shellColor,
-            leadingWidth: 127, // workspace rail(52) + sidebar(75)
+            leadingWidth: 52 + (_mainMenuVisible ? 75 : 0),
             extraHeight: 0,
           ),
           // 메인 컨텐츠
@@ -929,15 +950,15 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 children: [
                   // 워크스페이스 레일 (Slack 스타일, 가장 왼쪽)
                   _buildWorkspaceRail(context),
-                  // 왼쪽 사이드바
-                  _buildSidebar(
-                    context,
-                    menuItems,
-                    colorScheme,
-                    authProvider,
-                    isDarkMode,
-                    shellColor,
-                  ),
+                  if (_mainMenuVisible)
+                    _buildSidebar(
+                      context,
+                      menuItems,
+                      colorScheme,
+                      authProvider,
+                      isDarkMode,
+                      shellColor,
+                    ),
                   // 오른쪽 영역 (팀원 + 메인 - 같은 영역)
                   Expanded(
                     child: Column(
@@ -1025,7 +1046,29 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           color: railColor,
           child: Column(
             children: [
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
+              Tooltip(
+                message: _mainMenuVisible ? '메뉴 접기' : '메뉴 펼치기',
+                preferBelow: false,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => _setMainMenuVisible(!_mainMenuVisible),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Icon(
+                        _mainMenuVisible
+                            ? Icons.menu_open
+                            : Icons.menu,
+                        size: 22,
+                        color: railForeground.withValues(alpha: 0.88),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
               // ① 새 워크스페이스 추가 버튼 (최상단)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
@@ -3710,6 +3753,16 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
     ColorScheme colorScheme,
     ThemeProvider themeProvider,
   ) {
+    const accentPresets = <Color>[
+      Color(0xFFD86B27),
+      Color(0xFF2C9271),
+      Color(0xFF5C6BC0),
+      Color(0xFFEC407A),
+      Color(0xFF7E57C2),
+      Color(0xFF00897B),
+      Color(0xFF546E7A),
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3813,6 +3866,90 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 28),
+        Text(
+          '글자 크기',
+          style: TextStyle(
+            fontSize: 14,
+            color: colorScheme.onSurface.withValues(alpha: 0.65),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Text(
+              'A',
+              style: TextStyle(
+                fontSize: 13,
+                color: colorScheme.onSurface.withValues(alpha: 0.55),
+              ),
+            ),
+            Expanded(
+              child: Slider(
+                value: themeProvider.textScale,
+                min: 0.85,
+                max: 1.25,
+                divisions: 8,
+                label: '${(themeProvider.textScale * 100).round()}%',
+                onChanged: (v) => themeProvider.setTextScale(v),
+              ),
+            ),
+            Text(
+              'A',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: colorScheme.onSurface.withValues(alpha: 0.65),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        Text(
+          '포인트 색상',
+          style: TextStyle(
+            fontSize: 14,
+            color: colorScheme.onSurface.withValues(alpha: 0.65),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: accentPresets.map((c) {
+            final selected =
+                themeProvider.accentColor.toARGB32() == c.toARGB32();
+            return GestureDetector(
+              onTap: () => themeProvider.setAccentColor(c),
+              child: Tooltip(
+                message:
+                    '#${c.toARGB32().toRadixString(16).padLeft(8, '0')}',
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: c,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                    border: Border.all(
+                      color: selected ? colorScheme.onSurface : Colors.white24,
+                      width: selected ? 3 : 1,
+                    ),
+                  ),
+                  child: selected
+                      ? const Icon(Icons.check, color: Colors.white, size: 22)
+                      : null,
+                ),
+              ),
+            );
+          }).toList(),
         ),
       ],
     );

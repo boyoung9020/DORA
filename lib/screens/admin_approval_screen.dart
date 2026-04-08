@@ -393,7 +393,26 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
               controller: _tabController,
               children: [
                 // 승인 대기 탭
-                _pendingUsers.isEmpty
+                _isLoading
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              color: colorScheme.primary,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              '사용자 목록을 불러오는 중...',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: colorScheme.onSurface.withValues(alpha: 0.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _pendingUsers.isEmpty
                         ? Center(
                             child: GlassContainer(
                               padding: const EdgeInsets.all(40),
@@ -499,7 +518,26 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> with SingleTi
                             ),
                           ),
                 // 승인된 사용자 탭
-                _approvedUsers.isEmpty
+                _isLoading
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              color: colorScheme.primary,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              '사용자 목록을 불러오는 중...',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: colorScheme.onSurface.withValues(alpha: 0.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _approvedUsers.isEmpty
                         ? Center(
                             child: GlassContainer(
                               padding: const EdgeInsets.all(40),

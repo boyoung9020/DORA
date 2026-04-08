@@ -162,9 +162,10 @@ async def update_task(
     # 프로젝트 접근 권한 검증
     _get_project_or_403(db, task.project_id, current_user)
     
-    # 변경된 필드 추적
+    # 변경된 필드 추적 (알림 문구에 이전→이후 값 포함)
     changed_fields = []
-    
+    changes_detail: dict = {}
+
     # 업데이트할 필드만 변경
     if task_data.title is not None:
         task.title = task_data.title
@@ -175,6 +176,7 @@ async def update_task(
         old_status = task.status
         if old_status != task_data.status:
             changed_fields.append('status')
+            changes_detail['status'] = (old_status.value, task_data.status.value)
             history_entry = {
                 "fromStatus": old_status.value,
                 "toStatus": task_data.status.value,
@@ -187,10 +189,12 @@ async def update_task(
     if task_data.start_date is not None:
         if task.start_date != task_data.start_date:
             changed_fields.append('start_date')
+            changes_detail['start_date'] = (task.start_date, task_data.start_date)
         task.start_date = task_data.start_date
     if task_data.end_date is not None:
         if task.end_date != task_data.end_date:
             changed_fields.append('end_date')
+            changes_detail['end_date'] = (task.end_date, task_data.end_date)
         task.end_date = task_data.end_date
     if task_data.detail is not None:
         task.detail = task_data.detail
@@ -203,6 +207,7 @@ async def update_task(
         old_priority = task.priority
         if old_priority != task_data.priority:
             changed_fields.append('priority')
+            changes_detail['priority'] = (old_priority.value, task_data.priority.value)
             history_entry = {
                 "fromPriority": old_priority.value,
                 "toPriority": task_data.priority.value,
@@ -247,7 +252,9 @@ async def update_task(
     
     # 작업 옵션 변경 알림 (중요도, 상태, 날짜 변경 시)
     if changed_fields:
-        notify_task_option_changed(db, task, current_user, changed_fields)
+        notify_task_option_changed(
+            db, task, current_user, changed_fields, transitions=changes_detail
+        )
     
     try:
         db.commit()
@@ -332,8 +339,14 @@ async def change_task_status(
         task.status_history = list(task.status_history) + [history_entry]
         task.status = new_status
 
-        # 작업 옵션 변경 알림
-        notify_task_option_changed(db, task, current_user, ['status'])
+        # 작업 옵션 변경 알림 (이전 상태 → 새 상태 문구 포함)
+        notify_task_option_changed(
+            db,
+            task,
+            current_user,
+            ['status'],
+            transitions={'status': (old_status.value, new_status.value)},
+        )
 
         db.commit()
         db.refresh(task)

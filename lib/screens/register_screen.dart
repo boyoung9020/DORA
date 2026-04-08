@@ -16,6 +16,9 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   static const String _heroImageAsset = 'assets/main_logo2.png';
+  static final RegExp _emailRegex = RegExp(
+    r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+  );
 
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
@@ -468,7 +471,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               keyboardType: TextInputType.emailAddress,
               validator: (value) {
                 if (value == null || value.isEmpty) return '이메일을 입력하세요';
-                if (!value.contains('@')) return '올바른 이메일 형식이 아닙니다';
+                final t = value.trim();
+                if (!_emailRegex.hasMatch(t)) {
+                  return '올바른 이메일 형식이 아닙니다 (예: user@company.com)';
+                }
                 return null;
               },
             ),
@@ -490,6 +496,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               controller: _passwordController,
               label: '비밀번호',
               hint: '비밀번호 입력',
+              helperText: '8자 이상, 문자와 숫자를 각각 포함',
               icon: Icons.lock_outline,
               obscureText: _obscurePassword,
               suffixIcon: IconButton(
@@ -503,7 +510,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               validator: (value) {
                 if (value == null || value.isEmpty) return '비밀번호를 입력하세요';
-                if (value.length < 6) return '비밀번호는 6자 이상이어야 합니다';
+                if (value.length < 8) {
+                  return '비밀번호는 8자 이상이어야 합니다';
+                }
+                if (!RegExp(r'[A-Za-z가-힣]').hasMatch(value)) {
+                  return '비밀번호에 문자를 포함해 주세요';
+                }
+                if (!RegExp(r'\d').hasMatch(value)) {
+                  return '비밀번호에 숫자를 포함해 주세요';
+                }
                 return null;
               },
             ),

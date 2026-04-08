@@ -262,6 +262,8 @@ class _NotificationCard extends StatelessWidget {
         return colorScheme.primary;
       case models.NotificationType.taskAssigned:
         return const Color(0xFFE3833D);
+      case models.NotificationType.taskCreated:
+        return const Color(0xFF059669);
       case models.NotificationType.taskOptionChanged:
         return const Color(0xFFC17E4A);
       case models.NotificationType.taskCommentAdded:
@@ -277,6 +279,8 @@ class _NotificationCard extends StatelessWidget {
         return Icons.person_add;
       case models.NotificationType.taskAssigned:
         return Icons.assignment;
+      case models.NotificationType.taskCreated:
+        return Icons.add_task;
       case models.NotificationType.taskOptionChanged:
         return Icons.edit;
       case models.NotificationType.taskCommentAdded:

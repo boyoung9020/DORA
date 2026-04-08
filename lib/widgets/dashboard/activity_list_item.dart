@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/notification.dart' as app_notification;
+import '../notification_inline_message.dart';
 
 /// 최근 활동 리스트의 단일 항목.
 /// 대시보드 카드와 사이드 패널 양쪽에서 재사용한다.
@@ -67,14 +68,13 @@ class ActivityListItem extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   SizedBox(height: expanded ? 3 : 2),
-                  Text(
-                    notification.message,
-                    style: TextStyle(
-                      fontSize: msgSize,
-                      color: cs.onSurface.withValues(alpha: 0.55),
-                    ),
+                  NotificationInlineMessage(
+                    notification: notification,
+                    colorScheme: cs,
+                    bodyFontSize: msgSize,
+                    typeTagFontSize: (msgSize - 0.5).clamp(10.0, 12.0),
                     maxLines: maxLines,
-                    overflow: TextOverflow.ellipsis,
+                    showTypeSuffix: true,
                   ),
                 ],
               ),

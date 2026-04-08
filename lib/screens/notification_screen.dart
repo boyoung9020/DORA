@@ -6,6 +6,7 @@ import '../providers/task_provider.dart';
 import '../models/notification.dart' as app_notification;
 import '../services/task_service.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/notification_inline_message.dart';
 import 'task_detail_screen.dart';
 
 /// 알림 화면
@@ -18,10 +19,12 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   app_notification.NotificationType? _selectedFilter;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     // 화면 로드 시 알림 불러오기
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = context.read<AuthProvider>();
@@ -33,6 +36,26 @@ class _NotificationScreenState extends State<NotificationScreen> {
         );
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      final authProvider = context.read<AuthProvider>();
+      final notificationProvider = context.read<NotificationProvider>();
+      if (authProvider.currentUser != null) {
+        notificationProvider.loadMoreNotifications(
+          userId: authProvider.currentUser!.id,
+        );
+      }
+    }
   }
 
   /// 상대 시간 포맷팅 (Slack/GitHub 스타일)
@@ -186,6 +209,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
   }
 
+  Widget _buildInlineRichMessage(
+    app_notification.Notification notification,
+    ColorScheme colorScheme,
+  ) {
+    return NotificationInlineMessage(
+      notification: notification,
+      colorScheme: colorScheme,
+    );
+  }
+
   /// 알림 클릭 시 해당 항목으로 네비게이션
   void _handleNotificationTap(
     app_notification.Notification notification,
@@ -306,30 +339,30 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final notificationProvider = context.watch<NotificationProvider>();
     final authProvider = context.watch<AuthProvider>();
-    final notifications = notificationProvider.unreadNotifications;
-    final totalCount = notifications.length;
-    final taskCreatedCount = notifications
+    final visible = notificationProvider.notifications;
+    final unreadVisible = visible.where((n) => !n.isRead).toList();
+    final taskCreatedCount = unreadVisible
         .where((n) => n.type == app_notification.NotificationType.taskCreated)
         .length;
-    final taskAssignedCount = notifications
+    final taskAssignedCount = unreadVisible
         .where((n) => n.type == app_notification.NotificationType.taskAssigned)
         .length;
-    final taskCommentAddedCount = notifications
+    final taskCommentAddedCount = unreadVisible
         .where(
           (n) => n.type == app_notification.NotificationType.taskCommentAdded,
         )
         .length;
-    final taskOptionChangedCount = notifications
+    final taskOptionChangedCount = unreadVisible
         .where(
           (n) => n.type == app_notification.NotificationType.taskOptionChanged,
         )
         .length;
-    final projectMemberAddedCount = notifications
+    final projectMemberAddedCount = unreadVisible
         .where(
           (n) => n.type == app_notification.NotificationType.projectMemberAdded,
         )
         .length;
-    final taskMentionedCount = notifications
+    final taskMentionedCount = unreadVisible
         .where((n) => n.type == app_notification.NotificationType.taskMentioned)
         .length;
 
@@ -453,7 +486,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   null,
                   '전체',
                   Icons.notifications_none,
-                  totalCount,
+                  notificationProvider.unreadCount,
                   colorScheme,
                 ),
                 const SizedBox(width: 8),
@@ -588,12 +621,31 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           );
                         }
                         return ListView(
-                          children: _buildGroupedNotificationList(
-                            filtered,
-                            colorScheme,
-                            notificationProvider,
-                            authProvider,
-                          ),
+                          controller: _scrollController,
+                          children: [
+                            ..._buildGroupedNotificationList(
+                              filtered,
+                              colorScheme,
+                              notificationProvider,
+                              authProvider,
+                            ),
+                            if (notificationProvider.isLoadingMore)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (notificationProvider.hasMore &&
+                                !notificationProvider.isLoadingMore)
+                              const SizedBox(height: 60),
+                          ],
                         );
                       },
                     ),
@@ -680,40 +732,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    // 메시지
-                    Text(
-                      notification.message,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    // 하단 정보 (타입 + 네비게이션 힌트)
+                    _buildInlineRichMessage(notification, colorScheme),
+                    const SizedBox(height: 6),
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: iconColor.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            notification.type.displayName,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: iconColor,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
                         if (hasNavigation) ...[
-                          const SizedBox(width: 8),
                           Icon(
                             Icons.open_in_new,
                             size: 13,

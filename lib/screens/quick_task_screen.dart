@@ -91,7 +91,7 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
     if (currentUserId == null) return;
 
     final taskProvider = context.read<TaskProvider>();
-    await taskProvider.createTask(
+    final ok = await taskProvider.createTask(
       title: text,
       description: '',
       status: TaskStatus.backlog,
@@ -99,8 +99,27 @@ class _QuickTaskScreenState extends State<QuickTaskScreen> {
       assignedMemberIds: [currentUserId],
     );
 
-    // 입력창 초기화
-    _taskController.clear();
+    if (!mounted) return;
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('작업이 생성되었습니다: $text'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      // 입력창 초기화
+      _taskController.clear();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(taskProvider.errorMessage ?? '작업 생성에 실패했습니다.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+      return;
+    }
 
     // 스크롤을 맨 위로 이동 (새 태스크가 하단에 추가되므로)
     WidgetsBinding.instance.addPostFrameCallback((_) {

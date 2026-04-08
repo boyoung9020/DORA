@@ -1,34 +1,73 @@
 import '../models/notification.dart';
 import '../utils/api_client.dart';
 
+/// 페이지네이션된 알림 응답
+class NotificationPage {
+  final List<Notification> items;
+  final int total;
+  final bool hasMore;
+  /// API가 반환한 원본 항목 수 (클라이언트 필터 전). 다음 [skip] 계산에 사용.
+  final int rawReturnedCount;
+
+  const NotificationPage({
+    required this.items,
+    required this.total,
+    required this.hasMore,
+    this.rawReturnedCount = 0,
+  });
+}
+
 /// 알림 서비스
 /// 백엔드 API를 통해 알림을 가져오고 관리합니다.
 class NotificationService {
-  /// 사용자의 모든 알림 가져오기
-  Future<List<Notification>> getNotifications({String? userId}) async {
+  /// 사용자의 알림 가져오기 (페이지네이션 지원)
+  Future<NotificationPage> getNotifications({
+    String? userId,
+    int skip = 0,
+    int limit = 50,
+    bool unreadOnly = false,
+  }) async {
     try {
-      final queryParams = <String, String>{};
+      final queryParams = <String, String>{
+        'skip': skip.toString(),
+        'limit': limit.toString(),
+      };
       if (userId != null) {
         queryParams['user_id'] = userId;
+      }
+      if (unreadOnly) {
+        queryParams['unread_only'] = 'true';
       }
 
       final response = await ApiClient.get(
         '/api/notifications/',
-        queryParams: queryParams.isNotEmpty ? queryParams : null,
+        queryParams: queryParams,
       );
 
       if (response.statusCode == 200) {
-        final data = ApiClient.handleListResponse(response);
-        return data
-            .map((json) => Notification.fromJson(json as Map<String, dynamic>))
+        final data = ApiClient.handleResponse(response);
+        final rawList = data['items'] as List<dynamic>? ?? [];
+        final items = rawList
+            .map((json) =>
+                Notification.fromJson(json as Map<String, dynamic>))
             .toList();
+        return NotificationPage(
+          items: items,
+          total: data['total'] as int? ?? items.length,
+          hasMore: data['has_more'] as bool? ?? false,
+          rawReturnedCount: rawList.length,
+        );
       } else {
         throw Exception('알림을 불러오는 중 오류가 발생했습니다: ${response.statusCode}');
       }
     } catch (e) {
-      // 백엔드 API가 아직 구현되지 않은 경우 빈 리스트 반환
       print('[NotificationService] 알림 API 호출 실패 (백엔드 미구현 가능): $e');
-      return [];
+      return NotificationPage(
+        items: [],
+        total: 0,
+        hasMore: false,
+        rawReturnedCount: 0,
+      );
     }
   }
 

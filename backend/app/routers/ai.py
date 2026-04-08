@@ -2,7 +2,7 @@
 
 import asyncio
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -17,6 +17,56 @@ from app.schemas.ai import AISummaryResponse, AIExportRequest, AIExportResponse
 from app.utils.dependencies import get_current_user
 
 router = APIRouter()
+
+# 2.5가 부하로 503을 자주 내면 순차 시도
+_GEMINI_MODEL_CHAIN: tuple[str, ...] = (
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+)
+
+
+def _friendly_gemini_http_detail(exc: BaseException, prefix: str) -> str:
+    """클라이언트에 노출할 짧은 메시지 (내부 스택/원문 최소화)."""
+    s = str(exc).lower()
+    if (
+        "high demand" in s
+        or "resource exhausted" in s
+        or "overloaded" in s
+        or "503" in s
+        or "unavailable" in s
+    ):
+        return (
+            f"{prefix}: AI 서버가 일시적으로 혼잡합니다. "
+            "잠시 후 다시 시도해 주세요."
+        )
+    return f"{prefix}: {exc}"
+
+
+async def _generate_with_gemini_model_fallback(
+    client: Any,
+    contents: str,
+) -> str:
+    """여러 Flash 모델을 순서대로 시도 (한 모델이 503이어도 다른 모델이 될 수 있음)."""
+    last_err: Optional[BaseException] = None
+    for i, model in enumerate(_GEMINI_MODEL_CHAIN):
+        try:
+            response = await asyncio.to_thread(
+                client.models.generate_content,
+                model=model,
+                contents=contents,
+            )
+            text = (response.text or "").strip()
+            if text:
+                return text
+            last_err = RuntimeError("빈 응답")
+        except Exception as e:
+            last_err = e
+        if i < len(_GEMINI_MODEL_CHAIN) - 1:
+            await asyncio.sleep(1.0)
+    if last_err is not None:
+        raise last_err
+    raise RuntimeError("AI 응답 없음")
 
 
 def _status_label(status_value: str) -> str:
@@ -281,18 +331,13 @@ async def get_ai_summary(
 
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        response = await asyncio.to_thread(
-            client.models.generate_content,
-            model="gemini-2.5-flash",
-            contents=prompt,
-        )
-        summary = (response.text or "").strip()
+        summary = await _generate_with_gemini_model_fallback(client, prompt)
         if not summary:
             summary = "오늘 브리핑을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요."
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"AI 요약 생성에 실패했습니다: {e}",
+            detail=_friendly_gemini_http_detail(e, "AI 요약 생성에 실패했습니다"),
         ) from e
 
     return AISummaryResponse(summary=summary, generated_at=datetime.now(timezone.utc))
@@ -565,18 +610,13 @@ ECS 테스트 (with 김성빈, 김희웅 연구원)"""
 
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        response = await asyncio.to_thread(
-            client.models.generate_content,
-            model="gemini-2.5-flash",
-            contents=prompt,
-        )
-        report = (response.text or "").strip()
+        report = await _generate_with_gemini_model_fallback(client, prompt)
         if not report:
             report = "보고서를 생성하지 못했습니다. 잠시 후 다시 시도해 주세요."
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"AI 보고서 생성에 실패했습니다: {e}",
+            detail=_friendly_gemini_http_detail(e, "AI 보고서 생성에 실패했습니다"),
         ) from e
 
     return AIExportResponse(report=report, generated_at=datetime.now(timezone.utc))

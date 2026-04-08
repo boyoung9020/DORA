@@ -12,3 +12,5 @@ class SearchResponse(BaseModel):
     query: str
     tasks: List[TaskResponse]
     comments: List[CommentResponse]
+    task_total: int = 0
+    has_more: bool = False

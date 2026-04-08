@@ -1139,7 +1139,22 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         Expanded(
           child: _isLoadingUsers
-              ? const Center(child: CircularProgressIndicator())
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(color: colorScheme.primary),
+                      const SizedBox(height: 16),
+                      Text(
+                        '대화 목록을 불러오는 중...',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: colorScheme.onSurface.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
               : Builder(
                   builder: (context) {
                     // 메시지를 주고받은 사용자만 표시 (대화 기록이 있는 사용자)

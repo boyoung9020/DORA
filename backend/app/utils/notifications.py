@@ -3,6 +3,8 @@
 """
 import asyncio
 import uuid
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -160,29 +162,87 @@ def notify_task_assigned(
     )
 
 
+def _task_status_ko(api_value: str) -> str:
+    return {
+        "backlog": "백로그",
+        "ready": "준비됨",
+        "inProgress": "진행 중",
+        "inReview": "검토 중",
+        "done": "완료",
+    }.get(api_value, api_value)
+
+
+def _priority_ko(api_value: str) -> str:
+    return {
+        "p0": "P0(최우선)",
+        "p1": "P1",
+        "p2": "P2",
+        "p3": "P3",
+    }.get(api_value, api_value)
+
+
+def _fmt_task_date(value: Any) -> str:
+    if value is None:
+        return "미지정"
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return str(value)
+
+
 def notify_task_option_changed(
     db: Session,
     task: Task,
     changed_by_user: User,
-    changed_fields: list  # ['priority', 'status', 'start_date', 'end_date']
+    changed_fields: list,
+    *,
+    transitions: Optional[Dict[str, Tuple[Any, Any]]] = None,
 ):
-    """작업 옵션 변경 알림 (중요도, 상태, 날짜)"""
+    """작업 옵션 변경 알림 (중요도, 상태, 날짜).
+
+    transitions 예: {'status': ('backlog', 'inProgress'), 'priority': ('p2', 'p0')}
+    """
     task_title = task.title
+    transitions = transitions or {}
     field_names = {
-        'priority': '중요도',
-        'status': '상태',
-        'start_date': '시작일',
-        'end_date': '종료일'
+        "priority": "중요도",
+        "status": "상태",
+        "start_date": "시작일",
+        "end_date": "종료일",
     }
-    
-    changed_field_names = [field_names.get(field, field) for field in changed_fields]
-    changed_fields_str = ', '.join(changed_field_names)
-    
-    # 할당된 모든 사용자에게 알림
+    parts: List[str] = []
+    for field in changed_fields:
+        if field == "status" and field in transitions:
+            old_v, new_v = transitions[field]
+            parts.append(
+                f"상태를 {_task_status_ko(str(old_v))}에서 {_task_status_ko(str(new_v))}으로"
+            )
+        elif field == "priority" and field in transitions:
+            old_v, new_v = transitions[field]
+            parts.append(
+                f"중요도를 {_priority_ko(str(old_v))}에서 {_priority_ko(str(new_v))}으로"
+            )
+        elif field == "start_date" and field in transitions:
+            old_v, new_v = transitions[field]
+            parts.append(
+                f"시작일을 {_fmt_task_date(old_v)}에서 {_fmt_task_date(new_v)}으로"
+            )
+        elif field == "end_date" and field in transitions:
+            old_v, new_v = transitions[field]
+            parts.append(
+                f"종료일을 {_fmt_task_date(old_v)}에서 {_fmt_task_date(new_v)}으로"
+            )
+        else:
+            parts.append(f"{field_names.get(field, field)}을(를)")
+
+    detail = ", ".join(parts)
+    message = (
+        f"{changed_by_user.username}님이 '{task_title}' 작업의 {detail} 변경했습니다."
+    )
+
     for assigned_user_id in task.assigned_member_ids:
         title = f"작업 '{task_title}'의 옵션이 변경되었습니다"
-        message = f"{changed_by_user.username}님이 '{task_title}' 작업의 {changed_fields_str}을(를) 변경했습니다."
-        
         create_notification(
             db=db,
             notification_type=NotificationType.TASK_OPTION_CHANGED,
@@ -190,7 +250,7 @@ def notify_task_option_changed(
             title=title,
             message=message,
             project_id=task.project_id,
-            task_id=task.id
+            task_id=task.id,
         )
 
 

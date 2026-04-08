@@ -13,16 +13,18 @@ from app.utils.dependencies import get_current_user
 router = APIRouter()
 
 
-@router.get("/", response_model=List[NotificationResponse])
+@router.get("/")
 async def get_notifications(
     user_id: Optional[str] = Query(None, description="사용자 ID (필터링)"),
     unread_only: Optional[bool] = Query(False, description="읽지 않은 알림만"),
+    skip: int = Query(0, ge=0, description="건너뛸 항목 수"),
+    limit: int = Query(50, ge=1, le=200, description="가져올 항목 수"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """알림 목록 가져오기"""
+    """알림 목록 가져오기 (페이지네이션 지원)"""
     query = db.query(Notification)
-    
+
     # 현재 사용자의 알림만 가져오기 (user_id가 지정되지 않은 경우)
     if user_id is None:
         user_id = current_user.id
@@ -33,15 +35,24 @@ async def get_notifications(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="다른 사용자의 알림을 조회할 권한이 없습니다"
             )
-    
+
     query = query.filter(Notification.user_id == user_id)
-    
+
     if unread_only:
         query = query.filter(Notification.is_read == False)
-    
-    # 최신순 정렬
-    notifications = query.order_by(Notification.created_at.desc()).all()
-    return notifications
+
+    # 전체 개수
+    total = query.count()
+
+    # 최신순 정렬 + 페이지네이션
+    notifications = query.order_by(Notification.created_at.desc()).offset(skip).limit(limit).all()
+    return {
+        "items": [NotificationResponse.model_validate(n) for n in notifications],
+        "total": total,
+        "skip": skip,
+        "limit": limit,
+        "has_more": (skip + limit) < total,
+    }
 
 
 @router.get("/count")

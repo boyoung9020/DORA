@@ -150,6 +150,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return '$userId|$workspaceId';
   }
 
+  /// 서버/네트워크 오류 메시지를 그대로 보여 줘 원인 파악이 가능하도록 함.
+  String _messageFromAiSummaryError(Object e) {
+    var msg = e.toString().trim();
+    if (msg.startsWith('Exception: ')) {
+      msg = msg.substring('Exception: '.length).trim();
+    }
+    if (msg.isEmpty) return 'AI 요약을 불러오지 못했습니다.';
+    const maxLen = 280;
+    if (msg.length > maxLen) {
+      return '${msg.substring(0, maxLen)}…';
+    }
+    return msg;
+  }
+
   Future<void> _loadAISummary({bool forceRefresh = false}) async {
     if (!mounted) return;
     final workspaceId = context.read<WorkspaceProvider>().currentWorkspaceId;
@@ -191,10 +205,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _aiSummary = result.summary.isNotEmpty ? result.summary : null;
         _aiGeneratedAt = result.generatedAt ?? DateTime.now();
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
-        _aiError = 'AI 요약을 불러오지 못했습니다';
+        _aiError = _messageFromAiSummaryError(e);
       });
     } finally {
       if (mounted) {
@@ -383,41 +397,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 20),
           // 작업 테이블 + 최근 활동
           Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 작업 테이블 (7)
-                Expanded(
-                  flex: 7,
-                  child: _buildTaskTableSection(
-                    context,
-                    colorScheme,
-                    filteredTasks,
-                    allProjects,
-                    projectsById,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // 오늘 할 작업 + 최근 활동 (3)
-                Expanded(
-                  flex: 3,
-                  child: Column(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final narrow = constraints.maxWidth < 1100;
+                final table = _buildTaskTableSection(
+                  context,
+                  colorScheme,
+                  filteredTasks,
+                  allProjects,
+                  projectsById,
+                );
+                final sideColumn = Column(
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: _buildTodayTasksSection(context, colorScheme, allTasks),
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      flex: 4,
+                      child: _buildRecentActivitySection(context, colorScheme),
+                    ),
+                  ],
+                );
+                if (narrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // 오늘 할 작업
-                      Expanded(
-                        flex: 5,
-                        child: _buildTodayTasksSection(context, colorScheme, allTasks),
-                      ),
+                      Expanded(flex: 3, child: table),
                       const SizedBox(height: 16),
-                      // 최근 활동
-                      Expanded(
-                        flex: 4,
-                        child: _buildRecentActivitySection(context, colorScheme),
-                      ),
+                      SizedBox(height: 300, child: sideColumn),
                     ],
-                  ),
-                ),
-              ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 7, child: table),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 3, child: sideColumn),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -824,6 +845,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     color: colorScheme.error,
                     fontWeight: FontWeight.w600,
                   ),
+                  softWrap: true,
                 ),
                 const SizedBox(height: 8),
                 TextButton.icon(
@@ -1045,83 +1067,101 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        // 테이블
+        // 테이블 (좁은 너비에서는 가로 스크롤)
         Expanded(
-          child: GlassContainer(
-            padding: EdgeInsets.zero,
-            borderRadius: 16.0,
-            blur: 20.0,
-            gradientColors: [
-              colorScheme.surface.withValues(alpha: 0.45),
-              colorScheme.surface.withValues(alpha: 0.35),
-            ],
-            child: Column(
-              children: [
-                // 테이블 헤더
-                _buildTableHeader(context, colorScheme, allProjects),
-                Divider(
-                  height: 1,
-                  color: colorScheme.onSurface.withValues(alpha: 0.1),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              const minTableWidth = 880.0;
+              final useHScroll = constraints.maxWidth < minTableWidth;
+              Widget tableBlock() {
+                return GlassContainer(
+                  padding: EdgeInsets.zero,
+                  borderRadius: 16.0,
+                  blur: 20.0,
+                  gradientColors: [
+                    colorScheme.surface.withValues(alpha: 0.45),
+                    colorScheme.surface.withValues(alpha: 0.35),
+                  ],
+                  child: Column(
+                    children: [
+                      _buildTableHeader(context, colorScheme, allProjects),
+                      Divider(
+                        height: 1,
+                        color: colorScheme.onSurface.withValues(alpha: 0.1),
+                      ),
+                      Expanded(
+                        child: filteredTasks.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.inbox_outlined,
+                                      size: 48,
+                                      color: colorScheme.onSurface.withValues(
+                                        alpha: 0.4,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      '작업이 없습니다',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: colorScheme.onSurface.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : FutureBuilder<List<User>>(
+                                future: _usersFuture,
+                                builder: (context, snapshot) {
+                                  final users = snapshot.data ?? [];
+                                  final usernameById = {
+                                    for (final u in users) u.id: u,
+                                  };
+                                  return ListView.separated(
+                                    itemCount: filteredTasks.length,
+                                    separatorBuilder: (_, __) => Divider(
+                                      height: 1,
+                                      color: colorScheme.onSurface.withValues(
+                                        alpha: 0.06,
+                                      ),
+                                    ),
+                                    itemBuilder: (context, index) {
+                                      final task = filteredTasks[index];
+                                      final project = projectsById[task.projectId];
+                                      return _buildTaskRow(
+                                        context,
+                                        colorScheme,
+                                        task,
+                                        project,
+                                        usernameById,
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              if (!useHScroll) {
+                return tableBlock();
+              }
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: minTableWidth,
+                  height: constraints.maxHeight,
+                  child: tableBlock(),
                 ),
-                // 테이블 바디
-                Expanded(
-                  child: filteredTasks.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.inbox_outlined,
-                                size: 48,
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.4,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                '작업이 없습니다',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: colorScheme.onSurface.withValues(
-                                    alpha: 0.5,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : FutureBuilder<List<User>>(
-                          future: _usersFuture,
-                          builder: (context, snapshot) {
-                            final users = snapshot.data ?? [];
-                            final usernameById = {
-                              for (final u in users) u.id: u,
-                            };
-                            return ListView.separated(
-                              itemCount: filteredTasks.length,
-                              separatorBuilder: (_, __) => Divider(
-                                height: 1,
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.06,
-                                ),
-                              ),
-                              itemBuilder: (context, index) {
-                                final task = filteredTasks[index];
-                                final project = projectsById[task.projectId];
-                                return _buildTaskRow(
-                                  context,
-                                  colorScheme,
-                                  task,
-                                  project,
-                                  usernameById,
-                                );
-                              },
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ],

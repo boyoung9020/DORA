@@ -232,6 +232,28 @@ class _KanbanScreenState extends State<KanbanScreen> {
     String? currentProjectId,
     bool isAllMode,
   ) {
+    // 로딩 중 상태 표시
+    if (taskProvider.isLoading && taskProvider.tasks.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '태스크를 불러오는 중...',
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     // 프로젝트가 없으면 빈 상태 표시
     if (currentProjectId == null && !isAllMode) {
       return Center(
