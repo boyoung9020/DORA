@@ -49,10 +49,13 @@ async def get_all_tasks(
     if status:
         query = query.filter(Task.status == status)
 
-    # 일반 유저는 소속 프로젝트의 태스크만 조회
+    # 일반 유저는 소속 프로젝트의 태스크만 조회 (팀원이거나 프로젝트 생성자)
     if not current_user.is_admin and not current_user.is_pm:
         my_projects = db.query(Project.id).filter(
-            Project.team_member_ids.any(current_user.id)
+            or_(
+                Project.team_member_ids.any(current_user.id),
+                Project.creator_id == current_user.id,
+            )
         ).subquery()
         query = query.filter(Task.project_id.in_(my_projects))
 
@@ -111,9 +114,11 @@ async def create_task(
         db.add(new_task)
         db.commit()
         db.refresh(new_task)
-    except Exception:
+    except Exception as e:
+        import traceback
+        print(f"[create_task] 태스크 생성 실패: {e}\n{traceback.format_exc()}")
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="태스크 생성에 실패했습니다")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"태스크 생성에 실패했습니다: {str(e)}")
 
     # DB 커밋 성공 후 WebSocket 이벤트 전송
     asyncio.create_task(manager.send_to_users({
@@ -126,6 +131,8 @@ async def create_task(
         notify_task_created(db, new_task, project, current_user)
     except Exception as e:
         print(f"[notify_task_created] 알림 생성 실패 (무시): {e}")
+        db.rollback()  # 실패한 알림 트랜잭션으로 오염된 세션 복구
+        db.refresh(new_task)  # 태스크 데이터 재로드
 
     return new_task
 

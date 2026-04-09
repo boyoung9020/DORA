@@ -90,19 +90,7 @@ class TaskProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final scopedTasks = await _taskService.getAllTasks(projectId: projectId);
-
-      // 일부 환경에서 project_id 필터 조회가 비정상적으로 0건을 반환하는 경우가 있어
-      // 전체 조회로 한 번 더 확인해 실제 데이터 누락 표시를 방지한다.
-      if (projectId != null && scopedTasks.isEmpty) {
-        final allTasks = await _taskService.getAllTasks();
-        final hasProjectTasks = allTasks.any(
-          (task) => task.projectId == projectId,
-        );
-        _tasks = hasProjectTasks ? allTasks : scopedTasks;
-      } else {
-        _tasks = scopedTasks;
-      }
+      _tasks = await _taskService.getAllTasks(projectId: projectId);
       _errorMessage = null;
     } catch (e) {
       _tasks = [];

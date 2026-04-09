@@ -1292,7 +1292,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                     authProvider.currentUser?.id;
                                 if (currentProjectId != null &&
                                     currentUserId != null) {
-                                  await context.read<TaskProvider>().createTask(
+                                  final taskProvider = context.read<TaskProvider>();
+                                  final ok = await taskProvider.createTask(
                                     title: titleController.text.trim(),
                                     description: '',
                                     status: selectedStatus,
@@ -1303,6 +1304,18 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                     assignedMemberIds: [currentUserId],
                                     siteTags: selectedSiteName != null ? [selectedSiteName!] : [],
                                   );
+                                  if (!ok && context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(taskProvider.errorMessage ?? '태스크 생성에 실패했습니다.'),
+                                        backgroundColor: Theme.of(context).colorScheme.error,
+                                        duration: const Duration(seconds: 3),
+                                      ),
+                                    );
+                                  }
+                                  if (ok) {
+                                    taskProvider.loadTasks(projectId: currentProjectId);
+                                  }
                                 }
                                 if (context.mounted) Navigator.of(context).pop();
                               },

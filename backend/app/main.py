@@ -454,6 +454,7 @@ def ensure_tasks_display_id_column() -> None:
     try:
         conn = engine.connect()
         try:
+            # 컬럼 존재 여부 확인
             result = conn.execute(text(
                 "SELECT column_name FROM information_schema.columns "
                 "WHERE table_name='tasks' AND column_name='display_id'"
@@ -465,7 +466,23 @@ def ensure_tasks_display_id_column() -> None:
                 conn.commit()
                 print("[main] tasks.display_id column added (SERIAL)")
             else:
-                print("[main] tasks.display_id column already exists")
+                # 컬럼은 있지만 시퀀스가 없는 경우 (create_all()로 신규 생성된 DB)
+                seq_result = conn.execute(text(
+                    "SELECT to_regclass('public.tasks_display_id_seq')"
+                ))
+                if seq_result.scalar() is None:
+                    conn.execute(text("CREATE SEQUENCE tasks_display_id_seq"))
+                    conn.execute(text(
+                        "ALTER TABLE tasks ALTER COLUMN display_id "
+                        "SET DEFAULT nextval('tasks_display_id_seq')"
+                    ))
+                    conn.execute(text(
+                        "ALTER SEQUENCE tasks_display_id_seq OWNED BY tasks.display_id"
+                    ))
+                    conn.commit()
+                    print("[main] tasks_display_id_seq sequence created and linked")
+                else:
+                    print("[main] tasks.display_id column already exists")
         finally:
             conn.close()
     except Exception as e:
@@ -527,24 +544,26 @@ ensure_favorite_project_ids_column()
 
 
 def ensure_notification_type_task_created() -> None:
-    """notifications.type enum에 'taskCreated' 값 추가 (기존 DB 마이그레이션)."""
+    """notifications.type enum에 'TASK_CREATED' 값 추가 (기존 DB 마이그레이션).
+    SQLAlchemy는 enum NAME(대문자)을 DB에 저장하므로 'TASK_CREATED'가 필요함.
+    """
     try:
         with engine.connect() as conn:
             result = conn.execute(text("""
                 SELECT 1 FROM pg_enum
-                WHERE enumlabel = 'taskCreated'
+                WHERE enumlabel = 'TASK_CREATED'
                   AND enumtypid = (
                     SELECT oid FROM pg_type WHERE typname = 'notificationtype'
                   )
             """))
             if result.fetchone() is None:
-                conn.execute(text("ALTER TYPE notificationtype ADD VALUE 'taskCreated'"))
+                conn.execute(text("ALTER TYPE notificationtype ADD VALUE 'TASK_CREATED'"))
                 conn.commit()
-                print("[main] added 'taskCreated' to notificationtype enum")
+                print("[main] added 'TASK_CREATED' to notificationtype enum")
             else:
-                print("[main] notificationtype 'taskCreated' already exists")
+                print("[main] notificationtype 'TASK_CREATED' already exists")
     except Exception as e:
-        print(f"[main] failed to ensure notificationtype taskCreated: {e}")
+        print(f"[main] failed to ensure notificationtype TASK_CREATED: {e}")
 
 
 ensure_notification_type_task_created()
