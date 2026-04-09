@@ -3,6 +3,7 @@
 """
 import secrets
 import uuid
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
@@ -10,6 +11,8 @@ from typing import List
 from app.database import get_db
 from app.models.workspace import Workspace, WorkspaceMember
 from app.models.user import User
+from app.models.project import Project
+from app.models.task import Task, TaskStatus
 from app.schemas.workspace import WorkspaceCreate, WorkspaceResponse, WorkspaceMemberResponse, JoinByTokenRequest
 from app.utils.dependencies import get_current_user
 
@@ -214,6 +217,182 @@ async def delete_workspace(
     db.delete(ws)
     db.commit()
     return {"message": "워크스페이스가 삭제되었습니다"}
+
+
+@router.get("/{workspace_id}/member-stats")
+async def get_workspace_member_stats(
+    workspace_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """워크스페이스 멤버별 작업 통계 조회"""
+    _get_workspace_or_404(db, workspace_id)
+    if not current_user.is_admin and not _is_workspace_member(db, workspace_id, current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="워크스페이스 멤버가 아닙니다")
+
+    # 워크스페이스 프로젝트 목록
+    projects = db.query(Project).filter(Project.workspace_id == workspace_id).all()
+    project_ids = [p.id for p in projects]
+    project_map = {p.id: p for p in projects}
+
+    # 워크스페이스 전체 태스크 (부모 태스크만, 서브태스크 제외)
+    all_tasks = db.query(Task).filter(
+        Task.project_id.in_(project_ids),
+        Task.parent_task_id == None
+    ).all() if project_ids else []
+
+    # 멤버 목록
+    memberships = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == workspace_id
+    ).all()
+
+    result_members = []
+    for m in memberships:
+        user = db.query(User).filter(User.id == m.user_id).first()
+        if not user:
+            continue
+
+        # 이 멤버에게 할당된 태스크 (assigned_member_ids 배열에 포함)
+        member_tasks = [t for t in all_tasks if user.id in (t.assigned_member_ids or [])]
+
+        # 태스크 수 집계
+        counts = {
+            "backlog": 0, "ready": 0, "in_progress": 0,
+            "in_review": 0, "done": 0, "total": len(member_tasks)
+        }
+        status_map = {
+            TaskStatus.BACKLOG: "backlog",
+            TaskStatus.READY: "ready",
+            TaskStatus.IN_PROGRESS: "in_progress",
+            TaskStatus.IN_REVIEW: "in_review",
+            TaskStatus.DONE: "done",
+        }
+        for t in member_tasks:
+            key = status_map.get(t.status)
+            if key:
+                counts[key] += 1
+
+        # 진행 중 태스크 (최대 5개)
+        active_tasks = [
+            {
+                "id": t.id,
+                "title": t.title,
+                "project_name": project_map[t.project_id].name if t.project_id in project_map else "",
+                "priority": t.priority.value if t.priority else "p2",
+            }
+            for t in member_tasks if t.status == TaskStatus.IN_PROGRESS
+        ][:5]
+
+        # 최근 완료 태스크 (updated_at 최신 5개)
+        done_tasks = sorted(
+            [t for t in member_tasks if t.status == TaskStatus.DONE],
+            key=lambda t: t.updated_at,
+            reverse=True
+        )[:5]
+        recent_done = [
+            {
+                "id": t.id,
+                "title": t.title,
+                "project_name": project_map[t.project_id].name if t.project_id in project_map else "",
+                "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+            }
+            for t in done_tasks
+        ]
+
+        # 전체 미완료 태스크 (우선순위순, done 제외)
+        priority_order = {
+            TaskStatus.IN_PROGRESS: 0,
+            TaskStatus.IN_REVIEW: 1,
+            TaskStatus.READY: 2,
+            TaskStatus.BACKLOG: 3,
+        }
+        priority_value = {"p0": 0, "p1": 1, "p2": 2, "p3": 3}
+
+        todo_tasks = sorted(
+            [t for t in member_tasks if t.status != TaskStatus.DONE],
+            key=lambda t: (
+                priority_value.get(t.priority.value if t.priority else "p2", 2),
+                priority_order.get(t.status, 4),
+            )
+        )
+        all_tasks_list = [
+            {
+                "id": t.id,
+                "title": t.title,
+                "project_name": project_map[t.project_id].name if t.project_id in project_map else "",
+                "priority": t.priority.value if t.priority else "p2",
+                "status": t.status.value,
+                "end_date": t.end_date.isoformat() if t.end_date else None,
+            }
+            for t in todo_tasks
+        ]
+
+        # 오늘 일정 (대시보드와 동일한 로직)
+        now_utc = datetime.now(timezone.utc)
+        today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = now_utc.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+        def _is_today_task(t: Task) -> bool:
+            if t.status == TaskStatus.DONE:
+                # 오늘 완료된 것만
+                if t.updated_at:
+                    ut = t.updated_at if t.updated_at.tzinfo else t.updated_at.replace(tzinfo=timezone.utc)
+                    return today_start <= ut <= today_end
+                return False
+            if t.status == TaskStatus.IN_PROGRESS:
+                sd = t.start_date
+                ed = t.end_date
+                if sd and ed:
+                    sd = sd if sd.tzinfo else sd.replace(tzinfo=timezone.utc)
+                    ed = ed if ed.tzinfo else ed.replace(tzinfo=timezone.utc)
+                    return sd <= today_end and ed >= today_start
+                if ed:
+                    ed = ed if ed.tzinfo else ed.replace(tzinfo=timezone.utc)
+                    return ed >= today_start
+                if sd:
+                    sd = sd if sd.tzinfo else sd.replace(tzinfo=timezone.utc)
+                    return sd <= today_end
+                return True  # 날짜 없는 진행중 작업 포함
+            return False
+
+        today_tasks = [
+            {
+                "id": t.id,
+                "title": t.title,
+                "project_name": project_map[t.project_id].name if t.project_id in project_map else "",
+                "priority": t.priority.value if t.priority else "p2",
+                "status": t.status.value,
+                "end_date": t.end_date.isoformat() if t.end_date else None,
+                "start_date": t.start_date.isoformat() if t.start_date else None,
+            }
+            for t in member_tasks if _is_today_task(t)
+        ]
+
+        # 소속 프로젝트 (이 멤버가 팀원이거나 생성자인 프로젝트만)
+        member_projects = [
+            {
+                "id": p.id,
+                "name": p.name,
+                "color": p.color,
+            }
+            for p in projects
+            if user.id in (p.team_member_ids or []) or p.creator_id == user.id
+        ]
+
+        result_members.append({
+            "user_id": user.id,
+            "username": user.username,
+            "profile_image_url": user.profile_image_url,
+            "role": m.role,
+            "projects": member_projects,
+            "task_counts": counts,
+            "active_tasks": active_tasks,
+            "recent_done": recent_done,
+            "today_tasks": today_tasks,
+            "all_tasks": all_tasks_list,
+        })
+
+    return {"members": result_members}
 
 
 @router.delete("/{workspace_id}/leave")

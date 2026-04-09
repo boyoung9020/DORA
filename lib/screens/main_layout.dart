@@ -42,6 +42,7 @@ import 'chat_screen.dart';
 import 'search_screen.dart';
 import 'project_info_screen.dart';
 import 'site_screen.dart';
+import 'workspace_member_stats_screen.dart';
 
 /// 메인 레이아웃 - Slack 스타일 (왼쪽 사이드바 + 오른쪽 컨텐츠)
 class MainLayout extends StatefulWidget {
@@ -121,6 +122,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       selectedIcon: Icons.dns,
       label: '사이트',
       index: 7,
+    ),
+    MenuItem(
+      icon: Icons.groups_outlined,
+      selectedIcon: Icons.groups,
+      label: '팀 현황',
+      index: 8,
     ),
   ];
 
@@ -830,6 +837,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         selectedIcon: Icons.dns,
         label: '사이트',
         index: 7,
+      ),
+      MenuItem(
+        icon: Icons.groups_outlined,
+        selectedIcon: Icons.groups,
+        label: '팀 현황',
+        index: 8,
       ),
     ];
 
@@ -2690,7 +2703,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   bool get _isProjectBarHidden {
     if (!_isMenuStateReady) return false;
     if (_selectedIndex >= 0 && _selectedIndex < _menuItems.length) {
-      const hideLabels = {'사이트', '채팅', '알림'};
+      const hideLabels = {'사이트', '채팅', '알림', '팀 현황'};
       return hideLabels.contains(_menuItems[_selectedIndex].label);
     }
     return false;
@@ -2731,6 +2744,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         return const ProjectInfoScreen();
       case '사이트':
         return const SiteScreen();
+      case '팀 현황':
+        return const WorkspaceMemberStatsScreen();
       default:
         return const DashboardScreen();
     }

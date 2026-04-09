@@ -1,4 +1,5 @@
 import '../models/workspace.dart';
+import '../models/member_stats.dart';
 import '../utils/api_client.dart';
 
 /// ?뚰겕?ㅽ럹?댁뒪 ?쒕퉬??
@@ -60,6 +61,16 @@ class WorkspaceService {
   }
 
   /// 珥덈? 留곹겕 ?앹꽦 (?대씪?댁뼵???ъ씠??
+  /// 워크스페이스 멤버별 작업 통계
+  Future<List<MemberStats>> getMemberStats(String workspaceId) async {
+    final response = await ApiClient.get('/api/workspaces/$workspaceId/member-stats');
+    final data = ApiClient.handleResponse(response);
+    final members = data['members'] as List<dynamic>? ?? [];
+    return members
+        .map((json) => MemberStats.fromJson(json as Map<String, dynamic>))
+        .toList();
+  }
+
   String buildInviteLink(String inviteToken) {
     // 紐⑤컮???λ쭅???뺤옣 ?鍮? sync://join/<token>
     // ?? baseUrl/join/<token>

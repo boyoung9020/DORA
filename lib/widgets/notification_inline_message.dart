@@ -102,9 +102,11 @@ class NotificationInlineMessage extends StatelessWidget {
       if (q != null) {
         offer(pos + q.start, pos + q.end, quoteStyle);
       }
-      final p = RegExp(r'.+?님이').firstMatch(rest);
+      final p = RegExp(r'(.+?)님이').firstMatch(rest);
       if (p != null) {
-        offer(pos + p.start, pos + p.end, personStyle);
+        // 이름 부분만 색칠 (group(1): '양혜지'), '님이'는 제외
+        final nameEnd = pos + p.start + p.group(1)!.length;
+        offer(pos + p.start, nameEnd, personStyle);
       }
       if (taskOptionFieldHighlight) {
         final f = RegExp(r'작업의\s+(.+?)을\(를\)\s+변경').firstMatch(rest);
