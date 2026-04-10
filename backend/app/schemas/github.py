@@ -128,6 +128,25 @@ class GitHubIssueResponse(BaseModel):
     comments: int = 0
 
 
+class GitHubCompareFileResponse(BaseModel):
+    """Compare 결과의 파일 하나"""
+    filename: str
+    status: Optional[str] = None
+    additions: int = 0
+    deletions: int = 0
+    changes: int = 0
+
+
+class GitHubCompareResponse(BaseModel):
+    """두 커밋 비교 결과"""
+    base: str
+    head: str
+    ahead_by: Optional[int] = None
+    behind_by: Optional[int] = None
+    total_commits: Optional[int] = None
+    files: List[GitHubCompareFileResponse] = []
+
+
 class GitHubGraphCommitResponse(GitHubCommitResponse):
     """그래프용 커밋 — 브랜치/태그 레이블 포함"""
     branch_names: List[str] = []

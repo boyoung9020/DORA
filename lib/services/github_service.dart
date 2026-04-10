@@ -97,6 +97,19 @@ class GitHubService {
     }
   }
 
+  /// 두 커밋 비교 (base...head)
+  Future<GitHubCompareResult> compareCommits(
+    String projectId, {
+    required String base,
+    required String head,
+  }) async {
+    final query = 'base=$base&head=$head';
+    final response =
+        await ApiClient.get('/api/github/$projectId/compare?$query');
+    final data = ApiClient.handleResponse(response);
+    return GitHubCompareResult.fromJson(data);
+  }
+
   /// 브랜치 목록 조회
   Future<List<GitHubBranch>> getBranches(String projectId) async {
     try {

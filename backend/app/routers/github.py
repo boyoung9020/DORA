@@ -15,6 +15,8 @@ from app.models.user import User
 from app.schemas.github import (
     GitHubBranchResponse,
     GitHubCommitResponse,
+    GitHubCompareResponse,
+    GitHubCompareFileResponse,
     GitHubGraphCommitResponse,
     GitHubGraphResponse,
     GitHubIssueResponse,
@@ -30,6 +32,7 @@ from app.schemas.github import (
 from app.utils.dependencies import get_current_user
 from app.utils.github_api import (
     GitHubApiError,
+    compare_commits,
     get_branches,
     get_commits,
     get_issues,
@@ -571,3 +574,41 @@ async def list_issues(
         )
         for issue in raw
     ]
+
+
+@router.get("/{project_id}/compare", response_model=GitHubCompareResponse)
+async def compare_two_commits(
+    project_id: str,
+    base: str = Query(..., min_length=4, max_length=40),
+    head: str = Query(..., min_length=4, max_length=40),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """두 커밋(base…head)을 비교합니다. ahead/behind 및 변경 파일 목록을 반환합니다."""
+    gh = _get_github_record(db, project_id, current_user)
+    token = _get_user_token(db, current_user) or gh.access_token
+
+    try:
+        raw = await compare_commits(gh.repo_owner, gh.repo_name, base, head, token)
+    except GitHubApiError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    files = [
+        GitHubCompareFileResponse(
+            filename=f.get("filename", ""),
+            status=f.get("status"),
+            additions=f.get("additions", 0),
+            deletions=f.get("deletions", 0),
+            changes=f.get("changes", 0),
+        )
+        for f in raw.get("files", [])
+    ]
+
+    return GitHubCompareResponse(
+        base=base,
+        head=head,
+        ahead_by=raw.get("ahead_by"),
+        behind_by=raw.get("behind_by"),
+        total_commits=raw.get("total_commits"),
+        files=files,
+    )

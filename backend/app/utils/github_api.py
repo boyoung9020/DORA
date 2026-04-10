@@ -235,6 +235,29 @@ async def get_releases(
     return resp.json()
 
 
+async def compare_commits(
+    owner: str,
+    repo: str,
+    base: str,
+    head: str,
+    token: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Compare two commits via GitHub API (GET /repos/{owner}/{repo}/compare/{base}...{head})."""
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.get(
+                f"{_GITHUB_API}/repos/{owner}/{repo}/compare/{base}...{head}",
+                headers=_headers(token),
+            )
+    except Exception as exc:
+        raise GitHubApiError(f"Failed to compare commits: {exc}") from exc
+    if resp.status_code == 404:
+        raise GitHubApiError("One or both commits not found")
+    if resp.status_code != 200:
+        raise GitHubApiError(f"GitHub API error ({resp.status_code}): {resp.text}")
+    return resp.json()
+
+
 async def get_pull_requests(
     owner: str,
     repo: str,

@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #ffffff;
+    --bg-header: #fafafa;
+    --bg-hover:  #f4f4f5;
+    --bg-sel:    #eef2ff;
+    --border:    #e4e4e7;
+    --text:      #18181b;
+    --text-sub:  #52525b;
+    --text-mute: #71717a;
+    --badge-bg:  #eef2ff;
+    --badge-bd:  #cbd5e1;
+    --badge-tx:  #3b82f6;
+    --row-h:     26px;
+  }
+  body.dark {
+    --bg:        #09090b;
+    --bg-header: #111113;
+    --bg-hover:  #18181b;
+    --bg-sel:    #1a1a2e;
+    --border:    #27272a;
+    --text:      #fafafa;
+    --text-sub:  #a1a1aa;
+    --text-mute: #71717a;
+    --badge-bg:  #1e293b;
+    --badge-bd:  #334155;
+    --badge-tx:  #93c5fd;
+  }
+
+  html, body { height: 100%; overflow: hidden; background: var(--bg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+  #root { display: flex; flex-direction: column; height: 100%; }
+
+  /* ── 헤더 ── */
+  #header {
+    display: grid;
+    grid-template-columns: var(--graph-w, 120px) 60px 1fr 140px 160px;
+    height: 30px;
+    background: var(--bg-header);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #header > div {
+    display: flex; align-items: center;
+    padding: 0 8px;
+    font-size: 11px; font-weight: 600;
+    color: var(--text-mute);
+    white-space: nowrap;
+  }
+  #header .col-date { justify-content: flex-end; padding-right: 12px; }
+
+  /* ── 스크롤 영역 ── */
+  #scroll { flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; }
+
+  /* ── 행 ── */
+  .row {
+    display: grid;
+    grid-template-columns: var(--graph-w, 120px) 60px 1fr 140px 160px;
+    height: var(--row-h);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    background: var(--bg);
+    transition: background 0.1s;
+  }
+  .row:hover  { background: var(--bg-hover); }
+  .row.sel    { background: var(--bg-sel); outline: 1px solid var(--border); }
+
+  .row > div  { display: flex; align-items: center; padding: 0 8px; overflow: hidden; }
+  .col-graph  { padding: 0; position: relative; }
+  .col-sha    { font-family: monospace; font-size: 11px; color: var(--text-mute); }
+  .col-desc   { gap: 4px; }
+  .col-author { font-size: 12px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .col-date   { font-size: 11px; color: var(--text-sub); justify-content: flex-end; padding-right: 12px; white-space: nowrap; }
+
+  .msg        { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+  .badge {
+    flex-shrink: 0;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 10px; font-weight: 500;
+    background: var(--badge-bg);
+    border: 0.5px solid var(--badge-bd);
+    color: var(--badge-tx);
+    white-space: nowrap;
+  }
+  .badge-more { flex-shrink: 0; font-size: 10px; color: var(--text-mute); }
+
+  /* SVG 전체 그래프 — 스크롤 영역의 position:absolute 자식 */
+  #graph-svg {
+    position: absolute;
+    top: 0; left: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* 행 컨테이너 (SVG 위에) */
+  #rows { position: relative; z-index: 2; }
+
+  /* 더 불러오기 */
+  #load-more {
+    display: none;
+    justify-content: center;
+    align-items: center;
+    height: 36px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #3b82f6;
+    border-top: 1px solid var(--border);
+  }
+  #load-more:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="header">
+    <div>그래프</div>
+    <div>커밋</div>
+    <div>설명</div>
+    <div>작성자</div>
+    <div class="col-date">날짜</div>
+  </div>
+  <div id="scroll">
+    <svg id="graph-svg"></svg>
+    <div id="rows"></div>
+    <div id="load-more">더 불러오기</div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── 팔레트 (reference Tailwind) ───────────────────────────
+const COLORS = [
+  '#2563eb', // blue-600
+  '#16a34a', // green-600
+  '#db2777', // pink-600
+  '#f59e0b', // amber-500
+  '#7c3aed', // violet-600
+  '#0ea5e9', // sky-500
+  '#ef4444', // red-500
+];
+const laneColor = (lane) => COLORS[lane % COLORS.length];
+
+// ── assignLanes (reference layout.ts 포팅) ───────────────
+function assignLanes(commits) {
+  const laneBySha = new Map();
+  let nextLane = 0;
+  for (const c of commits) {
+    if (!laneBySha.has(c.sha)) laneBySha.set(c.sha, nextLane++);
+    const lane = laneBySha.get(c.sha);
+    const [first, ...rest] = c.parents;
+    if (first && !laneBySha.has(first)) laneBySha.set(first, lane);
+    for (const p of rest) {
+      if (!laneBySha.has(p)) laneBySha.set(p, nextLane++);
+    }
+  }
+  const maxLane = Math.max(0, nextLane - 1);
+  return { laneBySha, maxLane };
+}
+
+// ── 상태 ─────────────────────────────────────────────────
+let _commits = [];
+let _selectedSha = null;
+const PAD_X = 14, LANE_W = 20, DOT_R = 5, ROW_H = 26, STROKE = 2.5;
+
+function xForLane(lane) { return PAD_X + lane * LANE_W + LANE_W / 2; }
+function yForIndex(idx) { return idx * ROW_H + ROW_H / 2; }
+
+// ── 그래프 SVG 렌더링 ────────────────────────────────────
+function renderGraph(commits, laneData) {
+  const { laneBySha, maxLane } = laneData;
+  const graphW = PAD_X * 2 + (maxLane + 1) * LANE_W;
+  const totalH = commits.length * ROW_H;
+
+  // CSS 변수로 그리드 폭 갱신
+  document.documentElement.style.setProperty('--graph-w', graphW + 'px');
+
+  const svg = document.getElementById('graph-svg');
+  svg.setAttribute('width', graphW);
+  svg.setAttribute('height', totalH);
+  svg.innerHTML = '';
+
+  const shaToIndex = new Map(commits.map((c, i) => [c.sha, i]));
+
+  // 엣지
+  for (const c of commits) {
+    const srcIdx = shaToIndex.get(c.sha);
+    const srcLane = laneBySha.get(c.sha) ?? 0;
+    if (srcIdx === undefined) continue;
+    const x1 = xForLane(srcLane), y1 = yForIndex(srcIdx);
+
+    for (const p of c.parents) {
+      const dstIdx = shaToIndex.get(p);
+      if (dstIdx === undefined) continue;
+      const dstLane = laneBySha.get(p) ?? 0;
+      const x2 = xForLane(dstLane), y2 = yForIndex(dstIdx);
+      const color = laneColor(srcLane);
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', color);
+      path.setAttribute('stroke-width', STROKE);
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('opacity', '0.9');
+
+      let d;
+      if (srcLane === dstLane) {
+        d = `M ${x1} ${y1} L ${x2} ${y2}`;
+      } else {
+        const midY = (y1 + y2) / 2;
+        d = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
+      }
+      path.setAttribute('d', d);
+      svg.appendChild(path);
+    }
+  }
+
+  // 도트
+  for (let idx = 0; idx < commits.length; idx++) {
+    const lane = laneBySha.get(commits[idx].sha) ?? 0;
+    const x = xForLane(lane), y = yForIndex(idx);
+    const color = laneColor(lane);
+
+    // 흰 배경 (boxShadow 0 0 0 2px white)
+    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    bg.setAttribute('cx', x); bg.setAttribute('cy', y);
+    bg.setAttribute('r', DOT_R + 2);
+    bg.setAttribute('fill', 'rgba(255,255,255,0.9)');
+    svg.appendChild(bg);
+
+    // 색 원
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    dot.setAttribute('cx', x); dot.setAttribute('cy', y);
+    dot.setAttribute('r', DOT_R);
+    dot.setAttribute('fill', color);
+    svg.appendChild(dot);
+  }
+}
+
+// ── 행 렌더링 ────────────────────────────────────────────
+function fmtDate(iso) {
+  try {
+    const d = new Date(iso);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${y}-${m}-${dd} ${hh}:${mm}`;
+  } catch { return iso; }
+}
+
+function renderRows(commits) {
+  const container = document.getElementById('rows');
+  container.innerHTML = '';
+
+  for (let idx = 0; idx < commits.length; idx++) {
+    const c = commits[idx];
+    const firstLine = (c.message.split('\n')[0] ?? '').trim() || c.sha.slice(0, 7);
+    const branches = c.branchNames ?? [];
+
+    const row = document.createElement('div');
+    row.className = 'row' + (c.sha === _selectedSha ? ' sel' : '');
+    row.dataset.sha = c.sha;
+
+    // 그래프 열 (비어있음 — SVG가 아래에서 그림)
+    const colGraph = document.createElement('div');
+    colGraph.className = 'col-graph';
+    row.appendChild(colGraph);
+
+    // SHA
+    const colSha = document.createElement('div');
+    colSha.className = 'col-sha';
+    colSha.textContent = c.sha.slice(0, 7);
+    row.appendChild(colSha);
+
+    // 설명 + 뱃지
+    const colDesc = document.createElement('div');
+    colDesc.className = 'col-desc';
+
+    const shown = branches.slice(0, 2);
+    const extra = branches.length - shown.length;
+    for (const b of shown) {
+      const badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.textContent = b;
+      colDesc.appendChild(badge);
+    }
+    if (extra > 0) {
+      const more = document.createElement('span');
+      more.className = 'badge-more';
+      more.textContent = '+' + extra;
+      colDesc.appendChild(more);
+    }
+
+    const msg = document.createElement('span');
+    msg.className = 'msg';
+    msg.textContent = firstLine;
+    colDesc.appendChild(msg);
+    row.appendChild(colDesc);
+
+    // 작성자
+    const colAuthor = document.createElement('div');
+    colAuthor.className = 'col-author';
+    colAuthor.textContent = c.authorName ?? '-';
+    row.appendChild(colAuthor);
+
+    // 날짜
+    const colDate = document.createElement('div');
+    colDate.className = 'col-date';
+    colDate.textContent = c.date ? fmtDate(c.date) : '-';
+    row.appendChild(colDate);
+
+    // 클릭 이벤트
+    row.addEventListener('click', () => {
+      _selectedSha = c.sha;
+      document.querySelectorAll('.row.sel').forEach(r => r.classList.remove('sel'));
+      row.classList.add('sel');
+      if (window.flutter_inappwebview) {
+        window.flutter_inappwebview.callHandler('onCommitClick', c.sha);
+      }
+    });
+
+    container.appendChild(row);
+  }
+}
+
+// ── 메인 렌더 ────────────────────────────────────────────
+function render(commits) {
+  _commits = commits;
+  const laneData = assignLanes(commits);
+  renderGraph(commits, laneData);
+  renderRows(commits);
+}
+
+// ── Flutter 에서 호출하는 API ────────────────────────────
+window.setData = function(json) {
+  const data = typeof json === 'string' ? JSON.parse(json) : json;
+  const newCommits = data.commits ?? [];
+  const hasMore = data.hasMore ?? false;
+
+  render(newCommits);
+
+  const lm = document.getElementById('load-more');
+  lm.style.display = hasMore ? 'flex' : 'none';
+};
+
+window.appendData = function(json) {
+  const data = typeof json === 'string' ? JSON.parse(json) : json;
+  const newCommits = data.commits ?? [];
+  const hasMore = data.hasMore ?? false;
+  const combined = [..._commits, ...newCommits];
+
+  render(combined);
+
+  const lm = document.getElementById('load-more');
+  lm.style.display = hasMore ? 'flex' : 'none';
+};
+
+window.setTheme = function(isDark) {
+  document.body.classList.toggle('dark', !!isDark);
+  // 도트 흰 배경색 갱신 (다크모드에서는 배경색과 맞춤)
+  const bgColor = isDark ? 'rgba(9,9,11,0.95)' : 'rgba(255,255,255,0.95)';
+  document.querySelectorAll('#graph-svg circle[fill^="rgba"]').forEach(el => {
+    el.setAttribute('fill', bgColor);
+  });
+};
+
+window.setSelected = function(sha) {
+  _selectedSha = sha;
+  document.querySelectorAll('.row').forEach(r => {
+    r.classList.toggle('sel', r.dataset.sha === sha);
+  });
+};
+
+// 더 불러오기 버튼
+document.getElementById('load-more').addEventListener('click', () => {
+  if (window.flutter_inappwebview) {
+    window.flutter_inappwebview.callHandler('onLoadMore');
+  }
+});
+</script>
+</body>
+</html>

@@ -125,6 +125,65 @@ class GitHubCommit {
   String get firstLine => message.split('\n').first;
 }
 
+/// 커밋 비교 결과의 파일 하나
+class GitHubCompareFile {
+  final String filename;
+  final String? status;
+  final int additions;
+  final int deletions;
+  final int changes;
+
+  GitHubCompareFile({
+    required this.filename,
+    this.status,
+    required this.additions,
+    required this.deletions,
+    required this.changes,
+  });
+
+  factory GitHubCompareFile.fromJson(Map<String, dynamic> json) {
+    return GitHubCompareFile(
+      filename: json['filename'] as String,
+      status: json['status'] as String?,
+      additions: (json['additions'] as num?)?.toInt() ?? 0,
+      deletions: (json['deletions'] as num?)?.toInt() ?? 0,
+      changes: (json['changes'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+/// 두 커밋 비교 결과
+class GitHubCompareResult {
+  final String base;
+  final String head;
+  final int? aheadBy;
+  final int? behindBy;
+  final int? totalCommits;
+  final List<GitHubCompareFile> files;
+
+  GitHubCompareResult({
+    required this.base,
+    required this.head,
+    this.aheadBy,
+    this.behindBy,
+    this.totalCommits,
+    this.files = const [],
+  });
+
+  factory GitHubCompareResult.fromJson(Map<String, dynamic> json) {
+    return GitHubCompareResult(
+      base: (json['base'] ?? '') as String,
+      head: (json['head'] ?? '') as String,
+      aheadBy: (json['ahead_by'] ?? json['aheadBy']) as int?,
+      behindBy: (json['behind_by'] ?? json['behindBy']) as int?,
+      totalCommits: (json['total_commits'] ?? json['totalCommits']) as int?,
+      files: ((json['files'] as List<dynamic>?) ?? [])
+          .map((e) => GitHubCompareFile.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
 class GitHubBranch {
   final String name;
   final String sha;
