@@ -10,6 +10,7 @@ class Project {
   final List<String> teamMemberIds; // 팀원 사용자 ID 목록
   final String? workspaceId;        // 소속 워크스페이스 ID
   final String? creatorId;          // 프로젝트 생성자 (= 프로젝트 PM)
+  final bool isGlobal;              // 모든 사용자에게 기본 표시 (워크스페이스 무관)
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -21,6 +22,7 @@ class Project {
     List<String>? teamMemberIds,
     this.workspaceId,
     this.creatorId,
+    this.isGlobal = false,
     required this.createdAt,
     required this.updatedAt,
   }) : teamMemberIds = teamMemberIds ?? [];
@@ -83,6 +85,8 @@ class Project {
     final workspaceIdKey = json.containsKey('workspace_id') ? 'workspace_id' : 'workspaceId';
     final creatorIdKey = json.containsKey('creator_id') ? 'creator_id' : 'creatorId';
 
+    final isGlobalKey = json.containsKey('is_global') ? 'is_global' : 'isGlobal';
+
     return Project(
       id: id,
       name: name,
@@ -91,6 +95,7 @@ class Project {
       teamMemberIds: teamMemberIds,
       workspaceId: json[workspaceIdKey] as String?,
       creatorId: json[creatorIdKey] as String?,
+      isGlobal: json[isGlobalKey] as bool? ?? false,
       createdAt: parseDate(json[createdAtKey]),
       updatedAt: parseDate(json[updatedAtKey]),
     );
@@ -105,6 +110,7 @@ class Project {
     List<String>? teamMemberIds,
     String? workspaceId,
     String? creatorId,
+    bool? isGlobal,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -116,6 +122,7 @@ class Project {
       teamMemberIds: teamMemberIds ?? this.teamMemberIds,
       workspaceId: workspaceId ?? this.workspaceId,
       creatorId: creatorId ?? this.creatorId,
+      isGlobal: isGlobal ?? this.isGlobal,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

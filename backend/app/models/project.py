@@ -1,7 +1,7 @@
 """
 프로젝트 모델 (SQLAlchemy)
 """
-from sqlalchemy import Column, String, Integer, BigInteger, DateTime, ARRAY
+from sqlalchemy import Boolean, Column, String, Integer, BigInteger, DateTime, ARRAY
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -17,6 +17,7 @@ class Project(Base):
     team_member_ids = Column(ARRAY(String), default=[], nullable=False)  # 팀원 ID 배열
     workspace_id = Column(String, nullable=True, index=True)  # 소속 워크스페이스 ID
     creator_id = Column(String, nullable=True, index=True)    # 프로젝트 생성자 = 해당 프로젝트 PM
+    is_global = Column(Boolean, nullable=False, default=False)  # 전체 사용자에게 기본 표시 (워크스페이스 무관)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     

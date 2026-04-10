@@ -40,20 +40,28 @@ async def get_all_projects(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """프로젝트 목록 가져오기 (관리자: 전체, 일반유저: 본인 소속만)"""
+    """프로젝트 목록 가져오기 (관리자: 전체, 일반유저: 본인 소속 + 글로벌 프로젝트)"""
+    from sqlalchemy import or_
+
     if current_user.is_admin:
         query = db.query(Project)
     else:
-        from sqlalchemy import or_
         query = db.query(Project).filter(
             or_(
+                Project.is_global == True,
                 Project.creator_id == current_user.id,
-                Project.team_member_ids.any(current_user.id)
+                Project.team_member_ids.any(current_user.id),
             )
         )
 
     if workspace_id:
-        query = query.filter(Project.workspace_id == workspace_id)
+        # 워크스페이스 필터 적용 시에도 글로벌 프로젝트는 항상 포함
+        query = query.filter(
+            or_(
+                Project.is_global == True,
+                Project.workspace_id == workspace_id,
+            )
+        )
 
     projects = query.offset(skip).limit(limit).all()
     return projects
@@ -146,6 +154,13 @@ async def update_project(
         project.description = project_data.description
     if project_data.color is not None:
         project.color = project_data.color
+    if project_data.is_global is not None:
+        if not current_user.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="글로벌 프로젝트 설정은 관리자만 변경할 수 있습니다"
+            )
+        project.is_global = project_data.is_global
 
     db.commit()
     db.refresh(project)

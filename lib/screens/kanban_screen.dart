@@ -9,6 +9,7 @@ import '../providers/project_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
 import '../services/site_detail_service.dart';
+import '../services/project_site_service.dart';
 import '../models/site_detail.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/date_range_picker_dialog.dart';
@@ -1315,6 +1316,16 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                   }
                                   if (ok) {
                                     taskProvider.loadTasks(projectId: currentProjectId);
+                                    // 사이트명이 입력된 경우 project_sites/site_details에 등록
+                                    // (이미 존재하면 서버가 기존 레코드를 반환하므로 중복 생성 없음)
+                                    if (selectedSiteName != null) {
+                                      try {
+                                        await ProjectSiteService().createSite(
+                                          projectId: currentProjectId,
+                                          name: selectedSiteName!,
+                                        );
+                                      } catch (_) {}
+                                    }
                                   }
                                 }
                                 if (context.mounted) Navigator.of(context).pop();

@@ -190,7 +190,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       builder: (_) {
         final cs = Theme.of(context).colorScheme;
         final isDark = Theme.of(context).brightness == Brightness.dark;
-        final sorted = pp.sortedProjects;
+        final allSorted = pp.sortedProjects;
+        final globalProjects = allSorted.where((p) => p.isGlobal).toList();
+        final sorted = allSorted.where((p) => !p.isGlobal).toList();
         final hasFavs = sorted.any((p) => pp.isFavorite(p.id));
         final hasNonFavs = sorted.any((p) => !pp.isFavorite(p.id));
 
@@ -233,6 +235,48 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                         },
                       ),
                       Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.4)),
+
+                      // ── 글로벌(공용) 프로젝트 ──
+                      if (globalProjects.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 8, 14, 2),
+                          child: Text(
+                            '공용',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: cs.onSurface.withValues(alpha: 0.45),
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                        for (final project in globalProjects)
+                          _dropdownItem(
+                            cs: cs,
+                            leading: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                    color: project.color, shape: BoxShape.circle),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(Icons.public, size: 12,
+                                  color: cs.onSurface.withValues(alpha: 0.45)),
+                            ]),
+                            label: project.name,
+                            isSelected: pp.currentProject?.id == project.id,
+                            isDark: isDark,
+                            onTap: () async {
+                              _closeProjectDropdown();
+                              await pp.setCurrentProject(project.id);
+                              if (!mounted) return;
+                              await taskProv.loadTasks(projectId: project.id);
+                              await sprintProv.loadSprints(projectId: project.id);
+                            },
+                          ),
+                        Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.4)),
+                      ],
 
                       // ── 프로젝트 목록 ──
                       ...() {
@@ -381,6 +425,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isAuthenticated) {
       return;
+    }
+
+    // 기존 서비스가 있으면 명시적으로 해제 (고아 reconnect 타이머 방지)
+    if (_webSocketService != null) {
+      await _webSocketService!.disconnect();
+      _webSocketService = null;
     }
 
     _webSocketService = WebSocketService();

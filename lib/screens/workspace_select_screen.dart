@@ -279,38 +279,75 @@ class _WorkspaceSelectDialogContentState extends State<_WorkspaceSelectDialogCon
     final descCtrl = TextEditingController();
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('새 워크스페이스 만들기'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: '이름 *', hintText: '예) 우리 팀'),
+      builder: (ctx) {
+        String? errorText;
+        bool isLoading = false;
+        return StatefulBuilder(
+          builder: (ctx, setState) => AlertDialog(
+            title: const Text('새 워크스페이스 만들기'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: '이름 *',
+                    hintText: '예) 우리 팀',
+                    errorText: errorText,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: descCtrl,
+                  decoration: const InputDecoration(labelText: '설명 (선택)', hintText: '워크스페이스 설명'),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: descCtrl,
-              decoration: const InputDecoration(labelText: '설명 (선택)', hintText: '워크스페이스 설명'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
-          FilledButton(
-            onPressed: () async {
-              final name = nameCtrl.text.trim();
-              if (name.isEmpty) return;
-              Navigator.pop(ctx);
-              final ok = await context.read<WorkspaceProvider>().createWorkspace(
-                    name, descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim());
-              if (ok && mounted) Navigator.of(context).pop(); // 다이얼로그 닫기
-            },
-            child: const Text('만들기'),
+            actions: [
+              TextButton(onPressed: isLoading ? null : () => Navigator.pop(ctx), child: const Text('취소')),
+              FilledButton(
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        final name = nameCtrl.text.trim();
+                        if (name.isEmpty) {
+                          setState(() => errorText = '이름을 입력해주세요');
+                          return;
+                        }
+                        setState(() {
+                          errorText = null;
+                          isLoading = true;
+                        });
+                        // async 갭 이전에 provider와 scaffold messenger 캡처
+                        final wsProvider = context.read<WorkspaceProvider>();
+                        final messenger = ScaffoldMessenger.of(context);
+                        wsProvider.clearError();
+                        final ok = await wsProvider.createWorkspace(
+                            name, descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim());
+                        if (!ctx.mounted) return;
+                        if (ok) {
+                          Navigator.pop(ctx);
+                          if (mounted) Navigator.of(context).pop();
+                        } else {
+                          final errMsg = wsProvider.errorMessage ?? '워크스페이스 생성에 실패했습니다';
+                          setState(() {
+                            isLoading = false;
+                            errorText = errMsg.contains('이미 존재') ? errMsg : null;
+                          });
+                          if (errorText == null) {
+                            messenger.showSnackBar(SnackBar(content: Text(errMsg)));
+                          }
+                        }
+                      },
+                child: isLoading
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('만들기'),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

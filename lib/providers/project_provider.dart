@@ -94,8 +94,9 @@ class ProjectProvider extends ChangeNotifier {
       _projects = List.from(_allProjects);
       print('[ProjectProvider] 관리자 - 모든 프로젝트 표시: ${_projects.length}개');
     } else {
-      // PM 및 일반 사용자는 자신이 속한 프로젝트만 볼 수 있음
+      // PM 및 일반 사용자는 자신이 속한 프로젝트 + 글로벌 프로젝트
       _projects = _allProjects.where((project) {
+        if (project.isGlobal) return true;
         final isCreator = project.creatorId == _currentUserId;
         final isMember = project.teamMemberIds.contains(_currentUserId);
         print('[ProjectProvider] 프로젝트 "${project.name}" - 생성자: $isCreator, 팀원 여부: $isMember (팀원 수: ${project.teamMemberIds.length})');
@@ -154,15 +155,19 @@ class ProjectProvider extends ChangeNotifier {
         _isPM = isPM;
       }
       
+      // _filterProjects() 호출 전에 저장된 ID를 읽어야 함
+      // (filterProjects가 null이면 first로 덮어쓰기 때문)
+      final savedProjectId = _currentProject?.id
+          ?? await _projectService.getCurrentProjectId();
+
       // 프로젝트 필터링
       _filterProjects();
-      
-      // '전체' 모드면 currentProject는 null 유지, 아니면 최신 데이터로 업데이트
+
+      // '전체' 모드면 currentProject는 null 유지, 아니면 저장된 ID로 복원
       if (!_isAllProjectsMode) {
-        final currentProjectId = _currentProject?.id;
-        if (currentProjectId != null && _projects.isNotEmpty) {
+        if (savedProjectId != null && _projects.isNotEmpty) {
           _currentProject = _projects.firstWhere(
-            (p) => p.id == currentProjectId,
+            (p) => p.id == savedProjectId,
             orElse: () => _projects.first,
           );
         } else if (_projects.isNotEmpty) {

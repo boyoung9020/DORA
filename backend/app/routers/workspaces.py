@@ -70,6 +70,12 @@ async def create_workspace(
     current_user: User = Depends(get_current_user)
 ):
     """워크스페이스 생성 - 생성자가 owner가 됨"""
+    existing = db.query(Workspace).filter(Workspace.name == ws_data.name).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"'{ws_data.name}' 이름의 워크스페이스가 이미 존재합니다",
+        )
     new_ws = Workspace(
         id=str(uuid.uuid4()),
         name=ws_data.name,

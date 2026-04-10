@@ -53,7 +53,12 @@ lib/
 ├── providers/                   # State (ChangeNotifier + Provider)
 ├── services/                    # API calls and business logic
 ├── screens/                     # UI screens; project_info/ is a tabbed sub-screen
-│   └── project_info/            #   (overview, members, tasks, patch, documents, github, settings tabs)
+│   ├── project_info/            #   (overview, members, tasks, patch, documents, github, settings tabs)
+│   ├── main_layout.dart         #   Slack-style shell: left sidebar + right content area
+│   ├── site_screen.dart         #   Server/DB/service info management (cross-project site details)
+│   ├── kanban_screen.dart       #   Kanban board with drag-to-reorder
+│   ├── catch_up_screen.dart     #   Activity catch-up view
+│   └── workspace_member_stats_screen.dart  # Member contribution stats
 ├── widgets/                     # Reusable components
 └── utils/api_client.dart        # Centralized HTTP client
 
@@ -67,7 +72,8 @@ backend/app/
 ├── routers/                     # API endpoints (/api/*): auth, projects, tasks, sprints,
 │                                #   workspaces, users, chat, github, user_github_tokens, patches,
 │                                #   project_sites, site_details, checklists, comments, uploads,
-│                                #   search, notifications, websocket, ai
+│                                #   search, notifications, websocket, ai,
+│                                #   api_tokens, request_issue, user_mattermost_settings
 ├── schemas/                     # Pydantic request/response schemas
 ├── migrations/                  # Standalone migration scripts (run manually if needed)
 └── utils/                       # security.py, dependencies.py, notifications.py,
@@ -109,6 +115,20 @@ backend/app/
 - `get_current_admin_user`: enforces admin role
 - `get_current_admin_or_pm_user`: enforces admin OR PM role
 - `get_current_user_ws`: WebSocket-specific auth
+- `get_user_by_api_token`: validates `Authorization: Bearer <api_token>` for external integrations (used by `request_issue` router — separate from JWT tokens)
+
+### External API Token System
+- Users generate long-lived API tokens via `/api/api-tokens` (stored hashed in `api_tokens` table)
+- The `request_issue` router (`/api/request-issue/`) lets external apps create tasks using these tokens
+- Token is shown only once on generation; thereafter only a prefix is stored
+
+### AI Integration
+- Backend `/api/ai/` calls Google Gemini API (`GEMINI_API_KEY` env var)
+- Model fallback chain: `gemini-2.5-flash` → `gemini-2.0-flash` → `gemini-1.5-flash` (auto-retries on 503)
+
+### Mattermost Integration
+- Per-user webhook URL stored in `user_mattermost_settings` table
+- `MattermostService` in Flutter posts to the webhook; backend `user_mattermost_settings` router manages settings
 
 ### DB Migration Strategy
 - `Base.metadata.create_all()` is used only for fresh environments

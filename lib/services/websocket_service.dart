@@ -16,6 +16,7 @@ class WebSocketService {
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 5;
   Timer? _reconnectTimer;
+  Timer? _pingTimer;
   bool _manualDisconnect = false;
 
   Function(String eventType, Map<String, dynamic> data)? onEvent;
@@ -86,6 +87,8 @@ class WebSocketService {
           _isConnected = false;
           _channel = null;
           _subscription = null;
+          _pingTimer?.cancel();
+          _pingTimer = null;
           _scheduleReconnect();
         },
         onDone: () {
@@ -93,6 +96,8 @@ class WebSocketService {
           _isConnected = false;
           _channel = null;
           _subscription = null;
+          _pingTimer?.cancel();
+          _pingTimer = null;
           _scheduleReconnect();
         },
       );
@@ -100,6 +105,11 @@ class WebSocketService {
       _isConnected = true;
       _reconnectAttempts = 0;
       _reconnectTimer?.cancel();
+
+      // 45초마다 ping 전송 (백엔드 60초 타임아웃 방지)
+      _pingTimer?.cancel();
+      _pingTimer = Timer.periodic(const Duration(seconds: 45), (_) => sendPing());
+
       print('[WebSocket] Connected');
     } catch (e, stackTrace) {
       print('[WebSocket] Connect failed: $e');
@@ -114,6 +124,8 @@ class WebSocketService {
   Future<void> disconnect() async {
     _manualDisconnect = true;
     _reconnectTimer?.cancel();
+    _pingTimer?.cancel();
+    _pingTimer = null;
 
     await _subscription?.cancel();
     await _channel?.sink.close();

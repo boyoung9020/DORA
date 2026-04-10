@@ -24,6 +24,7 @@ class ProjectUpdate(BaseModel):
     description: Optional[str] = None
     color: Optional[int] = None
     team_member_ids: Optional[List[str]] = None
+    is_global: Optional[bool] = None
 
 
 class ProjectResponse(ProjectBase):
@@ -32,6 +33,7 @@ class ProjectResponse(ProjectBase):
     team_member_ids: List[str]
     workspace_id: Optional[str] = None
     creator_id: Optional[str] = None
+    is_global: bool = False
     created_at: datetime
     updated_at: datetime
 

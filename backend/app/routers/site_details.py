@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.site_detail import SiteDetail
 from app.models.project_site import ProjectSite
+from app.models.task import Task
 from app.models.user import User
 from app.models.project import Project
 from app.schemas.site_detail import SiteDetailCreate, SiteDetailResponse, SiteDetailUpdate
@@ -144,9 +145,36 @@ async def delete_site_detail(
     accessible_ids = set(_accessible_project_ids(db, current_user))
     if not any(pid in accessible_ids for pid in (site.project_ids or [])):
         raise HTTPException(status_code=403, detail="접근 권한이 없습니다.")
-    db.delete(site)
-    # project_sites에서도 같은 이름의 레코드 모두 삭제 (마이그레이션 시 재생성 방지)
-    ps_rows = db.query(ProjectSite).filter(ProjectSite.name == site.name).all()
-    for ps in ps_rows:
-        db.delete(ps)
+    site_name = site.name
+    remaining_pids = [pid for pid in (site.project_ids or []) if pid in accessible_ids]
+    all_pids = list(site.project_ids or [])
+    non_accessible_pids = [pid for pid in all_pids if pid not in accessible_ids]
+
+    if non_accessible_pids:
+        # 접근 불가 프로젝트가 있으면 접근 가능한 프로젝트 연결만 해제
+        new_pids = non_accessible_pids
+        site.project_ids = new_pids
+        # 접근 가능한 프로젝트들의 project_sites 및 task.site_tags만 정리
+        for pid in remaining_pids:
+            for t in db.query(Task).filter(Task.project_id == pid).all():
+                tags = list(t.site_tags or [])
+                if site_name in tags:
+                    t.site_tags = [x for x in tags if x != site_name]
+            ps_row = db.query(ProjectSite).filter(
+                ProjectSite.project_id == pid, ProjectSite.name == site_name
+            ).first()
+            if ps_row:
+                db.delete(ps_row)
+    else:
+        # 모든 프로젝트가 접근 가능 → SiteDetail 전체 삭제
+        db.delete(site)
+        for ps in db.query(ProjectSite).filter(ProjectSite.name == site_name).all():
+            db.delete(ps)
+        # 연결된 모든 프로젝트의 task.site_tags 정리
+        for pid in all_pids:
+            for t in db.query(Task).filter(Task.project_id == pid).all():
+                tags = list(t.site_tags or [])
+                if site_name in tags:
+                    t.site_tags = [x for x in tags if x != site_name]
+
     db.commit()

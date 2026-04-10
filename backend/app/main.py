@@ -378,6 +378,37 @@ def ensure_project_sites_table() -> None:
 
 ensure_project_sites_table()
 
+
+def ensure_project_is_global_column() -> None:
+    """Add projects.is_global column if missing."""
+    try:
+        conn = engine.connect()
+        try:
+            result = conn.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name='projects' AND column_name='is_global'"
+                )
+            )
+            if result.fetchone() is None:
+                conn.execute(
+                    text(
+                        "ALTER TABLE projects ADD COLUMN is_global BOOLEAN NOT NULL DEFAULT FALSE"
+                    )
+                )
+                conn.commit()
+                print("[main] added projects.is_global column")
+            else:
+                print("[main] projects.is_global column already exists")
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"[main] failed to ensure projects.is_global: {e}")
+
+
+ensure_project_is_global_column()
+
+
 app = FastAPI(
     title="SYNC Project Manager API",
     description="SYNC project management backend API",
