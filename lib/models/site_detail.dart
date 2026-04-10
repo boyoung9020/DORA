@@ -55,6 +55,35 @@ class ServerInfo {
       );
 }
 
+/// 역할별 서버 그룹 (예: AI서버, 웹서버, DB서버)
+class ServerRole {
+  String roleName;
+  List<ServerInfo> servers;
+
+  ServerRole({
+    this.roleName = '',
+    List<ServerInfo>? servers,
+  }) : servers = servers ?? [];
+
+  factory ServerRole.fromJson(Map<String, dynamic> json) => ServerRole(
+        roleName: (json['roleName'] ?? json['role_name'] ?? '') as String,
+        servers: ((json['servers'] as List?) ?? [])
+            .map((e) => ServerInfo.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'roleName': roleName,
+        'servers': servers.map((s) => s.toJson()).toList(),
+      };
+
+  ServerRole copyWith({String? roleName, List<ServerInfo>? servers}) =>
+      ServerRole(
+        roleName: roleName ?? this.roleName,
+        servers: servers ?? this.servers,
+      );
+}
+
 class DatabaseInfo {
   String name;
   String type;
@@ -173,7 +202,7 @@ class SiteDetail {
   final List<String> projectIds;
   final String name;
   final String description;
-  final List<ServerInfo> servers;
+  final List<ServerRole> serverRoles;
   final List<DatabaseInfo> databases;
   final List<ServiceInfo> services;
   final DateTime createdAt;
@@ -184,19 +213,34 @@ class SiteDetail {
     required this.projectIds,
     required this.name,
     required this.description,
-    required this.servers,
+    required this.serverRoles,
     required this.databases,
     required this.services,
     required this.createdAt,
     required this.updatedAt,
   });
 
+  /// 모든 역할의 서버 IP 목록 (서비스 섹션용)
+  List<ServerInfo> get allServers =>
+      serverRoles.expand((r) => r.servers).toList();
+
   factory SiteDetail.fromJson(Map<String, dynamic> json) {
-    List<ServerInfo> parseServers(dynamic raw) {
+    List<ServerRole> parseServerRoles(dynamic raw) {
       if (raw == null) return [];
-      return (raw as List)
+      final list = raw as List;
+      if (list.isEmpty) return [];
+      final first = list.first as Map<String, dynamic>;
+      // 새 형식: roleName 키가 있으면 ServerRole 배열
+      if (first.containsKey('roleName') || first.containsKey('role_name')) {
+        return list
+            .map((e) => ServerRole.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      // 구 형식: ServerInfo 배열 → 기본 역할 "AI서버"로 래핑
+      final servers = list
           .map((e) => ServerInfo.fromJson(e as Map<String, dynamic>))
           .toList();
+      return [ServerRole(roleName: 'AI서버', servers: servers)];
     }
 
     List<DatabaseInfo> parseDatabases(dynamic raw) {
@@ -229,7 +273,7 @@ class SiteDetail {
       ),
       name: (json['name'] ?? '') as String,
       description: (json['description'] ?? '') as String,
-      servers: parseServers(json['servers']),
+      serverRoles: parseServerRoles(json['servers']),
       databases: parseDatabases(json['databases']),
       services: parseServices(json['services']),
       createdAt: DateTime.parse(json['created_at'] ?? json['createdAt']),

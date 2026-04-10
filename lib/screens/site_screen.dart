@@ -135,12 +135,12 @@ class _SiteScreenState extends State<SiteScreen> {
     }
   }
 
-  Future<void> _saveServers(List<ServerInfo> servers) async {
+  Future<void> _saveServerRoles(List<ServerRole> serverRoles) async {
     final site = _selectedSite; if (site == null) return;
     try {
       final updated = await _service.updateSite(
         siteId: site.id, name: site.name, description: site.description,
-        servers: servers, databases: site.databases, services: site.services,
+        serverRoles: serverRoles, databases: site.databases, services: site.services,
       );
       if (!mounted) return;
       setState(() {
@@ -156,7 +156,7 @@ class _SiteScreenState extends State<SiteScreen> {
     try {
       final updated = await _service.updateSite(
         siteId: site.id, name: site.name, description: site.description,
-        servers: site.servers, databases: databases, services: site.services,
+        serverRoles: site.serverRoles, databases: databases, services: site.services,
       );
       if (!mounted) return;
       setState(() {
@@ -172,7 +172,7 @@ class _SiteScreenState extends State<SiteScreen> {
     try {
       final updated = await _service.updateSite(
         siteId: site.id, name: site.name, description: site.description,
-        servers: site.servers, databases: site.databases, services: services,
+        serverRoles: site.serverRoles, databases: site.databases, services: services,
       );
       if (!mounted) return;
       setState(() {
@@ -398,7 +398,7 @@ class _SiteScreenState extends State<SiteScreen> {
                   // 서버/DB 카운트
                   Row(
                     children: [
-                      _sidebarChip(Icons.computer, '${site.servers.length}', colorScheme),
+                      _sidebarChip(Icons.computer, '${site.serverRoles.fold(0, (s, r) => s + r.servers.length)}', colorScheme),
                       const SizedBox(width: 8),
                       _sidebarChip(Icons.storage, '${site.databases.length}', colorScheme),
                     ],
@@ -527,11 +527,11 @@ class _SiteScreenState extends State<SiteScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _ServerFlatSection(
+                      _ServerRolesSection(
                         key: ValueKey('srv_${site.id}'),
-                        servers: site.servers,
+                        serverRoles: site.serverRoles,
                         colorScheme: colorScheme,
-                        onSave: _saveServers,
+                        onSave: _saveServerRoles,
                       ),
                       const SizedBox(height: 16),
                       _DatabaseEmbeddedSection(
@@ -543,7 +543,7 @@ class _SiteScreenState extends State<SiteScreen> {
                       const SizedBox(height: 16),
                       _ServiceEmbeddedSection(
                         key: ValueKey('svc_${site.id}'),
-                        servers: site.servers,
+                        servers: site.allServers,
                         services: site.services,
                         colorScheme: colorScheme,
                         onSave: _saveServices,
@@ -572,23 +572,82 @@ class _SiteScreenState extends State<SiteScreen> {
 }
 
 // ═══════════════════════════════════════
-// 서버 정보 섹션 (계정공유 + IP 목록)
+// 서버 정보 섹션 (역할별 그룹)
 // ═══════════════════════════════════════
-class _ServerFlatSection extends StatefulWidget {
-  final List<ServerInfo> servers;
+class _ServerRolesSection extends StatefulWidget {
+  final List<ServerRole> serverRoles;
   final ColorScheme colorScheme;
-  final Future<void> Function(List<ServerInfo>) onSave;
-  const _ServerFlatSection({super.key, required this.servers, required this.colorScheme, required this.onSave});
-  @override State<_ServerFlatSection> createState() => _ServerFlatSectionState();
+  final Future<void> Function(List<ServerRole>) onSave;
+  const _ServerRolesSection({super.key, required this.serverRoles, required this.colorScheme, required this.onSave});
+  @override State<_ServerRolesSection> createState() => _ServerRolesSectionState();
 }
 
-class _ServerFlatSectionState extends State<_ServerFlatSection> {
+class _ServerRolesSectionState extends State<_ServerRolesSection> {
   static const _color = Colors.indigo;
+  final Set<int> _pwVisible = {};
 
-  ServerInfo get _creds => widget.servers.isNotEmpty ? widget.servers.first : ServerInfo();
+  Future<void> _addRole() async {
+    final ctrl = TextEditingController();
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('역할 추가', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: ctrl, autofocus: true,
+          decoration: const InputDecoration(
+            labelText: '역할명', hintText: '예) AI서버, 웹서버, DB서버',
+            border: OutlineInputBorder(), isDense: true,
+          ),
+          onSubmitted: (_) => Navigator.pop(ctx, true),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('추가')),
+        ],
+      ),
+    );
+    final name = ctrl.text.trim();
+    ctrl.dispose();
+    if (result != true || name.isEmpty) return;
+    await widget.onSave([...widget.serverRoles, ServerRole(roleName: name)]);
+  }
 
-  Future<void> _editCredentials() async {
-    final c = _creds;
+  Future<void> _renameRole(int idx) async {
+    final ctrl = TextEditingController(text: widget.serverRoles[idx].roleName);
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('역할명 변경', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: ctrl, autofocus: true,
+          decoration: const InputDecoration(
+            labelText: '역할명', border: OutlineInputBorder(), isDense: true,
+          ),
+          onSubmitted: (_) => Navigator.pop(ctx, true),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('저장')),
+        ],
+      ),
+    );
+    final name = ctrl.text.trim();
+    ctrl.dispose();
+    if (result != true || name.isEmpty) return;
+    final list = widget.serverRoles.toList();
+    list[idx] = list[idx].copyWith(roleName: name);
+    await widget.onSave(list);
+  }
+
+  Future<void> _deleteRole(int idx) async {
+    setState(() => _pwVisible.remove(idx));
+    final list = widget.serverRoles.toList()..removeAt(idx);
+    await widget.onSave(list);
+  }
+
+  Future<void> _editCredentials(int roleIdx) async {
+    final role = widget.serverRoles[roleIdx];
+    final c = role.servers.isNotEmpty ? role.servers.first : ServerInfo();
     final ctrls = [c.username, c.password, c.gpu, c.mount, c.note]
         .map((v) => TextEditingController(text: v)).toList();
     final labels = ['ID', '비밀번호', 'GPU', '마운트 경로', '비고'];
@@ -603,6 +662,7 @@ class _ServerFlatSectionState extends State<_ServerFlatSection> {
               padding: const EdgeInsets.only(bottom: 8),
               child: TextField(
                 controller: ctrls[i], autofocus: i == 0,
+                obscureText: i == 1,
                 decoration: InputDecoration(
                   labelText: labels[i], border: const OutlineInputBorder(), isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -621,13 +681,17 @@ class _ServerFlatSectionState extends State<_ServerFlatSection> {
     final vals = ctrls.map((c) => c.text.trim()).toList();
     for (final c in ctrls) { c.dispose(); }
     if (result != true) return;
-    final updated = widget.servers.map((s) => ServerInfo(
-      ip: s.ip, username: vals[0], password: vals[1], gpu: vals[2], mount: vals[3], note: vals[4],
-    )).toList();
-    await widget.onSave(updated);
+    final list = widget.serverRoles.toList();
+    final updated = role.servers.isEmpty
+        ? [ServerInfo(username: vals[0], password: vals[1], gpu: vals[2], mount: vals[3], note: vals[4])]
+        : role.servers.map((s) => ServerInfo(
+            ip: s.ip, username: vals[0], password: vals[1], gpu: vals[2], mount: vals[3], note: vals[4],
+          )).toList();
+    list[roleIdx] = list[roleIdx].copyWith(servers: updated);
+    await widget.onSave(list);
   }
 
-  Future<void> _addIp() async {
+  Future<void> _addIp(int roleIdx) async {
     final ctrl = TextEditingController();
     final result = await showDialog<bool>(
       context: context,
@@ -650,19 +714,26 @@ class _ServerFlatSectionState extends State<_ServerFlatSection> {
     final ip = ctrl.text.trim();
     ctrl.dispose();
     if (result != true || ip.isEmpty) return;
-    final c = _creds;
-    await widget.onSave([...widget.servers,
-      ServerInfo(ip: ip, username: c.username, password: c.password, gpu: c.gpu, mount: c.mount, note: c.note)]);
+    final list = widget.serverRoles.toList();
+    final role = list[roleIdx];
+    final c = role.servers.isNotEmpty ? role.servers.first : ServerInfo();
+    list[roleIdx] = role.copyWith(
+      servers: [...role.servers,
+        ServerInfo(ip: ip, username: c.username, password: c.password, gpu: c.gpu, mount: c.mount, note: c.note)],
+    );
+    await widget.onSave(list);
   }
 
-  Future<void> _removeIp(String ip) async {
-    await widget.onSave(widget.servers.where((s) => s.ip != ip).toList());
+  Future<void> _removeIp(int roleIdx, String ip) async {
+    final list = widget.serverRoles.toList();
+    final role = list[roleIdx];
+    list[roleIdx] = role.copyWith(servers: role.servers.where((s) => s.ip != ip).toList());
+    await widget.onSave(list);
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = widget.colorScheme;
-    final c = _creds;
     return Container(
       decoration: BoxDecoration(
         color: cs.surface,
@@ -686,119 +757,181 @@ class _ServerFlatSectionState extends State<_ServerFlatSection> {
             const SizedBox(width: 10),
             const Text('서버 정보', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _color)),
             const Spacer(),
-            if (widget.servers.isNotEmpty)
-              IconButton(
-                onPressed: _editCredentials,
-                icon: Icon(Icons.edit_outlined, size: 15, color: cs.onSurface.withValues(alpha: 0.4)),
-                tooltip: '계정 정보 편집', padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            InkWell(
+              onTap: _addRole,
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.add, size: 14, color: _color),
+                  const SizedBox(width: 3),
+                  const Text('역할 추가', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _color)),
+                ]),
               ),
+            ),
           ]),
         ),
-        // 계정 정보 행
-        if (widget.servers.isEmpty)
+        // 역할 목록
+        if (widget.serverRoles.isEmpty)
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-            child: Text('서버가 없습니다.', style: TextStyle(fontSize: 13, color: cs.onSurface.withValues(alpha: 0.35))),
+            padding: const EdgeInsets.all(16),
+            child: Text('역할을 추가하세요 (예: AI서버, 웹서버)',
+                style: TextStyle(fontSize: 13, color: cs.onSurface.withValues(alpha: 0.35))),
           )
         else
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              if (c.username.isNotEmpty) _infoRow(Icons.person_outline, 'ID', c.username, cs),
-              if (c.password.isNotEmpty) _infoRow(Icons.lock_outline, '비밀번호', '••••••••', cs),
-              if (c.gpu.isNotEmpty) _infoRow(Icons.memory_outlined, 'GPU', c.gpu, cs),
-              if (c.mount.isNotEmpty) _infoRow(Icons.folder_outlined, 'Mount', c.mount, cs),
-              if (c.note.isNotEmpty) _infoRow(Icons.notes_outlined, '비고', c.note, cs),
-              if (c.username.isEmpty && c.password.isEmpty && c.gpu.isEmpty && c.mount.isEmpty)
-                Text('계정 정보를 입력하세요 (편집 버튼)',
-                    style: TextStyle(fontSize: 13, color: cs.onSurface.withValues(alpha: 0.3))),
-            ]),
-          ),
-        // IP 목록
-        Padding(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('서버 IP', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-                color: _color.withValues(alpha: 0.6), letterSpacing: 0.3)),
-            const SizedBox(height: 6),
-            Wrap(spacing: 6, runSpacing: 6, children: [
-              ...widget.servers.map((s) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _color.withValues(alpha: 0.07),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: _color.withValues(alpha: 0.18)),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Text(s.ip.isEmpty ? '(미설정)' : s.ip,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                          color: _color, fontFamily: 'monospace')),
+          ...widget.serverRoles.asMap().entries.map((e) {
+            final idx = e.key;
+            final role = e.value;
+            final isLast = idx == widget.serverRoles.length - 1;
+            final c = role.servers.isNotEmpty ? role.servers.first : ServerInfo();
+            final isPwVisible = _pwVisible.contains(idx);
+            final hasCredInfo = c.username.isNotEmpty || c.password.isNotEmpty ||
+                c.gpu.isNotEmpty || c.mount.isNotEmpty || c.note.isNotEmpty;
+            return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              // 역할 헤더
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                color: cs.onSurface.withValues(alpha: 0.025),
+                child: Row(children: [
+                  Icon(Icons.label_outline, size: 13, color: _color.withValues(alpha: 0.6)),
                   const SizedBox(width: 6),
-                  InkWell(
-                    onTap: () => _removeIp(s.ip),
-                    child: Icon(Icons.close, size: 12, color: cs.onSurface.withValues(alpha: 0.4)),
+                  Text(role.roleName.isEmpty ? '(역할명 없음)' : role.roleName,
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _color)),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => _renameRole(idx),
+                    icon: Icon(Icons.edit_outlined, size: 13, color: cs.onSurface.withValues(alpha: 0.4)),
+                    tooltip: '역할명 변경', padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                  ),
+                  IconButton(
+                    onPressed: () => _deleteRole(idx),
+                    icon: Icon(Icons.delete_outline, size: 13, color: cs.error.withValues(alpha: 0.5)),
+                    tooltip: '역할 삭제', padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
                   ),
                 ]),
-              )),
-              InkWell(
-                onTap: _addIp,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: _color.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.add, size: 13, color: _color.withValues(alpha: 0.6)),
-                    const SizedBox(width: 3),
-                    Text('IP 추가', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                        color: _color.withValues(alpha: 0.6))),
-                  ]),
-                ),
               ),
-            ]),
-          ]),
-        ),
+              // 계정 정보
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  if (c.username.isNotEmpty) _credRow(Icons.person_outline, 'ID', c.username, cs),
+                  if (c.password.isNotEmpty) _pwRow(c.password, isPwVisible, cs, () {
+                    setState(() {
+                      if (isPwVisible) _pwVisible.remove(idx); else _pwVisible.add(idx);
+                    });
+                  }),
+                  if (c.gpu.isNotEmpty) _credRow(Icons.memory_outlined, 'GPU', c.gpu, cs),
+                  if (c.mount.isNotEmpty) _credRow(Icons.folder_outlined, 'Mount', c.mount, cs),
+                  if (c.note.isNotEmpty) _credRow(Icons.notes_outlined, '비고', c.note, cs),
+                  if (!hasCredInfo)
+                    Text('계정 정보 없음',
+                        style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.3))),
+                  const SizedBox(height: 4),
+                  InkWell(
+                    onTap: () => _editCredentials(idx),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.edit_outlined, size: 12, color: _color.withValues(alpha: 0.5)),
+                        const SizedBox(width: 3),
+                        Text('계정 편집', style: TextStyle(fontSize: 11, color: _color.withValues(alpha: 0.5))),
+                      ]),
+                    ),
+                  ),
+                ]),
+              ),
+              // IP 목록
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 4, 14, 12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('서버 IP', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                      color: _color.withValues(alpha: 0.6), letterSpacing: 0.3)),
+                  const SizedBox(height: 6),
+                  Wrap(spacing: 6, runSpacing: 6, children: [
+                    ...role.servers.map((s) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: _color.withValues(alpha: 0.07),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: _color.withValues(alpha: 0.18)),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text(s.ip.isEmpty ? '(미설정)' : s.ip,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                                color: _color, fontFamily: 'monospace')),
+                        const SizedBox(width: 6),
+                        InkWell(
+                          onTap: () => _removeIp(idx, s.ip),
+                          child: Icon(Icons.close, size: 12, color: cs.onSurface.withValues(alpha: 0.4)),
+                        ),
+                      ]),
+                    )),
+                    InkWell(
+                      onTap: () => _addIp(idx),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: _color.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.add, size: 13, color: _color.withValues(alpha: 0.6)),
+                          const SizedBox(width: 3),
+                          Text('IP 추가', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                              color: _color.withValues(alpha: 0.6))),
+                        ]),
+                      ),
+                    ),
+                  ]),
+                ]),
+              ),
+              if (!isLast) Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.25)),
+            ]);
+          }),
       ]),
     );
   }
 
-  Widget _infoRow(IconData icon, String label, String value, ColorScheme cs) {
+  Widget _credRow(IconData icon, String label, String value, ColorScheme cs) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(children: [
         Icon(icon, size: 14, color: _color.withValues(alpha: 0.55)),
         const SizedBox(width: 8),
-        SizedBox(
-          width: 70,
-          child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-              color: cs.onSurface.withValues(alpha: 0.5))),
-        ),
-        Expanded(
-          child: Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-              color: cs.onSurface.withValues(alpha: 0.9))),
-        ),
+        SizedBox(width: 70, child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+            color: cs.onSurface.withValues(alpha: 0.5)))),
+        Expanded(child: Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+            color: cs.onSurface.withValues(alpha: 0.9)))),
       ]),
     );
   }
 
-  Widget _chip(IconData icon, String label, String value, ColorScheme cs) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: _color.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _color.withValues(alpha: 0.12)),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 13, color: _color.withValues(alpha: 0.6)),
-        const SizedBox(width: 6),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _color.withValues(alpha: 0.6))),
-          Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: cs.onSurface.withValues(alpha: 0.85))),
-        ]),
+  Widget _pwRow(String password, bool visible, ColorScheme cs, VoidCallback onToggle) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(children: [
+        Icon(Icons.lock_outline, size: 14, color: _color.withValues(alpha: 0.55)),
+        const SizedBox(width: 8),
+        SizedBox(width: 70, child: Text('비밀번호', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+            color: cs.onSurface.withValues(alpha: 0.5)))),
+        Expanded(child: Text(visible ? password : '••••••••',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                color: cs.onSurface.withValues(alpha: 0.9)))),
+        InkWell(
+          onTap: onToggle,
+          borderRadius: BorderRadius.circular(4),
+          child: Padding(
+            padding: const EdgeInsets.all(2),
+            child: Icon(
+              visible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+              size: 15, color: cs.onSurface.withValues(alpha: 0.4),
+            ),
+          ),
+        ),
       ]),
     );
   }
@@ -817,6 +950,7 @@ class _DatabaseEmbeddedSection extends StatefulWidget {
 
 class _DatabaseEmbeddedSectionState extends State<_DatabaseEmbeddedSection> {
   static const _color = Colors.teal;
+  final Set<int> _pwVisible = {};
 
   Future<void> _openDialog({DatabaseInfo? existing}) async {
     final isEdit = existing != null;
@@ -922,8 +1056,10 @@ class _DatabaseEmbeddedSectionState extends State<_DatabaseEmbeddedSection> {
           )
         else
           ...widget.databases.asMap().entries.map((e) {
+            final dbIdx = e.key;
             final db = e.value;
-            final isLast = e.key == widget.databases.length - 1;
+            final isLast = dbIdx == widget.databases.length - 1;
+            final isPwVisible = _pwVisible.contains(dbIdx);
             return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
@@ -953,7 +1089,11 @@ class _DatabaseEmbeddedSectionState extends State<_DatabaseEmbeddedSection> {
                           _infoRow(Icons.dns_outlined, '접속',
                               [if (db.ip.isNotEmpty) db.ip, if (db.port.isNotEmpty) ':${db.port}'].join(''), cs),
                         if (db.user.isNotEmpty) _infoRow(Icons.person_outline, '계정', db.user, cs),
-                        if (db.password.isNotEmpty) _infoRow(Icons.lock_outline, '비밀번호', '••••••••', cs),
+                        if (db.password.isNotEmpty) _pwInfoRow(db.password, isPwVisible, cs, () {
+                          setState(() {
+                            if (isPwVisible) _pwVisible.remove(dbIdx); else _pwVisible.add(dbIdx);
+                          });
+                        }),
                         if (db.note.isNotEmpty) _infoRow(Icons.notes_outlined, '비고', db.note, cs),
                       ]),
                     ]),
@@ -995,6 +1135,37 @@ class _DatabaseEmbeddedSectionState extends State<_DatabaseEmbeddedSection> {
         Expanded(
           child: Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
               color: cs.onSurface.withValues(alpha: 0.9))),
+        ),
+      ]),
+    );
+  }
+
+  Widget _pwInfoRow(String password, bool visible, ColorScheme cs, VoidCallback onToggle) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(children: [
+        Icon(Icons.lock_outline, size: 14, color: _color.withValues(alpha: 0.55)),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 56,
+          child: Text('비밀번호', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+              color: cs.onSurface.withValues(alpha: 0.5))),
+        ),
+        Expanded(
+          child: Text(visible ? password : '••••••••',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                  color: cs.onSurface.withValues(alpha: 0.9))),
+        ),
+        InkWell(
+          onTap: onToggle,
+          borderRadius: BorderRadius.circular(4),
+          child: Padding(
+            padding: const EdgeInsets.all(2),
+            child: Icon(
+              visible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+              size: 15, color: cs.onSurface.withValues(alpha: 0.4),
+            ),
+          ),
         ),
       ]),
     );
@@ -2211,7 +2382,7 @@ class _ServerTableState extends _InlineTableState<ServerInfo, _ServerTable> {
   @override String get title => '서버 정보';
   @override List<String> get columns => ['IP 주소', 'ID', '비밀번호', 'GPU', '마운트 경로', '비고'];
   @override List<double> get colWidths => [145, 100, 115, 80, 140, 0];
-  @override List<ServerInfo> getItems() => widget.site.servers;
+  @override List<ServerInfo> getItems() => widget.site.allServers;
   @override List<String> itemToStrings(ServerInfo i) => [i.ip, i.username, i.password, i.gpu, i.mount, i.note];
   @override ServerInfo stringsToItem(List<String> v) =>
       ServerInfo(ip: v[0], username: v[1], password: v[2], gpu: v[3], mount: v[4], note: v[5]);

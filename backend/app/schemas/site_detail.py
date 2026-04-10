@@ -14,6 +14,11 @@ class ServerInfo(BaseModel):
     note: str = ""
 
 
+class ServerRole(BaseModel):
+    roleName: str = ""
+    servers: List[Any] = []
+
+
 class DatabaseInfo(BaseModel):
     name: str = ""
     type: str = ""
