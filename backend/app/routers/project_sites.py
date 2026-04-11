@@ -42,16 +42,32 @@ async def list_project_sites(
         .all()
     )
     names_ps = {r.name for r in rows}
-    # 사이트 상세(site_details)에서만 추가된 항목은 project_sites 행이 없음 → 패치/태스크 UI에서 동일 목록 제공
-    detail_rows = (
-        db.query(SiteDetail)
-        .order_by(SiteDetail.name.asc(), SiteDetail.created_at.asc())
-        .all()
-    )
+    # site_details 전체에서 유저가 접근 가능한 사이트를 추가로 포함
+    # (어느 프로젝트로 만들어졌든 사이트 화면에서 보이는 것은 태스크에서도 선택 가능해야 함)
+    if current_user.is_admin:
+        detail_rows = (
+            db.query(SiteDetail)
+            .order_by(SiteDetail.name.asc(), SiteDetail.created_at.asc())
+            .all()
+        )
+    else:
+        accessible_pids = {
+            p.id
+            for p in db.query(Project).filter(
+                Project.team_member_ids.any(current_user.id)
+            ).all()
+        }
+        all_detail_rows = (
+            db.query(SiteDetail)
+            .order_by(SiteDetail.name.asc(), SiteDetail.created_at.asc())
+            .all()
+        )
+        detail_rows = [
+            s for s in all_detail_rows
+            if any(pid in accessible_pids for pid in (s.project_ids or []))
+        ]
     extra: List[ProjectSiteResponse] = []
     for s in detail_rows:
-        if project_id not in (s.project_ids or []):
-            continue
         if s.name in names_ps:
             continue
         extra.append(
