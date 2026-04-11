@@ -12,6 +12,7 @@ Flutter + FastAPI + PostgreSQL project management tool (Windows Desktop & Web).
 - **Backend**: FastAPI (Python 3.11)
 - **Database**: PostgreSQL 15
 - **Infrastructure**: Docker Compose, Nginx reverse proxy
+- **Deployment**: Oracle Cloud (현재 운영 서버로 배포 중)
 
 ## Quick Commands
 
