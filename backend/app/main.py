@@ -698,6 +698,36 @@ def ensure_api_tokens_table() -> None:
 ensure_api_tokens_table()
 
 
+def ensure_ai_summary_cache_table() -> None:
+    """ai_summary_cache 테이블이 없으면 생성 (AI 일별 요약 DB 캐시)."""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT to_regclass('public.ai_summary_cache')"))
+            if result.scalar() is None:
+                conn.execute(text("""
+                    CREATE TABLE ai_summary_cache (
+                        id VARCHAR PRIMARY KEY,
+                        user_id VARCHAR NOT NULL,
+                        workspace_id VARCHAR,
+                        summary_scope VARCHAR NOT NULL DEFAULT 'all',
+                        summary_date DATE NOT NULL,
+                        summary_text TEXT NOT NULL,
+                        generated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                    )
+                """))
+                conn.execute(text("CREATE INDEX ix_ai_summary_cache_user_id ON ai_summary_cache(user_id)"))
+                conn.execute(text("CREATE INDEX ix_ai_summary_cache_summary_date ON ai_summary_cache(summary_date)"))
+                conn.commit()
+                print("[main] created ai_summary_cache table")
+            else:
+                print("[main] ai_summary_cache table already exists")
+    except Exception as e:
+        print(f"[main] failed to ensure ai_summary_cache table: {e}")
+
+
+ensure_ai_summary_cache_table()
+
+
 def seed_mbc_site_details_if_empty() -> None:
     """이름이 MBC인 site_details에 servers/databases/services 중 비어 있는 항목만 기본 인프라로 채웁니다."""
     try:

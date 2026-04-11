@@ -1,6 +1,7 @@
 """AI manager summary router."""
 
 import asyncio
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
+from app.models.ai_summary_cache import AiSummaryCache
 from app.models.notification import Notification, NotificationType
 from app.models.project import Project
 from app.models.task import Task, TaskPriority, TaskStatus
@@ -235,6 +237,30 @@ async def get_ai_summary(
             detail="GEMINI_API_KEY가 설정되지 않았습니다.",
         )
 
+    scope = (summary_scope or "all").lower().strip()
+    if scope not in ("mine", "others", "all"):
+        scope = "all"
+
+    today = datetime.now().astimezone().date()
+
+    # 오늘 이미 생성한 요약이 있으면 무조건 캐시 반환 (새로고침 포함)
+    cached = (
+        db.query(AiSummaryCache)
+        .filter(
+            AiSummaryCache.user_id == current_user.id,
+            AiSummaryCache.workspace_id == (workspace_id or None),
+            AiSummaryCache.summary_scope == scope,
+            AiSummaryCache.summary_date == today,
+        )
+        .first()
+    )
+    if cached:
+        return AISummaryResponse(
+            summary=cached.summary_text,
+            generated_at=cached.generated_at,
+            from_cache=True,
+        )
+
     project_query = db.query(Project)
     if workspace_id:
         project_query = project_query.filter(Project.workspace_id == workspace_id)
@@ -250,9 +276,6 @@ async def get_ai_summary(
     if project_ids:
         tasks = db.query(Task).filter(Task.project_id.in_(project_ids)).all()
 
-    scope = (summary_scope or "all").lower().strip()
-    if scope not in ("mine", "others", "all"):
-        scope = "all"
     scoped_tasks = _tasks_for_summary_scope(tasks, current_user.id, scope)
 
     stats: List[Dict[str, object]] = []
@@ -340,7 +363,20 @@ async def get_ai_summary(
             detail=_friendly_gemini_http_detail(e, "AI 요약 생성에 실패했습니다"),
         ) from e
 
-    return AISummaryResponse(summary=summary, generated_at=datetime.now(timezone.utc))
+    now_utc = datetime.now(timezone.utc)
+
+    db.add(AiSummaryCache(
+        id=str(uuid.uuid4()),
+        user_id=current_user.id,
+        workspace_id=workspace_id or None,
+        summary_scope=scope,
+        summary_date=today,
+        summary_text=summary,
+        generated_at=now_utc,
+    ))
+    db.commit()
+
+    return AISummaryResponse(summary=summary, generated_at=now_utc, from_cache=False)
 
 
 def _build_export_prompt(

@@ -164,27 +164,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return msg;
   }
 
-  Future<void> _loadAISummary({bool forceRefresh = false}) async {
+  Future<void> _loadAISummary() async {
     if (!mounted) return;
     final workspaceId = context.read<WorkspaceProvider>().currentWorkspaceId;
-    final userId = context.read<AuthProvider>().currentUser?.id;
-
-    if (!forceRefresh) {
-      final cached = await _aiService.getCachedSummary(
-        userId: userId,
-        workspaceId: workspaceId,
-        projectId: null,
-        summaryScope: _aiSummaryScope,
-      );
-      if (cached != null && mounted) {
-        setState(() {
-          _aiSummary = cached.summary.isNotEmpty ? cached.summary : null;
-          _aiGeneratedAt = cached.generatedAt ?? DateTime.now();
-          _aiError = null;
-        });
-        return;
-      }
-    }
 
     if (!mounted) return;
     setState(() {
@@ -195,10 +177,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       final result = await _aiService.getSummary(
         workspaceId: workspaceId,
-        projectId: null,
-        userId: userId,
         summaryScope: _aiSummaryScope,
-        forceRefresh: forceRefresh,
       );
       if (!mounted) return;
       setState(() {
@@ -787,7 +766,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     onPressed: _aiLoading
                         ? null
-                        : () => _loadAISummary(forceRefresh: true),
+                        : () => _loadAISummary(),
                     tooltip: '새로고침',
                   ),
                 ),

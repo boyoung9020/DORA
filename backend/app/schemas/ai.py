@@ -9,6 +9,7 @@ from pydantic import BaseModel
 class AISummaryResponse(BaseModel):
     summary: str
     generated_at: datetime
+    from_cache: bool = False
 
 
 class AIExportRequest(BaseModel):
