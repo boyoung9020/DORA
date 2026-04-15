@@ -41,6 +41,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _lastTaskRefreshKey;
   String? _lastUserFutureKey; // 유저 future 새로고침용 (workspace 단위)
   bool _aiCollapsed = false;
+  bool _overdueCollapsed = true;
   /// AI 요약 범위: mine(내 할당), others(다른 팀원 할당), all(전체)
   String _aiSummaryScope = 'all';
 
@@ -373,8 +374,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 16),
           // AI 매니저 섹션
           _buildAiManagerSection(context, colorScheme),
-          const SizedBox(height: 20),
-          // 작업 테이블 + 최근 활동
+          const SizedBox(height: 16),
+          // 작업 테이블 + 사이드바 (기한초과 + 오늘할작업 + 최근활동)
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -388,13 +389,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 );
                 final sideColumn = Column(
                   children: [
+                    _buildOverdueTasksSection(context, colorScheme, allTasks, projectsById),
+                    const SizedBox(height: 10),
+                    _buildTodayTasksSection(context, colorScheme, allTasks),
+                    const SizedBox(height: 10),
                     Expanded(
-                      flex: 5,
-                      child: _buildTodayTasksSection(context, colorScheme, allTasks),
-                    ),
-                    const SizedBox(height: 16),
-                    Expanded(
-                      flex: 4,
                       child: _buildRecentActivitySection(context, colorScheme),
                     ),
                   ],
@@ -405,7 +404,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       Expanded(flex: 3, child: table),
                       const SizedBox(height: 16),
-                      SizedBox(height: 300, child: sideColumn),
+                      SizedBox(height: 400, child: sideColumn),
                     ],
                   );
                 }
@@ -833,60 +832,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   label: const Text('다시 시도'),
                 ),
               ] else ...[
-                Actions(
-                  actions: {
-                    CopySelectionTextIntent:
-                        CallbackAction<CopySelectionTextIntent>(
-                          onInvoke: (_) {
-                            Clipboard.setData(
-                              ClipboardData(text: _aiSummary ?? ''),
-                            );
-                            return null;
-                          },
-                        ),
-                  },
-                  child: SelectionArea(
-                    child: MarkdownBody(
-                      selectable: false,
-                      data: _aiSummary ?? '요약 내용이 없습니다.',
-                      styleSheet: MarkdownStyleSheet(
-                        p: TextStyle(
-                          fontSize: 12,
-                          height: 1.5,
-                          color: colorScheme.onSurface,
-                        ),
-                        h1: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
-                        h2: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
-                        h3: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
-                        strong: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
-                        em: TextStyle(
-                          fontStyle: FontStyle.italic,
-                          color: colorScheme.onSurface,
-                        ),
-                        code: TextStyle(
-                          fontSize: 11,
-                          color: colorScheme.primary,
-                          backgroundColor:
-                              colorScheme.primary.withValues(alpha: 0.1),
-                        ),
-                        listBullet: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.onSurface,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 100),
+                  child: SingleChildScrollView(
+                    child: Actions(
+                      actions: {
+                        CopySelectionTextIntent:
+                            CallbackAction<CopySelectionTextIntent>(
+                              onInvoke: (_) {
+                                Clipboard.setData(
+                                  ClipboardData(text: _aiSummary ?? ''),
+                                );
+                                return null;
+                              },
+                            ),
+                      },
+                      child: SelectionArea(
+                        child: MarkdownBody(
+                          selectable: false,
+                          data: _aiSummary ?? '요약 내용이 없습니다.',
+                          styleSheet: MarkdownStyleSheet(
+                            p: TextStyle(
+                              fontSize: 12,
+                              height: 1.5,
+                              color: colorScheme.onSurface,
+                            ),
+                            h1: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                            h2: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                            h3: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                            strong: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                            em: TextStyle(
+                              fontStyle: FontStyle.italic,
+                              color: colorScheme.onSurface,
+                            ),
+                            code: TextStyle(
+                              fontSize: 11,
+                              color: colorScheme.primary,
+                              backgroundColor:
+                                  colorScheme.primary.withValues(alpha: 0.1),
+                            ),
+                            listBullet: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -896,6 +900,210 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  // ─── 기한 초과 작업 섹션 ────────────────────────────────────────────
+
+  Widget _buildOverdueTasksSection(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<Task> allTasks,
+    Map<String, Project> projectsById,
+  ) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final overdueTasks = allTasks.where((t) {
+      if (t.endDate == null) return false;
+      if (t.status == TaskStatus.done) return false;
+      return t.endDate!.isBefore(today);
+    }).toList()
+      ..sort((a, b) {
+        final pc = a.priority.index.compareTo(b.priority.index);
+        if (pc != 0) return pc;
+        return a.endDate!.compareTo(b.endDate!);
+      });
+
+    final overdueCount = overdueTasks.length;
+
+    return GlassContainer(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      borderRadius: 12.0,
+      blur: 20.0,
+      gradientColors: [
+        colorScheme.surface.withValues(alpha: 0.45),
+        colorScheme.surface.withValues(alpha: 0.35),
+      ],
+      borderColor: const Color(0xFFFF9500).withValues(alpha: 0.5),
+      borderWidth: overdueCount > 0 ? 1.5 : 0,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 헤더
+          Row(
+            children: [
+              Icon(
+                overdueCount > 0
+                    ? Icons.warning_amber_rounded
+                    : Icons.check_circle_outline,
+                color: overdueCount > 0
+                    ? const Color(0xFFFF9500)
+                    : colorScheme.onSurface.withValues(alpha: 0.4),
+                size: 15,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                '기한 초과',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(width: 5),
+              if (overdueCount > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF3B30).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$overdueCount',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFFF3B30),
+                    ),
+                  ),
+                ),
+              const Spacer(),
+              SizedBox(
+                width: 26,
+                height: 26,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  iconSize: 14,
+                  icon: Icon(
+                    _overdueCollapsed
+                        ? Icons.keyboard_arrow_down
+                        : Icons.keyboard_arrow_up,
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _overdueCollapsed = !_overdueCollapsed;
+                    });
+                  },
+                  tooltip: _overdueCollapsed ? '펼치기' : '접기',
+                ),
+              ),
+            ],
+          ),
+          if (!_overdueCollapsed) ...[
+            const SizedBox(height: 4),
+            Divider(height: 1, color: colorScheme.onSurface.withValues(alpha: 0.08)),
+            const SizedBox(height: 2),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 150),
+              child: overdueTasks.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        '기한 초과 작업이 없습니다',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: colorScheme.onSurface.withValues(alpha: 0.45),
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: overdueTasks.length,
+                      separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        color: colorScheme.onSurface.withValues(alpha: 0.06),
+                      ),
+                      itemBuilder: (context, index) {
+                        final task = overdueTasks[index];
+                        final project = projectsById[task.projectId];
+                        final overdueDays = today.difference(
+                          DateTime(task.endDate!.year, task.endDate!.month, task.endDate!.day),
+                        ).inDays;
+                        final priorityColor = task.priority.color;
+                        return InkWell(
+                          onTap: () {
+                            showGeneralDialog(
+                              context: context,
+                              transitionDuration: Duration.zero,
+                              pageBuilder: (context, _, __) =>
+                                  TaskDetailScreen(task: task),
+                              transitionBuilder: (_, __, ___, child) => child,
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(4),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 2),
+                            child: Row(
+                              children: [
+                                Text(
+                                  task.priority.displayName,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: priorityColor,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    task.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                if (project != null) ...[
+                                  Text(
+                                    project.name,
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      color: colorScheme.onSurface.withValues(alpha: 0.4),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                ],
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFF3B30).withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'D+$overdueDays',
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFFFF3B30),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -1868,8 +2076,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return updatedDateOnly == today;
       }
 
-      // 진행중 작업: startDate~endDate 범위에 오늘이 포함되면 표시
-      if (task.status == TaskStatus.inProgress) {
+      // 진행중 또는 준비됨 작업: startDate~endDate 범위에 오늘이 포함되면 표시
+      if (task.status == TaskStatus.inProgress || task.status == TaskStatus.ready) {
         if (task.startDate != null && task.endDate != null) {
           final start = DateTime(task.startDate!.year, task.startDate!.month, task.startDate!.day);
           final end = DateTime(task.endDate!.year, task.endDate!.month, task.endDate!.day);
@@ -1883,32 +2091,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
           final start = DateTime(task.startDate!.year, task.startDate!.month, task.startDate!.day);
           return !today.isBefore(start);
         }
-        // 날짜가 없는 진행중 작업도 포함
+        // 날짜가 없는 작업도 포함
         return true;
       }
 
       return false;
     }).toList();
 
-    // 진행중 먼저, 완료는 뒤로
-    todayTasks.sort((a, b) {
-      if (a.status == TaskStatus.done && b.status != TaskStatus.done) return 1;
-      if (a.status != TaskStatus.done && b.status == TaskStatus.done) return -1;
-      return 0;
-    });
+    // 진행중 → 준비됨 → 완료 순
+    int statusOrder(TaskStatus s) {
+      if (s == TaskStatus.inProgress) return 0;
+      if (s == TaskStatus.ready) return 1;
+      if (s == TaskStatus.done) return 2;
+      return 3;
+    }
+    todayTasks.sort((a, b) => statusOrder(a.status).compareTo(statusOrder(b.status)));
 
     final projectProvider = context.watch<ProjectProvider>();
     final projects = {for (var p in projectProvider.projects) p.id: p};
 
     return GlassContainer(
-      padding: const EdgeInsets.all(16),
-      borderRadius: 16.0,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      borderRadius: 12.0,
       blur: 20.0,
       gradientColors: [
         colorScheme.surface.withValues(alpha: 0.45),
         colorScheme.surface.withValues(alpha: 0.35),
       ],
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 헤더
@@ -1917,28 +2128,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Icon(
                 Icons.today,
                 color: colorScheme.primary,
-                size: 20,
+                size: 15,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 5),
               Text(
                 '오늘 할 작업',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                   color: colorScheme.onSurface,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 5),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                 decoration: BoxDecoration(
                   color: colorScheme.primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   '${todayTasks.where((t) => t.status != TaskStatus.done).length}',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: colorScheme.primary,
                   ),
@@ -1946,11 +2157,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const Spacer(),
               SizedBox(
-                width: 28,
-                height: 28,
+                width: 22,
+                height: 22,
                 child: IconButton(
                   padding: EdgeInsets.zero,
-                  iconSize: 16,
+                  iconSize: 13,
                   icon: Icon(
                     Icons.open_in_new,
                     color: colorScheme.onSurface.withValues(alpha: 0.5),
@@ -1961,11 +2172,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(width: 2),
               SizedBox(
-                width: 28,
-                height: 28,
+                width: 22,
+                height: 22,
                 child: IconButton(
                   padding: EdgeInsets.zero,
-                  iconSize: 16,
+                  iconSize: 13,
                   icon: Icon(
                     _todayTasksCollapsed
                         ? Icons.keyboard_arrow_down
@@ -1983,25 +2194,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           if (!_todayTasksCollapsed) ...[
-            const SizedBox(height: 8),
-            const TodayTaskHeader(),
+            const SizedBox(height: 4),
             Divider(height: 1, color: colorScheme.onSurface.withValues(alpha: 0.08)),
-            Expanded(
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 150),
               child: todayTasks.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.check_circle_outline, size: 40,
-                              color: colorScheme.onSurface.withValues(alpha: 0.3)),
-                          const SizedBox(height: 8),
-                          Text('오늘 할 작업이 없습니다',
-                              style: TextStyle(fontSize: 13,
-                                  color: colorScheme.onSurface.withValues(alpha: 0.5))),
-                        ],
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        '오늘 할 작업이 없습니다',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: colorScheme.onSurface.withValues(alpha: 0.45),
+                        ),
                       ),
                     )
                   : ListView.separated(
+                      shrinkWrap: true,
                       itemCount: todayTasks.length,
                       separatorBuilder: (_, __) => Divider(
                           height: 1, color: colorScheme.onSurface.withValues(alpha: 0.06)),

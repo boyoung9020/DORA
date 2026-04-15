@@ -2088,6 +2088,107 @@ class _PatchTabState extends State<PatchTab> {
     );
   }
 
+  /// 사이트별 최신 버전 계산 (날짜 기준 가장 최근 패치의 버전)
+  Map<String, String> _getLatestVersionBySite() {
+    final Map<String, Patch> latest = {};
+    for (final p in _patches) {
+      if (p.site.isEmpty || p.version.isEmpty) continue;
+      final existing = latest[p.site];
+      if (existing == null || p.patchDate.isAfter(existing.patchDate)) {
+        latest[p.site] = p;
+      }
+    }
+    return latest.map((site, patch) => MapEntry(site, patch.version));
+  }
+
+  Widget _buildSiteVersionSummary(ColorScheme colorScheme) {
+    final latestVersions = _getLatestVersionBySite();
+    if (latestVersions.isEmpty) return const SizedBox.shrink();
+
+    final entries = latestVersions.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        children: entries.map((e) {
+          final siteColor = _tagColor(e.key);
+          final isFiltered =
+              _siteFilters.isNotEmpty && _siteFilters.contains(e.key);
+          return InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () {
+              setState(() {
+                if (_siteFilters.contains(e.key)) {
+                  _siteFilters.remove(e.key);
+                } else {
+                  _siteFilters.add(e.key);
+                }
+              });
+            },
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: isFiltered
+                    ? siteColor.withValues(alpha: 0.15)
+                    : colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isFiltered
+                      ? siteColor.withValues(alpha: 0.4)
+                      : colorScheme.outlineVariant.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: siteColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    e.key,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF5C7CFA).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      e.value,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF5C7CFA),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   // ─────────────────────────────────────────
   // 테이블 빌드
   // ─────────────────────────────────────────
@@ -2200,6 +2301,8 @@ class _PatchTabState extends State<PatchTab> {
                       height: 1,
                       color:
                           colorScheme.outlineVariant.withValues(alpha: 0.3)),
+                  // 사이트별 최신 버전 요약
+                  _buildSiteVersionSummary(colorScheme),
                   if (_error != null)
                     Padding(
                       padding: const EdgeInsets.all(12),

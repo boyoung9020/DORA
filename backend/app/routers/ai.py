@@ -2,7 +2,10 @@
 
 import asyncio
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
+# 한국 표준시 (UTC+9) — 캐시의 "하루" 기준을 KST로 고정
+_KST = timezone(timedelta(hours=9))
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -127,7 +130,7 @@ def _build_prompt(
     unread_notifications: List[Notification],
     summary_scope: str = "all",
 ) -> str:
-    today = datetime.now().astimezone().strftime("%Y-%m-%d")
+    today = datetime.now(_KST).strftime("%Y-%m-%d")
 
     project_lines = []
     for stat in project_stats:
@@ -155,7 +158,7 @@ def _build_prompt(
     for task in overdue_tasks[:10]:
         if not task.end_date:
             continue
-        overdue_days = (datetime.now().astimezone().date() - task.end_date.astimezone().date()).days
+        overdue_days = (datetime.now(_KST).date() - task.end_date.astimezone(_KST).date()).days
         overdue_lines.append(
             f"- \"{task.title}\" **{project_name_by_id.get(task.project_id, '미분류')}** "
             f"{max(overdue_days, 0)}일 초과"
@@ -241,7 +244,7 @@ async def get_ai_summary(
     if scope not in ("mine", "others", "all"):
         scope = "all"
 
-    today = datetime.now().astimezone().date()
+    today = datetime.now(_KST).date()
 
     # 오늘 이미 생성한 요약이 있으면 무조건 캐시 반환 (새로고침 포함)
     cached = (
@@ -299,7 +302,7 @@ async def get_ai_summary(
             }
         )
 
-    today_local = datetime.now().astimezone().date()
+    today_local = datetime.now(_KST).date()
 
     urgent_tasks = [
         task

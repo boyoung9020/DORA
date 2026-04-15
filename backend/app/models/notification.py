@@ -15,6 +15,9 @@ class NotificationType(str, enum.Enum):
     TASK_OPTION_CHANGED = "taskOptionChanged"        # 작업 옵션 변경 (중요도, 상태, 날짜)
     TASK_COMMENT_ADDED = "taskCommentAdded"           # 작업에 코멘트 추가됨
     TASK_MENTIONED = "taskMentioned"                  # 댓글에서 멘션됨
+    TASK_DOCUMENT_ADDED = "taskDocumentAdded"         # 작업에 문서 링크 추가됨
+    TASK_CHECKLIST_ADDED = "taskChecklistAdded"       # 작업에 체크리스트 추가됨
+    TASK_CHECKLIST_ITEM_ADDED = "taskChecklistItemAdded"  # 체크리스트에 항목 추가됨
 
 
 class Notification(Base):

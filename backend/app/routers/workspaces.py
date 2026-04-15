@@ -241,10 +241,9 @@ async def get_workspace_member_stats(
     project_ids = [p.id for p in projects]
     project_map = {p.id: p for p in projects}
 
-    # 워크스페이스 전체 태스크 (부모 태스크만, 서브태스크 제외)
+    # 워크스페이스 전체 태스크 (서브태스크 포함 — 담당자가 서브태스크에 할당될 수 있음)
     all_tasks = db.query(Task).filter(
         Task.project_id.in_(project_ids),
-        Task.parent_task_id == None
     ).all() if project_ids else []
 
     # 멤버 목록
@@ -345,7 +344,7 @@ async def get_workspace_member_stats(
                     ut = t.updated_at if t.updated_at.tzinfo else t.updated_at.replace(tzinfo=timezone.utc)
                     return today_start <= ut <= today_end
                 return False
-            if t.status == TaskStatus.IN_PROGRESS:
+            if t.status in (TaskStatus.IN_PROGRESS, TaskStatus.READY, TaskStatus.IN_REVIEW):
                 sd = t.start_date
                 ed = t.end_date
                 if sd and ed:
@@ -358,7 +357,8 @@ async def get_workspace_member_stats(
                 if sd:
                     sd = sd if sd.tzinfo else sd.replace(tzinfo=timezone.utc)
                     return sd <= today_end
-                return True  # 날짜 없는 진행중 작업 포함
+                if t.status == TaskStatus.IN_PROGRESS:
+                    return True  # 날짜 없는 진행중 작업 포함
             return False
 
         today_tasks = [

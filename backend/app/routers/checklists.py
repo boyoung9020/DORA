@@ -18,6 +18,8 @@ from app.schemas.checklist import (
     ChecklistItemResponse,
 )
 from app.utils.dependencies import get_current_user
+from app.models.task import Task
+from app.utils.notifications import notify_task_checklist_added, notify_task_checklist_item_added
 
 router = APIRouter()
 
@@ -87,6 +89,15 @@ async def create_checklist(
     db.add(new_checklist)
     db.commit()
     db.refresh(new_checklist)
+
+    try:
+        task = db.query(Task).filter(Task.id == data.task_id).first()
+        if task:
+            notify_task_checklist_added(db, task, current_user, data.title)
+    except Exception as e:
+        db.rollback()
+        print(f"[notify_task_checklist_added] 알림 생성 실패 (무시): {e}")
+
     return _build_checklist_response(new_checklist, [])
 
 
@@ -164,6 +175,15 @@ async def add_checklist_item(
     db.add(new_item)
     db.commit()
     db.refresh(new_item)
+
+    try:
+        task = db.query(Task).filter(Task.id == checklist.task_id).first()
+        if task:
+            notify_task_checklist_item_added(db, task, current_user, data.content.strip())
+    except Exception as e:
+        db.rollback()
+        print(f"[notify_task_checklist_item_added] 알림 생성 실패 (무시): {e}")
+
     return new_item
 
 

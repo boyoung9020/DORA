@@ -400,36 +400,14 @@ class _GitHubTabState extends State<GitHubTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 릴리즈
-        Row(
-          children: [
-            Icon(Icons.rocket_launch_outlined, size: 16, color: cs.primary),
-            const SizedBox(width: 6),
-            Text('Releases',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: cs.onSurface)),
-          ],
-        ),
-        const SizedBox(height: 4),
+        // 릴리즈 + 태그 탭
         Expanded(
           flex: 5,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border.all(
-                  color: cs.outlineVariant.withValues(alpha: 0.35)),
-              borderRadius: BorderRadius.circular(10),
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.2),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(9),
-              child: GitHubTagsSidePanel(
-                projectId: widget.projectId,
-                repoOwner: repo.repoOwner,
-                repoName: repo.repoName,
-              ),
-            ),
+          child: _ReleasesTagsPanel(
+            projectId: widget.projectId,
+            repoOwner: repo.repoOwner,
+            repoName: repo.repoName,
+            cs: cs,
           ),
         ),
         const SizedBox(height: 8),
@@ -502,6 +480,108 @@ class _GitHubTabState extends State<GitHubTab> {
               ],
             );
           }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+/// Releases + Tags 탭 패널
+class _ReleasesTagsPanel extends StatefulWidget {
+  final String projectId;
+  final String repoOwner;
+  final String repoName;
+  final ColorScheme cs;
+
+  const _ReleasesTagsPanel({
+    required this.projectId,
+    required this.repoOwner,
+    required this.repoName,
+    required this.cs,
+  });
+
+  @override
+  State<_ReleasesTagsPanel> createState() => _ReleasesTagsPanelState();
+}
+
+class _ReleasesTagsPanelState extends State<_ReleasesTagsPanel>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.rocket_launch_outlined, size: 14),
+                  SizedBox(width: 4),
+                  Text('Releases', style: TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+            Tab(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.label_outline, size: 14),
+                  SizedBox(width: 4),
+                  Text('Tags', style: TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+          ],
+          labelColor: cs.primary,
+          unselectedLabelColor: cs.onSurface.withValues(alpha: 0.5),
+          indicatorSize: TabBarIndicatorSize.tab,
+          dividerColor: Colors.transparent,
+          tabAlignment: TabAlignment.fill,
+        ),
+        const SizedBox(height: 4),
+        Expanded(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(
+                  color: cs.outlineVariant.withValues(alpha: 0.35)),
+              borderRadius: BorderRadius.circular(10),
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.2),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(9),
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  // Releases 탭
+                  GitHubTagsSidePanel(
+                    projectId: widget.projectId,
+                    repoOwner: widget.repoOwner,
+                    repoName: widget.repoName,
+                  ),
+                  // Tags 탭
+                  const GitHubTagsList(),
+                ],
+              ),
+            ),
+          ),
         ),
       ],
     );

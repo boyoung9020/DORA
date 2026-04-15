@@ -600,6 +600,36 @@ def ensure_notification_type_task_created() -> None:
 ensure_notification_type_task_created()
 
 
+def ensure_notification_type_new_values() -> None:
+    """notifications.type enum에 신규 값 추가 (TASK_DOCUMENT_ADDED, TASK_CHECKLIST_ADDED, TASK_CHECKLIST_ITEM_ADDED)."""
+    new_values = [
+        "TASK_DOCUMENT_ADDED",
+        "TASK_CHECKLIST_ADDED",
+        "TASK_CHECKLIST_ITEM_ADDED",
+    ]
+    try:
+        with engine.connect() as conn:
+            for val in new_values:
+                result = conn.execute(text("""
+                    SELECT 1 FROM pg_enum
+                    WHERE enumlabel = :val
+                      AND enumtypid = (
+                        SELECT oid FROM pg_type WHERE typname = 'notificationtype'
+                      )
+                """), {"val": val})
+                if result.fetchone() is None:
+                    conn.execute(text(f"ALTER TYPE notificationtype ADD VALUE '{val}'"))
+                    conn.commit()
+                    print(f"[main] added '{val}' to notificationtype enum")
+                else:
+                    print(f"[main] notificationtype '{val}' already exists")
+    except Exception as e:
+        print(f"[main] failed to ensure notificationtype new values: {e}")
+
+
+ensure_notification_type_new_values()
+
+
 def migrate_project_sites_to_site_details() -> None:
     """project_sites 테이블의 기존 사이트를 site_details로 마이그레이션."""
     try:

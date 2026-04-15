@@ -254,6 +254,77 @@ def notify_task_option_changed(
         )
 
 
+def _notify_task_participants(
+    db: Session,
+    task: Task,
+    actor: User,
+    notification_type: NotificationType,
+    title: str,
+    message: str,
+):
+    """담당자 + 작업 생성자에게 알림 (행위자 제외, 중복 제외)"""
+    notify_user_ids = set(task.assigned_member_ids or [])
+    if task.creator_id:
+        notify_user_ids.add(task.creator_id)
+    notify_user_ids.discard(actor.id)
+
+    for user_id in notify_user_ids:
+        create_notification(
+            db=db,
+            notification_type=notification_type,
+            user_id=user_id,
+            title=title,
+            message=message,
+            project_id=task.project_id,
+            task_id=task.id,
+        )
+
+
+def notify_task_document_added(
+    db: Session,
+    task: Task,
+    added_by: User,
+    doc_title: str,
+):
+    """작업 문서 링크 추가 알림"""
+    _notify_task_participants(
+        db, task, added_by,
+        NotificationType.TASK_DOCUMENT_ADDED,
+        title=f"작업 '{task.title}'에 문서가 추가되었습니다",
+        message=f"{added_by.username}님이 '{task.title}' 작업에 문서 '{doc_title}'을(를) 추가했습니다.",
+    )
+
+
+def notify_task_checklist_added(
+    db: Session,
+    task: Task,
+    added_by: User,
+    checklist_title: str,
+):
+    """작업 체크리스트 추가 알림"""
+    _notify_task_participants(
+        db, task, added_by,
+        NotificationType.TASK_CHECKLIST_ADDED,
+        title=f"작업 '{task.title}'에 체크리스트가 추가되었습니다",
+        message=f"{added_by.username}님이 '{task.title}' 작업에 체크리스트 '{checklist_title}'을(를) 추가했습니다.",
+    )
+
+
+def notify_task_checklist_item_added(
+    db: Session,
+    task: Task,
+    added_by: User,
+    item_content: str,
+):
+    """체크리스트 항목 추가 알림"""
+    _notify_task_participants(
+        db, task, added_by,
+        NotificationType.TASK_CHECKLIST_ITEM_ADDED,
+        title=f"작업 '{task.title}'에 체크리스트 항목이 추가되었습니다",
+        message=f"{added_by.username}님이 '{task.title}' 작업에 체크리스트 항목 '{item_content}'을(를) 추가했습니다.",
+    )
+
+
 def notify_task_comment_added(
     db: Session,
     task: Task,
@@ -263,22 +334,20 @@ def notify_task_comment_added(
     """작업 코멘트 추가 알림"""
     task_title = task.title
     
-    # 할당된 모든 사용자에게 알림 (코멘트 작성자 제외)
-    for assigned_user_id in task.assigned_member_ids:
-        if assigned_user_id == comment_author.id:
-            continue  # 본인이 작성한 코멘트는 알림 안 보냄
-        
-        title = f"작업 '{task_title}'에 새로운 코멘트가 추가되었습니다"
-        message = f"{comment_author.username}님이 '{task_title}' 작업에 코멘트를 남겼습니다."
-        
+    notify_user_ids = set(task.assigned_member_ids or [])
+    if task.creator_id:
+        notify_user_ids.add(task.creator_id)
+    notify_user_ids.discard(comment_author.id)
+
+    for user_id in notify_user_ids:
         create_notification(
             db=db,
             notification_type=NotificationType.TASK_COMMENT_ADDED,
-            user_id=assigned_user_id,
-            title=title,
-            message=message,
+            user_id=user_id,
+            title=f"작업 '{task.title}'에 새로운 코멘트가 추가되었습니다",
+            message=f"{comment_author.username}님이 '{task.title}' 작업에 코멘트를 남겼습니다.",
             project_id=task.project_id,
             task_id=task.id,
-            comment_id=comment_id
+            comment_id=comment_id,
         )
 

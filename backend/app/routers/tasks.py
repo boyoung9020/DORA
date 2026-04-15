@@ -15,7 +15,7 @@ from app.utils.dependencies import get_current_user
 from app.models.project import Project
 from app.models.notification import Notification
 from app.models.comment import Comment
-from app.utils.notifications import notify_task_assigned, notify_task_option_changed, notify_task_created
+from app.utils.notifications import notify_task_assigned, notify_task_option_changed, notify_task_created, notify_task_document_added
 from sqlalchemy import or_
 from app.routers.websocket import manager
 
@@ -194,12 +194,16 @@ async def update_task(
             task.status_history = list(task.status_history) + [history_entry]
         task.status = task_data.status
     if task_data.start_date is not None:
-        if task.start_date != task_data.start_date:
+        old_start = task.start_date.date() if task.start_date else None
+        new_start = task_data.start_date.date() if task_data.start_date else None
+        if old_start != new_start:
             changed_fields.append('start_date')
             changes_detail['start_date'] = (task.start_date, task_data.start_date)
         task.start_date = task_data.start_date
     if task_data.end_date is not None:
-        if task.end_date != task_data.end_date:
+        old_end = task.end_date.date() if task.end_date else None
+        new_end = task_data.end_date.date() if task_data.end_date else None
+        if old_end != new_end:
             changed_fields.append('end_date')
             changes_detail['end_date'] = (task.end_date, task_data.end_date)
         task.end_date = task_data.end_date
@@ -208,7 +212,18 @@ async def update_task(
     if task_data.detail_image_urls is not None:
         task.detail_image_urls = task_data.detail_image_urls
     if task_data.document_links is not None:
-        task.document_links = task_data.document_links
+        old_doc_count = len(task.document_links or [])
+        new_docs = task_data.document_links
+        task.document_links = new_docs
+        # 새로 추가된 문서가 있으면 알림
+        if len(new_docs) > old_doc_count:
+            added_doc = new_docs[-1]
+            doc_title = added_doc.get('title', '문서') if isinstance(added_doc, dict) else '문서'
+            try:
+                notify_task_document_added(db, task, current_user, doc_title)
+            except Exception as e:
+                db.rollback()
+                print(f"[notify_task_document_added] 알림 생성 실패 (무시): {e}")
     if task_data.priority is not None:
         # 중요도 변경 히스토리 추가
         old_priority = task.priority

@@ -60,12 +60,12 @@ class TeamMembersCard extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              IconButton(
-                icon:
-                    Icon(Icons.person_add_alt_1, size: 20, color: colorScheme.primary),
-                tooltip: '팀원 초대',
-                onPressed: () => _showAddDialog(context, colorScheme),
-              ),
+              if (isPM)
+                IconButton(
+                  icon: Icon(Icons.person_add_alt_1, size: 20, color: colorScheme.primary),
+                  tooltip: '팀원 초대',
+                  onPressed: () => _showAddDialog(context, colorScheme),
+                ),
             ],
           ),
           const SizedBox(height: 16),
