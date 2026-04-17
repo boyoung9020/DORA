@@ -28,13 +28,22 @@ jobs:
           flutter build windows --release
           --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
 
-      - name: Create zip archive
+      - name: Build installer with Inno Setup
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
-          $zipName = "sync_project_manager_windows_${tag}.zip"
-          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath $zipName
-          echo "ZIP_NAME=$zipName" >> $env:GITHUB_ENV
+          $version = $tag.TrimStart('v')
+          iscc /DMyAppVersion="$version" installer\setup.iss
+
+      - name: Prepare release assets
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.TrimStart('v')
+          $installerName = "SYNC_Setup_${version}.exe"
+          $installerPath = "installer\Output\$installerName"
+          echo "INSTALLER_NAME=$installerName" >> $env:GITHUB_ENV
+          echo "INSTALLER_PATH=$installerPath" >> $env:GITHUB_ENV
 
       - name: Extract release notes from CHANGELOG
         shell: pwsh
@@ -52,6 +61,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           body_path: release_notes.md
-          files: ${{ env.ZIP_NAME }}
+          files: ${{ env.INSTALLER_PATH }}
           draft: false
           prerelease: false
