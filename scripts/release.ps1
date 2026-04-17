@@ -196,7 +196,8 @@ Write-Host "       커밋 완료: chore: release $tag" -ForegroundColor Gray
 Write-Host "       태그 생성: $tag" -ForegroundColor Gray
 
 Write-Host "[5/5] Git push..." -ForegroundColor Yellow
-git push origin --follow-tags
+git push origin main
+git push origin $tag
 
 # ---- 완료 ----
 Write-Host ""
