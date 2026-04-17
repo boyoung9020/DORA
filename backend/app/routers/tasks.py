@@ -101,6 +101,7 @@ async def create_task(
             detail_image_urls=task_data.detail_image_urls or [],
             priority=task_data.priority,
             assigned_member_ids=task_data.assigned_member_ids,
+            observer_ids=task_data.observer_ids or [],
             sprint_id=task_data.sprint_id,
             creator_id=current_user.id,
             parent_task_id=task_data.parent_task_id,
@@ -265,6 +266,8 @@ async def update_task(
                 notify_task_assigned(db, task, member_id, current_user)
         
         task.assigned_member_ids = task_data.assigned_member_ids
+    if task_data.observer_ids is not None:
+        task.observer_ids = task_data.observer_ids
     if task_data.sprint_id is not None:
         task.sprint_id = task_data.sprint_id
     if task_data.parent_task_id is not None:

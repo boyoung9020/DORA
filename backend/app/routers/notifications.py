@@ -75,10 +75,10 @@ async def get_notification_count(
             )
     
     query = query.filter(Notification.user_id == user_id)
-    
+
     if unread_only:
         query = query.filter(Notification.is_read == False)
-    
+
     count = query.count()
     return {"count": count}
 

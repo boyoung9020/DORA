@@ -69,6 +69,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   bool _mainMenuVisible = true;
   WebSocketService? _webSocketService; // WebSocket 서비스
 
+  // 토스트 디바운스: 동일 taskId에 대해 연속 이벤트 무시
+  String? _lastToastTaskId;
+  Timer? _toastDebounceTimer;
+
   // 프로젝트 드롭다운 오버레이
   final _projectBtnKey = GlobalKey();
   OverlayEntry? _projectDropdownEntry;
@@ -149,6 +153,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this); // 생명주기 관찰자 제거
     _webSocketService?.disconnect(); // WebSocket 연결 해제
+    _toastDebounceTimer?.cancel();
     _closeProjectDropdown();
     super.dispose();
   }
@@ -623,6 +628,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }) {
     if (!mounted) return;
 
+    // 같은 taskId에 대해 짧은 시간 내 반복 토스트 방지
+    final toastKey = taskId ?? title;
+    if (_lastToastTaskId == toastKey && _toastDebounceTimer?.isActive == true) {
+      return;
+    }
+    _lastToastTaskId = toastKey;
+    _toastDebounceTimer?.cancel();
+    _toastDebounceTimer = Timer(const Duration(seconds: 6), () {
+      _lastToastTaskId = null;
+    });
+
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     // 알림 타입별 색상
@@ -704,7 +720,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 5),
+        showCloseIcon: true,
+        closeIconColor: Colors.white.withValues(alpha: 0.7),
+        dismissDirection: DismissDirection.horizontal,
         action: showViewAction
             ? SnackBarAction(
                 label: '보기',

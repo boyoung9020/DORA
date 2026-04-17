@@ -274,6 +274,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   List<String> _uploadedCommentImageUrls = []; // ??낆쨮??뺣쭆 ?蹂? ???筌왖 URL
   List<String> _uploadedDetailImageUrls = []; // ??낆쨮??뺣쭆 ?怨멸쉭 ??곸뒠 ???筌왖 URL
   List<User>? _assignedMembers; // ?醫딅뼣??????筌?Ŋ??
+  List<User>? _observerMembers; // 참조자 목록
   List<User> _projectMembers = []; // 프로젝트 전체 멤버 (체크리스트 할당용)
   bool _isInitialLoad = true; // ?λ뜃由?嚥≪뮆諭????
   List<String>? _lastAssignedMemberIds; // ??곸읈 ?醫딅뼣??????ID (??녿┛???類ㅼ뵥??
@@ -405,6 +406,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         _checklists = checklists;
         _isLoadingComments = false;
       });
+
+      // 참조자 목록 로드
+      await _loadObserverMembers();
 
       // ???袁⑥뵬???袁⑹뵠????낅쑓??꾨뱜 (setState??_loadTimelineItems ????癒?퐣 ?紐꾪뀱)
       await _loadTimelineItems();
@@ -2475,6 +2479,162 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 12),
+                                // 참조자 섹션
+                                GlassContainer(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 16,
+                                  ),
+                                  borderRadius: 15.0,
+                                  blur: 20.0,
+                                  gradientColors: [
+                                    Colors.white.withValues(alpha: 0.8),
+                                    Colors.white.withValues(alpha: 0.7),
+                                  ],
+                                  shadowBlurRadius: 6,
+                                  shadowOffset: const Offset(0, 2),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            '참조자',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Tooltip(
+                                            message: '참조자는 이 작업의 모든 알림을 받습니다',
+                                            child: Icon(
+                                              Icons.info_outline,
+                                              size: 14,
+                                              color: colorScheme.onSurface
+                                                  .withValues(alpha: 0.4),
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          IconButton(
+                                            icon: Icon(
+                                              Icons.person_add_alt_1,
+                                              size: 16,
+                                              color: Colors.teal,
+                                            ),
+                                            onPressed: () =>
+                                                _showObserverMemberDialog(
+                                                  context,
+                                                  currentTask,
+                                                  taskProvider,
+                                                  currentProject,
+                                                ),
+                                            tooltip: '참조자 추가',
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      if (currentTask.observerIds.isEmpty)
+                                        Text(
+                                          '참조자가 지정되지 않았습니다',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.5),
+                                          ),
+                                        )
+                                      else if (_observerMembers == null)
+                                        const SizedBox.shrink()
+                                      else
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: _observerMembers!.map((
+                                            member,
+                                          ) {
+                                            return RepaintBoundary(
+                                              child: GlassContainer(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4,
+                                                    ),
+                                                borderRadius: 8.0,
+                                                blur: 15.0,
+                                                gradientColors: [
+                                                  Colors.teal
+                                                      .withValues(alpha: 0.2),
+                                                  Colors.teal
+                                                      .withValues(alpha: 0.1),
+                                                ],
+                                                borderColor: Colors.teal
+                                                    .withValues(alpha: 0.3),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    CircleAvatar(
+                                                      radius: 8,
+                                                      backgroundColor:
+                                                          AvatarColor.getColorForUser(
+                                                            member.id,
+                                                          ),
+                                                      child: Text(
+                                                        AvatarColor.getInitial(
+                                                          member.username,
+                                                        ),
+                                                        style: const TextStyle(
+                                                          fontSize: 10,
+                                                          color: Colors.white,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      member.username,
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: colorScheme
+                                                            .onSurface,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    GestureDetector(
+                                                      onTap: () =>
+                                                          _removeObserverMember(
+                                                            context,
+                                                            currentTask,
+                                                            member.id,
+                                                            taskProvider,
+                                                          ),
+                                                      child: Icon(
+                                                        Icons.close,
+                                                        size: 14,
+                                                        color: colorScheme
+                                                            .onSurface
+                                                            .withValues(
+                                                              alpha: 0.5,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            );
+                                          }).toList(),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
                                 // 작업 관계 (상위 + 하위 통합)
                                 _buildTaskRelationSection(
                                   context,
@@ -3345,6 +3505,266 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           _assignedMembers = [];
         });
       }
+    }
+  }
+
+  /// 참조자 목록 로드
+  Future<void> _loadObserverMembers() async {
+    final taskProvider = context.read<TaskProvider>();
+    final currentTask = taskProvider.tasks.firstWhere(
+      (t) => t.id == widget.task.id,
+      orElse: () => widget.task,
+    );
+
+    if (currentTask.observerIds.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _observerMembers = [];
+        });
+      }
+      return;
+    }
+
+    try {
+      final authService = AuthService();
+      final allUsers = await authService.getAllUsers();
+      final members = allUsers
+          .where((user) => currentTask.observerIds.contains(user.id))
+          .toList();
+      if (mounted) {
+        setState(() {
+          _observerMembers = members;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _observerMembers = [];
+        });
+      }
+    }
+  }
+
+  /// 참조자 제거
+  Future<void> _removeObserverMember(
+    BuildContext context,
+    Task task,
+    String userId,
+    TaskProvider taskProvider,
+  ) async {
+    final updatedObserverIds = task.observerIds
+        .where((id) => id != userId)
+        .toList();
+    await taskProvider.updateTask(
+      task.copyWith(
+        observerIds: updatedObserverIds,
+        updatedAt: DateTime.now(),
+      ),
+    );
+    await _loadObserverMembers();
+  }
+
+  /// 참조자 선택 다이얼로그
+  Future<void> _showObserverMemberDialog(
+    BuildContext context,
+    Task task,
+    TaskProvider taskProvider,
+    Project? currentProject,
+  ) async {
+    if (currentProject == null) return;
+
+    final colorScheme = Theme.of(context).colorScheme;
+
+    try {
+      final authService = AuthService();
+      final allUsers = await authService.getAllUsers();
+      final projectMembers = allUsers.where((user) {
+        return currentProject.teamMemberIds.contains(user.id) ||
+            user.id == currentProject.creatorId;
+      }).toList();
+
+      if (projectMembers.isEmpty) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('참조자로 추가할 수 있는 팀원이 없습니다'),
+            backgroundColor: colorScheme.error,
+          ),
+        );
+        return;
+      }
+
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        builder: (dialogContext) {
+          // StatefulBuilder로 다이얼로그 내부 상태 관리 (다중 선택)
+          List<String> selectedIds = List<String>.from(task.observerIds);
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              return Dialog(
+                backgroundColor: Colors.transparent,
+                child: GlassContainer(
+                  padding: const EdgeInsets.all(24),
+                  borderRadius: 20.0,
+                  blur: 25.0,
+                  gradientColors: [
+                    colorScheme.surface.withValues(alpha: 0.6),
+                    colorScheme.surface.withValues(alpha: 0.5),
+                  ],
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: 400,
+                      maxHeight: 500,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '참조자 선택',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '참조자는 이 작업의 모든 알림을 받습니다',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Flexible(
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: projectMembers.length,
+                            itemBuilder: (context, index) {
+                              final user = projectMembers[index];
+                              final isSelected = selectedIds.contains(user.id);
+                              final isAssigned = task.assignedMemberIds.contains(user.id);
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: AvatarColor.getColorForUser(user.id),
+                                  child: Text(
+                                    AvatarColor.getInitial(user.username),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                title: Row(
+                                  children: [
+                                    Text(
+                                      user.username,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                    ),
+                                    if (isAssigned) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: colorScheme.primary.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          '담당자',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: colorScheme.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                subtitle: Text(
+                                  user.email,
+                                  style: TextStyle(
+                                    color: colorScheme.onSurface.withValues(alpha: 0.7),
+                                  ),
+                                ),
+                                trailing: isSelected
+                                    ? Icon(Icons.check_circle, color: Colors.teal)
+                                    : Icon(
+                                        Icons.radio_button_unchecked,
+                                        color: colorScheme.onSurface.withValues(alpha: 0.3),
+                                      ),
+                                onTap: () {
+                                  setDialogState(() {
+                                    if (isSelected) {
+                                      selectedIds.remove(user.id);
+                                    } else {
+                                      selectedIds.add(user.id);
+                                    }
+                                  });
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: Text(
+                                '취소',
+                                style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.7)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () async {
+                                final authProvider = Provider.of<AuthProvider>(
+                                  context,
+                                  listen: false,
+                                );
+                                final currentUser = authProvider.currentUser;
+                                if (currentUser != null) {
+                                  await taskProvider.updateTask(
+                                    task.copyWith(
+                                      observerIds: selectedIds,
+                                      updatedAt: DateTime.now(),
+                                    ),
+                                    userId: currentUser.id,
+                                    username: currentUser.username,
+                                  );
+                                }
+                                Navigator.of(context).pop();
+                                await _loadObserverMembers();
+                              },
+                              child: Text(
+                                '확인',
+                                style: TextStyle(color: colorScheme.primary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('업데이트 오류: $e'),
+          backgroundColor: colorScheme.error,
+        ),
+      );
     }
   }
 

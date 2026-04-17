@@ -39,6 +39,7 @@ class Task(Base):
     detail = Column(String, nullable=True, default="")
     detail_image_urls = Column(ARRAY(String), default=[], nullable=False)  # 상세 내용 이미지 URL 배열
     assigned_member_ids = Column(ARRAY(String), default=[], nullable=False)
+    observer_ids = Column(ARRAY(String), default=[], nullable=False)  # 참조자 ID 배열
     comment_ids = Column(ARRAY(String), default=[], nullable=False)
     priority = Column(SQLEnum(TaskPriority), nullable=False, default=TaskPriority.P2)
     display_order = Column(Integer, default=0, nullable=False)

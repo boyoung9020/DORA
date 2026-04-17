@@ -19,6 +19,7 @@ class TaskBase(BaseModel):
     detail_image_urls: List[str] = []  # 상세 내용 이미지 URL 배열
     priority: TaskPriority = TaskPriority.P2
     assigned_member_ids: List[str] = []
+    observer_ids: List[str] = []  # 참조자 ID 배열
     sprint_id: Optional[str] = None
     parent_task_id: Optional[str] = None
     document_links: List[Dict[str, str]] = []  # [{title, url}, ...]
@@ -41,6 +42,7 @@ class TaskUpdate(BaseModel):
     detail_image_urls: Optional[List[str]] = None  # 상세 내용 이미지 URL 배열
     priority: Optional[TaskPriority] = None
     assigned_member_ids: Optional[List[str]] = None
+    observer_ids: Optional[List[str]] = None  # 참조자 ID 배열
     sprint_id: Optional[str] = None
     parent_task_id: Optional[str] = None
     document_links: Optional[List[Dict[str, str]]] = None  # [{title, url}, ...]
@@ -57,6 +59,7 @@ class TaskResponse(TaskBase):
     id: str
     display_id: Optional[int] = None
     creator_id: Optional[str] = None
+    observer_ids: List[str] = []
     comment_ids: List[str]
     display_order: int = 0
     status_history: List[Dict[str, Any]] = []

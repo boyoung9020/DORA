@@ -758,6 +758,23 @@ def ensure_ai_summary_cache_table() -> None:
 ensure_ai_summary_cache_table()
 
 
+def ensure_tasks_observer_ids_column() -> None:
+    """Add tasks.observer_ids column if missing."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("""
+                ALTER TABLE tasks
+                ADD COLUMN IF NOT EXISTS observer_ids VARCHAR[] DEFAULT '{}' NOT NULL;
+            """))
+            conn.commit()
+            print("[main] ensured tasks.observer_ids column")
+    except Exception as e:
+        print(f"[main] failed to ensure tasks.observer_ids: {e}")
+
+
+ensure_tasks_observer_ids_column()
+
+
 def seed_mbc_site_details_if_empty() -> None:
     """이름이 MBC인 site_details에 servers/databases/services 중 비어 있는 항목만 기본 인프라로 채웁니다."""
     try:

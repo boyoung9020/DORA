@@ -94,6 +94,7 @@ class TaskService {
         'detail_image_urls': task.detailImageUrls,
         'priority': task.priority.name,
         'assigned_member_ids': task.assignedMemberIds,
+        'observer_ids': task.observerIds,
         'sprint_id': task.sprintId,
         'parent_task_id': task.parentTaskId,
         'document_links': task.documentLinks,

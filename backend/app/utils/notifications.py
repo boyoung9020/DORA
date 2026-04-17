@@ -241,12 +241,17 @@ def notify_task_option_changed(
         f"{changed_by_user.username}님이 '{task_title}' 작업의 {detail} 변경했습니다."
     )
 
-    for assigned_user_id in task.assigned_member_ids:
+    # 담당자 + 참조자 모두에게 알림 (중복 제거)
+    notify_user_ids = set(task.assigned_member_ids or [])
+    notify_user_ids.update(task.observer_ids or [])
+    notify_user_ids.discard(changed_by_user.id)
+
+    for user_id in notify_user_ids:
         title = f"작업 '{task_title}'의 옵션이 변경되었습니다"
         create_notification(
             db=db,
             notification_type=NotificationType.TASK_OPTION_CHANGED,
-            user_id=assigned_user_id,
+            user_id=user_id,
             title=title,
             message=message,
             project_id=task.project_id,
@@ -262,8 +267,9 @@ def _notify_task_participants(
     title: str,
     message: str,
 ):
-    """담당자 + 작업 생성자에게 알림 (행위자 제외, 중복 제외)"""
+    """담당자 + 참조자 + 작업 생성자에게 알림 (행위자 제외, 중복 제외)"""
     notify_user_ids = set(task.assigned_member_ids or [])
+    notify_user_ids.update(task.observer_ids or [])
     if task.creator_id:
         notify_user_ids.add(task.creator_id)
     notify_user_ids.discard(actor.id)
@@ -335,6 +341,7 @@ def notify_task_comment_added(
     task_title = task.title
     
     notify_user_ids = set(task.assigned_member_ids or [])
+    notify_user_ids.update(task.observer_ids or [])
     if task.creator_id:
         notify_user_ids.add(task.creator_id)
     notify_user_ids.discard(comment_author.id)

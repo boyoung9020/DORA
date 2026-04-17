@@ -704,8 +704,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 제목
+                    // 제목 + 시간 + X 버튼
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
                           child: Text(
@@ -719,67 +720,27 @@ class _NotificationScreenState extends State<NotificationScreen> {
                             ),
                           ),
                         ),
+                        const SizedBox(width: 8),
                         // 시간 표시
-                        Text(
-                          _formatRelativeTime(notification.createdAt),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: colorScheme.onSurfaceVariant.withValues(
-                              alpha: 0.6,
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            _formatRelativeTime(notification.createdAt),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.6,
+                              ),
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    _buildInlineRichMessage(notification, colorScheme),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        if (hasNavigation) ...[
-                          Icon(
-                            Icons.open_in_new,
-                            size: 13,
-                            color: colorScheme.primary.withValues(alpha: 0.5),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '클릭하여 이동',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: colorScheme.primary.withValues(alpha: 0.5),
-                            ),
-                          ),
-                        ],
-                        const Spacer(),
-                        // 삭제 버튼
+                        const SizedBox(width: 8),
+                        // 삭제 버튼 (X)
                         InkWell(
                           onTap: () async {
-                            final confirmed = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('알림 삭제'),
-                                content: const Text('이 알림을 삭제하시겠습니까?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, false),
-                                    child: const Text('취소'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, true),
-                                    child: const Text('삭제'),
-                                  ),
-                                ],
-                              ),
+                            await notificationProvider.deleteNotification(
+                              notification.id,
                             );
-
-                            if (confirmed == true) {
-                              await notificationProvider.deleteNotification(
-                                notification.id,
-                              );
-                            }
                           },
                           borderRadius: BorderRadius.circular(6),
                           child: Padding(
@@ -795,6 +756,28 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 4),
+                    _buildInlineRichMessage(notification, colorScheme),
+                    if (hasNavigation) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.open_in_new,
+                            size: 13,
+                            color: colorScheme.primary.withValues(alpha: 0.5),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '클릭하여 이동',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: colorScheme.primary.withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

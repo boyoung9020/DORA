@@ -148,6 +148,7 @@ class Task {
   final String detail; // ?곸꽭 ?댁슜
   final List<String> detailImageUrls; // ?곸꽭 ?댁슜 ?대?吏 URL 諛곗뿴
   final List<String> assignedMemberIds; // ?좊떦??????ъ슜??ID 紐⑸줉
+  final List<String> observerIds;
   final List<String> commentIds; // ?볤? ID 紐⑸줉
   final TaskPriority priority; // 以묒슂??
   final List<StatusChangeHistory> statusHistory; // ?곹깭 蹂寃??덉뒪?좊━
@@ -174,6 +175,7 @@ class Task {
     this.detail = '',
     List<String>? detailImageUrls,
     List<String>? assignedMemberIds,
+    List<String>? observerIds,
     List<String>? commentIds,
     TaskPriority? priority,
     List<StatusChangeHistory>? statusHistory,
@@ -189,6 +191,7 @@ class Task {
     required this.updatedAt,
   }) : detailImageUrls = detailImageUrls ?? [],
        assignedMemberIds = assignedMemberIds ?? [],
+       observerIds = observerIds ?? [],
        commentIds = commentIds ?? [],
        priority = priority ?? TaskPriority.p2,
        statusHistory = statusHistory ?? [],
@@ -211,6 +214,7 @@ class Task {
       'detail': detail,
       'detail_image_urls': detailImageUrls,
       'assignedMemberIds': assignedMemberIds,
+      'observer_ids': observerIds,
       'commentIds': commentIds,
       'priority': priority.name,
       'statusHistory': statusHistory.map((h) => h.toJson()).toList(),
@@ -246,7 +250,21 @@ class Task {
         assignedMemberIds = [];
       }
     }
-    
+
+    // observer_ids 파싱
+    List<String> observerIds = [];
+    final observerKey = getKey('observerIds', 'observer_ids');
+    if (json.containsKey(observerKey) && json[observerKey] != null) {
+      try {
+        final ids = json[observerKey];
+        if (ids is List) {
+          observerIds = ids.map((e) => e.toString()).toList();
+        }
+      } catch (e) {
+        observerIds = [];
+      }
+    }
+
     // comment_ids ?먮뒗 commentIds 泥섎━
     List<String> commentIds = [];
     final commentKey = getKey('commentIds', 'comment_ids');
@@ -361,6 +379,7 @@ class Task {
           ? List<String>.from(json['detail_image_urls'])
           : [],
       assignedMemberIds: assignedMemberIds,
+      observerIds: observerIds,
       commentIds: commentIds,
       priority: json.containsKey('priority') && json['priority'] != null
           ? TaskPriority.values.firstWhere(
@@ -397,6 +416,7 @@ class Task {
     String? detail,
     List<String>? detailImageUrls,
     List<String>? assignedMemberIds,
+    List<String>? observerIds,
     List<String>? commentIds,
     TaskPriority? priority,
     List<StatusChangeHistory>? statusHistory,
@@ -423,6 +443,7 @@ class Task {
       detail: detail ?? this.detail,
       detailImageUrls: detailImageUrls ?? this.detailImageUrls,
       assignedMemberIds: assignedMemberIds ?? this.assignedMemberIds,
+      observerIds: observerIds ?? this.observerIds,
       commentIds: commentIds ?? this.commentIds,
       priority: priority ?? this.priority,
       statusHistory: statusHistory ?? this.statusHistory,
