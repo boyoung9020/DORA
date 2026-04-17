@@ -14,6 +14,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# 콘솔 및 git 출력 인코딩을 UTF-8로 강제
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$env:LC_ALL = "C.UTF-8"
+
 # 프로젝트 루트로 이동
 $PROJECT_ROOT = Split-Path -Parent $PSScriptRoot
 Set-Location $PROJECT_ROOT
