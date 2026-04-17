@@ -92,6 +92,10 @@ class AppTitleBar extends StatelessWidget {
               ],
             ),
           ),
+        Container(
+          height: 1,
+          color: colorScheme.onSurface.withValues(alpha: 0.08),
+        ),
       ],
     );
   }

@@ -1019,7 +1019,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         children: [
           // 커스텀 타이틀바
           AppTitleBar(
-            backgroundColor: shellColor,
+            backgroundColor: isDarkMode
+                ? const Color(0xFF252017)
+                : const Color(0xFFEDD8C5),
             leadingWidth: 52 + (_mainMenuVisible ? 75 : 0),
             extraHeight: 0,
           ),
