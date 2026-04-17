@@ -1,0 +1,57 @@
+name: Release Windows Desktop
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows release
+        run: >
+          flutter build windows --release
+          --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
+
+      - name: Create zip archive
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $zipName = "sync_project_manager_windows_${tag}.zip"
+          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath $zipName
+          echo "ZIP_NAME=$zipName" >> $env:GITHUB_ENV
+
+      - name: Extract release notes from CHANGELOG
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $content = Get-Content CHANGELOG.md -Raw -Encoding UTF8
+          if ($content -match "(?s)(## \[$tag\].+?)(?=\r?\n## \[|$)") {
+            $notes = $Matches[1].Trim()
+          } else {
+            $notes = "Release $tag"
+          }
+          $notes | Out-File -FilePath release_notes.md -Encoding utf8
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.md
+          files: ${{ env.ZIP_NAME }}
+          draft: false
+          prerelease: false
