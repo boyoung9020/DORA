@@ -788,35 +788,33 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return Builder(
       builder: (context) {
         int cbIdx = 0;
-        return SelectionArea(
-            child: MarkdownBody(
-              data: _addCheckboxStrikethrough(processed),
-              selectable: false,
-              softLineBreak: true,
-              onTapLink: (text, href, title) {},
-              checkboxBuilder: (bool value) {
-                final idx = cbIdx++;
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => _onCommentCheckboxTap(comment, idx, value),
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 4, top: 2),
-                    child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: Checkbox(
-                        value: value,
-                        onChanged: null,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        side: BorderSide(color: colorScheme.primary),
-                        activeColor: colorScheme.primary,
-                      ),
-                    ),
+        return MarkdownBody(
+          data: _addCheckboxStrikethrough(processed),
+          selectable: true,
+          softLineBreak: true,
+          onTapLink: (text, href, title) {},
+          checkboxBuilder: (bool value) {
+            final idx = cbIdx++;
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _onCommentCheckboxTap(comment, idx, value),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4, top: 2),
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: Checkbox(
+                    value: value,
+                    onChanged: null,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    side: BorderSide(color: colorScheme.primary),
+                    activeColor: colorScheme.primary,
                   ),
-                );
-              },
-              styleSheet: _buildMarkdownStyleSheet(colorScheme),
-            ),
+                ),
+              ),
+            );
+          },
+          styleSheet: _buildMarkdownStyleSheet(colorScheme),
         );
       },
     );
