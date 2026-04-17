@@ -1,4 +1,4 @@
-name: sync_project_manager
+﻿name: sync_project_manager
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -16,7 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ^3.9.2
@@ -35,32 +35,32 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
-  # ?곹깭 愿由?
+  # ?怨밴묶 ?온??
   provider: ^6.1.1
 
-  # 濡쒖뺄 ??μ냼 (?ъ슜???곗씠?? ?몄뀡 ???
+  # 嚥≪뮇類????關??(??????怨쀬뵠?? ?紐꾨?????
   shared_preferences: ^2.2.2
 
-  # 鍮꾨?踰덊샇 ?댁떛
+  # ??쑬?甕곕뜇????곷뼓
   crypto: ^3.0.3
   intl: ^0.19.0
 
-  # HTTP ?대씪?댁뼵??(API ?몄텧)
+  # HTTP ?????곷섧??(API ?紐꾪뀱)
   http: ^1.1.0
   
-  # WebSocket ?대씪?댁뼵??(?ㅼ떆媛??듭떊)
+  # WebSocket ?????곷섧??(??쇰뻻揶????뻿)
   web_socket_channel: ^2.4.0
 
-  # 而ㅼ뒪? ?덈룄????댄?諛?
+  # ?뚣끉??? ??덈즲???????獄?
   bitsdojo_window: ^0.1.6
   
-  # ?대?吏 ?좏깮
+  # ???筌왖 ?醫뤾문
   image_picker: ^1.0.7
   desktop_drop: ^0.4.4
   flutter_markdown: ^0.6.18
   lottie: ^3.3.0
   
-  # Windows ?쒖뒪???뚮┝
+  # Windows ??뽯뮞?????뵝
   flutter_local_notifications: ^17.2.3
   file_picker: ^8.0.7
   url_launcher: ^6.3.2
@@ -85,7 +85,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
 
-  # ???꾩씠肄??앹꽦
+  # ???袁⑹뵠????밴쉐
   flutter_launcher_icons: ^0.13.1
 
 # For information on the generic Dart part of this file, see the
@@ -141,7 +141,7 @@ flutter:
         - asset: font/nanum-square-round/NanumSquareRoundEB.ttf
           weight: 800
 
-# ???꾩씠肄??ㅼ젙
+# ???袁⑹뵠????쇱젟
 flutter_launcher_icons:
   android: false
   ios: false
