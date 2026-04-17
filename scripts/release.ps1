@@ -177,10 +177,10 @@ Write-Host "[3/5] 파일 업데이트..." -ForegroundColor Yellow
 
 # pubspec.yaml 버전 업데이트
 $pubspecContent = $pubspecContent -replace 'version:\s*\d+\.\d+\.\d+\+\d+', "version: $newVersion"
-Set-Content $pubspecPath $pubspecContent -NoNewline -Encoding UTF8
+[System.IO.File]::WriteAllText((Resolve-Path $pubspecPath).Path, $pubspecContent, [System.Text.UTF8Encoding]::new($false))
 
 # CHANGELOG.md 저장
-Set-Content $changelogPath $newChangelog -Encoding UTF8
+[System.IO.File]::WriteAllText((Join-Path $PWD $changelogPath), $newChangelog, [System.Text.UTF8Encoding]::new($false))
 
 Write-Host "       pubspec.yaml: $newVersion" -ForegroundColor Gray
 Write-Host "       CHANGELOG.md: 업데이트 완료" -ForegroundColor Gray
