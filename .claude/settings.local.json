@@ -1,12 +1,17 @@
 {
   "permissions": {
     "allow": [
-      "Bash(*)",
       "Read(*)",
-      "Write(*)",
-      "Edit(*)",
-      "Glob(*)",
-      "Grep(*)"
+      "mcp__chrome-devtools__*",
+      "Skill(*)",
+      "Bash(*)",
+      "WebFetch(*)",
+      "WebSearch"
     ]
+  },
+  "enabledMcpjsonServers": ["chrome-devtools"],
+  "attribution": {
+    "commit": "",
+    "pr": ""
   }
 }

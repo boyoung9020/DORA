@@ -730,7 +730,11 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
                     : ListView.builder(
                         padding: EdgeInsets.zero,
                         itemCount: _minutesList.length,
-                        itemBuilder: (ctx, i) => _buildMinutesListItem(_minutesList[i], isDark),
+                        itemBuilder: (ctx, i) => _buildMinutesListItem(
+                          _minutesList[i],
+                          wsProvider.currentMembers,
+                          isDark,
+                        ),
                       ),
           ),
         ],
@@ -987,10 +991,21 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
   }
 
   // ─── 회의록 리스트 아이템 ─────────────────────────────────────────
-  Widget _buildMinutesListItem(MeetingMinutes minutes, bool isDark) {
+  Widget _buildMinutesListItem(
+    MeetingMinutes minutes,
+    List<WorkspaceMember> members,
+    bool isDark,
+  ) {
     final isSelected = _selectedMinutes?.id == minutes.id;
     final dateStr = DateFormat('yyyy.MM.dd').format(minutes.meetingDate);
     final colorScheme = Theme.of(context).colorScheme;
+    final attendees = minutes.attendeeIds
+        .map((id) {
+          final m = members.where((m) => m.userId == id);
+          return m.isNotEmpty ? m.first : null;
+        })
+        .whereType<WorkspaceMember>()
+        .toList();
 
     return Material(
       color: Colors.transparent,
@@ -1003,7 +1018,7 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
           });
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: isSelected
                 ? colorScheme.primary.withValues(alpha: isDark ? 0.15 : 0.08)
@@ -1014,42 +1029,125 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
               ),
             ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.description_outlined,
-                size: 16,
-                color: isSelected
-                    ? colorScheme.primary
-                    : (isDark ? Colors.white30 : Colors.black26),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  minutes.title,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              Row(
+                children: [
+                  Icon(
+                    Icons.description_outlined,
+                    size: 16,
                     color: isSelected
                         ? colorScheme.primary
-                        : (isDark ? Colors.white70 : Colors.black87),
+                        : (isDark ? Colors.white30 : Colors.black26),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      minutes.title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        color: isSelected
+                            ? colorScheme.primary
+                            : (isDark ? Colors.white70 : Colors.black87),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    dateStr,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? Colors.white24 : Colors.black26,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Text(
-                dateStr,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: isDark ? Colors.white24 : Colors.black26,
+              if (attendees.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Padding(
+                  padding: const EdgeInsets.only(left: 24),
+                  child: _buildAttendeeSummary(attendees, isDark),
                 ),
-              ),
+              ],
             ],
           ),
         ),
       ),
+    );
+  }
+
+  /// 리스트 아이템용 참석자 요약 (아바타 겹침 + 이름)
+  Widget _buildAttendeeSummary(List<WorkspaceMember> attendees, bool isDark) {
+    const maxAvatars = 3;
+    final visible = attendees.take(maxAvatars).toList();
+    final extra = attendees.length - visible.length;
+    final avatarSize = 16.0;
+    final overlap = 6.0;
+    final stackWidth = visible.isEmpty
+        ? 0.0
+        : avatarSize + (visible.length - 1) * (avatarSize - overlap);
+    final bgColor = isDark ? const Color(0xFF1E1E2E) : const Color(0xFFF8F9FA);
+
+    final names = extra > 0
+        ? visible.map((m) => m.username).join(', ')
+        : attendees.map((m) => m.username).join(', ');
+
+    return Row(
+      children: [
+        SizedBox(
+          width: stackWidth,
+          height: avatarSize,
+          child: Stack(
+            children: [
+              for (int i = 0; i < visible.length; i++)
+                Positioned(
+                  left: i * (avatarSize - overlap),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: bgColor, width: 1.5),
+                    ),
+                    child: CircleAvatar(
+                      radius: avatarSize / 2 - 1,
+                      backgroundColor: isDark ? Colors.white12 : Colors.black12,
+                      backgroundImage: visible[i].profileImageUrl != null
+                          ? NetworkImage(visible[i].profileImageUrl!)
+                          : null,
+                      child: visible[i].profileImageUrl == null
+                          ? Text(
+                              visible[i].username.isNotEmpty
+                                  ? visible[i].username[0]
+                                  : '?',
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white70 : Colors.black54,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            extra > 0 ? '$names 외 $extra명' : names,
+            style: TextStyle(
+              fontSize: 11,
+              color: isDark ? Colors.white38 : Colors.black45,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 
