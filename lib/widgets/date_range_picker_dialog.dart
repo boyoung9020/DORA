@@ -3,6 +3,35 @@ import 'package:flutter/material.dart';
 import 'glass_container.dart';
 
 /// Shows a glass-styled calendar dialog that lets the user pick
+/// a single date by scrolling through months vertically.
+/// Returns the selected DateTime or null if cancelled.
+Future<DateTime?> showSingleDatePickerDialog({
+  required BuildContext context,
+  DateTime? initialDate,
+  DateTime? minDate,
+  DateTime? maxDate,
+  String title = '날짜 선택',
+}) async {
+  final now = DateTime.now();
+  final result = await showDialog<Map<String, DateTime?>>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.2),
+    builder: (context) {
+      return _DateRangePickerDialog(
+        initialStartDate: initialDate,
+        initialEndDate: initialDate, // 시작=종료 → 단일 날짜 모드처럼 동작
+        minDate: minDate ?? DateTime(now.year - 2),
+        maxDate: maxDate ?? DateTime(now.year + 3),
+        singleMode: true,
+        singleTitle: title,
+      );
+    },
+  );
+  if (result == null) return null;
+  return result['startDate'];
+}
+
+/// Shows a glass-styled calendar dialog that lets the user pick
 /// a start and end date by scrolling through months vertically.
 Future<Map<String, DateTime?>?> showTaskDateRangePickerDialog({
   required BuildContext context,
@@ -32,12 +61,16 @@ class _DateRangePickerDialog extends StatefulWidget {
     required this.initialEndDate,
     required this.minDate,
     required this.maxDate,
+    this.singleMode = false,
+    this.singleTitle = '날짜 선택',
   });
 
   final DateTime? initialStartDate;
   final DateTime? initialEndDate;
   final DateTime minDate;
   final DateTime maxDate;
+  final bool singleMode;
+  final String singleTitle;
 
   @override
   State<_DateRangePickerDialog> createState() => _DateRangePickerDialogState();
@@ -108,6 +141,13 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
     }
 
     setState(() {
+      if (widget.singleMode) {
+        // 단일 날짜 모드: 탭하면 바로 선택
+        _selectedStartDate = date;
+        _selectedEndDate = date;
+        return;
+      }
+
       if (_selectedStartDate == null ||
           (_selectedStartDate != null && _selectedEndDate != null) ||
           date.isBefore(_selectedStartDate!)) {
@@ -241,6 +281,32 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
   }
 
   Widget _buildSelectionSummary(ColorScheme colorScheme) {
+    if (widget.singleMode) {
+      return Row(
+        children: [
+          Expanded(
+            child: _SelectionChip(
+              label: widget.singleTitle,
+              date: _selectedStartDate,
+              colorScheme: colorScheme,
+            ),
+          ),
+          const SizedBox(width: 12),
+          IconButton(
+            tooltip: '선택 초기화',
+            onPressed: () {
+              setState(() {
+                _selectedStartDate = null;
+                _selectedEndDate = null;
+              });
+            },
+            icon: const Icon(Icons.refresh),
+            color: colorScheme.onSurface.withValues(alpha: 0.8),
+          ),
+        ],
+      );
+    }
+
     return Row(
       children: [
         Expanded(

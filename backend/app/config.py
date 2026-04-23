@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     KAKAO_REST_API_KEY: str = ""
     KAKAO_CLIENT_SECRET: str = ""
 
+    # Frontend URL (Mattermost 알림 링크용)
+    FRONTEND_URL: str = "https://syncwork.kr"
+
     # Mattermost (채널 Incoming Webhook URL — 관리자가 생성한 것)
     MATTERMOST_WEBHOOK_URL: str = ""
 

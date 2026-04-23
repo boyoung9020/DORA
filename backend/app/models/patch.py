@@ -31,6 +31,9 @@ class ProjectPatch(Base):
     # 특이사항 이미지 URL 배열
     note_image_urls = Column(ARRAY(String), default=[], nullable=False)
 
+    # 패치 담당자 (선택)
+    assignee = Column(String, nullable=True, default=None)
+
     # 연결된 GitHub 태그 (선택)
     git_tag = Column(String, nullable=True, default=None)
 

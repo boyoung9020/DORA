@@ -13,6 +13,7 @@ from app.models.user import User
 from app.schemas.task import TaskCreate, TaskUpdate, TaskResponse, TaskReorderRequest
 from app.utils.dependencies import get_current_user
 from app.models.project import Project
+from app.models.workspace import Workspace
 from app.models.notification import Notification
 from app.models.comment import Comment
 from app.utils.notifications import notify_task_assigned, notify_task_option_changed, notify_task_created, notify_task_document_added
@@ -88,6 +89,13 @@ async def create_task(
     """새 태스크 생성"""
     project = _get_project_or_403(db, task_data.project_id, current_user)
 
+    # 워크스페이스 오너를 기본 참조자로 추가
+    observer_ids = list(task_data.observer_ids or [])
+    if project.workspace_id:
+        ws = db.query(Workspace).filter(Workspace.id == project.workspace_id).first()
+        if ws and ws.owner_id and ws.owner_id not in observer_ids:
+            observer_ids.append(ws.owner_id)
+
     try:
         new_task = Task(
             id=str(uuid.uuid4()),
@@ -101,7 +109,7 @@ async def create_task(
             detail_image_urls=task_data.detail_image_urls or [],
             priority=task_data.priority,
             assigned_member_ids=task_data.assigned_member_ids,
-            observer_ids=task_data.observer_ids or [],
+            observer_ids=observer_ids,
             sprint_id=task_data.sprint_id,
             creator_id=current_user.id,
             parent_task_id=task_data.parent_task_id,

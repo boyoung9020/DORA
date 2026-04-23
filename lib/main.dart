@@ -58,15 +58,24 @@ class PendingInvite {
   static String? token;
 }
 
+/// 앱 시작 시 /task/{id} URL에서 파싱한 작업 ID를 보관
+class PendingTaskOpen {
+  static String? taskId;
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 웹에서 /join/{token} URL로 접근한 경우 토큰 추출
+  // 웹에서 /join/{token} 또는 /task/{id} URL로 접근한 경우 파싱
   if (kIsWeb) {
     final path = Uri.base.path;
-    final match = RegExp(r'^/join/(.+)$').firstMatch(path);
-    if (match != null) {
-      PendingInvite.token = match.group(1);
+    final joinMatch = RegExp(r'^/join/(.+)$').firstMatch(path);
+    if (joinMatch != null) {
+      PendingInvite.token = joinMatch.group(1);
+    }
+    final taskMatch = RegExp(r'^/task/(.+)$').firstMatch(path);
+    if (taskMatch != null) {
+      PendingTaskOpen.taskId = taskMatch.group(1);
     }
   }
   const kakaoNativeAppKey = String.fromEnvironment('KAKAO_NATIVE_APP_KEY');

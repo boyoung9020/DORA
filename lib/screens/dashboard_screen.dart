@@ -915,9 +915,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
+    final currentUserId = Provider.of<AuthProvider>(context, listen: false).currentUser?.id;
+
     final overdueTasks = allTasks.where((t) {
       if (t.endDate == null) return false;
       if (t.status == TaskStatus.done) return false;
+      if (currentUserId != null &&
+          !t.assignedMemberIds.contains(currentUserId) &&
+          t.creatorId != currentUserId) return false;
       return t.endDate!.isBefore(today);
     }).toList()
       ..sort((a, b) {

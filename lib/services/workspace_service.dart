@@ -71,6 +71,24 @@ class WorkspaceService {
         .toList();
   }
 
+  /// 어제(또는 지정 날짜)의 미완료 작업 조회
+  Future<List<MemberTodayTask>> getYesterdayIncompleteTasks(
+    String workspaceId, {
+    String? targetDate,
+  }) async {
+    final queryParams = <String, String>{};
+    if (targetDate != null) queryParams['target_date'] = targetDate;
+    final response = await ApiClient.get(
+      '/api/workspaces/$workspaceId/yesterday-incomplete',
+      queryParams: queryParams.isEmpty ? null : queryParams,
+    );
+    final data = ApiClient.handleResponse(response);
+    final tasks = data['incomplete_tasks'] as List<dynamic>? ?? [];
+    return tasks
+        .map((json) => MemberTodayTask.fromJson(json as Map<String, dynamic>))
+        .toList();
+  }
+
   String buildInviteLink(String inviteToken) {
     // 紐⑤컮???λ쭅???뺤옣 ?鍮? sync://join/<token>
     // ?? baseUrl/join/<token>

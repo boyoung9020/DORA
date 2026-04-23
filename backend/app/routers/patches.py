@@ -89,6 +89,7 @@ async def create_patch(
         patch_date=body.patch_date,
         version=version,
         content=content,
+        assignee=body.assignee,
         git_tag=body.git_tag,
         created_by=current_user.id,
     )
@@ -130,6 +131,8 @@ async def update_patch(
         patch.notes = body.notes
     if body.note_image_urls is not None:
         patch.note_image_urls = body.note_image_urls
+    if body.assignee is not None:
+        patch.assignee = body.assignee if body.assignee.strip() else None
 
     db.commit()
     db.refresh(patch)

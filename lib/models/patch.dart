@@ -27,6 +27,7 @@ class Patch {
   final String status; // pending | in_progress | done
   final String notes;
   final List<String> noteImageUrls;
+  final String? assignee;
   final String? gitTag;
 
   Patch({
@@ -41,6 +42,7 @@ class Patch {
     required this.status,
     this.notes = '',
     List<String>? noteImageUrls,
+    this.assignee,
     this.gitTag,
   }) : noteImageUrls = noteImageUrls ?? [];
 
@@ -76,6 +78,7 @@ class Patch {
       noteImageUrls: json['note_image_urls'] != null
           ? List<String>.from(json['note_image_urls'])
           : [],
+      assignee: json['assignee'] as String?,
       gitTag: json['git_tag'] as String?,
     );
   }
@@ -108,6 +111,7 @@ class Patch {
     String? status,
     String? notes,
     List<String>? noteImageUrls,
+    String? assignee,
     String? gitTag,
   }) =>
       Patch(
@@ -122,6 +126,7 @@ class Patch {
         status: status ?? this.status,
         notes: notes ?? this.notes,
         noteImageUrls: noteImageUrls ?? this.noteImageUrls,
+        assignee: assignee ?? this.assignee,
         gitTag: gitTag ?? this.gitTag,
       );
 }

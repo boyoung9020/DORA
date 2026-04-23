@@ -26,6 +26,7 @@ class PatchService {
     required DateTime patchDate,
     required String version,
     required String content,
+    String? assignee,
     String? gitTag,
   }) async {
     final dateStr = _dateStr(patchDate);
@@ -36,6 +37,7 @@ class PatchService {
       'version': version,
       'content': content,
     };
+    if (assignee != null && assignee.isNotEmpty) body['assignee'] = assignee;
     if (gitTag != null && gitTag.isNotEmpty) body['git_tag'] = gitTag;
     final resp = await ApiClient.post('/api/patches/', body: body);
     final data = ApiClient.handleResponse(resp);
@@ -53,6 +55,7 @@ class PatchService {
     String? status,
     String? notes,
     List<String>? noteImageUrls,
+    String? assignee,
   }) async {
     final body = <String, dynamic>{};
     if (site != null) body['site'] = site;
@@ -66,6 +69,7 @@ class PatchService {
     if (status != null) body['status'] = status;
     if (notes != null) body['notes'] = notes;
     if (noteImageUrls != null) body['note_image_urls'] = noteImageUrls;
+    if (assignee != null) body['assignee'] = assignee;
 
     final resp = await ApiClient.patch('/api/patches/$patchId', body: body);
     final data = ApiClient.handleResponse(resp);

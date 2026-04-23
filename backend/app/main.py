@@ -15,6 +15,7 @@ from app.routers import (
     checklists,
     comments,
     github,
+    meeting_minutes,
     user_github_tokens,
     user_mattermost_settings,
     patches,
@@ -443,6 +444,7 @@ app.include_router(patches.router, prefix="/api/patches", tags=["Patches"])
 app.include_router(project_sites.router, prefix="/api/project-sites", tags=["ProjectSites"])
 app.include_router(site_details.router, prefix="/api/site-details", tags=["SiteDetails"])
 app.include_router(api_tokens.router, prefix="/api/tokens", tags=["ApiTokens"])
+app.include_router(meeting_minutes.router, prefix="/api/meeting-minutes", tags=["MeetingMinutes"])
 app.include_router(request_issue.router, prefix="/api/ri", tags=["RequestIssue"])
 app.include_router(websocket.router, prefix="/api", tags=["WebSocket"])
 
@@ -538,6 +540,45 @@ def ensure_patch_git_tag_column() -> None:
 
 
 ensure_patch_git_tag_column()
+
+
+def ensure_patch_assignee_column() -> None:
+    """project_patches 테이블에 assignee 컬럼 추가."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("""
+                ALTER TABLE project_patches
+                ADD COLUMN IF NOT EXISTS assignee VARCHAR;
+            """))
+            conn.commit()
+            print("[main] ensured project_patches.assignee column")
+    except Exception as e:
+        print(f"[main] failed to ensure project_patches.assignee: {e}")
+
+
+ensure_patch_assignee_column()
+
+
+def backfill_patch_assignees() -> None:
+    """기존 패치 담당자 일괄 설정: 연합뉴스→안성구, 나머지→정보영."""
+    try:
+        with engine.connect() as conn:
+            # assignee가 NULL인 패치만 대상 (이미 설정된 건 건드리지 않음)
+            conn.execute(text("""
+                UPDATE project_patches
+                SET assignee = CASE
+                    WHEN site = '연합뉴스' THEN '안성구'
+                    ELSE '정보영'
+                END
+                WHERE assignee IS NULL;
+            """))
+            conn.commit()
+            print("[main] backfilled patch assignees")
+    except Exception as e:
+        print(f"[main] failed to backfill patch assignees: {e}")
+
+
+backfill_patch_assignees()
 
 
 def ensure_comment_file_urls_column() -> None:
@@ -822,6 +863,101 @@ def seed_mbc_site_details_if_empty() -> None:
 
 
 seed_mbc_site_details_if_empty()
+
+
+def ensure_workspace_owner_as_observer() -> None:
+    """기존 모든 작업에 워크스페이스 오너를 참조자(observer)로 추가."""
+    from app.database import SessionLocal
+    from app.models.workspace import Workspace
+    from app.models.project import Project
+    from app.models.task import Task
+
+    try:
+        db = SessionLocal()
+        try:
+            # 이미 실행되었는지 체크 — 임의의 워크스페이스 오너가 이미 참조자인지 확인
+            sample_ws = db.query(Workspace).first()
+            if not sample_ws:
+                return
+            sample_project = db.query(Project).filter(
+                Project.workspace_id == sample_ws.id
+            ).first()
+            if sample_project:
+                sample_task = db.query(Task).filter(
+                    Task.project_id == sample_project.id
+                ).first()
+                if sample_task and sample_ws.owner_id in (sample_task.observer_ids or []):
+                    print("[main] workspace owner already in observers; skip migration")
+                    return
+
+            # 워크스페이스별 오너 → 프로젝트 → 태스크 일괄 업데이트
+            workspaces = db.query(Workspace).all()
+            total_updated = 0
+            for ws in workspaces:
+                if not ws.owner_id:
+                    continue
+                projects = db.query(Project).filter(
+                    Project.workspace_id == ws.id
+                ).all()
+                project_ids = [p.id for p in projects]
+                if not project_ids:
+                    continue
+
+                tasks_list = db.query(Task).filter(
+                    Task.project_id.in_(project_ids)
+                ).all()
+                for t in tasks_list:
+                    observers = list(t.observer_ids or [])
+                    if ws.owner_id not in observers:
+                        observers.append(ws.owner_id)
+                        t.observer_ids = observers
+                        total_updated += 1
+
+            if total_updated > 0:
+                db.commit()
+                print(f"[main] added workspace owner as observer to {total_updated} tasks")
+            else:
+                print("[main] no tasks needed observer update")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[main] ensure_workspace_owner_as_observer failed: {e}")
+
+
+ensure_workspace_owner_as_observer()
+
+
+def ensure_meeting_minutes_table() -> None:
+    """meeting_minutes 테이블이 없으면 생성."""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT to_regclass('public.meeting_minutes')"))
+            if result.scalar() is None:
+                conn.execute(text("""
+                    CREATE TABLE meeting_minutes (
+                        id VARCHAR PRIMARY KEY,
+                        workspace_id VARCHAR NOT NULL,
+                        title VARCHAR NOT NULL,
+                        content TEXT NOT NULL DEFAULT '',
+                        category VARCHAR DEFAULT '',
+                        meeting_date DATE NOT NULL,
+                        creator_id VARCHAR NOT NULL,
+                        attendee_ids VARCHAR[] DEFAULT '{}' NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                    )
+                """))
+                conn.execute(text("CREATE INDEX ix_meeting_minutes_workspace_id ON meeting_minutes(workspace_id)"))
+                conn.execute(text("CREATE INDEX ix_meeting_minutes_creator_id ON meeting_minutes(creator_id)"))
+                conn.commit()
+                print("[main] created meeting_minutes table")
+            else:
+                print("[main] meeting_minutes table already exists")
+    except Exception as e:
+        print(f"[main] failed to ensure meeting_minutes table: {e}")
+
+
+ensure_meeting_minutes_table()
 
 
 @app.get("/")

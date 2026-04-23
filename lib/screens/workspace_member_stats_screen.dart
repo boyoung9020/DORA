@@ -5,6 +5,7 @@ import '../providers/workspace_provider.dart';
 import '../services/workspace_service.dart';
 import '../widgets/workspace/member_stat_card.dart';
 import '../widgets/workspace/member_stat_detail.dart';
+import '../widgets/workspace/team_today_dashboard.dart';
 
 class WorkspaceMemberStatsScreen extends StatefulWidget {
   const WorkspaceMemberStatsScreen({super.key});
@@ -25,6 +26,7 @@ class _WorkspaceMemberStatsScreenState
   bool _isLoading = false;
   String? _loadedWorkspaceId;
   String? _error;
+  String _viewMode = 'dashboard'; // dashboard | detail
 
   @override
   void didChangeDependencies() {
@@ -114,11 +116,23 @@ class _WorkspaceMemberStatsScreenState
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Row(
               children: [
-                _filterChip('전체', 'all'),
+                _viewModeChip('대시보드', 'dashboard', Icons.dashboard_outlined),
                 const SizedBox(width: 8),
-                _filterChip('진행 중', 'active'),
-                const SizedBox(width: 8),
-                _filterChip('최근 완료', 'done'),
+                _viewModeChip('상세보기', 'detail', Icons.person_outline),
+                if (_viewMode == 'detail') ...[
+                  const SizedBox(width: 16),
+                  Container(
+                    width: 1,
+                    height: 20,
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+                  ),
+                  const SizedBox(width: 16),
+                  _filterChip('전체', 'all'),
+                  const SizedBox(width: 8),
+                  _filterChip('진행 중', 'active'),
+                  const SizedBox(width: 8),
+                  _filterChip('최근 완료', 'done'),
+                ],
               ],
             ),
           ),
@@ -146,27 +160,33 @@ class _WorkspaceMemberStatsScreenState
                     ],
                   ),
                 )
-              : _filtered.isEmpty
-                  ? Center(
-                      child: Text(
-                        '해당 조건의 멤버가 없습니다',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color:
-                              colorScheme.onSurface.withValues(alpha: 0.45),
-                        ),
-                      ),
+              : _viewMode == 'dashboard'
+                  ? TeamTodayDashboard(
+                      allMembers: _allMembers,
+                      workspaceId: ws.id,
+                      onRefresh: () => _load(ws.id),
                     )
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isWide = constraints.maxWidth >= 700;
-                        if (isWide) {
-                          return _buildWideLayout(context);
-                        } else {
-                          return _buildNarrowLayout(context);
-                        }
-                      },
-                    ),
+                  : _filtered.isEmpty
+                      ? Center(
+                          child: Text(
+                            '해당 조건의 멤버가 없습니다',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.onSurface
+                                  .withValues(alpha: 0.45),
+                            ),
+                          ),
+                        )
+                      : LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isWide = constraints.maxWidth >= 700;
+                            if (isWide) {
+                              return _buildWideLayout(context);
+                            } else {
+                              return _buildNarrowLayout(context);
+                            }
+                          },
+                        ),
     );
   }
 
@@ -262,6 +282,50 @@ class _WorkspaceMemberStatsScreenState
           ],
         );
       },
+    );
+  }
+
+  Widget _viewModeChip(String label, String value, IconData icon) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isActive = _viewMode == value;
+    return GestureDetector(
+      onTap: () => setState(() => _viewMode = value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: isActive
+              ? colorScheme.primaryContainer
+              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive
+                ? colorScheme.primary.withValues(alpha: 0.4)
+                : Colors.transparent,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                size: 13,
+                color: isActive
+                    ? colorScheme.onPrimaryContainer
+                    : colorScheme.onSurface.withValues(alpha: 0.65)),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                color: isActive
+                    ? colorScheme.onPrimaryContainer
+                    : colorScheme.onSurface.withValues(alpha: 0.65),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

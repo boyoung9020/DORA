@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/task_provider.dart';
 import '../../providers/project_provider.dart';
+import '../../providers/workspace_provider.dart';
 import '../../services/upload_service.dart';
 import '../../utils/api_client.dart';
 import '../../utils/avatar_color.dart';
@@ -64,6 +65,7 @@ class _PatchTabState extends State<PatchTab> {
   final TextEditingController _editSiteCtrl = TextEditingController();
   final TextEditingController _editVersionCtrl = TextEditingController();
   final TextEditingController _editContentCtrl = TextEditingController();
+  final TextEditingController _editAssigneeCtrl = TextEditingController();
   DateTime? _editDate;
 
   @override
@@ -102,6 +104,7 @@ class _PatchTabState extends State<PatchTab> {
     _editSiteCtrl.dispose();
     _editVersionCtrl.dispose();
     _editContentCtrl.dispose();
+    _editAssigneeCtrl.dispose();
     super.dispose();
   }
 
@@ -474,6 +477,7 @@ class _PatchTabState extends State<PatchTab> {
         patchDate: _editDate ?? patch.patchDate,
         version: _editVersionCtrl.text.trim(),
         content: _editContentCtrl.text.trim(),
+        assignee: _editAssigneeCtrl.text.trim(),
       );
       if (!mounted) return;
       setState(() {
@@ -535,6 +539,7 @@ class _PatchTabState extends State<PatchTab> {
     _editSiteCtrl.text = patch.site;
     _editVersionCtrl.text = patch.version;
     _editContentCtrl.text = patch.content;
+    _editAssigneeCtrl.text = patch.assignee ?? '';
     _editDate = patch.patchDate;
     setState(() => _isEditingPatchInfo = true);
   }
@@ -662,6 +667,7 @@ class _PatchTabState extends State<PatchTab> {
     final siteCtrl = TextEditingController();
     final versionCtrl = TextEditingController();
     final contentCtrl = TextEditingController();
+    String selectedAssignee = '';
     DateTime? selectedDate;
     Map<String, dynamic>? selectedPreset;
     String? selectedGitTag;
@@ -1121,6 +1127,77 @@ class _PatchTabState extends State<PatchTab> {
                                     ),
                                   ),
                                 ),
+                                const SizedBox(height: 18),
+                                Text('담당자', style: labelStyle),
+                                const SizedBox(height: 8),
+                                Builder(builder: (btnCtx) {
+                                  final members = btnCtx.read<WorkspaceProvider>().currentMembers;
+                                  return Material(
+                                    color: fieldFill,
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: InkWell(
+                                      onTap: () {
+                                        final box = btnCtx.findRenderObject() as RenderBox?;
+                                        final overlay = Overlay.of(btnCtx).context.findRenderObject() as RenderBox?;
+                                        if (box == null || overlay == null) return;
+                                        final pos = box.localToGlobal(Offset(0, box.size.height + 4), ancestor: overlay);
+                                        showMenu<String>(
+                                          context: btnCtx,
+                                          position: RelativeRect.fromLTRB(pos.dx, pos.dy, pos.dx + 200, 0),
+                                          items: [
+                                            PopupMenuItem<String>(
+                                              value: '',
+                                              height: 36,
+                                              child: Text('담당자 없음',
+                                                  style: TextStyle(
+                                                      fontSize: 13,
+                                                      color: colorScheme.onSurface.withValues(alpha: 0.5))),
+                                            ),
+                                            ...members.map((m) => PopupMenuItem<String>(
+                                                  value: m.username,
+                                                  height: 36,
+                                                  child: Row(children: [
+                                                    Icon(Icons.person_outline,
+                                                        size: 14,
+                                                        color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                                                    const SizedBox(width: 6),
+                                                    Text(m.username, style: const TextStyle(fontSize: 13)),
+                                                  ]),
+                                                )),
+                                          ],
+                                        ).then((val) {
+                                          if (val == null) return;
+                                          setDialogState(() => selectedAssignee = val);
+                                        });
+                                      },
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.person_outline,
+                                                size: 21,
+                                                color: colorScheme.onSurface.withValues(alpha: 0.48)),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Text(
+                                                selectedAssignee.isEmpty ? '담당자 선택' : selectedAssignee,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: selectedAssignee.isEmpty
+                                                      ? colorScheme.onSurface.withValues(alpha: 0.42)
+                                                      : colorScheme.onSurface,
+                                                ),
+                                              ),
+                                            ),
+                                            Icon(Icons.keyboard_arrow_down_rounded,
+                                                color: colorScheme.onSurface.withValues(alpha: 0.45)),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }),
                                 if (_presets.isNotEmpty) ...[
                                   const SizedBox(height: 18),
                                   Text('체크리스트 프리셋 (선택)',
@@ -1305,6 +1382,7 @@ class _PatchTabState extends State<PatchTab> {
                                                 version: versionCtrl.text
                                                     .trim(),
                                                 content: content,
+                                                assignee: selectedAssignee.isNotEmpty ? selectedAssignee : null,
                                                 gitTag: selectedGitTag,
                                               );
                                               if (selectedPreset != null) {
@@ -1691,6 +1769,27 @@ class _PatchTabState extends State<PatchTab> {
                   color: colorScheme.onSurface.withValues(alpha: 0.85)),
               maxLines: 2,
               overflow: TextOverflow.ellipsis),
+          // 담당자
+          if (patch.assignee != null && patch.assignee!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Icon(Icons.person_outline,
+                    size: 14,
+                    color: colorScheme.onSurface.withValues(alpha: 0.45)),
+                const SizedBox(width: 4),
+                Text('담당자: ',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.onSurface.withValues(alpha: 0.5))),
+                Text(patch.assignee!,
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurface.withValues(alpha: 0.75))),
+              ],
+            ),
+          ],
           // 진행률
           if (patch.totalItems > 0) ...[
             const SizedBox(height: 8),
@@ -1795,7 +1894,87 @@ class _PatchTabState extends State<PatchTab> {
                     EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
             style: const TextStyle(fontSize: 13),
           ),
+          const SizedBox(height: 8),
+          _buildAssigneeDropdownField(
+            controller: _editAssigneeCtrl,
+            colorScheme: colorScheme,
+            onChanged: (v) => setState(() => _editAssigneeCtrl.text = v),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAssigneeDropdownField({
+    required TextEditingController controller,
+    required ColorScheme colorScheme,
+    required ValueChanged<String> onChanged,
+  }) {
+    final members =
+        context.read<WorkspaceProvider>().currentMembers;
+    return InkWell(
+      onTap: () {
+        final overlay =
+            Overlay.of(context).context.findRenderObject() as RenderBox?;
+        final box = context.findRenderObject() as RenderBox?;
+        if (box == null || overlay == null) return;
+        final pos = box.localToGlobal(Offset.zero, ancestor: overlay);
+        showMenu<String>(
+          context: context,
+          position: RelativeRect.fromLTRB(
+              pos.dx, pos.dy + box.size.height, pos.dx + 200, 0),
+          items: [
+            PopupMenuItem<String>(
+              value: '',
+              height: 36,
+              child: Text('담당자 없음',
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: colorScheme.onSurface.withValues(alpha: 0.5))),
+            ),
+            ...members.map((m) => PopupMenuItem<String>(
+                  value: m.username,
+                  height: 36,
+                  child: Row(children: [
+                    Icon(Icons.person_outline,
+                        size: 14,
+                        color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                    const SizedBox(width: 6),
+                    Text(m.username, style: const TextStyle(fontSize: 13)),
+                  ]),
+                )),
+          ],
+        ).then((val) {
+          if (val == null) return;
+          onChanged(val);
+        });
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: InputDecorator(
+        decoration: const InputDecoration(
+            labelText: '담당자',
+            border: OutlineInputBorder(),
+            isDense: true,
+            contentPadding:
+                EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+        child: Row(children: [
+          Expanded(
+            child: Text(
+              controller.text.trim().isEmpty
+                  ? '담당자 선택'
+                  : controller.text.trim(),
+              style: TextStyle(
+                fontSize: 13,
+                color: controller.text.trim().isEmpty
+                    ? colorScheme.onSurface.withValues(alpha: 0.42)
+                    : colorScheme.onSurface,
+              ),
+            ),
+          ),
+          Icon(Icons.arrow_drop_down,
+              size: 18,
+              color: colorScheme.onSurface.withValues(alpha: 0.5)),
+        ]),
       ),
     );
   }
@@ -2334,13 +2513,25 @@ class _PatchTabState extends State<PatchTab> {
                                     fontWeight: FontWeight.w700)),
                           ),
                         ),
-                        // 상태 컬럼 (신규)
+                        // 상태 컬럼
                         const SizedBox(
                           width: 110,
                           child: Padding(
                             padding: EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 4),
                             child: Text('상태',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700)),
+                          ),
+                        ),
+                        // 담당자 컬럼
+                        const SizedBox(
+                          width: 100,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 4),
+                            child: Text('담당자',
                                 style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700)),
@@ -2454,6 +2645,24 @@ class _PatchTabState extends State<PatchTab> {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 8),
                                   child: _buildStatusChip(row, colorScheme),
+                                ),
+                              ),
+                              // 담당자
+                              SizedBox(
+                                width: 100,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 10),
+                                  child: row.assignee != null &&
+                                          row.assignee!.isNotEmpty
+                                      ? Text(row.assignee!,
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              color: colorScheme.onSurface
+                                                  .withValues(alpha: 0.7)),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis)
+                                      : const SizedBox.shrink(),
                                 ),
                               ),
                               // 내용

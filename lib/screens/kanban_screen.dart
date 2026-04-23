@@ -1196,67 +1196,24 @@ class _KanbanScreenState extends State<KanbanScreen> {
                       ),
                       const SizedBox(height: 20),
                       // 사이트 선택
-                      Text(
-                        '사이트',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      if (availableSites.isNotEmpty)
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            FilterChip(
-                              label: const Text('없음'),
-                              selected: selectedSiteName == null,
-                              onSelected: (_) => setState(() {
-                                selectedSiteName = null;
-                                siteController.clear();
-                              }),
-                              selectedColor: colorScheme.surfaceContainerHighest,
-                              labelStyle: TextStyle(
-                                color: selectedSiteName == null
-                                    ? colorScheme.onSurface
-                                    : colorScheme.onSurface.withValues(alpha: 0.6),
-                                fontWeight: selectedSiteName == null
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                              ),
-                            ),
-                            ...availableSites.map((site) => FilterChip(
-                              label: Text(site.name),
-                              selected: selectedSiteName == site.name,
-                              onSelected: (_) => setState(() {
-                                selectedSiteName = selectedSiteName == site.name ? null : site.name;
-                                siteController.text = selectedSiteName ?? '';
-                              }),
-                              selectedColor: colorScheme.primary.withValues(alpha: 0.2),
-                              labelStyle: TextStyle(
-                                color: selectedSiteName == site.name
-                                    ? colorScheme.primary
-                                    : colorScheme.onSurface.withValues(alpha: 0.8),
-                                fontWeight: selectedSiteName == site.name
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                              ),
-                            )),
-                          ],
-                        ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: siteController,
+                      DropdownButtonFormField<String>(
+                        value: availableSites.any((s) => s.name == selectedSiteName) ? selectedSiteName : null,
                         decoration: InputDecoration(
-                          hintText: availableSites.isNotEmpty ? '직접 입력 (선택)' : '사이트명 입력 (선택)',
-                          isDense: true,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          labelText: '사이트',
+                          prefixIcon: Icon(Icons.dns_outlined, color: colorScheme.onSurface.withValues(alpha: 0.7)),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         ),
-                        onChanged: (v) {
-                          selectedSiteName = v.trim().isEmpty ? null : v.trim();
-                        },
+                        items: [
+                          const DropdownMenuItem<String>(value: null, child: Text('없음')),
+                          ...availableSites.map((site) {
+                            return DropdownMenuItem(value: site.name, child: Text(site.name));
+                          }),
+                        ],
+                        onChanged: (v) => setState(() {
+                          selectedSiteName = v;
+                          siteController.text = v ?? '';
+                        }),
                       ),
                       const SizedBox(height: 24),
                       Row(

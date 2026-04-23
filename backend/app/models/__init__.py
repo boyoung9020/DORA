@@ -13,6 +13,7 @@ from app.models.user_github_token import UserGitHubToken
 from app.models.patch import ProjectPatch
 from app.models.project_site import ProjectSite
 from app.models.ai_summary_cache import AiSummaryCache
+from app.models.meeting_minutes import MeetingMinutes
 
 __all__ = [
     "User", "Project", "Task", "TaskStatus", "TaskPriority",
@@ -26,4 +27,5 @@ __all__ = [
     "ProjectPatch",
     "ProjectSite",
     "AiSummaryCache",
+    "MeetingMinutes",
 ]

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/member_stats.dart';
 import '../../models/task.dart';
+import '../../utils/avatar_color.dart';
 
 class MemberStatDetail extends StatefulWidget {
   final MemberStats member;
@@ -766,15 +767,12 @@ class _MemberStatDetailState extends State<MemberStatDetail> {
           radius: radius,
           backgroundImage: NetworkImage(member.profileImageUrl!));
     }
-    final colors = [
-      Colors.blue.shade400, Colors.purple.shade400,
-      Colors.teal.shade400, Colors.orange.shade400, Colors.pink.shade400,
-    ];
-    final color = colors[member.username.codeUnitAt(0) % colors.length];
+    final color = AvatarColor.getColorForUser(member.username);
+    final initial = AvatarColor.getInitial(member.username);
     return CircleAvatar(
       radius: radius,
       backgroundColor: color.withValues(alpha: 0.2),
-      child: Text(member.username.characters.first,
+      child: Text(initial,
           style: TextStyle(
               fontSize: radius * 0.75,
               fontWeight: FontWeight.w700,

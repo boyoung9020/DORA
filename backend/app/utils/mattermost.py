@@ -4,6 +4,7 @@ import httpx
 
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.notification import NotificationType
 from app.models.user_mattermost_setting import UserMattermostSetting
 
@@ -23,6 +24,7 @@ def send_mattermost_notification(
     title: str,
     message: str,
     username: str = "SYNC",
+    task_id: str = None,
 ) -> None:
     """사용자 Mattermost 설정을 조회해 활성화된 경우 웹훅으로 알림 전송."""
     try:
@@ -34,6 +36,11 @@ def send_mattermost_notification(
 
         icon = _ICON_MAP.get(notification_type, ":bell:")
         text = f"{icon} **{title}**\n{message}"
+
+        # 작업 링크 추가
+        if task_id and settings.FRONTEND_URL:
+            task_url = f"{settings.FRONTEND_URL}/task/{task_id}"
+            text += f"\n:link: [작업 보기]({task_url})"
 
         httpx.post(
             rec.webhook_url,

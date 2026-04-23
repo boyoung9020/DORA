@@ -19,6 +19,31 @@ from app.utils.dependencies import get_current_user
 router = APIRouter()
 
 
+def _is_date_task(t: Task, day_start: datetime, day_end: datetime) -> bool:
+    """주어진 날짜 범위에 해당하는 '오늘 할일' 여부 판정"""
+    if t.status == TaskStatus.DONE:
+        if t.updated_at:
+            ut = t.updated_at if t.updated_at.tzinfo else t.updated_at.replace(tzinfo=timezone.utc)
+            return day_start <= ut <= day_end
+        return False
+    if t.status in (TaskStatus.IN_PROGRESS, TaskStatus.READY, TaskStatus.IN_REVIEW):
+        sd = t.start_date
+        ed = t.end_date
+        if sd and ed:
+            sd = sd if sd.tzinfo else sd.replace(tzinfo=timezone.utc)
+            ed = ed if ed.tzinfo else ed.replace(tzinfo=timezone.utc)
+            return sd <= day_end and ed >= day_start
+        if ed:
+            ed = ed if ed.tzinfo else ed.replace(tzinfo=timezone.utc)
+            return ed >= day_start
+        if sd:
+            sd = sd if sd.tzinfo else sd.replace(tzinfo=timezone.utc)
+            return sd <= day_end
+        if t.status == TaskStatus.IN_PROGRESS:
+            return True
+    return False
+
+
 def _is_workspace_member(db: Session, workspace_id: str, user_id: str) -> bool:
     return db.query(WorkspaceMember).filter(
         WorkspaceMember.workspace_id == workspace_id,
@@ -337,30 +362,6 @@ async def get_workspace_member_stats(
         today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
         today_end = now_utc.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-        def _is_today_task(t: Task) -> bool:
-            if t.status == TaskStatus.DONE:
-                # 오늘 완료된 것만
-                if t.updated_at:
-                    ut = t.updated_at if t.updated_at.tzinfo else t.updated_at.replace(tzinfo=timezone.utc)
-                    return today_start <= ut <= today_end
-                return False
-            if t.status in (TaskStatus.IN_PROGRESS, TaskStatus.READY, TaskStatus.IN_REVIEW):
-                sd = t.start_date
-                ed = t.end_date
-                if sd and ed:
-                    sd = sd if sd.tzinfo else sd.replace(tzinfo=timezone.utc)
-                    ed = ed if ed.tzinfo else ed.replace(tzinfo=timezone.utc)
-                    return sd <= today_end and ed >= today_start
-                if ed:
-                    ed = ed if ed.tzinfo else ed.replace(tzinfo=timezone.utc)
-                    return ed >= today_start
-                if sd:
-                    sd = sd if sd.tzinfo else sd.replace(tzinfo=timezone.utc)
-                    return sd <= today_end
-                if t.status == TaskStatus.IN_PROGRESS:
-                    return True  # 날짜 없는 진행중 작업 포함
-            return False
-
         today_tasks = [
             {
                 "id": t.id,
@@ -371,7 +372,7 @@ async def get_workspace_member_stats(
                 "end_date": t.end_date.isoformat() if t.end_date else None,
                 "start_date": t.start_date.isoformat() if t.start_date else None,
             }
-            for t in member_tasks if _is_today_task(t)
+            for t in member_tasks if _is_date_task(t, today_start, today_end)
         ]
 
         # 소속 프로젝트 (이 멤버가 팀원이거나 생성자인 프로젝트만)
@@ -399,6 +400,65 @@ async def get_workspace_member_stats(
         })
 
     return {"members": result_members}
+
+
+@router.get("/{workspace_id}/yesterday-incomplete")
+async def get_yesterday_incomplete_tasks(
+    workspace_id: str,
+    target_date: str = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """어제(또는 지정 날짜)의 미완료 '오늘 할일' 조회 (현재 유저 대상)"""
+    _get_workspace_or_404(db, workspace_id)
+    if not current_user.is_admin and not _is_workspace_member(db, workspace_id, current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="워크스페이스 멤버가 아닙니다")
+
+    # 대상 날짜 결정 (기본: 어제)
+    from datetime import timedelta
+    now_utc = datetime.now(timezone.utc)
+    if target_date:
+        try:
+            target = datetime.strptime(target_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="target_date 형식은 YYYY-MM-DD여야 합니다")
+    else:
+        target = (now_utc - timedelta(days=1))
+
+    day_start = target.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_end = target.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    # 워크스페이스 프로젝트 + 태스크
+    projects = db.query(Project).filter(Project.workspace_id == workspace_id).all()
+    project_ids = [p.id for p in projects]
+    project_map = {p.id: p for p in projects}
+
+    all_tasks = db.query(Task).filter(
+        Task.project_id.in_(project_ids),
+    ).all() if project_ids else []
+
+    # 현재 유저에게 할당된 태스크만
+    my_tasks = [t for t in all_tasks if current_user.id in (t.assigned_member_ids or [])]
+
+    # 해당 날짜의 "오늘 할일"이었던 것 중 현재 미완료인 것
+    incomplete = [
+        {
+            "id": t.id,
+            "title": t.title,
+            "project_name": project_map[t.project_id].name if t.project_id in project_map else "",
+            "priority": t.priority.value if t.priority else "p2",
+            "status": t.status.value,
+            "end_date": t.end_date.isoformat() if t.end_date else None,
+            "start_date": t.start_date.isoformat() if t.start_date else None,
+        }
+        for t in my_tasks
+        if _is_date_task(t, day_start, day_end) and t.status != TaskStatus.DONE
+    ]
+
+    return {
+        "target_date": target.strftime("%Y-%m-%d"),
+        "incomplete_tasks": incomplete,
+    }
 
 
 @router.delete("/{workspace_id}/leave")

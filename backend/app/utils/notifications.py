@@ -50,6 +50,7 @@ def create_notification(
             notification_type=notification_type,
             title=title,
             message=message,
+            task_id=task_id,
         )
     except Exception as e:
         print(f"[Mattermost] 알림 전송 오류: {e}")

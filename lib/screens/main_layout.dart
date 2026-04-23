@@ -42,7 +42,13 @@ import 'chat_screen.dart';
 import 'search_screen.dart';
 import 'project_info_screen.dart';
 import 'site_screen.dart';
+import 'meeting_minutes_screen.dart';
 import 'workspace_member_stats_screen.dart';
+import '../services/workspace_service.dart';
+import '../widgets/dashboard/yesterday_review_dialog.dart';
+import '../main.dart' show PendingTaskOpen;
+import '../services/task_service.dart';
+import 'task_detail_screen.dart';
 
 /// 메인 레이아웃 - Slack 스타일 (왼쪽 사이드바 + 오른쪽 컨텐츠)
 class MainLayout extends StatefulWidget {
@@ -128,10 +134,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       index: 7,
     ),
     MenuItem(
+      icon: Icons.edit_note_outlined,
+      selectedIcon: Icons.edit_note,
+      label: '회의록',
+      index: 8,
+    ),
+    MenuItem(
       icon: Icons.groups_outlined,
       selectedIcon: Icons.groups,
       label: '팀 현황',
-      index: 8,
+      index: 9,
     ),
   ];
 
@@ -146,6 +158,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       _updateProjectProviderUserInfo();
       _initializeNotificationService(); // 알림 서비스 초기화
       _connectWebSocket(); // WebSocket 연결
+      _checkYesterdayIncomplete(); // 어제 미완료 작업 리뷰
+      _handlePendingTaskOpen(); // URL 딥링크로 작업 열기
     });
   }
 
@@ -447,6 +461,73 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     };
 
     await _webSocketService!.connect();
+  }
+
+  /// 어제 미완료 작업 리뷰 체크
+  Future<void> _checkYesterdayIncomplete() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final now = DateTime.now();
+      final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final lastReview = prefs.getString('last_task_review_date');
+      if (lastReview == todayStr) return;
+
+      final wsProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+      final wsId = wsProvider.currentWorkspace?.id;
+      if (wsId == null) return;
+
+      final yesterday = now.subtract(const Duration(days: 1));
+      final yesterdayStr = '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}';
+
+      final tasks = await WorkspaceService().getYesterdayIncompleteTasks(
+        wsId,
+        targetDate: yesterdayStr,
+      );
+
+      if (tasks.isEmpty) {
+        await prefs.setString('last_task_review_date', todayStr);
+        return;
+      }
+
+      if (!mounted) return;
+
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        barrierColor: Colors.black.withValues(alpha: 0.5),
+        builder: (_) => YesterdayReviewDialog(
+          tasks: tasks,
+          targetDate: yesterdayStr,
+        ),
+      );
+
+      await prefs.setString('last_task_review_date', todayStr);
+    } catch (_) {
+      // API 실패 시 조용히 skip — last_task_review_date 미저장 → 다음에 재시도
+    }
+  }
+
+  /// URL 딥링크로 작업 열기 (/task/{id})
+  Future<void> _handlePendingTaskOpen() async {
+    final taskId = PendingTaskOpen.taskId;
+    if (taskId == null) return;
+    PendingTaskOpen.taskId = null; // 중복 실행 방지
+
+    try {
+      final task = await TaskService().getTaskById(taskId);
+      if (task == null || !mounted) return;
+
+      showGeneralDialog(
+        context: context,
+        transitionDuration: Duration.zero,
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            TaskDetailScreen(task: task),
+        transitionBuilder: (context, animation, secondaryAnimation, child) =>
+            child,
+      );
+    } catch (_) {
+      // 작업을 찾을 수 없는 경우 무시
+    }
   }
 
   /// 알림 서비스 초기화 및 알림 로드
@@ -908,10 +989,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         index: 7,
       ),
       MenuItem(
+        icon: Icons.edit_note_outlined,
+        selectedIcon: Icons.edit_note,
+        label: '회의록',
+        index: 8,
+      ),
+      MenuItem(
         icon: Icons.groups_outlined,
         selectedIcon: Icons.groups,
         label: '팀 현황',
-        index: 8,
+        index: 9,
       ),
     ];
 
@@ -2774,7 +2861,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   bool get _isProjectBarHidden {
     if (!_isMenuStateReady) return false;
     if (_selectedIndex >= 0 && _selectedIndex < _menuItems.length) {
-      const hideLabels = {'사이트', '채팅', '알림', '팀 현황'};
+      const hideLabels = {'사이트', '채팅', '알림', '회의록', '팀 현황'};
       return hideLabels.contains(_menuItems[_selectedIndex].label);
     }
     return false;
@@ -2815,6 +2902,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         return const ProjectInfoScreen();
       case '사이트':
         return const SiteScreen();
+      case '회의록':
+        return const MeetingMinutesScreen();
       case '팀 현황':
         return const WorkspaceMemberStatsScreen();
       default:
