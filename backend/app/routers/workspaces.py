@@ -19,28 +19,55 @@ from app.utils.dependencies import get_current_user
 router = APIRouter()
 
 
+def _scheduled_for_day(t: Task, day_start: datetime, day_end: datetime) -> bool:
+    """태스크의 start/end_date 기준 해당 날짜에 '잡혀 있던' 태스크인지 판정 (상태 무시).
+
+    - start+end 둘 다: [start, end] 범위가 day 와 겹치면 True
+    - end 만: end 가 해당 날짜인 경우에만 True (미래 마감 제외)
+    - start 만: start 가 해당 날짜인 경우에만 True (과거 시작 제외)
+    - 둘 다 없음: False (호출부에서 상태별로 처리)
+    """
+    sd = t.start_date
+    ed = t.end_date
+    if sd is not None:
+        sd = sd if sd.tzinfo else sd.replace(tzinfo=timezone.utc)
+    if ed is not None:
+        ed = ed if ed.tzinfo else ed.replace(tzinfo=timezone.utc)
+    if sd and ed:
+        return sd <= day_end and ed >= day_start
+    if ed:
+        return day_start <= ed <= day_end
+    if sd:
+        return day_start <= sd <= day_end
+    return False
+
+
 def _is_date_task(t: Task, day_start: datetime, day_end: datetime) -> bool:
-    """주어진 날짜 범위에 해당하는 '오늘 할일' 여부 판정"""
+    """'오늘 할일' 여부 판정 (Option A 엄격 규칙).
+
+    열린 태스크 (IN_PROGRESS/READY/IN_REVIEW):
+      - 날짜가 있으면 _scheduled_for_day 규칙 만족 시 True
+      - 날짜가 없으면서 IN_PROGRESS 인 상시 태스크만 True
+
+    완료 태스크 (DONE):
+      - updated_at 이 해당 날짜이고,
+      - 그리고 '원래 해당 날짜의 할일' 이었어야 함
+        (= _scheduled_for_day 만족, 또는 날짜가 없는 태스크)
+    """
     if t.status == TaskStatus.DONE:
-        if t.updated_at:
-            ut = t.updated_at if t.updated_at.tzinfo else t.updated_at.replace(tzinfo=timezone.utc)
-            return day_start <= ut <= day_end
-        return False
-    if t.status in (TaskStatus.IN_PROGRESS, TaskStatus.READY, TaskStatus.IN_REVIEW):
-        sd = t.start_date
-        ed = t.end_date
-        if sd and ed:
-            sd = sd if sd.tzinfo else sd.replace(tzinfo=timezone.utc)
-            ed = ed if ed.tzinfo else ed.replace(tzinfo=timezone.utc)
-            return sd <= day_end and ed >= day_start
-        if ed:
-            ed = ed if ed.tzinfo else ed.replace(tzinfo=timezone.utc)
-            return ed >= day_start
-        if sd:
-            sd = sd if sd.tzinfo else sd.replace(tzinfo=timezone.utc)
-            return sd <= day_end
-        if t.status == TaskStatus.IN_PROGRESS:
+        if not t.updated_at:
+            return False
+        ut = t.updated_at if t.updated_at.tzinfo else t.updated_at.replace(tzinfo=timezone.utc)
+        if not (day_start <= ut <= day_end):
+            return False
+        if t.start_date is None and t.end_date is None:
             return True
+        return _scheduled_for_day(t, day_start, day_end)
+
+    if t.status in (TaskStatus.IN_PROGRESS, TaskStatus.READY, TaskStatus.IN_REVIEW):
+        if t.start_date is not None or t.end_date is not None:
+            return _scheduled_for_day(t, day_start, day_end)
+        return t.status == TaskStatus.IN_PROGRESS
     return False
 
 

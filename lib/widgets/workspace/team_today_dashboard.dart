@@ -637,9 +637,11 @@ class _TeamTodayDashboardState extends State<TeamTodayDashboard> {
   Widget _buildMemberCard(BuildContext context, MemberStats member) {
     final colorScheme = Theme.of(context).colorScheme;
     final todayTasks = member.todayTasks;
+    final openTasks = todayTasks.where((t) => !t.isDone).toList();
+    final doneTasks = todayTasks.where((t) => t.isDone).toList();
     final totalCount = todayTasks.length;
-    final doneCount = todayTasks.where((t) => t.isDone).length;
-    final overdueCount = todayTasks.where((t) => t.isOverdue).length;
+    final doneCount = doneTasks.length;
+    final overdueCount = openTasks.where((t) => t.isOverdue).length;
     final progress = totalCount > 0 ? doneCount / totalCount : 0.0;
 
     // 카드 좌측 액센트 색상
@@ -685,19 +687,90 @@ class _TeamTodayDashboardState extends State<TeamTodayDashboard> {
                   height: 1,
                   color: colorScheme.outlineVariant.withValues(alpha: 0.2),
                 ),
-                // 오늘 일정 목록
+                // 오늘 일정 목록 (열린 태스크 + 오늘 완료 태스크 분리)
                 Expanded(
                   child: todayTasks.isEmpty
                       ? _buildCardEmptyBody(context)
-                      : ListView.builder(
-                          padding:
-                              const EdgeInsets.fromLTRB(12, 6, 10, 8),
-                          itemCount: todayTasks.length,
-                          itemBuilder: (context, i) =>
-                              _buildTaskItem(context, todayTasks[i]),
-                        ),
+                      : _buildCardBody(context, openTasks, doneTasks),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardBody(
+    BuildContext context,
+    List<MemberTodayTask> openTasks,
+    List<MemberTodayTask> doneTasks,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 6, 10, 8),
+      children: [
+        if (openTasks.isNotEmpty) ...[
+          _buildSectionHeader(
+            context,
+            label: '오늘 할일',
+            count: openTasks.length,
+            color: colorScheme.primary,
+          ),
+          ...openTasks.map((t) => _buildTaskItem(context, t)),
+        ],
+        if (openTasks.isEmpty && doneTasks.isNotEmpty)
+          // 오늘 열린 태스크가 하나도 없고 완료만 있는 경우에도 빈 상태는 보여주지 않고
+          // 바로 완료 섹션을 보여줌 (상단에 공백만)
+          const SizedBox(height: 2),
+        if (doneTasks.isNotEmpty) ...[
+          if (openTasks.isNotEmpty) const SizedBox(height: 6),
+          _buildSectionHeader(
+            context,
+            label: '오늘 완료',
+            count: doneTasks.length,
+            color: const Color(0xFF4CAF50),
+          ),
+          ...doneTasks.map((t) => _buildTaskItem(context, t)),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(
+    BuildContext context, {
+    required String label,
+    required int count,
+    required Color color,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(left: 2, right: 2, top: 2, bottom: 4),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurface.withValues(alpha: 0.55),
+              letterSpacing: 0.2,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
             ),
           ),
         ],
