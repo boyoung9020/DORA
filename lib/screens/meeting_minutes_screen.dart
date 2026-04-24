@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:provider/provider.dart';
 import '../models/meeting_minutes.dart';
 import '../models/task.dart';
@@ -1846,71 +1846,110 @@ class _HoverableLineWidgetState extends State<_HoverableLineWidget> {
             ),
           );
 
+    final markdown = MarkdownBody(
+      data: widget.line,
+      styleSheet: MarkdownStyleSheet(
+        p: TextStyle(
+          fontSize: 14,
+          height: 1.6,
+          color: widget.isDark ? Colors.white : Colors.black87,
+          fontFamily: 'NanumSquareRound',
+        ),
+        h1: TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.w800,
+          color: widget.isDark ? Colors.white : Colors.black87,
+          fontFamily: 'NanumSquareRound',
+        ),
+        h2: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: widget.isDark ? Colors.white : Colors.black87,
+          fontFamily: 'NanumSquareRound',
+        ),
+        h3: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          color: widget.isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
+          fontFamily: 'NanumSquareRound',
+        ),
+        listBullet: TextStyle(
+          fontSize: 14,
+          color: widget.isDark ? Colors.white70 : Colors.black54,
+          fontFamily: 'NanumSquareRound',
+        ),
+        blockquoteDecoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(
+              color: primary.withValues(alpha: 0.5),
+              width: 3,
+            ),
+          ),
+        ),
+      ),
+      selectable: true,
+    );
+
+    // MarkdownBody 는 자체적으로 가로를 꽉 채우려 해서, TextPainter 로 실제 텍스트
+    // 너비를 측정한 뒤 SizedBox 로 감싸 "텍스트 크기만큼만" 렌더링되도록 제한.
+    // 헤더/볼드 등으로 인한 측정 오차는 몇 픽셀 수준이라 실용상 수용 가능.
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovering = true),
       onExit: (_) => setState(() => _isHovering = false),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-        decoration: BoxDecoration(
-          color: _isHovering
-              ? (widget.isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.02))
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Flexible(
-              fit: FlexFit.loose,
-              child: IntrinsicWidth(
-                child: MarkdownBody(
-                  data: widget.line,
-                  styleSheet: MarkdownStyleSheet(
-                    p: TextStyle(
-                      fontSize: 14,
-                      height: 1.6,
-                      color: widget.isDark ? Colors.white : Colors.black87,
-                      fontFamily: 'NanumSquareRound',
-                    ),
-                    h1: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: widget.isDark ? Colors.white : Colors.black87,
-                      fontFamily: 'NanumSquareRound',
-                    ),
-                    h2: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: widget.isDark ? Colors.white : Colors.black87,
-                      fontFamily: 'NanumSquareRound',
-                    ),
-                    h3: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: widget.isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
-                      fontFamily: 'NanumSquareRound',
-                    ),
-                    listBullet: TextStyle(
-                      fontSize: 14,
-                      color: widget.isDark ? Colors.white70 : Colors.black54,
-                      fontFamily: 'NanumSquareRound',
-                    ),
-                    blockquoteDecoration: BoxDecoration(
-                      border: Border(
-                        left: BorderSide(
-                          color: primary.withValues(alpha: 0.5),
-                          width: 3,
-                        ),
-                      ),
-                    ),
-                  ),
-                  selectable: true,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: LayoutBuilder(
+          builder: (ctx, constraints) {
+            const iconReserved = 32.0; // 아이콘 + 좌우 padding
+            const hGap = 6.0;
+            const hPad = 8.0; // Container padding (horizontal 4 × 2)
+            final maxTextWidth =
+                (constraints.maxWidth - iconReserved - hGap - hPad).clamp(40.0, double.infinity);
+
+            // 마크다운 접두사 제거 후 측정 — 헤더/불릿 기호는 렌더 시 MarkdownBody 가 별도 처리
+            final measureText = widget.line
+                .replaceFirst(RegExp(r'^\s*#+\s+'), '')
+                .replaceFirst(RegExp(r'^\s*[-*+]\s+'), '• ')
+                .replaceFirst(RegExp(r'^\s*\d+\.\s+'), '1. ')
+                .replaceFirst(RegExp(r'^\s*>\s+'), '');
+            final isHeading = RegExp(r'^\s*#+\s+').hasMatch(widget.line);
+            final measureStyle = TextStyle(
+              fontFamily: 'NanumSquareRound',
+              fontSize: isHeading ? 20.0 : 14.0,
+              fontWeight: isHeading ? FontWeight.w700 : FontWeight.w400,
+              height: 1.6,
+            );
+            final tp = TextPainter(
+              text: TextSpan(text: measureText, style: measureStyle),
+              textDirection: TextDirection.ltr,
+              maxLines: null,
+            )..layout(maxWidth: maxTextWidth);
+            final markdownWidth = (tp.size.width + 8.0).clamp(20.0, maxTextWidth);
+
+            return Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                decoration: BoxDecoration(
+                  color: _isHovering
+                      ? (widget.isDark
+                          ? Colors.white.withValues(alpha: 0.04)
+                          : Colors.black.withValues(alpha: 0.02))
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(width: markdownWidth, child: markdown),
+                    const SizedBox(width: hGap),
+                    marker,
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(width: 6),
-            marker,
-          ],
+            );
+          },
         ),
       ),
     );
