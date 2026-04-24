@@ -816,6 +816,35 @@ def ensure_tasks_observer_ids_column() -> None:
 ensure_tasks_observer_ids_column()
 
 
+def ensure_tasks_source_meeting_minutes_columns() -> None:
+    """Add tasks.source_meeting_minutes_id / source_line_id columns + index if missing."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("""
+                ALTER TABLE tasks
+                ADD COLUMN IF NOT EXISTS source_meeting_minutes_id VARCHAR;
+            """))
+            conn.execute(text("""
+                ALTER TABLE tasks
+                ADD COLUMN IF NOT EXISTS source_line_id VARCHAR;
+            """))
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS ix_tasks_source_meeting_minutes_id
+                ON tasks(source_meeting_minutes_id);
+            """))
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS ix_tasks_source_line_id
+                ON tasks(source_line_id);
+            """))
+            conn.commit()
+            print("[main] ensured tasks.source_meeting_minutes_id / source_line_id columns + indexes")
+    except Exception as e:
+        print(f"[main] failed to ensure tasks source meeting minutes columns: {e}")
+
+
+ensure_tasks_source_meeting_minutes_columns()
+
+
 def seed_mbc_site_details_if_empty() -> None:
     """이름이 MBC인 site_details에 servers/databases/services 중 비어 있는 항목만 기본 인프라로 채웁니다."""
     try:

@@ -133,6 +133,45 @@ class TaskProvider extends ChangeNotifier {
     String? sprintId,
     String? parentTaskId,
     List<String> siteTags = const [],
+    String? sourceMeetingMinutesId,
+    String? sourceLineId,
+  }) async {
+    final task = await createTaskReturning(
+      title: title,
+      description: description,
+      status: status,
+      projectId: projectId,
+      startDate: startDate,
+      endDate: endDate,
+      detail: detail,
+      priority: priority,
+      assignedMemberIds: assignedMemberIds,
+      sprintId: sprintId,
+      parentTaskId: parentTaskId,
+      siteTags: siteTags,
+      sourceMeetingMinutesId: sourceMeetingMinutesId,
+      sourceLineId: sourceLineId,
+    );
+    return task != null;
+  }
+
+  /// 새 태스크 생성 후 생성된 Task 객체 반환 (실패 시 null).
+  /// 회의록 줄에서 작업 생성 등 생성된 태스크 객체가 필요한 호출부에서 사용.
+  Future<Task?> createTaskReturning({
+    required String title,
+    String description = '',
+    TaskStatus status = TaskStatus.backlog,
+    required String projectId,
+    DateTime? startDate,
+    DateTime? endDate,
+    String detail = '',
+    TaskPriority priority = TaskPriority.p2,
+    List<String>? assignedMemberIds,
+    String? sprintId,
+    String? parentTaskId,
+    List<String> siteTags = const [],
+    String? sourceMeetingMinutesId,
+    String? sourceLineId,
   }) async {
     try {
       final task = await _taskService.createTask(
@@ -148,15 +187,17 @@ class TaskProvider extends ChangeNotifier {
         sprintId: sprintId,
         parentTaskId: parentTaskId,
         siteTags: siteTags,
+        sourceMeetingMinutesId: sourceMeetingMinutesId,
+        sourceLineId: sourceLineId,
       );
       _tasks.add(task);
       _allTasks.add(task);
       notifyListeners();
-      return true;
+      return task;
     } catch (e) {
       _errorMessage = '태스크 생성 중 오류가 발생했습니다: $e';
       notifyListeners();
-      return false;
+      return null;
     }
   }
 

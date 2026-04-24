@@ -14,6 +14,7 @@ class TaskService {
   Future<List<Task>> getAllTasks({
     String? projectId,
     TaskStatus? status,
+    String? sourceMeetingMinutesId,
   }) async {
     try {
       final queryParams = <String, String>{};
@@ -22,6 +23,9 @@ class TaskService {
       }
       if (status != null) {
         queryParams['status'] = status.name;
+      }
+      if (sourceMeetingMinutesId != null) {
+        queryParams['source_meeting_minutes_id'] = sourceMeetingMinutesId;
       }
 
       final response = await ApiClient.get(
@@ -53,6 +57,8 @@ class TaskService {
     String? sprintId,
     String? parentTaskId,
     List<String> siteTags = const [],
+    String? sourceMeetingMinutesId,
+    String? sourceLineId,
   }) async {
     try {
       final response = await ApiClient.post(
@@ -71,6 +77,8 @@ class TaskService {
           'sprint_id': sprintId,
           'parent_task_id': parentTaskId,
           'site_tags': siteTags,
+          'source_meeting_minutes_id': sourceMeetingMinutesId,
+          'source_line_id': sourceLineId,
         },
       );
 

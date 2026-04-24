@@ -160,6 +160,8 @@ class Task {
   final int? displayId; // 순차 ID (SERIAL)
   final String? creatorId; // 태스크 생성자 ID
   final String? parentTaskId; // 부모 태스크 ID (계층 구조)
+  final String? sourceMeetingMinutesId; // 이 태스크가 생성된 회의록 ID (없으면 null)
+  final String? sourceLineId; // 회의록 본문에 내장된 줄 UUID (없으면 null)
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -187,6 +189,8 @@ class Task {
     this.displayId,
     this.creatorId,
     this.parentTaskId,
+    this.sourceMeetingMinutesId,
+    this.sourceLineId,
     required this.createdAt,
     required this.updatedAt,
   }) : detailImageUrls = detailImageUrls ?? [],
@@ -225,6 +229,8 @@ class Task {
       'display_order': displayOrder,
       'creator_id': creatorId,
       'parent_task_id': parentTaskId,
+      'source_meeting_minutes_id': sourceMeetingMinutesId,
+      'source_line_id': sourceLineId,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -398,6 +404,8 @@ class Task {
       displayId: json['display_id'] as int?,
       creatorId: json['creator_id'] as String?,
       parentTaskId: json['parent_task_id'] as String?,
+      sourceMeetingMinutesId: json['source_meeting_minutes_id'] as String?,
+      sourceLineId: json['source_line_id'] as String?,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -428,6 +436,8 @@ class Task {
     int? displayId,
     String? creatorId,
     String? parentTaskId,
+    Object? sourceMeetingMinutesId = _sentinel,
+    Object? sourceLineId = _sentinel,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -455,6 +465,12 @@ class Task {
       displayId: displayId ?? this.displayId,
       creatorId: creatorId ?? this.creatorId,
       parentTaskId: parentTaskId ?? this.parentTaskId,
+      sourceMeetingMinutesId: sourceMeetingMinutesId == _sentinel
+          ? this.sourceMeetingMinutesId
+          : sourceMeetingMinutesId as String?,
+      sourceLineId: sourceLineId == _sentinel
+          ? this.sourceLineId
+          : sourceLineId as String?,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

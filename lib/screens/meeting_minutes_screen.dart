@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:intl/intl.dart';
@@ -11,10 +12,40 @@ import '../providers/project_provider.dart';
 import '../providers/task_provider.dart';
 import '../providers/workspace_provider.dart';
 import '../services/meeting_minutes_service.dart';
+import '../services/task_service.dart';
 import '../services/site_detail_service.dart';
 import '../services/project_site_service.dart';
 import '../widgets/date_range_picker_dialog.dart';
 import '../widgets/glass_container.dart';
+import 'task_detail_screen.dart';
+
+// ─── 회의록 줄 ↔ 태스크 링크 마커 ────────────────────────────────
+// 회의록 본문의 각 줄 끝에 ` <!--mm:UUID-->` 형태로 삽입되어,
+// 해당 줄에서 생성된 태스크와 영구적으로 연결된다. 회의록 편집/이동에도
+// 마커가 줄과 함께 이동하므로 위치 변화에 강인하다.
+final RegExp _mmLineMarkerRegex = RegExp(r'<!--mm:([0-9a-fA-F-]{36})-->');
+
+/// 줄 텍스트에서 마커 UUID 를 뽑아 (stripped, lineId) 로 반환. 마커 없으면 lineId=null.
+({String stripped, String? lineId}) _parseLineMarker(String line) {
+  final match = _mmLineMarkerRegex.firstMatch(line);
+  if (match == null) return (stripped: line, lineId: null);
+  final stripped = line.replaceAll(_mmLineMarkerRegex, '').trimRight();
+  return (stripped: stripped, lineId: match.group(1));
+}
+
+/// UUID v4 생성 (uuid 패키지 미사용).
+String _generateUuidV4() {
+  final rng = Random.secure();
+  final b = List<int>.generate(16, (_) => rng.nextInt(256));
+  b[6] = (b[6] & 0x0f) | 0x40; // version 4
+  b[8] = (b[8] & 0x3f) | 0x80; // variant
+  String h(int v) => v.toRadixString(16).padLeft(2, '0');
+  return '${h(b[0])}${h(b[1])}${h(b[2])}${h(b[3])}-'
+      '${h(b[4])}${h(b[5])}-'
+      '${h(b[6])}${h(b[7])}-'
+      '${h(b[8])}${h(b[9])}-'
+      '${h(b[10])}${h(b[11])}${h(b[12])}${h(b[13])}${h(b[14])}${h(b[15])}';
+}
 
 // ─── 카테고리 트리 노드 ───────────────────────────────────────────
 class _CategoryNode {
@@ -76,6 +107,7 @@ class MeetingMinutesScreen extends StatefulWidget {
 
 class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
   final MeetingMinutesService _service = MeetingMinutesService();
+  final TaskService _taskService = TaskService();
 
   bool _isLoading = false;
   List<MeetingMinutes> _allMinutesList = []; // 전체 (필터 전)
@@ -84,6 +116,9 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
   MeetingMinutes? _selectedMinutes;
   _CategoryNode _categoryTree = _CategoryNode('', '');
   final Set<String> _expandedPaths = {}; // 펼쳐진 폴더 경로
+
+  // 선택된 회의록에 연결된 태스크 맵 (line UUID → Task)
+  Map<String, Task> _lineTaskMap = {};
 
   // 편집 모드
   bool _isEditing = false;
@@ -133,6 +168,25 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// 선택된 회의록에서 생성된 태스크 목록을 조회해 `lineId → Task` 맵 구축.
+  Future<void> _loadLinkedTasks(String minutesId) async {
+    setState(() => _lineTaskMap = {});
+    try {
+      final tasks = await _taskService.getAllTasks(sourceMeetingMinutesId: minutesId);
+      if (!mounted) return;
+      final map = <String, Task>{};
+      for (final t in tasks) {
+        final lid = t.sourceLineId;
+        if (lid != null && lid.isNotEmpty) {
+          map[lid] = t;
+        }
+      }
+      setState(() => _lineTaskMap = map);
+    } catch (_) {
+      // 태스크 맵 로드 실패는 조용히 무시 (체크 마커만 표시 안 됨)
     }
   }
 
@@ -213,6 +267,7 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
           _isEditing = false;
           _isCreating = false;
         });
+        _loadLinkedTasks(created.id);
       } else if (_selectedMinutes != null) {
         final updated = await _service.update(
           _selectedMinutes!.id,
@@ -226,6 +281,7 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
           _selectedMinutes = updated;
           _isEditing = false;
         });
+        _loadLinkedTasks(updated.id);
       }
       _loadData();
     } catch (e) {
@@ -269,8 +325,28 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
     }
   }
 
-  /// 특정 줄의 텍스트로 작업(Task) 생성 다이얼로그 (칸반 보드 스타일)
-  Future<void> _createTaskFromLine(String lineText) async {
+  /// 이미 연결된 태스크를 다이얼로그로 열기.
+  void _openLinkedTask(Task task) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.2),
+      builder: (_) => TaskDetailScreen(task: task),
+    );
+  }
+
+  /// 회의록 특정 줄(줄 번호 기준) 에서 작업을 생성한다.
+  /// 성공 시 해당 줄 끝에 `<!--mm:UUID-->` 마커를 삽입하고 회의록 본문을 갱신한다.
+  Future<void> _createTaskFromLine(int lineIndex) async {
+    final minutes = _selectedMinutes;
+    if (minutes == null) return;
+
+    final rawLines = minutes.content.split('\n');
+    if (lineIndex < 0 || lineIndex >= rawLines.length) return;
+    final rawLine = rawLines[lineIndex];
+    final parsed = _parseLineMarker(rawLine);
+    final existingLineId = parsed.lineId;
+    final lineText = parsed.stripped;
+
     final projectProvider = context.read<ProjectProvider>();
     final projects = projectProvider.projects;
     if (projects.isEmpty) {
@@ -584,7 +660,9 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
                                   if (currentUserId == null) return;
 
                                   final taskProvider = context.read<TaskProvider>();
-                                  final ok = await taskProvider.createTask(
+                                  // 회의록 줄 UUID: 기존 마커가 있으면 재사용, 없으면 새로 발급
+                                  final lineId = existingLineId ?? _generateUuidV4();
+                                  final createdTask = await taskProvider.createTaskReturning(
                                     title: titleController.text.trim(),
                                     description: '',
                                     status: selectedStatus,
@@ -594,8 +672,10 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
                                     priority: selectedPriority,
                                     assignedMemberIds: [currentUserId],
                                     siteTags: selectedSiteName != null ? [selectedSiteName!] : [],
+                                    sourceMeetingMinutesId: minutes.id,
+                                    sourceLineId: lineId,
                                   );
-                                  if (!ok && context.mounted) {
+                                  if (createdTask == null && context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(taskProvider.errorMessage ?? '태스크 생성에 실패했습니다.'),
@@ -603,7 +683,7 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
                                       ),
                                     );
                                   }
-                                  if (ok) {
+                                  if (createdTask != null) {
                                     taskProvider.loadTasks(projectId: selectedProjectId!);
                                     if (selectedSiteName != null) {
                                       try {
@@ -612,6 +692,36 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
                                           name: selectedSiteName!,
                                         );
                                       } catch (_) {}
+                                    }
+                                    // 회의록 본문에 줄 마커 삽입 (기존 마커 있으면 스킵)
+                                    if (existingLineId == null) {
+                                      try {
+                                        final lines = minutes.content.split('\n');
+                                        if (lineIndex < lines.length) {
+                                          final stripped = _parseLineMarker(lines[lineIndex]).stripped.trimRight();
+                                          lines[lineIndex] = '$stripped <!--mm:$lineId-->';
+                                          final newContent = lines.join('\n');
+                                          final updated = await _service.update(
+                                            minutes.id,
+                                            content: newContent,
+                                          );
+                                          if (mounted) {
+                                            setState(() => _selectedMinutes = updated);
+                                          }
+                                        }
+                                      } catch (e) {
+                                        // 마커 삽입 실패해도 태스크 자체는 생성됨 — 다음 로드 시 재시도 가능
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text('줄 마커 저장 실패(태스크는 생성됨): $e')),
+                                          );
+                                        }
+                                      }
+                                    }
+                                    if (mounted) {
+                                      setState(() {
+                                        _lineTaskMap = {..._lineTaskMap, lineId: createdTask};
+                                      });
                                     }
                                     if (context.mounted) {
                                       ScaffoldMessenger.of(context).showSnackBar(
@@ -1007,6 +1117,14 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
         .whereType<WorkspaceMember>()
         .toList();
 
+    final creatorMatch = members.where((m) => m.userId == minutes.creatorId);
+    final creatorName = creatorMatch.isNotEmpty ? creatorMatch.first.username : '';
+    final creatorText = '작성자 - ${creatorName.isEmpty ? '-' : creatorName}';
+
+    final attendeeText = attendees.isEmpty
+        ? '참여자 - -'
+        : '참여자 - ${attendees.map((m) => m.username).join(', ')}';
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1016,6 +1134,7 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
             _isEditing = false;
             _isCreating = false;
           });
+          _loadLinkedTasks(minutes.id);
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1066,88 +1185,36 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
                   ),
                 ],
               ),
-              if (attendees.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.only(left: 24),
-                  child: _buildAttendeeSummary(attendees, isDark),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.only(left: 24),
+                child: Text(
+                  creatorText,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? Colors.white38 : Colors.black45,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
+              ),
+              const SizedBox(height: 2),
+              Padding(
+                padding: const EdgeInsets.only(left: 24),
+                child: Text(
+                  attendeeText,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? Colors.white38 : Colors.black45,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  /// 리스트 아이템용 참석자 요약 (아바타 겹침 + 이름)
-  Widget _buildAttendeeSummary(List<WorkspaceMember> attendees, bool isDark) {
-    const maxAvatars = 3;
-    final visible = attendees.take(maxAvatars).toList();
-    final extra = attendees.length - visible.length;
-    final avatarSize = 16.0;
-    final overlap = 6.0;
-    final stackWidth = visible.isEmpty
-        ? 0.0
-        : avatarSize + (visible.length - 1) * (avatarSize - overlap);
-    final bgColor = isDark ? const Color(0xFF1E1E2E) : const Color(0xFFF8F9FA);
-
-    final names = extra > 0
-        ? visible.map((m) => m.username).join(', ')
-        : attendees.map((m) => m.username).join(', ');
-
-    return Row(
-      children: [
-        SizedBox(
-          width: stackWidth,
-          height: avatarSize,
-          child: Stack(
-            children: [
-              for (int i = 0; i < visible.length; i++)
-                Positioned(
-                  left: i * (avatarSize - overlap),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: bgColor, width: 1.5),
-                    ),
-                    child: CircleAvatar(
-                      radius: avatarSize / 2 - 1,
-                      backgroundColor: isDark ? Colors.white12 : Colors.black12,
-                      backgroundImage: visible[i].profileImageUrl != null
-                          ? NetworkImage(visible[i].profileImageUrl!)
-                          : null,
-                      child: visible[i].profileImageUrl == null
-                          ? Text(
-                              visible[i].username.isNotEmpty
-                                  ? visible[i].username[0]
-                                  : '?',
-                              style: TextStyle(
-                                fontSize: 8,
-                                fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.white70 : Colors.black54,
-                              ),
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            extra > 0 ? '$names 외 $extra명' : names,
-            style: TextStyle(
-              fontSize: 11,
-              color: isDark ? Colors.white38 : Colors.black45,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
     );
   }
 
@@ -1573,6 +1640,8 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
     final minutes = _selectedMinutes!;
     final members = wsProvider.currentMembers;
     final dateStr = DateFormat('yyyy년 MM월 dd일').format(minutes.meetingDate);
+    final creatorMatch = members.where((m) => m.userId == minutes.creatorId);
+    final creatorName = creatorMatch.isNotEmpty ? creatorMatch.first.username : '';
     final attendeeNames = minutes.attendeeIds
         .map((id) {
           final m = members.where((m) => m.userId == id);
@@ -1638,6 +1707,19 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
                     const SizedBox(width: 4),
                     _buildCategoryBreadcrumb(minutes.category, isDark),
                   ],
+                  if (creatorName.isNotEmpty) ...[
+                    const SizedBox(width: 16),
+                    Icon(Icons.edit_outlined, size: 14,
+                        color: isDark ? Colors.white38 : Colors.black38),
+                    const SizedBox(width: 4),
+                    Text(
+                      creatorName,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? Colors.white54 : Colors.black54,
+                      ),
+                    ),
+                  ],
                   if (attendeeNames.isNotEmpty) ...[
                     const SizedBox(width: 16),
                     Icon(Icons.people_outline, size: 14,
@@ -1672,14 +1754,22 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                   itemCount: lines.length,
                   itemBuilder: (ctx, i) {
-                    final line = lines[i];
-                    if (line.trim().isEmpty) {
+                    final rawLine = lines[i];
+                    if (rawLine.trim().isEmpty) {
                       return const SizedBox(height: 8);
                     }
+                    final parsed = _parseLineMarker(rawLine);
+                    final linkedTask = parsed.lineId != null
+                        ? _lineTaskMap[parsed.lineId!]
+                        : null;
                     return _HoverableLineWidget(
-                      line: line,
+                      line: parsed.stripped,
                       isDark: isDark,
-                      onCreateTask: () => _createTaskFromLine(line.trim()),
+                      linkedTask: linkedTask,
+                      onCreateTask: () => _createTaskFromLine(i),
+                      onOpenTask: () {
+                        if (linkedTask != null) _openLinkedTask(linkedTask);
+                      },
                     );
                   },
                 ),
@@ -1689,16 +1779,23 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
   }
 }
 
-/// 마우스 호버 시 작업 생성 버튼이 나타나는 줄 위젯
+/// 회의록 줄 위젯.
+/// - 연결된 태스크가 있으면 체크 마커 상시 표시 + 클릭 시 태스크 상세 다이얼로그
+/// - 연결된 태스크가 없으면 호버 시 작업 생성 아이콘 표시
+/// - 아이콘 위치는 `IntrinsicWidth + Flexible(loose)` 로 텍스트 끝 바로 옆에 배치
 class _HoverableLineWidget extends StatefulWidget {
   final String line;
   final bool isDark;
+  final Task? linkedTask;
   final VoidCallback onCreateTask;
+  final VoidCallback onOpenTask;
 
   const _HoverableLineWidget({
     required this.line,
     required this.isDark,
+    required this.linkedTask,
     required this.onCreateTask,
+    required this.onOpenTask,
   });
 
   @override
@@ -1710,6 +1807,45 @@ class _HoverableLineWidgetState extends State<_HoverableLineWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final hasTask = widget.linkedTask != null;
+    final primary = Theme.of(context).colorScheme.primary;
+
+    final marker = hasTask
+        ? Tooltip(
+            message: '작업 "${widget.linkedTask!.title}" 으로 이동',
+            child: InkWell(
+              borderRadius: BorderRadius.circular(4),
+              onTap: widget.onOpenTask,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                child: const Icon(
+                  Icons.check_circle,
+                  size: 18,
+                  color: Color(0xFF4CAF50),
+                ),
+              ),
+            ),
+          )
+        : AnimatedOpacity(
+            opacity: _isHovering ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 150),
+            child: Tooltip(
+              message: '이 항목으로 작업 생성',
+              child: InkWell(
+                borderRadius: BorderRadius.circular(4),
+                onTap: widget.onCreateTask,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.add_task,
+                    size: 18,
+                    color: primary.withValues(alpha: 0.7),
+                  ),
+                ),
+              ),
+            ),
+          );
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovering = true),
       onExit: (_) => setState(() => _isHovering = false),
@@ -1724,70 +1860,56 @@ class _HoverableLineWidgetState extends State<_HoverableLineWidget> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: MarkdownBody(
-                data: widget.line,
-                styleSheet: MarkdownStyleSheet(
-                  p: TextStyle(
-                    fontSize: 14,
-                    height: 1.6,
-                    color: widget.isDark ? Colors.white : Colors.black87,
-                    fontFamily: 'NanumSquareRound',
-                  ),
-                  h1: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: widget.isDark ? Colors.white : Colors.black87,
-                    fontFamily: 'NanumSquareRound',
-                  ),
-                  h2: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: widget.isDark ? Colors.white : Colors.black87,
-                    fontFamily: 'NanumSquareRound',
-                  ),
-                  h3: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: widget.isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
-                    fontFamily: 'NanumSquareRound',
-                  ),
-                  listBullet: TextStyle(
-                    fontSize: 14,
-                    color: widget.isDark ? Colors.white70 : Colors.black54,
-                    fontFamily: 'NanumSquareRound',
-                  ),
-                  blockquoteDecoration: BoxDecoration(
-                    border: Border(
-                      left: BorderSide(
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
-                        width: 3,
+            Flexible(
+              fit: FlexFit.loose,
+              child: IntrinsicWidth(
+                child: MarkdownBody(
+                  data: widget.line,
+                  styleSheet: MarkdownStyleSheet(
+                    p: TextStyle(
+                      fontSize: 14,
+                      height: 1.6,
+                      color: widget.isDark ? Colors.white : Colors.black87,
+                      fontFamily: 'NanumSquareRound',
+                    ),
+                    h1: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: widget.isDark ? Colors.white : Colors.black87,
+                      fontFamily: 'NanumSquareRound',
+                    ),
+                    h2: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: widget.isDark ? Colors.white : Colors.black87,
+                      fontFamily: 'NanumSquareRound',
+                    ),
+                    h3: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: widget.isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
+                      fontFamily: 'NanumSquareRound',
+                    ),
+                    listBullet: TextStyle(
+                      fontSize: 14,
+                      color: widget.isDark ? Colors.white70 : Colors.black54,
+                      fontFamily: 'NanumSquareRound',
+                    ),
+                    blockquoteDecoration: BoxDecoration(
+                      border: Border(
+                        left: BorderSide(
+                          color: primary.withValues(alpha: 0.5),
+                          width: 3,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                selectable: true,
-              ),
-            ),
-            AnimatedOpacity(
-              opacity: _isHovering ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 150),
-              child: Tooltip(
-                message: '이 항목으로 작업 생성',
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(4),
-                  onTap: widget.onCreateTask,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(
-                      Icons.add_task,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
-                    ),
-                  ),
+                  selectable: true,
                 ),
               ),
             ),
+            const SizedBox(width: 6),
+            marker,
           ],
         ),
       ),

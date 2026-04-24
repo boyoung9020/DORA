@@ -37,6 +37,7 @@ def _get_project_or_403(db: Session, project_id: str, user: User) -> Project:
 async def get_all_tasks(
     project_id: Optional[str] = None,
     status: Optional[TaskStatus] = None,
+    source_meeting_minutes_id: Optional[str] = Query(None, description="회의록 ID로 필터 (해당 회의록에서 생성된 태스크만)"),
     skip: int = Query(0, ge=0, description="건너뛸 항목 수"),
     limit: int = Query(200, ge=1, le=1000, description="최대 항목 수"),
     db: Session = Depends(get_db),
@@ -49,6 +50,8 @@ async def get_all_tasks(
         query = query.filter(Task.project_id == project_id)
     if status:
         query = query.filter(Task.status == status)
+    if source_meeting_minutes_id:
+        query = query.filter(Task.source_meeting_minutes_id == source_meeting_minutes_id)
 
     # 일반 유저는 소속 프로젝트의 태스크만 조회 (팀원이거나 프로젝트 생성자)
     if not current_user.is_admin and not current_user.is_pm:
@@ -115,6 +118,8 @@ async def create_task(
             parent_task_id=task_data.parent_task_id,
             document_links=task_data.document_links or [],
             site_tags=task_data.site_tags or [],
+            source_meeting_minutes_id=task_data.source_meeting_minutes_id,
+            source_line_id=task_data.source_line_id,
             comment_ids=[],
             status_history=[],
             assignment_history=[],

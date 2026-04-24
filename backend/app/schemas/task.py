@@ -24,6 +24,9 @@ class TaskBase(BaseModel):
     parent_task_id: Optional[str] = None
     document_links: List[Dict[str, str]] = []  # [{title, url}, ...]
     site_tags: List[str] = []  # 사이트 태그
+    # 회의록 소스 링크 (특정 줄에서 생성된 태스크 추적)
+    source_meeting_minutes_id: Optional[str] = None
+    source_line_id: Optional[str] = None
 
 
 class TaskCreate(TaskBase):

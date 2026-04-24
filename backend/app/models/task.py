@@ -47,6 +47,10 @@ class Task(Base):
     creator_id = Column(String, nullable=True, index=True)  # 태스크 생성자 ID
     parent_task_id = Column(String, nullable=True, index=True)  # 부모 태스크 ID (계층 구조)
 
+    # 회의록 링크 — 회의록의 특정 줄에서 생성된 태스크를 추적
+    source_meeting_minutes_id = Column(String, nullable=True, index=True)
+    source_line_id = Column(String, nullable=True, index=True)  # 회의록 본문에 내장된 줄 UUID
+
     # 문서 링크 [{title: str, url: str}, ...]
     document_links = Column(JSON, default=[], nullable=False)
 
