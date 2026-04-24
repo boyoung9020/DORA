@@ -463,47 +463,56 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     await _webSocketService!.connect();
   }
 
-  /// 어제 미완료 작업 리뷰 체크
+  /// 어제 미완료 작업 리뷰 체크 (서버 상태 기반)
+  ///
+  /// 흐름:
+  ///   1) GET /yesterday-incomplete — tasks 와 already_reviewed_today 동시 수신
+  ///   2) already_reviewed_today == true → 즉시 종료
+  ///   3) tasks 비어있음 → POST /acknowledge (이후 GET 이 already_reviewed_today=true 반환)
+  ///   4) tasks 있음 → POST /acknowledge **먼저**, 이후 showDialog
+  ///      (사용자가 중간에 이탈해도 당일 재노출 없음)
   Future<void> _checkYesterdayIncomplete() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final now = DateTime.now();
-      final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-      final lastReview = prefs.getString('last_task_review_date');
-      if (lastReview == todayStr) return;
-
       final wsProvider = Provider.of<WorkspaceProvider>(context, listen: false);
       final wsId = wsProvider.currentWorkspace?.id;
       if (wsId == null) return;
 
+      final now = DateTime.now();
       final yesterday = now.subtract(const Duration(days: 1));
-      final yesterdayStr = '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}';
+      final yesterdayStr =
+          '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}';
 
-      final tasks = await WorkspaceService().getYesterdayIncompleteTasks(
+      final service = WorkspaceService();
+      final result = await service.getYesterdayIncompleteTasks(
         wsId,
         targetDate: yesterdayStr,
       );
 
-      if (tasks.isEmpty) {
-        await prefs.setString('last_task_review_date', todayStr);
+      if (result.alreadyReviewedToday) return;
+
+      if (result.tasks.isEmpty) {
+        // 서버에 '봤다' 를 기록해 이후 GET 도 동일하게 short-circuit 되게 함
+        await service.acknowledgeYesterdayReview(wsId);
         return;
       }
 
       if (!mounted) return;
 
+      // 다이얼로그를 띄우기 '직전' 에 ack — 이탈/새로고침 시에도 당일 재노출 없음
+      await service.acknowledgeYesterdayReview(wsId);
+      if (!mounted) return;
+
       await showDialog(
         context: context,
-        barrierDismissible: false,
+        barrierDismissible: true,
         barrierColor: Colors.black.withValues(alpha: 0.5),
         builder: (_) => YesterdayReviewDialog(
-          tasks: tasks,
+          tasks: result.tasks,
           targetDate: yesterdayStr,
         ),
       );
-
-      await prefs.setString('last_task_review_date', todayStr);
     } catch (_) {
-      // API 실패 시 조용히 skip — last_task_review_date 미저장 → 다음에 재시도
+      // API 실패 시 조용히 skip — 다음 진입 때 자연 재시도
     }
   }
 

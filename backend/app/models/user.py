@@ -19,6 +19,7 @@ class User(Base):
     is_pm = Column(Boolean, default=False, nullable=False)
     profile_image_url = Column(String, nullable=True)
     favorite_project_ids = Column(ARRAY(String), nullable=False, server_default='{}')
+    last_yesterday_review_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
     def __repr__(self):

@@ -615,6 +615,27 @@ def ensure_favorite_project_ids_column() -> None:
 ensure_favorite_project_ids_column()
 
 
+def ensure_users_last_yesterday_review_column() -> None:
+    """Add users.last_yesterday_review_at column if missing.
+
+    Stores the UTC timestamp when the user last saw the "yesterday incomplete tasks" review dialog.
+    Used by /api/workspaces/{id}/yesterday-incomplete to decide whether to surface the dialog today.
+    """
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("""
+                ALTER TABLE users
+                ADD COLUMN IF NOT EXISTS last_yesterday_review_at TIMESTAMPTZ NULL;
+            """))
+            conn.commit()
+            print("[main] ensured users.last_yesterday_review_at column")
+    except Exception as e:
+        print(f"[main] failed to ensure users.last_yesterday_review_at: {e}")
+
+
+ensure_users_last_yesterday_review_column()
+
+
 def ensure_notification_type_task_created() -> None:
     """notifications.type enum에 'TASK_CREATED' 값 추가 (기존 DB 마이그레이션).
     SQLAlchemy는 enum NAME(대문자)을 DB에 저장하므로 'TASK_CREATED'가 필요함.

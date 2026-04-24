@@ -2,6 +2,7 @@
 
 | 파일 | 제목 | 유형 | 영역 | 상태 | 관련 |
 |------|------|------|------|------|------|
+| [20260424-204035-yesterday-review-server-state-cleanup.md](20260424-204035-yesterday-review-server-state-cleanup.md) | 어제 미완료 리뷰 다이얼로그 재노출/연장 버그 정리 (서버 상태 기반) | fix | backend/models+routers, frontend/screens+widgets+services, schema(users) | done | main_layout, yesterday_review_dialog, workspaces, workspace_service, user, main |
 | [20260424-111842-meeting-minutes-task-link-ui.md](20260424-111842-meeting-minutes-task-link-ui.md) | 회의록 → 작업 연결 표시 및 아이콘 위치 개선 (UUID 내장) | feat+ui | frontend/screens, backend/models+routers, schema(tasks) | done | meeting_minutes_screen, tasks, task_detail_screen |
 | [20260424-104719-meeting-minutes-attendee-format-and-author.md](20260424-104719-meeting-minutes-attendee-format-and-author.md) | 회의록 참여자 표시 포맷 변경 및 작성자 자동 표시 | ui | frontend/screens | done | meeting_minutes_screen, creator_id |
 | [20260423-184631-meeting-minutes-list-uniform-height.md](20260423-184631-meeting-minutes-list-uniform-height.md) | 회의록 리스트 아이템 세로 통일 및 참여자 표시 텍스트화 | ui | frontend/screens | done | meeting_minutes_screen |

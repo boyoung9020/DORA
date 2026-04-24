@@ -482,10 +482,41 @@ async def get_yesterday_incomplete_tasks(
         if _is_date_task(t, day_start, day_end) and t.status != TaskStatus.DONE
     ]
 
+    # 오늘 UTC 범위 기준으로 현재 유저가 이미 리뷰를 봤는지 판정
+    today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = now_utc.replace(hour=23, minute=59, second=59, microsecond=999999)
+    last_seen = current_user.last_yesterday_review_at
+    already_reviewed_today = False
+    if last_seen is not None:
+        ls = last_seen if last_seen.tzinfo else last_seen.replace(tzinfo=timezone.utc)
+        already_reviewed_today = today_start <= ls <= today_end
+
     return {
         "target_date": target.strftime("%Y-%m-%d"),
         "incomplete_tasks": incomplete,
+        "already_reviewed_today": already_reviewed_today,
     }
+
+
+@router.post("/{workspace_id}/yesterday-incomplete/acknowledge", status_code=status.HTTP_204_NO_CONTENT)
+async def acknowledge_yesterday_incomplete_review(
+    workspace_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """어제 미완료 리뷰 다이얼로그를 봤음을 기록 (멱등).
+
+    프론트엔드는 다이얼로그를 띄우기 직전에 이 엔드포인트를 호출해야 한다.
+    당일 재호출에도 안전 — last_yesterday_review_at 을 now() 로 갱신만 수행.
+    """
+    _get_workspace_or_404(db, workspace_id)
+    if not current_user.is_admin and not _is_workspace_member(db, workspace_id, current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="워크스페이스 멤버가 아닙니다")
+
+    current_user.last_yesterday_review_at = datetime.now(timezone.utc)
+    db.add(current_user)
+    db.commit()
+    return None
 
 
 @router.delete("/{workspace_id}/leave")

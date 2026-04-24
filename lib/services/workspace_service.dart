@@ -2,6 +2,17 @@ import '../models/workspace.dart';
 import '../models/member_stats.dart';
 import '../utils/api_client.dart';
 
+/// 어제 미완료 리뷰 조회 결과
+class YesterdayReviewResult {
+  final List<MemberTodayTask> tasks;
+  final bool alreadyReviewedToday;
+
+  const YesterdayReviewResult({
+    required this.tasks,
+    required this.alreadyReviewedToday,
+  });
+}
+
 /// ?뚰겕?ㅽ럹?댁뒪 ?쒕퉬??
 class WorkspaceService {
   /// ?닿? ?랁븳 ?뚰겕?ㅽ럹?댁뒪 紐⑸줉
@@ -72,7 +83,7 @@ class WorkspaceService {
   }
 
   /// 어제(또는 지정 날짜)의 미완료 작업 조회
-  Future<List<MemberTodayTask>> getYesterdayIncompleteTasks(
+  Future<YesterdayReviewResult> getYesterdayIncompleteTasks(
     String workspaceId, {
     String? targetDate,
   }) async {
@@ -83,10 +94,26 @@ class WorkspaceService {
       queryParams: queryParams.isEmpty ? null : queryParams,
     );
     final data = ApiClient.handleResponse(response);
-    final tasks = data['incomplete_tasks'] as List<dynamic>? ?? [];
-    return tasks
+    final tasks = (data['incomplete_tasks'] as List<dynamic>? ?? [])
         .map((json) => MemberTodayTask.fromJson(json as Map<String, dynamic>))
         .toList();
+    final alreadyReviewed = data['already_reviewed_today'] == true;
+    return YesterdayReviewResult(
+      tasks: tasks,
+      alreadyReviewedToday: alreadyReviewed,
+    );
+  }
+
+  /// 어제 미완료 리뷰 다이얼로그를 봤음을 서버에 기록 (멱등)
+  Future<void> acknowledgeYesterdayReview(String workspaceId) async {
+    final response = await ApiClient.post(
+      '/api/workspaces/$workspaceId/yesterday-incomplete/acknowledge',
+    );
+    // 204 No Content — 바디 없음. ApiClient.post 는 비-2xx 에서 예외를 던짐.
+    // 성공 시 별도 파싱 불필요.
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('acknowledgeYesterdayReview failed: ${response.statusCode}');
+    }
   }
 
   String buildInviteLink(String inviteToken) {

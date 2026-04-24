@@ -150,6 +150,23 @@ class _YesterdayReviewDialogState extends State<YesterdayReviewDialog> {
                   : colorScheme.onSurface.withValues(alpha: 0.4),
             ),
           ),
+          const SizedBox(width: 6),
+          // 닫기 버튼 (어떤 경로로 닫아도 서버 ack 는 이미 완료되어 있음)
+          Tooltip(
+            message: '닫기',
+            child: InkWell(
+              onTap: () => Navigator.of(context).pop(),
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  Icons.close,
+                  size: 18,
+                  color: colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -398,13 +415,21 @@ class _YesterdayReviewDialogState extends State<YesterdayReviewDialog> {
   Future<void> _handleCarryToday(MemberTodayTask task) async {
     setState(() => _processing.add(task.id));
     try {
-      // 전체 Task를 가져와서 end_date만 오늘로 변경
+      // 전체 Task 를 가져와서 end_date 를 오늘로, start_date 도 필요 시 오늘로 당김
+      // (start_date 가 어제 이전이면 범위가 어제와 겹쳐 '어제 미완료' 에 계속 잡히는 문제 방지)
       final fullTask = await _taskService.getTaskById(task.id);
       if (fullTask == null) throw Exception('작업을 찾을 수 없습니다');
 
       final today = DateTime.now();
       final todayDate = DateTime(today.year, today.month, today.day);
-      final updated = fullTask.copyWith(endDate: todayDate);
+      final currentStart = fullTask.startDate;
+      final adjustedStart = (currentStart != null && currentStart.isBefore(todayDate))
+          ? todayDate
+          : currentStart;
+      final updated = fullTask.copyWith(
+        startDate: adjustedStart,
+        endDate: todayDate,
+      );
       await _taskService.updateTask(updated);
 
       if (mounted) {
@@ -433,30 +458,50 @@ class _YesterdayReviewDialogState extends State<YesterdayReviewDialog> {
     final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-      child: SizedBox(
-        width: double.infinity,
-        child: FilledButton(
-          onPressed: _allHandled ? () => Navigator.of(context).pop() : null,
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10)),
-            disabledBackgroundColor:
-                colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          ),
-          child: Text(
-            _allHandled
-                ? '모두 확인 완료'
-                : '모든 작업을 처리해주세요 ($_handledCount/${widget.tasks.length})',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: _allHandled
-                  ? null
-                  : colorScheme.onSurface.withValues(alpha: 0.4),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                foregroundColor: colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+              child: const Text(
+                '나중에 처리',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
             ),
           ),
-        ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 2,
+            child: FilledButton(
+              onPressed: _allHandled ? () => Navigator.of(context).pop() : null,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                disabledBackgroundColor:
+                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              ),
+              child: Text(
+                _allHandled
+                    ? '완료'
+                    : '완료 ($_handledCount/${widget.tasks.length})',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: _allHandled
+                      ? null
+                      : colorScheme.onSurface.withValues(alpha: 0.4),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
