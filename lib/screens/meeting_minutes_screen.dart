@@ -1849,32 +1849,40 @@ class _HoverableLineWidgetState extends State<_HoverableLineWidget> {
     final markdown = MarkdownBody(
       data: widget.line,
       styleSheet: MarkdownStyleSheet(
+        // letterSpacing: 0 을 명시해 Material 3 테마의 bodyMedium(기본 0.25)
+        // 상속을 차단한다. 이를 통해 TextPainter 측정(letterSpacing 0)과
+        // 실제 렌더 폭이 동일해져 마지막 글자가 줄바꿈되는 버그를 방지.
         p: TextStyle(
           fontSize: 14,
           height: 1.6,
+          letterSpacing: 0,
           color: widget.isDark ? Colors.white : Colors.black87,
           fontFamily: 'NanumSquareRound',
         ),
         h1: TextStyle(
           fontSize: 22,
           fontWeight: FontWeight.w800,
+          letterSpacing: 0,
           color: widget.isDark ? Colors.white : Colors.black87,
           fontFamily: 'NanumSquareRound',
         ),
         h2: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w700,
+          letterSpacing: 0,
           color: widget.isDark ? Colors.white : Colors.black87,
           fontFamily: 'NanumSquareRound',
         ),
         h3: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w700,
+          letterSpacing: 0,
           color: widget.isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
           fontFamily: 'NanumSquareRound',
         ),
         listBullet: TextStyle(
           fontSize: 14,
+          letterSpacing: 0,
           color: widget.isDark ? Colors.white70 : Colors.black54,
           fontFamily: 'NanumSquareRound',
         ),
@@ -1906,25 +1914,79 @@ class _HoverableLineWidgetState extends State<_HoverableLineWidget> {
             final maxTextWidth =
                 (constraints.maxWidth - iconReserved - hGap - hPad).clamp(40.0, double.infinity);
 
-            // 마크다운 접두사 제거 후 측정 — 헤더/불릿 기호는 렌더 시 MarkdownBody 가 별도 처리
-            final measureText = widget.line
-                .replaceFirst(RegExp(r'^\s*#+\s+'), '')
-                .replaceFirst(RegExp(r'^\s*[-*+]\s+'), '• ')
-                .replaceFirst(RegExp(r'^\s*\d+\.\s+'), '1. ')
-                .replaceFirst(RegExp(r'^\s*>\s+'), '');
-            final isHeading = RegExp(r'^\s*#+\s+').hasMatch(widget.line);
+            // MarkdownBody 는 불릿/번호목록을 렌더할 때 좌측에 listIndent(기본 32px)
+            // 만큼 들여쓰기를 두고, 실제 텍스트는 (SizedBox 폭 − listIndent) 안에 레이아웃한다.
+            // 따라서 측정도 동일한 "콘텐츠 영역" 기준으로 해야 마지막 글자가 밀려 줄바꿈되는
+            // 문제가 사라진다. (평문 폭 그대로 재면 긴 줄에서 clamp 에 맞물려 32px 좁게 렌더됨)
+            const listIndent = 32.0;
+            final headingMatch =
+                RegExp(r'^\s*(#+)\s+').firstMatch(widget.line);
+            final headingLevel = headingMatch?.group(1)?.length ?? 0;
+            final isHeading = headingLevel > 0;
+            final isListItem =
+                RegExp(r'^\s*([-*+]|\d+\.)\s+').hasMatch(widget.line);
+            final indentCompensation = isListItem ? listIndent : 0.0;
+
+            // 접두사 제거 — MarkdownBody 는 "#", 불릿/번호목록, ">" 를 별도 영역(listIndent
+            // 또는 헤딩 스타일)에 렌더하므로 측정에서는 빼야 한다. 단, 헤딩 줄("## 1. 일반QC"
+            // 처럼 내용에 숫자-점 패턴이 있는 경우) 은 "#+ " 만 벗겨내고, 나머지 list/quote
+            // 규칙을 적용하지 않는다 — 그렇지 않으면 "1. 일반QC" 중 "1. " 까지 잘못 제거돼
+            // 실제 렌더보다 좁게 측정된다.
+            final String contentText;
+            if (isHeading) {
+              contentText =
+                  widget.line.replaceFirst(RegExp(r'^\s*#+\s+'), '');
+            } else {
+              contentText = widget.line
+                  .replaceFirst(RegExp(r'^\s*[-*+]\s+'), '')
+                  .replaceFirst(RegExp(r'^\s*\d+\.\s+'), '')
+                  .replaceFirst(RegExp(r'^\s*>\s+'), '');
+            }
+
+            // 헤딩 레벨(#, ##, ###)을 카운트해 MarkdownBody 스타일시트와 동일한
+            // fontSize/fontWeight 로 측정해야 실제 렌더 폭과 어긋나 마지막 글자가
+            // 줄바꿈되는 문제를 피할 수 있다.
+            double headingFontSize;
+            FontWeight headingFontWeight;
+            switch (headingLevel) {
+              case 1:
+                headingFontSize = 22.0;
+                headingFontWeight = FontWeight.w800;
+                break;
+              case 2:
+                headingFontSize = 18.0;
+                headingFontWeight = FontWeight.w700;
+                break;
+              case 3:
+              default:
+                headingFontSize = 16.0;
+                headingFontWeight = FontWeight.w700;
+            }
             final measureStyle = TextStyle(
               fontFamily: 'NanumSquareRound',
-              fontSize: isHeading ? 20.0 : 14.0,
-              fontWeight: isHeading ? FontWeight.w700 : FontWeight.w400,
+              fontSize: isHeading ? headingFontSize : 14.0,
+              fontWeight: isHeading ? headingFontWeight : FontWeight.w400,
               height: 1.6,
+              // 렌더 쪽 MarkdownStyleSheet 의 letterSpacing: 0 과 맞춰야 측정/렌더 폭이
+              // 일치한다. 기본값이지만 drift 방지 위해 명시.
+              letterSpacing: 0,
             );
+
+            // 실제 콘텐츠가 쓸 수 있는 가로 폭 = 전체 − listIndent
+            final contentMaxWidth =
+                (maxTextWidth - indentCompensation).clamp(20.0, double.infinity);
             final tp = TextPainter(
-              text: TextSpan(text: measureText, style: measureStyle),
+              text: TextSpan(text: contentText, style: measureStyle),
               textDirection: TextDirection.ltr,
               maxLines: null,
-            )..layout(maxWidth: maxTextWidth);
-            final markdownWidth = (tp.size.width + 8.0).clamp(20.0, maxTextWidth);
+            )..layout(maxWidth: contentMaxWidth);
+
+            // SizedBox 폭 = 콘텐츠 실제 폭 + listIndent(있으면) + 안전 버퍼
+            // 안전 버퍼는 TextPainter 와 RenderParagraph 간 서브픽셀/폰트메트릭 오차를 흡수.
+            const safetyBuffer = 12.0;
+            final markdownWidth =
+                (tp.size.width + indentCompensation + safetyBuffer)
+                    .clamp(20.0, maxTextWidth);
 
             return Align(
               alignment: Alignment.centerLeft,
