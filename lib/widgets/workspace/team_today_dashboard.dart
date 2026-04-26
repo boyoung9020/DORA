@@ -49,7 +49,10 @@ class _TeamTodayDashboardState extends State<TeamTodayDashboard> {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getStringList(_prefKey);
     setState(() {
-      if (saved != null && saved.isNotEmpty) {
+      // saved 가 null 이면 (= 한 번도 저장한 적 없음) 처음 진입한 워크스페이스이므로 전체 선택을 기본값으로 둔다.
+      // saved 가 빈 리스트라면 사용자가 "전체 해제" 등으로 명시적으로 비운 상태이므로 그대로 존중한다.
+      // (이전 구현은 isNotEmpty 로 빈 리스트도 "전체로 리셋" 시켜 버그였음)
+      if (saved != null) {
         _pinnedUserIds = saved.toSet();
       } else {
         _pinnedUserIds = widget.allMembers.map((m) => m.userId).toSet();
