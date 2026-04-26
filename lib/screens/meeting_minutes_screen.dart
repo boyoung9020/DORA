@@ -694,6 +694,8 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
                                       } catch (_) {}
                                     }
                                     // 회의록 본문에 줄 마커 삽입 (기존 마커 있으면 스킵)
+                                    // this.setState 로 호출해 StatefulBuilder 의 setState 가
+                                    // 가리는 것을 우회 — 부모 화면이 즉시 rebuild 되어야 체크 마커가 즉시 표시됨
                                     if (existingLineId == null) {
                                       try {
                                         final lines = minutes.content.split('\n');
@@ -706,7 +708,7 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
                                             content: newContent,
                                           );
                                           if (mounted) {
-                                            setState(() => _selectedMinutes = updated);
+                                            this.setState(() => _selectedMinutes = updated);
                                           }
                                         }
                                       } catch (e) {
@@ -719,7 +721,7 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
                                       }
                                     }
                                     if (mounted) {
-                                      setState(() {
+                                      this.setState(() {
                                         _lineTaskMap = {..._lineTaskMap, lineId: createdTask};
                                       });
                                     }
