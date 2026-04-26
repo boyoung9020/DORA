@@ -13,6 +13,7 @@ Flutter + FastAPI + PostgreSQL project management tool (Windows Desktop & Web).
 - **Database**: PostgreSQL 15
 - **Infrastructure**: Docker Compose, Nginx reverse proxy
 - **Deployment**: Oracle Cloud (현재 운영 서버로 배포 중)
+  - 사용자가 자연어로 "배포해줘" 부탁 시 Claude 가 따를 흐름은 [.claude/rules/deploy.md](.claude/rules/deploy.md) 참조 (scope 별 간략화 흐름). 기존 `oracle_cloud/deploy.sh` / `deploy_backend.sh` 는 풀 배포용으로 유지.
 
 ## Quick Commands
 
