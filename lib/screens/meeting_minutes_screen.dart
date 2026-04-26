@@ -17,6 +17,9 @@ import '../services/site_detail_service.dart';
 import '../services/project_site_service.dart';
 import '../widgets/date_range_picker_dialog.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/expandable_side_panel.dart';
+import '../widgets/meeting_minutes/meeting_tasks_panel.dart';
+import '../models/project.dart';
 import 'task_detail_screen.dart';
 
 // ─── 회의록 줄 ↔ 태스크 링크 마커 ────────────────────────────────
@@ -1680,6 +1683,11 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
                       ),
                     ),
                   ),
+                  _TasksPanelToggle(
+                    count: _lineTaskMap.length,
+                    onTap: _lineTaskMap.isEmpty ? null : _openMeetingTasksSidePanel,
+                  ),
+                  const SizedBox(width: 4),
                   IconButton(
                     icon: const Icon(Icons.edit, size: 20),
                     tooltip: '편집',
@@ -1777,6 +1785,110 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
                 ),
         ),
       ],
+    );
+  }
+
+  /// 회의록에서 생성된 작업 현황 사이드 패널을 우측에서 슬라이드인.
+  ///
+  /// 정렬 순서: 회의록 본문 줄 등장 순서 (lineId 의 본문 등장 인덱스).
+  /// 본문에 마커가 없는 태스크(고아) 가 있으면 뒤에 붙임.
+  void _openMeetingTasksSidePanel() {
+    final minutes = _selectedMinutes;
+    if (minutes == null) return;
+
+    // 1) 본문 줄 등장 순서로 lineId 인덱스 맵 구축
+    final lines = minutes.content.split('\n');
+    final indexByLineId = <String, int>{};
+    for (var i = 0; i < lines.length; i++) {
+      final lid = _parseLineMarker(lines[i]).lineId;
+      if (lid != null) indexByLineId[lid] = i;
+    }
+
+    // 2) _lineTaskMap 의 태스크들을 등장 순으로 정렬
+    final sortedTasks = _lineTaskMap.entries.toList()
+      ..sort((a, b) {
+        final ia = indexByLineId[a.key] ?? 1 << 30; // 없으면 맨 뒤
+        final ib = indexByLineId[b.key] ?? 1 << 30;
+        return ia.compareTo(ib);
+      });
+    final tasks = sortedTasks.map((e) => e.value).toList();
+
+    // 3) projectId -> Project 매핑
+    final projectProvider = context.read<ProjectProvider>();
+    final projectsById = <String, Project>{
+      for (final p in projectProvider.projects) p.id: p,
+    };
+
+    // 4) workspace 멤버
+    final members = context.read<WorkspaceProvider>().currentMembers;
+
+    showExpandableSidePanel(
+      context: context,
+      title: '작업 현황 (${tasks.length})',
+      icon: Icons.fact_check_outlined,
+      widthFraction: 0.5,
+      minWidth: 560,
+      maxWidth: 820,
+      bodyBuilder: (_) => MeetingTasksPanel(
+        tasks: tasks,
+        projectsById: projectsById,
+        members: members,
+      ),
+    );
+  }
+}
+
+/// 뷰어 헤더의 "작업 N" 토글 버튼.
+/// - count 가 0 이거나 onTap 이 null 이면 비활성(회색) 상태로 표시
+class _TasksPanelToggle extends StatelessWidget {
+  final int count;
+  final VoidCallback? onTap;
+
+  const _TasksPanelToggle({required this.count, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final enabled = onTap != null && count > 0;
+    final fg = enabled ? cs.primary : cs.onSurface.withValues(alpha: 0.4);
+    final bg = enabled
+        ? cs.primary.withValues(alpha: 0.1)
+        : cs.onSurface.withValues(alpha: 0.05);
+
+    return Tooltip(
+      message: enabled
+          ? '이 회의록에서 생성된 작업 보기'
+          : '아직 생성된 작업이 없습니다',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: fg.withValues(alpha: 0.25)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.fact_check_outlined, size: 16, color: fg),
+                const SizedBox(width: 6),
+                Text(
+                  '작업 $count',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: fg,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
