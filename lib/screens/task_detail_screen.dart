@@ -22,6 +22,7 @@ import '../services/comment_service.dart';
 import '../services/checklist_service.dart';
 import '../services/upload_service.dart';
 import '../utils/api_client.dart';
+import '../utils/clipboard_image.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/checklist_widget.dart';
 import '../widgets/date_range_picker_dialog.dart';
@@ -5647,6 +5648,26 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       }
 
       // ??용뮞?硫? ??곸몵筌????筌왖 ?類ㅼ뵥 (Windows?癒?퐣筌?
+      // 웹: navigator.clipboard.read() 로 이미지 추출 (Chrome 등 브라우저에서 Ctrl+V 지원)
+      if (kIsWeb) {
+        final bytes = await readClipboardImageBytes();
+        if (bytes != null) {
+          final xfile = XFile.fromData(
+            bytes,
+            name:
+                'pasted_image_${DateTime.now().millisecondsSinceEpoch}.png',
+            mimeType: 'image/png',
+          );
+          setState(() {
+            _selectedCommentImages.add(xfile);
+          });
+          return;
+        }
+        // 웹에서 이미지 없으면 종료 (아래 Platform.isWindows 평가 시 throw 됨)
+        return;
+      }
+
+      // 네이티브 Windows: MethodChannel 로 이미지 추출
       if (Platform.isWindows) {
         const platform = MethodChannel('com.sync/clipboard');
         try {

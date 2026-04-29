@@ -18,6 +18,7 @@ import '../services/project_site_service.dart';
 import '../widgets/date_range_picker_dialog.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/expandable_side_panel.dart';
+import '../widgets/clean_dialog.dart';
 import '../widgets/meeting_minutes/meeting_tasks_panel.dart';
 import '../models/project.dart';
 import 'task_detail_screen.dart';
@@ -786,7 +787,8 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
 
   // ─── 좌측 패널 ───────────────────────────────────────────────
   Widget _buildListPanel(bool isDark, WorkspaceProvider wsProvider) {
-    final bgColor = isDark ? const Color(0xFF1E1E2E) : const Color(0xFFF8F9FA);
+    final cs = Theme.of(context).colorScheme;
+    final bgColor = isDark ? cs.surfaceContainer : const Color(0xFFF8F9FA);
 
     return Container(
       color: bgColor,
@@ -811,7 +813,7 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
                 IconButton(
                   icon: const Icon(Icons.create_new_folder_outlined, size: 20),
                   tooltip: '새 폴더',
-                  onPressed: () => _showCreateFolderDialog(isDark),
+                  onPressed: () => _showCreateFolderDialog(),
                 ),
                 IconButton(
                   icon: const Icon(Icons.add, size: 20),
@@ -1023,68 +1025,18 @@ class _MeetingMinutesScreenState extends State<MeetingMinutesScreen> {
   }
 
   // ─── 새 폴더 생성 다이얼로그 ────────────────────────────────────
-  Future<void> _showCreateFolderDialog(bool isDark) async {
-    final controller = TextEditingController();
+  Future<void> _showCreateFolderDialog() async {
     // 현재 선택된 카테고리를 상위 경로로 사용
     final parentPath = _selectedCategory ?? '';
 
-    final result = await showDialog<String>(
+    final result = await showCleanInputDialog(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('새 폴더 생성'),
-          content: SizedBox(
-            width: 360,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (parentPath.isNotEmpty) ...[
-                  Row(
-                    children: [
-                      Icon(Icons.folder, size: 16, color: isDark ? Colors.white38 : Colors.black45),
-                      const SizedBox(width: 6),
-                      Text(
-                        '상위: $parentPath',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isDark ? Colors.white54 : Colors.black54,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: '폴더 이름',
-                    border: OutlineInputBorder(),
-                    hintText: '예: 주간회의',
-                  ),
-                  onSubmitted: (v) {
-                    if (v.trim().isNotEmpty) Navigator.pop(ctx, v.trim());
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
-            FilledButton(
-              onPressed: () {
-                final name = controller.text.trim();
-                if (name.isNotEmpty) Navigator.pop(ctx, name);
-              },
-              child: const Text('생성'),
-            ),
-          ],
-        );
-      },
+      title: '새 폴더',
+      hint: '예: 주간회의',
+      helperText: parentPath.isEmpty ? null : '상위: $parentPath',
+      confirmLabel: '생성',
     );
 
-    controller.dispose();
     if (result == null) return;
 
     // 새 카테고리 경로를 만들어서 빈 회의록 하나 생성 (폴더가 존재하도록)

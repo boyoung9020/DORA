@@ -13,6 +13,7 @@ from app.models.workspace import Workspace, WorkspaceMember
 from app.models.user import User
 from app.models.project import Project
 from app.models.task import Task, TaskStatus
+from app.models.comment import Comment
 from app.schemas.workspace import WorkspaceCreate, WorkspaceResponse, WorkspaceMemberResponse, JoinByTokenRequest
 from app.utils.dependencies import get_current_user
 
@@ -541,3 +542,154 @@ async def leave_workspace(
         db.delete(member)
         db.commit()
     return {"message": "워크스페이스를 탈퇴했습니다"}
+
+
+# ============================================================
+# 활동(Activity) 집계 — 작업 카드 단위
+# ============================================================
+#
+# 활동 정의 (요청 문서 20260427-010247 의 사용자 결정 4):
+#   한 (멤버 × 일자) 의 활동 = 그 날 그 멤버가 "건드린" distinct Task 카드 수
+#   "건드림" = 다음 중 하나 이상이 그 날 발생:
+#     - 작업 생성: tasks.creator_id == 멤버 AND tasks.created_at::date == 그 날
+#     - 완료 변경: status_history JSON 의 한 entry 가 toStatus=='done', userId==멤버,
+#                  changedAt::date == 그 날
+#     - 댓글 작성: comments.user_id == 멤버 AND comments.created_at::date == 그 날
+#   같은 카드에서 여러 행동이 같은 날 일어나도 1로 카운트 (set).
+#
+# 프로젝트 활동(per project, per day) 도 같은 정의를 멤버 차원 없이 적용:
+#   그 날 활동이 있었던 distinct Task 카드 수
+#
+# 프로젝트 분포(per project, in period) 도 동일:
+#   기간 내 활동이 있었던 distinct Task 카드 수, 프로젝트별 합계
+
+
+def _utc_date(dt: datetime) -> str:
+    """timezone-aware datetime 을 UTC 날짜 문자열(YYYY-MM-DD) 로."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%d")
+
+
+def _generate_date_range(start: datetime, end: datetime) -> List[str]:
+    """[start, end] (UTC 날짜) 사이의 모든 날짜 문자열 리스트 반환."""
+    from datetime import timedelta
+    cur = start.replace(hour=0, minute=0, second=0, microsecond=0)
+    last = end.replace(hour=0, minute=0, second=0, microsecond=0)
+    out = []
+    while cur <= last:
+        out.append(cur.strftime("%Y-%m-%d"))
+        cur = cur + timedelta(days=1)
+    return out
+
+
+@router.get("/{workspace_id}/activity-heatmap")
+async def get_activity_heatmap(
+    workspace_id: str,
+    weeks: int = 12,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """워크스페이스 멤버별 일일 활동(작업 카드 단위) 히트맵 데이터."""
+    _get_workspace_or_404(db, workspace_id)
+    if not current_user.is_admin and not _is_workspace_member(db, workspace_id, current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="워크스페이스 멤버가 아닙니다")
+
+    weeks = max(1, min(weeks, 52))
+    from datetime import timedelta
+    now_utc = datetime.now(timezone.utc)
+    to_dt = now_utc.replace(hour=23, minute=59, second=59, microsecond=999999)
+    from_dt = (to_dt - timedelta(days=weeks * 7 - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # 워크스페이스 프로젝트 + 멤버
+    projects = db.query(Project).filter(Project.workspace_id == workspace_id).all()
+    project_ids = [p.id for p in projects]
+
+    memberships = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == workspace_id
+    ).all()
+    user_ids = [m.user_id for m in memberships]
+    users = db.query(User).filter(User.id.in_(user_ids)).all() if user_ids else []
+    user_by_id = {u.id: u for u in users}
+
+    # 태스크 + 댓글 일괄 fetch
+    tasks = db.query(Task).filter(Task.project_id.in_(project_ids)).all() if project_ids else []
+    task_ids = [t.id for t in tasks]
+    comments = (
+        db.query(Comment).filter(
+            Comment.task_id.in_(task_ids),
+            Comment.created_at >= from_dt,
+            Comment.created_at <= to_dt,
+        ).all() if task_ids else []
+    )
+
+    # (user_id, date) -> set(task_id)
+    activity: dict = {}
+
+    def add(user_id: str, date_str: str, task_id: str):
+        key = (user_id, date_str)
+        if key not in activity:
+            activity[key] = set()
+        activity[key].add(task_id)
+
+    # 1) 작업 생성
+    for t in tasks:
+        if not t.creator_id or not t.created_at:
+            continue
+        ct = t.created_at if t.created_at.tzinfo else t.created_at.replace(tzinfo=timezone.utc)
+        if ct < from_dt or ct > to_dt:
+            continue
+        add(t.creator_id, _utc_date(ct), t.id)
+
+    # 2) 완료 (status_history toStatus == done)
+    for t in tasks:
+        for h in (t.status_history or []):
+            try:
+                if h.get("toStatus") != "done":
+                    continue
+                uid = h.get("userId")
+                changed_raw = h.get("changedAt")
+                if not uid or not changed_raw:
+                    continue
+                changed_at = datetime.fromisoformat(changed_raw.replace("Z", "+00:00"))
+                if changed_at.tzinfo is None:
+                    changed_at = changed_at.replace(tzinfo=timezone.utc)
+                if changed_at < from_dt or changed_at > to_dt:
+                    continue
+                add(uid, _utc_date(changed_at), t.id)
+            except Exception:
+                continue
+
+    # 3) 댓글
+    for c in comments:
+        if not c.user_id or not c.created_at:
+            continue
+        ct = c.created_at if c.created_at.tzinfo else c.created_at.replace(tzinfo=timezone.utc)
+        add(c.user_id, _utc_date(ct), c.task_id)
+
+    # 응답 생성 — 멤버별 일자 순서 보장
+    date_list = _generate_date_range(from_dt, to_dt)
+    members_payload = []
+    for u in users:
+        daily = []
+        total = 0
+        for d in date_list:
+            cnt = len(activity.get((u.id, d), set()))
+            total += cnt
+            daily.append({"date": d, "count": cnt})
+        members_payload.append({
+            "user_id": u.id,
+            "username": u.username,
+            "profile_image_url": u.profile_image_url,
+            "total": total,
+            "daily": daily,
+        })
+    # 합계 내림차순 정렬
+    members_payload.sort(key=lambda m: m["total"], reverse=True)
+
+    return {
+        "from_date": from_dt.strftime("%Y-%m-%d"),
+        "to_date": to_dt.strftime("%Y-%m-%d"),
+        "weeks": weeks,
+        "members": members_payload,
+    }

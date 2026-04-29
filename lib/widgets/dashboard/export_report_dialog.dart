@@ -8,6 +8,7 @@ import '../../providers/workspace_provider.dart';
 import '../../utils/api_client.dart';
 import '../../utils/avatar_color.dart';
 import '../../widgets/glass_container.dart';
+import '../../widgets/date_range_picker_dialog.dart';
 
 /// 업무 보고서 내보내기 다이얼로그를 표시한다.
 Future<void> showExportReportDialog({
@@ -186,17 +187,22 @@ Future<void> showExportReportDialog({
                     const SizedBox(height: 6),
                     InkWell(
                       onTap: () async {
-                        final picked = await showDateRangePicker(
+                        final picked = await showTaskDateRangePickerDialog(
                           context: ctx,
-                          firstDate: DateTime(2024),
-                          lastDate: DateTime(2030),
-                          initialDateRange: DateTimeRange(start: exportStart, end: exportEnd),
+                          initialStartDate: exportStart,
+                          initialEndDate: exportEnd,
+                          minDate: DateTime(2024),
+                          maxDate: DateTime(2030),
                         );
                         if (picked != null) {
-                          setDialogState(() {
-                            exportStart = picked.start;
-                            exportEnd = picked.end;
-                          });
+                          final s = picked['startDate'];
+                          final e = picked['endDate'];
+                          if (s != null && e != null) {
+                            setDialogState(() {
+                              exportStart = s;
+                              exportEnd = e;
+                            });
+                          }
                         }
                       },
                       borderRadius: BorderRadius.circular(10),

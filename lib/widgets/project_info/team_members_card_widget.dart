@@ -74,81 +74,96 @@ class TeamMembersCard extends StatelessWidget {
                 style: TextStyle(
                     color: colorScheme.onSurface.withValues(alpha: 0.5)))
           else
-            ...List.generate(teamMembers.length, (i) {
-              final member = teamMembers[i];
-              final project =
-                  context.read<ProjectProvider>().currentProject;
-              final isCreator = project?.creatorId == member.id;
-              return Padding(
-                padding: EdgeInsets.only(top: i == 0 ? 0 : 8),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor:
-                          AvatarColor.getColorForUser(member.username),
-                      backgroundImage: member.profileImageUrl != null
-                          ? NetworkImage(member.profileImageUrl!)
-                          : null,
-                      child: member.profileImageUrl == null
-                          ? Text(
-                              member.username.isNotEmpty
-                                  ? member.username[0].toUpperCase()
-                                  : '?',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14),
-                            )
-                          : null,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(member.username,
-                              style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: colorScheme.onSurface)),
-                          if (member.email.isNotEmpty)
-                            Text(member.email,
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    color: colorScheme.onSurface
-                                        .withValues(alpha: 0.5))),
-                        ],
-                      ),
-                    ),
-                    if (isCreator)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.shade100,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text('PM',
-                            style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.amber.shade800)),
-                      )
-                    else if (isPM)
-                      IconButton(
-                        icon: Icon(Icons.remove_circle_outline,
-                            size: 18, color: Colors.red.shade300),
-                        tooltip: '제거',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: () =>
-                            _removeTeamMember(context, member, colorScheme),
-                      ),
-                  ],
-                ),
-              );
-            }),
+            ..._buildSortedMembers(context, colorScheme),
+        ],
+      ),
+    );
+  }
+
+  /// PM(creator) 을 맨 위로 올리는 정렬된 멤버 위젯 리스트
+  List<Widget> _buildSortedMembers(BuildContext context, ColorScheme colorScheme) {
+    final project = context.read<ProjectProvider>().currentProject;
+    final creatorId = project?.creatorId;
+    final sorted = [...teamMembers]..sort((a, b) {
+      if (a.id == creatorId) return -1;
+      if (b.id == creatorId) return 1;
+      return 0;
+    });
+    return List.generate(sorted.length, (i) {
+      return _buildMemberRow(context, colorScheme, sorted[i], i, creatorId);
+    });
+  }
+
+  Widget _buildMemberRow(
+    BuildContext context,
+    ColorScheme colorScheme,
+    User member,
+    int i,
+    String? creatorId,
+  ) {
+    final isCreator = creatorId == member.id;
+    return Padding(
+      padding: EdgeInsets.only(top: i == 0 ? 0 : 8),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: AvatarColor.getColorForUser(member.username),
+            backgroundImage: member.profileImageUrl != null
+                ? NetworkImage(member.profileImageUrl!)
+                : null,
+            child: member.profileImageUrl == null
+                ? Text(
+                    member.username.isNotEmpty
+                        ? member.username[0].toUpperCase()
+                        : '?',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(member.username,
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.onSurface)),
+                if (member.email.isNotEmpty)
+                  Text(member.email,
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: colorScheme.onSurface.withValues(alpha: 0.5))),
+              ],
+            ),
+          ),
+          if (isCreator)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text('PM',
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.amber.shade800)),
+            )
+          else if (isPM)
+            IconButton(
+              icon: Icon(Icons.remove_circle_outline,
+                  size: 18, color: Colors.red.shade300),
+              tooltip: '제거',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: () => _removeTeamMember(context, member, colorScheme),
+            ),
         ],
       ),
     );

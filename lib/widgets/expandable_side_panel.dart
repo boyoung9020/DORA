@@ -123,7 +123,7 @@ class _SidePanelOverlayState extends State<_SidePanelOverlay>
               child: Container(
                 decoration: BoxDecoration(
                   color: isDark
-                      ? const Color(0xFF1E1A15)
+                      ? cs.surfaceContainer
                       : const Color(0xFFFCFCFF),
                   border: Border(
                     left: BorderSide(

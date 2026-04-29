@@ -198,6 +198,70 @@ async def delete_project(
     return {"message": "프로젝트가 삭제되었습니다"}
 
 
+@router.post("/{project_id}/archive", response_model=ProjectResponse)
+async def archive_project(
+    project_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """프로젝트 보관 (프로젝트 PM 또는 관리자만). UI 노출만 차단하고 데이터는 보존."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="프로젝트를 찾을 수 없습니다"
+        )
+
+    if not _is_project_pm(project, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="프로젝트 PM 또는 관리자만 보관할 수 있습니다"
+        )
+
+    project.is_archived = True
+    db.commit()
+    db.refresh(project)
+
+    asyncio.create_task(manager.broadcast({
+        "type": "project_archived",
+        "data": {"project_id": project.id}
+    }, exclude_user_id=current_user.id))
+
+    return project
+
+
+@router.post("/{project_id}/unarchive", response_model=ProjectResponse)
+async def unarchive_project(
+    project_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """프로젝트 보관 해제 (프로젝트 PM 또는 관리자만)."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="프로젝트를 찾을 수 없습니다"
+        )
+
+    if not _is_project_pm(project, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="프로젝트 PM 또는 관리자만 보관 해제할 수 있습니다"
+        )
+
+    project.is_archived = False
+    db.commit()
+    db.refresh(project)
+
+    asyncio.create_task(manager.broadcast({
+        "type": "project_unarchived",
+        "data": {"project_id": project.id}
+    }, exclude_user_id=current_user.id))
+
+    return project
+
+
 @router.post("/{project_id}/members/{user_id}")
 async def add_team_member(
     project_id: str,

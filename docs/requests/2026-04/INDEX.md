@@ -2,6 +2,9 @@
 
 | 파일 | 제목 | 유형 | 영역 | 상태 | 관련 |
 |------|------|------|------|------|------|
+| [20260429-115346-dark-palette-presets.md](20260429-115346-dark-palette-presets.md) | 다크 팔레트 3종 (GitHub/Neutral/Mild) 라이브 토글 — 설정에서 선택 | feat+ui | frontend/providers, frontend/utils, frontend/screens | done | theme_provider, accent_palette, main_layout |
+| [20260429-095107-clean-dialog-unify.md](20260429-095107-clean-dialog-unify.md) | 단일 입력/확인 다이얼로그를 드롭다운 톤의 깔끔한 공통 위젯으로 통합 (프로젝트 생성/보관/삭제, 폴더 생성) | refactor+ui | frontend/widgets, frontend/screens | done | clean_dialog, main_layout, meeting_minutes_screen |
+| [20260428-105919-project-archive-feature.md](20260428-105919-project-archive-feature.md) | 프로젝트 보관(archive) 기능 추가 — 워크스페이스 전체 단위 숨김, PM/Admin 권한, 데이터 보존 | feat | backend/models+routers+schemas, frontend/models+services+providers+screens, schema(projects) | done | projects, project_provider, main_layout, dashboard_screen |
 | [20260427-001401-team-dashboard-pinned-empty-state.md](20260427-001401-team-dashboard-pinned-empty-state.md) | 팀 현황 대시보드 핀 멤버 빈 set 저장 시 자동 리셋되는 버그 수정 | fix | frontend/widgets/workspace | done | team_today_dashboard |
 | [20260426-233500-meeting-minutes-tasks-side-panel.md](20260426-233500-meeting-minutes-tasks-side-panel.md) | 회의록에서 생성된 작업 현황판 사이드 패널 추가 (Notion 스타일 테이블 + Date 컬럼 + 폭 확대) | feat | frontend/screens, frontend/widgets/meeting_minutes | done | meeting_minutes_screen, meeting_tasks_panel, meeting_task_table_row |
 | [20260426-195650-meeting-minutes-task-check-instant-update.md](20260426-195650-meeting-minutes-task-check-instant-update.md) | 회의록 작업 추가 시 체크 표시 즉시 반영 (StatefulBuilder setState shadow 우회) | fix | frontend/screens | done | meeting_minutes_screen |

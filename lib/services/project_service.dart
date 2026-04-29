@@ -127,6 +127,28 @@ class ProjectService {
     }
   }
 
+  /// 프로젝트 보관
+  Future<Project> archiveProject(String projectId) async {
+    try {
+      final response = await ApiClient.post('/api/projects/$projectId/archive');
+      final data = ApiClient.handleResponse(response);
+      return Project.fromJson(data);
+    } catch (e) {
+      throw Exception('프로젝트 보관 실패: $e');
+    }
+  }
+
+  /// 프로젝트 보관 해제
+  Future<Project> unarchiveProject(String projectId) async {
+    try {
+      final response = await ApiClient.post('/api/projects/$projectId/unarchive');
+      final data = ApiClient.handleResponse(response);
+      return Project.fromJson(data);
+    } catch (e) {
+      throw Exception('프로젝트 보관 해제 실패: $e');
+    }
+  }
+
   /// 프로젝트에서 팀원 제거
   Future<void> removeTeamMember(String projectId, String userId) async {
     try {

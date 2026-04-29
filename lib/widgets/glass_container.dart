@@ -1,5 +1,4 @@
-﻿import 'dart:ui';
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 /// 移대뱶 而⑦뀒?대꼫 ?꾩젽
 ///
@@ -73,9 +72,9 @@ class GlassContainer extends StatelessWidget {
     // ?쇱씠??紐⑤뱶: 諛앹? ?됱씠硫??꾩＜ ?고븳 ?몃뵒怨??붿씠???곸슜
     final Color bgColor;
     if (isDarkMode) {
-      bgColor = gradientColors != null
-          ? const Color(0xFF242019)
-          : const Color(0xFF17120F);
+      // 다크 모드는 colorScheme.surfaceContainer 사용 (= AccentPalette 의 sharedSurface #383838)
+      // 모든 GlassContainer 가 한 토큰으로 통일됨 → 다른 곳에서도 같은 토큰 쓰면 자동 일관성
+      bgColor = theme.colorScheme.surfaceContainer;
     } else {
       if (gradientColors != null) {
         final baseColor = gradientColors!.first.withAlpha(255);
@@ -92,13 +91,24 @@ class GlassContainer extends StatelessWidget {
       margin: margin,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(borderRadius),
-        color: isDarkMode ? null : bgColor,
+        color: bgColor,
         border: Border.all(
           color: borderClr,
           width: borderWidth,
         ),
         boxShadow: [shadow],
       ),
+      // 다크/라이트 모두 평평한 단색 (BackdropFilter 제거 — 통일성 확보)
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: Container(
+          padding: padding,
+          child: child,
+        ),
+      ),
+    );
+    /* legacy block removed
+    return Container(
       child: isDarkMode
           // ?ㅽ겕 紐⑤뱶: 釉붾윭 ?④낵 ?좎?
           ? ClipRRect(
@@ -123,10 +133,11 @@ class GlassContainer extends StatelessWidget {
               ),
             ),
     );
+    */
   }
 }
 
-/// ?낅젰 ?꾨뱶 ?꾩젽
+/// 입력 필드 위젯
 class GlassTextField extends StatelessWidget {
   final TextEditingController? controller;
   final String? labelText;
@@ -162,11 +173,8 @@ class GlassTextField extends StatelessWidget {
       borderRadius: 15.0,
       blur: 20.0,
       borderWidth: 1.0,
-      gradientColors: [
-        isDarkMode
-            ? const Color(0xFF17120F)
-            : Colors.white,
-      ],
+      // 다크 모드는 GlassContainer 내부에서 colorScheme.surfaceContainer 사용 (이 값 무시됨)
+      gradientColors: isDarkMode ? null : [Colors.white],
       child: TextFormField(
         controller: controller,
         obscureText: obscureText,
@@ -242,19 +250,23 @@ class _GlassButtonState extends State<GlassButton> {
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
+    // 다크 모드는 GlassContainer 와 동일한 surface 토큰 사용 (모든 표면 통일)
+    final darkDefault = cs.surfaceContainer;
+    final darkHover = cs.surfaceContainerHigh;
 
     final defaultColor = widget.gradientColors != null
-        ? (isDarkMode ? const Color(0xFF17120F) : widget.gradientColors!.first)
+        ? (isDarkMode ? darkDefault : widget.gradientColors!.first)
         : isDarkMode
-            ? const Color(0xFF17120F)
+            ? darkDefault
             : Colors.white;
 
     final hoverColor = widget.gradientColors != null
-        ? (isDarkMode ? const Color(0xFF110D0A) : widget.gradientColors!.first.withValues(alpha: 
+        ? (isDarkMode ? darkHover : widget.gradientColors!.first.withValues(alpha:
             (widget.gradientColors!.first.a + 0.2).clamp(0.0, 1.0),
           ))
         : isDarkMode
-            ? const Color(0xFF110D0A)
+            ? darkHover
             : const Color(0xFFFFF3E6); // Indigo 50 hover
 
     return GlassContainer(

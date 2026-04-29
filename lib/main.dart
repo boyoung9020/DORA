@@ -8,6 +8,7 @@ import 'providers/auth_provider.dart';
 import 'providers/task_provider.dart';
 import 'providers/project_provider.dart';
 import 'providers/theme_provider.dart';
+import 'utils/accent_palette.dart';
 import 'providers/notification_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/workspace_provider.dart';
@@ -136,6 +137,12 @@ class MyApp extends StatelessWidget {
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
           final accent = themeProvider.accentColor;
+          final lightPalette = AccentPalette(
+              accent: accent, brightness: Brightness.light);
+          final darkPalette = AccentPalette(
+              accent: accent,
+              brightness: Brightness.dark,
+              darkPreset: themeProvider.darkPalette);
           return MaterialApp(
             title: 'Sync - 프로젝트 관리',
             debugShowCheckedModeBanner: false,
@@ -147,27 +154,29 @@ class MyApp extends StatelessWidget {
                   Typography.material2021().black,
                 ),
               ),
-              scaffoldBackgroundColor: Colors.white,
+              scaffoldBackgroundColor: lightPalette.contentBackground,
               colorScheme:
                   ColorScheme.fromSeed(
                     seedColor: accent,
                     brightness: Brightness.light,
                   ).copyWith(
-                    surface: Colors.white,
-                    surfaceContainerHighest: Colors.white,
-                    onSurface: const Color(
-                      0xFF3C2A1A,
-                    ),
-                    onSurfaceVariant: const Color(
-                      0xFF8A6647,
-                    ),
+                    // 콘텐츠 표면 — accent 파생 (사용자 포인트 색상 변경 시 함께 변함)
+                    surface: lightPalette.contentBackground,
+                    surfaceContainerLowest: lightPalette.contentSurfaceLowest,
+                    surfaceContainerLow: lightPalette.contentSurfaceLow,
+                    surfaceContainer: lightPalette.contentSurface,
+                    surfaceContainerHigh: lightPalette.contentSurfaceHigh,
+                    surfaceContainerHighest: lightPalette.contentSurfaceHighest,
+                    onSurface: lightPalette.contentOnSurface,
+                    onSurfaceVariant: lightPalette.contentOnSurfaceVariant,
+                    outline: lightPalette.contentOutline,
+                    outlineVariant: lightPalette.contentOutlineVariant,
                     primary: accent,
-                    primaryContainer: const Color(0xFFF3DECA),
+                    primaryContainer: lightPalette.contentSurfaceHighest,
                     onPrimary: Colors.white,
                     secondary: const Color(0xFF2C9271),
                     secondaryContainer: const Color(0xFFD8F0E7),
                     error: const Color(0xFFDC2626),
-                    outline: const Color(0xFFDADDE2),
                   ),
               useMaterial3: true,
             ),
@@ -178,33 +187,33 @@ class MyApp extends StatelessWidget {
                   Typography.material2021().white,
                 ),
               ),
-              scaffoldBackgroundColor: const Color(0xFF17120F),
+              scaffoldBackgroundColor: darkPalette.contentBackground,
               colorScheme: ColorScheme.fromSeed(
                 seedColor: accent,
                 brightness: Brightness.dark,
               ).copyWith(
-                // Surface 계층 (M3 tone 기준, 5단계)
-                surface:                 const Color(0xFF17120F),
-                surfaceContainerLowest:  const Color(0xFF110D0A),
-                surfaceContainerLow:     const Color(0xFF1E1916),
-                surfaceContainer:        const Color(0xFF242019),
-                surfaceContainerHigh:    const Color(0xFF2E2822),
-                surfaceContainerHighest: const Color(0xFF38312B),
+                // 콘텐츠 표면 — accent 파생 (다크) (M3 tone 5단계)
+                surface:                 darkPalette.contentBackground,
+                surfaceContainerLowest:  darkPalette.contentSurfaceLowest,
+                surfaceContainerLow:     darkPalette.contentSurfaceLow,
+                surfaceContainer:        darkPalette.contentSurface,
+                surfaceContainerHigh:    darkPalette.contentSurfaceHigh,
+                surfaceContainerHighest: darkPalette.contentSurfaceHighest,
                 // 텍스트 / 아이콘
-                onSurface:        const Color(0xFFEDE0D9),
-                onSurfaceVariant: const Color(0xFFCDB8AF),
+                onSurface:        darkPalette.contentOnSurface,
+                onSurfaceVariant: darkPalette.contentOnSurfaceVariant,
                 primary:            Color.lerp(accent, Colors.white, 0.12) ?? accent,
                 onPrimary:          Colors.white,
-                primaryContainer:   const Color(0xFF6A3A19),
-                onPrimaryContainer: const Color(0xFFFFDCC8),
+                primaryContainer:   darkPalette.contentSurfaceHighest,
+                onPrimaryContainer: darkPalette.contentOnSurface,
                 // 보조 색상 (초록)
                 secondary:            const Color(0xFF5CC8A5),
                 onSecondary:          Colors.white,
                 secondaryContainer:   const Color(0xFF1B4A3A),
                 onSecondaryContainer: const Color(0xFFA0EDD5),
                 // 테두리
-                outline:        const Color(0xFF9A8480),
-                outlineVariant: const Color(0xFF4C4140),
+                outline:        darkPalette.contentOutline,
+                outlineVariant: darkPalette.contentOutlineVariant,
                 // 에러
                 error:            const Color(0xFFFFB4AB),
                 onError:          const Color(0xFF690005),

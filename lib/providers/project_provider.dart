@@ -16,6 +16,7 @@ class ProjectProvider extends ChangeNotifier {
   bool _isAdmin = false; // 관리자 여부
   bool _isPM = false; // PM 여부
   Set<String> _favoriteIds = {}; // 즐겨찾기 프로젝트 ID
+  bool _showArchived = false;    // 드롭다운에서 보관함 표시 여부 (UI 토글, 비영속)
 
   List<Project> get projects => _projects;
   Project? get currentProject => _currentProject;
@@ -23,6 +24,7 @@ class ProjectProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   Set<String> get favoriteIds => _favoriteIds;
+  bool get isShowingArchived => _showArchived;
 
   /// 즐겨찾기 여부
   bool isFavorite(String projectId) => _favoriteIds.contains(projectId);
@@ -44,11 +46,27 @@ class ProjectProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 즐겨찾기 우선 정렬된 프로젝트 목록
+  /// 보관 처리 안 된 프로젝트 (드롭다운/대시보드 노출용)
+  List<Project> get visibleProjects =>
+      _projects.where((p) => !p.isArchived).toList();
+
+  /// 보관 처리된 프로젝트만
+  List<Project> get archivedProjects =>
+      _projects.where((p) => p.isArchived).toList();
+
+  /// 즐겨찾기 우선 정렬된 프로젝트 목록 (보관 제외)
   List<Project> get sortedProjects {
-    final favs = _projects.where((p) => _favoriteIds.contains(p.id)).toList();
-    final rest = _projects.where((p) => !_favoriteIds.contains(p.id)).toList();
+    final base = visibleProjects;
+    final favs = base.where((p) => _favoriteIds.contains(p.id)).toList();
+    final rest = base.where((p) => !_favoriteIds.contains(p.id)).toList();
     return [...favs, ...rest];
+  }
+
+  /// 드롭다운 보관함 토글
+  void setShowArchived(bool v) {
+    if (_showArchived == v) return;
+    _showArchived = v;
+    notifyListeners();
   }
 
   ProjectProvider();
@@ -118,15 +136,16 @@ class ProjectProvider extends ChangeNotifier {
     if (_isAllProjectsMode) {
       _currentProject = null;
     } else if (_currentProject != null) {
-      // 현재 프로젝트가 필터링된 목록에 없으면 첫 번째 프로젝트로 설정
-      final found = _projects.any((p) => p.id == _currentProject!.id);
-      if (!found && _projects.isNotEmpty) {
-        _currentProject = _projects.first;
+      // 현재 프로젝트가 필터링된 visible 목록에 없으면 폴백 (보관 처리되었을 수 있음)
+      final visible = visibleProjects;
+      final found = visible.any((p) => p.id == _currentProject!.id);
+      if (!found && visible.isNotEmpty) {
+        _currentProject = visible.first;
       } else if (!found) {
         _currentProject = null;
       }
-    } else if (_projects.isNotEmpty) {
-      _currentProject = _projects.first;
+    } else if (visibleProjects.isNotEmpty) {
+      _currentProject = visibleProjects.first;
     }
 
     print('[ProjectProvider] 현재 선택된 프로젝트: ${_currentProject?.name ?? "없음"}');
@@ -165,15 +184,16 @@ class ProjectProvider extends ChangeNotifier {
 
       // '전체' 모드면 currentProject는 null 유지, 아니면 저장된 ID로 복원
       if (!_isAllProjectsMode) {
-        if (savedProjectId != null && _projects.isNotEmpty) {
-          _currentProject = _projects.firstWhere(
+        final visible = visibleProjects;
+        if (savedProjectId != null && visible.isNotEmpty) {
+          _currentProject = visible.firstWhere(
             (p) => p.id == savedProjectId,
-            orElse: () => _projects.first,
+            orElse: () => visible.first,
           );
-        } else if (_projects.isNotEmpty) {
-          _currentProject = _projects.first;
+        } else if (visible.isNotEmpty) {
+          _currentProject = visible.first;
         } else {
-          // 속한 프로젝트가 없으면 자동으로 '전체' 모드로 전환
+          // 보관되지 않은 프로젝트가 없으면 자동으로 '전체' 모드로 전환
           _currentProject = null;
           _isAllProjectsMode = true;
         }
@@ -258,6 +278,41 @@ class ProjectProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _errorMessage = '프로젝트 삭제 중 오류가 발생했습니다: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// 프로젝트 보관 (워크스페이스 전체에서 숨김)
+  Future<bool> archiveProject(String projectId) async {
+    try {
+      await _projectService.archiveProject(projectId);
+      final wasCurrent = _currentProject?.id == projectId;
+      await loadProjects(userId: _currentUserId, isAdmin: _isAdmin, isPM: _isPM);
+      if (wasCurrent) {
+        final visible = visibleProjects;
+        if (visible.isNotEmpty) {
+          await setCurrentProject(visible.first.id);
+        } else {
+          selectAllProjects();
+        }
+      }
+      return true;
+    } catch (e) {
+      _errorMessage = '프로젝트 보관 중 오류가 발생했습니다: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// 프로젝트 보관 해제
+  Future<bool> unarchiveProject(String projectId) async {
+    try {
+      await _projectService.unarchiveProject(projectId);
+      await loadProjects(userId: _currentUserId, isAdmin: _isAdmin, isPM: _isPM);
+      return true;
+    } catch (e) {
+      _errorMessage = '프로젝트 보관 해제 중 오류가 발생했습니다: $e';
       notifyListeners();
       return false;
     }

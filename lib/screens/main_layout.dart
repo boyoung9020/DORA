@@ -15,6 +15,7 @@ import '../services/websocket_service.dart';
 import '../services/upload_service.dart';
 import '../providers/notification_provider.dart';
 import '../providers/chat_provider.dart';
+import '../utils/accent_palette.dart';
 import '../utils/api_client.dart';
 import '../providers/workspace_provider.dart';
 import '../providers/sprint_provider.dart';
@@ -26,6 +27,7 @@ import '../models/user.dart';
 import '../models/workspace.dart';
 import '../widgets/app_title_bar.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/clean_dialog.dart';
 import '../utils/avatar_color.dart';
 import 'login_screen.dart';
 import 'workspace_select_screen.dart';
@@ -82,6 +84,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   // 프로젝트 드롭다운 오버레이
   final _projectBtnKey = GlobalKey();
   OverlayEntry? _projectDropdownEntry;
+  OverlayEntry? _projectContextMenuEntry;
 
   // 메뉴 항목 정의 (상태로 관리하여 드래그로 순서 변경 가능)
   List<MenuItem> _menuItems = [
@@ -142,7 +145,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     MenuItem(
       icon: Icons.groups_outlined,
       selectedIcon: Icons.groups,
-      label: '팀 현황',
+      label: '멤버',
       index: 9,
     ),
   ];
@@ -168,8 +171,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this); // 생명주기 관찰자 제거
     _webSocketService?.disconnect(); // WebSocket 연결 해제
     _toastDebounceTimer?.cancel();
+    _closeProjectContextMenu();
     _closeProjectDropdown();
     super.dispose();
+  }
+
+  void _closeProjectContextMenu() {
+    _projectContextMenuEntry?.remove();
+    _projectContextMenuEntry = null;
   }
 
   // ── 프로젝트 드롭다운 오버레이 ─────────────────────────────────────────
@@ -247,7 +256,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                         onTap: () async {
                           _closeProjectDropdown();
                           pp.selectAllProjects();
-                          final wsProjectIds = pp.projects.map((p) => p.id).toList();
+                          final wsProjectIds = pp.visibleProjects.map((p) => p.id).toList();
                           await taskProv.loadTasks();
                           taskProv.filterByProjectIds(wsProjectIds);
                           await sprintProv.loadSprints();
@@ -315,7 +324,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                           widgets.add(
                             GestureDetector(
                               onSecondaryTapDown: (d) {
-                                _closeProjectDropdown();
                                 _showProjectContextMenu(
                                     context, project, pp, auth, d.globalPosition);
                               },
@@ -358,6 +366,53 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                         return widgets;
                       }(),
 
+                      // ── 보관함 (보기 토글이 켜져 있고 보관 항목이 1개 이상일 때) ──
+                      if (pp.isShowingArchived && pp.archivedProjects.isNotEmpty) ...[
+                        Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.4)),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 8, 14, 2),
+                          child: Text(
+                            '보관',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: cs.onSurface.withValues(alpha: 0.45),
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                        for (final project in pp.archivedProjects)
+                          GestureDetector(
+                            onSecondaryTapDown: (d) {
+                              _showProjectContextMenu(
+                                  context, project, pp, auth, d.globalPosition);
+                            },
+                            child: Opacity(
+                              opacity: 0.5,
+                              child: _dropdownItem(
+                                cs: cs,
+                                leading: Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                      color: project.color, shape: BoxShape.circle),
+                                ),
+                                label: project.name,
+                                isSelected: false,
+                                isDark: isDark,
+                                trailing: Icon(
+                                  Icons.archive_outlined,
+                                  size: 16,
+                                  color: cs.onSurface.withValues(alpha: 0.4),
+                                ),
+                                onTap: () {
+                                  // 보관 항목은 좌클릭 비활성화 (우클릭 컨텍스트 메뉴로만 조작)
+                                },
+                              ),
+                            ),
+                          ),
+                      ],
+
                       // ── 새 프로젝트 ──
                       Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.4)),
                       _dropdownItem(
@@ -371,6 +426,26 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                           _showCreateProjectDialog(context);
                         },
                       ),
+
+                      // ── 보관함 보기 토글 (보관 프로젝트가 1개 이상일 때만 노출) ──
+                      if (pp.archivedProjects.isNotEmpty)
+                        _dropdownItem(
+                          cs: cs,
+                          leading: Icon(
+                            pp.isShowingArchived
+                                ? Icons.visibility_off_outlined
+                                : Icons.archive_outlined,
+                            size: 18,
+                            color: cs.onSurface.withValues(alpha: 0.6),
+                          ),
+                          label: pp.isShowingArchived
+                              ? '보관함 숨기기'
+                              : '보관된 프로젝트 보기 (${pp.archivedProjects.length})',
+                          labelColor: cs.onSurface.withValues(alpha: 0.7),
+                          onTap: () {
+                            pp.setShowArchived(!pp.isShowingArchived);
+                          },
+                        ),
                     ],
                   ),
                 ),
@@ -1006,7 +1081,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       MenuItem(
         icon: Icons.groups_outlined,
         selectedIcon: Icons.groups,
-        label: '팀 현황',
+        label: '멤버',
         index: 9,
       ),
     ];
@@ -1105,9 +1180,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final menuItems = List<MenuItem>.from(_menuItems);
 
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final shellColor = isDarkMode
-        ? const Color(0xFF2E2822)
-        : const Color(0xFFF7E9DC);
+    final accent = context.watch<ThemeProvider>().accentColor;
+    final palette = AccentPalette(
+      accent: accent,
+      brightness: isDarkMode ? Brightness.dark : Brightness.light,
+    );
+    final shellColor = palette.shellBackground;
 
     return Scaffold(
       backgroundColor: shellColor,
@@ -1115,9 +1193,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         children: [
           // 커스텀 타이틀바
           AppTitleBar(
-            backgroundColor: isDarkMode
-                ? const Color(0xFF252017)
-                : const Color(0xFFEDD8C5),
+            backgroundColor: palette.titleBarBackground,
             leadingWidth: 52 + (_mainMenuVisible ? 75 : 0),
             extraHeight: 0,
           ),
@@ -1129,7 +1205,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 워크스페이스 레일 (Slack 스타일, 가장 왼쪽)
-                  _buildWorkspaceRail(context),
+                  _buildWorkspaceRail(context, palette),
                   if (_mainMenuVisible)
                     _buildSidebar(
                       context,
@@ -1138,6 +1214,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                       authProvider,
                       isDarkMode,
                       shellColor,
+                      palette,
                     ),
                   // 오른쪽 영역 (팀원 + 메인 - 같은 영역)
                   Expanded(
@@ -1154,9 +1231,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                             padding: const EdgeInsets.fromLTRB(0, 0, 0, 0),
                             child: Container(
                               decoration: BoxDecoration(
-                                color: isDarkMode
-                                    ? const Color(0xFF1E1916)
-                                    : Colors.white,
+                                // 콘텐츠 카드 — accent 파생 contentSurfaceLowest 사용
+                                // (사용자 포인트 색상 변경에 즉시 반응)
+                                color: palette.contentSurfaceLowest,
                                 gradient: null,
                                 borderRadius: const BorderRadius.only(
                                   topLeft: Radius.circular(28),
@@ -1210,14 +1287,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   /// Slack 스타일 워크스페이스 레일 (가장 왼쪽 좁은 열)
-  Widget _buildWorkspaceRail(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final railColor = isDarkMode
-        ? const Color(0xFF1E1916)
-        : const Color(0xFFE2B993);
-    final railForeground = isDarkMode
-        ? const Color(0xFFCDB8AF)
-        : const Color(0xFF8A5731);
+  Widget _buildWorkspaceRail(BuildContext context, AccentPalette palette) {
+    final railColor = palette.workspaceRail;
+    final railForeground = palette.workspaceRailForeground;
 
     return Consumer<WorkspaceProvider>(
       builder: (context, wsProvider, _) {
@@ -1292,7 +1364,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               // ② 워크스페이스 아이콘 목록
               ...wsProvider.workspaces.map((ws) {
                 final isSelected = ws.id == wsProvider.currentWorkspaceId;
-                return _buildWorkspaceIcon(context, ws, isSelected, wsProvider);
+                return _buildWorkspaceIcon(
+                    context, ws, isSelected, wsProvider, palette);
               }),
               const Spacer(),
               // ③ 워크스페이스 설정 버튼 (하단)
@@ -1333,9 +1406,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     Workspace ws,
     bool isSelected,
     WorkspaceProvider wsProvider,
+    AccentPalette palette,
   ) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final railAccent = isDarkMode ? Colors.white : const Color(0xFF8A5731);
+    final railAccent = palette.workspaceRailAccent;
 
     const avatarColors = [
       Color(0xFF5C6BC0),
@@ -1407,13 +1480,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     AuthProvider authProvider,
     bool isDarkMode,
     Color shellColor,
+    AccentPalette palette,
   ) {
-    final sidebarColor = isDarkMode
-        ? const Color(0xFF2E2822)
-        : const Color(0xFFF7E9DC);
+    final sidebarColor = palette.sidebarBackground;
     final sidebarTextColor = isDarkMode
-        ? const Color(0xFFEDE0D9)
-        : const Color(0xFF8A5731).withValues(alpha: 0.9);
+        ? palette.sidebarText
+        : palette.sidebarText.withValues(alpha: 0.9);
 
     return Container(
       width: 75,
@@ -1478,6 +1550,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   context,
                   item,
                   colorScheme,
+                  palette,
                   key: ValueKey(item.label),
                 );
               }).toList(),
@@ -1601,14 +1674,25 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   Widget _buildProjectInfoBar(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final accent = context.watch<ThemeProvider>().accentColor;
+    final palette = AccentPalette(
+      accent: accent,
+      brightness: isDarkMode ? Brightness.dark : Brightness.light,
+    );
     final projectProvider = Provider.of<ProjectProvider>(context);
     final currentProject = projectProvider.currentProject;
+    // 프로젝트 정보 바 — shell 톤 사용 (콘텐츠 카드 위에 살짝 떠 있는 느낌)
+    final infoBarColor = palette.shellBackground;
+    // 텍스트/아이콘 — 다크: onSurface, 라이트: 사이드바 텍스트와 같은 톤 (accent 파생 갈색)
+    final infoBarText =
+        isDarkMode ? colorScheme.onSurface : palette.sidebarText;
+    final infoBarTextMuted = infoBarText.withValues(alpha: 0.75);
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
       decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF2E2822) : const Color(0xFFF7E9DC),
+        color: infoBarColor,
       ),
       child: Row(
         children: [
@@ -1623,13 +1707,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (projectProvider.isAllProjectsMode) ...[
-                    Icon(Icons.layers, size: 18,
-                        color: isDarkMode ? colorScheme.onSurface : const Color(0xFF8A5731)),
+                    Icon(Icons.layers, size: 18, color: infoBarText),
                     const SizedBox(width: 12),
                     Text('전체',
                         style: TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold,
-                          color: isDarkMode ? colorScheme.onSurface : const Color(0xFF8A5731),
+                          color: infoBarText,
                         )),
                   ] else if (currentProject != null) ...[
                     Container(
@@ -1640,26 +1723,20 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     Text(currentProject.name,
                         style: TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold,
-                          color: isDarkMode ? colorScheme.onSurface : const Color(0xFF8A5731),
+                          color: infoBarText,
                         )),
                   ] else ...[
                     Icon(Icons.folder_outlined, size: 20,
-                        color: isDarkMode
-                            ? colorScheme.onSurface.withValues(alpha: 0.7)
-                            : const Color(0xFF8A5731).withValues(alpha: 0.75)),
+                        color: infoBarTextMuted),
                     const SizedBox(width: 12),
                     Text('프로젝트를 선택하세요',
-                        style: TextStyle(fontSize: 16,
-                          color: isDarkMode
-                              ? colorScheme.onSurface.withValues(alpha: 0.7)
-                              : const Color(0xFF8A5731).withValues(alpha: 0.75),
+                        style: TextStyle(
+                          fontSize: 16, color: infoBarTextMuted,
                         )),
                   ],
                   const SizedBox(width: 8),
                   Icon(Icons.arrow_drop_down, size: 24,
-                      color: isDarkMode
-                          ? colorScheme.onSurface.withValues(alpha: 0.7)
-                          : const Color(0xFF8A5731).withValues(alpha: 0.75)),
+                      color: infoBarTextMuted),
                 ],
               ),
             ),
@@ -1686,9 +1763,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 filterIcon = Icons.person_outline;
               }
 
-              final defaultColor = isDarkMode
-                  ? colorScheme.onSurface.withValues(alpha: 0.6)
-                  : const Color(0xFF8A5731).withValues(alpha: 0.6);
+              final defaultColor = infoBarText.withValues(alpha: 0.6);
 
               return InkWell(
                 borderRadius: BorderRadius.circular(8),
@@ -1741,9 +1816,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             onPressed: () => _showSearchDialog(context),
             icon: Icon(
               Icons.search,
-              color: isDarkMode
-                  ? colorScheme.onSurface
-                  : const Color(0xFF8A5731),
+              color: infoBarText,
             ),
           ),
         ],
@@ -1786,8 +1859,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       final memberIds = currentProject.teamMemberIds;
       users = allUsers.where((u) => memberIds.contains(u.id)).toList();
     } else {
-      // 전체 모드: 내가 속한 프로젝트들의 팀원만 표시
-      final myProjects = projectProvider.projects;
+      // 전체 모드: 내가 속한 프로젝트들의 팀원만 표시 (보관 제외)
+      final myProjects = projectProvider.visibleProjects;
       final memberIds = <String>{};
       for (final p in myProjects) {
         memberIds.addAll(p.teamMemberIds);
@@ -1877,8 +1950,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     AuthProvider authProvider,
     Offset position,
   ) {
-    final size = MediaQuery.of(context).size;
-
     // 프로젝트 PM(creator) 또는 Admin만 삭제 가능
     final isProjectPM =
         project.creatorId == authProvider.currentUser?.id ||
@@ -1887,218 +1958,248 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       return;
     }
 
-    showMenu(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        size.width - position.dx,
-        size.height - position.dy,
-      ),
-      items: [
-        PopupMenuItem(
+    // 이미 떠있는 메뉴가 있으면 먼저 제거 (우클릭 누적 방지)
+    _closeProjectContextMenu();
+
+    final cs = Theme.of(context).colorScheme;
+    final mediaSize = MediaQuery.of(context).size;
+    const menuWidth = 180.0;
+    const menuHeight = 96.0; // 항목 2개 기준 대략 높이
+    // 화면 밖으로 안 나가도록 클램프
+    final left = position.dx.clamp(0.0, mediaSize.width - menuWidth);
+    final top = position.dy.clamp(0.0, mediaSize.height - menuHeight);
+
+    Widget menuItem({
+      required IconData icon,
+      required String label,
+      required Color color,
+      required VoidCallback onTap,
+    }) {
+      return InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             children: [
-              Icon(Icons.delete_outline, size: 20, color: Colors.red),
+              Icon(icon, size: 20, color: color),
               const SizedBox(width: 12),
               Text(
-                '프로젝트 삭제',
+                label,
                 style: TextStyle(
-                  color: Colors.red,
+                  fontSize: 13,
+                  color: color,
                   fontWeight: FontWeight.w500,
                 ),
               ),
             ],
           ),
-          onTap: () {
-            Future.delayed(const Duration(milliseconds: 50), () {
-              // 컨텍스트 메뉴는 자동으로 닫힘, 드롭다운을 여기서 닫기
-              Navigator.of(context).pop();
-              Future.delayed(const Duration(milliseconds: 50), () {
-                // 스테이트의 context로 삭제 다이얼로그 표시
-                _showDeleteProjectDialog(
-                  this.context,
-                  project,
-                  projectProvider,
-                );
-              });
-            });
-          },
         ),
-      ],
-    );
-  }
+      );
+    }
 
-  /// 프로젝트 삭제 확인 다이얼로그
-  void _showDeleteProjectDialog(
-    BuildContext context,
-    Project project,
-    ProjectProvider projectProvider,
-  ) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: colorScheme.surface,
-          title: Text(
-            '프로젝트 삭제',
-            style: TextStyle(color: colorScheme.onSurface),
-          ),
-          content: Text(
-            '${project.name} 프로젝트를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.',
-            style: TextStyle(color: colorScheme.onSurface),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('취소', style: TextStyle(color: colorScheme.onSurface)),
+    _projectContextMenuEntry = OverlayEntry(
+      builder: (_) {
+        return Stack(
+          children: [
+            // 바깥 탭/우클릭 → 닫기 (드롭다운은 그대로 유지)
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _closeProjectContextMenu,
+                onSecondaryTap: _closeProjectContextMenu,
+              ),
             ),
-            TextButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                final success = await projectProvider.deleteProject(project.id);
-                if (context.mounted) {
-                  if (success) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('${project.name} 프로젝트가 삭제되었습니다'),
-                        backgroundColor: colorScheme.primary,
+            Positioned(
+              left: left,
+              top: top,
+              child: Material(
+                elevation: 8,
+                borderRadius: BorderRadius.circular(8),
+                color: cs.surface,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: menuWidth, maxWidth: 220),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      menuItem(
+                        icon: project.isArchived
+                            ? Icons.unarchive_outlined
+                            : Icons.archive_outlined,
+                        label: project.isArchived ? '보관 해제' : '프로젝트 보관',
+                        color: cs.onSurface,
+                        onTap: () {
+                          _closeProjectContextMenu();
+                          // 다이얼로그(Navigator route) 가 드롭다운(OverlayEntry) 보다 아래라
+                          // 드롭다운의 outer tap detector 가 첫 클릭을 흡수함 → 함께 닫음
+                          _closeProjectDropdown();
+                          if (project.isArchived) {
+                            _runUnarchiveProject(this.context, project, projectProvider);
+                          } else {
+                            _showArchiveProjectDialog(
+                              this.context,
+                              project,
+                              projectProvider,
+                            );
+                          }
+                        },
                       ),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          projectProvider.errorMessage ?? '프로젝트 삭제에 실패했습니다',
-                        ),
-                        backgroundColor: colorScheme.error,
+                      menuItem(
+                        icon: Icons.delete_outline,
+                        label: '프로젝트 삭제',
+                        color: Colors.red,
+                        onTap: () {
+                          _closeProjectContextMenu();
+                          _closeProjectDropdown();
+                          _showDeleteProjectDialog(
+                            this.context,
+                            project,
+                            projectProvider,
+                          );
+                        },
                       ),
-                    );
-                  }
-                }
-              },
-              child: Text('삭제', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         );
       },
     );
+
+    Overlay.of(context).insert(_projectContextMenuEntry!);
+  }
+
+  /// 프로젝트 보관 확인 다이얼로그
+  Future<void> _showArchiveProjectDialog(
+    BuildContext context,
+    Project project,
+    ProjectProvider projectProvider,
+  ) async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final confirmed = await showCleanConfirmDialog(
+      context: context,
+      title: '프로젝트 보관',
+      message:
+          '"${project.name}" 프로젝트를 보관하시겠습니까?\n'
+          '모든 멤버의 드롭다운/대시보드에서 숨겨지지만 데이터는 유지되며 언제든 복원할 수 있습니다.',
+      confirmLabel: '보관',
+    );
+    if (!confirmed) return;
+    if (!context.mounted) return;
+
+    final success = await projectProvider.archiveProject(project.id);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(success
+            ? '${project.name} 프로젝트가 보관되었습니다'
+            : (projectProvider.errorMessage ?? '프로젝트 보관에 실패했습니다')),
+        backgroundColor:
+            success ? colorScheme.primary : colorScheme.error,
+      ),
+    );
+  }
+
+  /// 프로젝트 보관 해제 (즉시 실행)
+  Future<void> _runUnarchiveProject(
+    BuildContext context,
+    Project project,
+    ProjectProvider projectProvider,
+  ) async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final success = await projectProvider.unarchiveProject(project.id);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success
+              ? '${project.name} 프로젝트의 보관이 해제되었습니다'
+              : (projectProvider.errorMessage ?? '보관 해제에 실패했습니다')),
+          backgroundColor:
+              success ? colorScheme.primary : colorScheme.error,
+        ),
+      );
+    }
+  }
+
+  /// 프로젝트 삭제 확인 다이얼로그
+  Future<void> _showDeleteProjectDialog(
+    BuildContext context,
+    Project project,
+    ProjectProvider projectProvider,
+  ) async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final confirmed = await showCleanConfirmDialog(
+      context: context,
+      title: '프로젝트 삭제',
+      message:
+          '"${project.name}" 프로젝트를 삭제하시겠습니까?\n'
+          '이 작업은 되돌릴 수 없습니다.',
+      confirmLabel: '삭제',
+      isDestructive: true,
+    );
+    if (!confirmed) return;
+    if (!context.mounted) return;
+
+    final success = await projectProvider.deleteProject(project.id);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(success
+            ? '${project.name} 프로젝트가 삭제되었습니다'
+            : (projectProvider.errorMessage ?? '프로젝트 삭제에 실패했습니다')),
+        backgroundColor:
+            success ? colorScheme.primary : colorScheme.error,
+      ),
+    );
   }
 
   /// 프로젝트 생성 다이얼로그
-  void _showCreateProjectDialog(BuildContext context) {
+  Future<void> _showCreateProjectDialog(BuildContext context) async {
     final colorScheme = Theme.of(context).colorScheme;
-    final projectProvider = Provider.of<ProjectProvider>(
-      context,
-      listen: false,
-    );
-    final nameController = TextEditingController();
-    Future<void> submitCreateProject(BuildContext dialogContext) async {
-      if (nameController.text.trim().isEmpty) return;
-      final wsProvider = Provider.of<WorkspaceProvider>(
-        dialogContext,
-        listen: false,
-      );
-      final usedColors = projectProvider.projects
-          .map((project) => project.color.value)
-          .toSet();
-      final available = _projectColorPalette
-          .where((color) => !usedColors.contains(color.value))
-          .toList();
-      final palette = available.isNotEmpty ? available : _projectColorPalette;
-      final randomColor = palette[Random().nextInt(palette.length)];
-      final success = await projectProvider.createProject(
-        name: nameController.text.trim(),
-        workspaceId: wsProvider.currentWorkspaceId,
-        color: randomColor,
-      );
-      if (dialogContext.mounted) {
-        if (success) {
-          Navigator.of(dialogContext).pop();
-        } else {
-          ScaffoldMessenger.of(dialogContext).showSnackBar(
-            SnackBar(
-              content: Text(projectProvider.errorMessage ?? '프로젝트 생성에 실패했습니다.'),
-              backgroundColor: colorScheme.error,
-            ),
-          );
-        }
-      }
-    }
+    final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
+    final wsProvider = Provider.of<WorkspaceProvider>(context, listen: false);
 
-    showDialog(
+    final name = await showCleanInputDialog(
       context: context,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 360),
-            child: GlassContainer(
-            padding: const EdgeInsets.all(24),
-            borderRadius: 20.0,
-            blur: 25.0,
-            gradientColors: [
-              colorScheme.surface.withValues(alpha: 0.6),
-              colorScheme.surface.withValues(alpha: 0.5),
-            ],
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '새 프로젝트',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: nameController,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => submitCreateProject(context),
-                  decoration: InputDecoration(
-                    labelText: '프로젝트 이름',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text(
-                        '취소',
-                        style: TextStyle(color: colorScheme.onSurface),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () => submitCreateProject(context),
-                      child: const Text('생성'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          ),
-        );
-      },
+      title: '새 프로젝트',
+      hint: '프로젝트 이름',
+      confirmLabel: '생성',
     );
+    if (name == null || name.isEmpty) return;
+    if (!context.mounted) return;
+
+    final usedColors = projectProvider.projects
+        .map((project) => project.color.value)
+        .toSet();
+    final available = _projectColorPalette
+        .where((color) => !usedColors.contains(color.value))
+        .toList();
+    final palette = available.isNotEmpty ? available : _projectColorPalette;
+    final randomColor = palette[Random().nextInt(palette.length)];
+
+    final success = await projectProvider.createProject(
+      name: name,
+      workspaceId: wsProvider.currentWorkspaceId,
+      color: randomColor,
+    );
+    if (!context.mounted) return;
+    if (!success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(projectProvider.errorMessage ?? '프로젝트 생성에 실패했습니다.'),
+          backgroundColor: colorScheme.error,
+        ),
+      );
+    }
   }
 
   /// 메뉴 항목 위젯
   Widget _buildMenuItem(
     BuildContext context,
     MenuItem item,
-    ColorScheme colorScheme, {
+    ColorScheme colorScheme,
+    AccentPalette palette, {
     Key? key,
   }) {
     final isSelected = _selectedIndex == item.index;
@@ -2111,13 +2212,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         : isChatItem
         ? chatProvider.totalUnreadCount
         : 0;
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final sidebarColor = isDarkMode
-        ? const Color(0xFF2E2822)
-        : const Color(0xFFF7E9DC);
-    final menuTextColor = isDarkMode
-        ? const Color(0xFFEDE0D9)
-        : const Color(0xFF8A5731);
+    final isDarkMode = palette.brightness == Brightness.dark;
+    final sidebarColor = palette.sidebarBackground;
+    final menuTextColor = palette.sidebarText;
+    // 선택된 메뉴 항목의 배경 — 다크모드는 흰색 틴트, 라이트는 accent 파생색
+    final selectedHighlight = isDarkMode
+        ? Colors.white.withValues(alpha: 0.16)
+        : palette.workspaceRail.withValues(alpha: 0.45);
 
     return Padding(
       key: key,
@@ -2140,11 +2241,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               height: 56, // 고정 높이로 정렬 일관성 확보
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                color: isSelected
-                    ? (isDarkMode
-                          ? Colors.white.withValues(alpha: 0.16)
-                          : const Color(0xFFDCBA9F).withValues(alpha: 0.28))
-                    : Colors.transparent,
+                color: isSelected ? selectedHighlight : Colors.transparent,
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -2870,7 +2967,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   bool get _isProjectBarHidden {
     if (!_isMenuStateReady) return false;
     if (_selectedIndex >= 0 && _selectedIndex < _menuItems.length) {
-      const hideLabels = {'사이트', '채팅', '알림', '회의록', '팀 현황'};
+      const hideLabels = {'사이트', '채팅', '알림', '회의록', '멤버'};
       return hideLabels.contains(_menuItems[_selectedIndex].label);
     }
     return false;
@@ -2913,7 +3010,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         return const SiteScreen();
       case '회의록':
         return const MeetingMinutesScreen();
-      case '팀 현황':
+      case '멤버':
         return const WorkspaceMemberStatsScreen();
       default:
         return const DashboardScreen();
@@ -4135,6 +4232,89 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
             );
           }).toList(),
         ),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            Text(
+              '다크 팔레트',
+              style: TextStyle(
+                fontSize: 14,
+                color: colorScheme.onSurface.withValues(alpha: 0.65),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '(다크 모드에서 적용)',
+              style: TextStyle(
+                fontSize: 11,
+                color: colorScheme.onSurface.withValues(alpha: 0.4),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        _buildDarkPaletteSelector(context, themeProvider, colorScheme),
+      ],
+    );
+  }
+
+  Widget _buildDarkPaletteSelector(
+    BuildContext context,
+    ThemeProvider themeProvider,
+    ColorScheme colorScheme,
+  ) {
+    final presets = const <_DarkPalettePresetSpec>[
+      _DarkPalettePresetSpec(
+        preset: DarkPalettePreset.github,
+        label: 'GitHub',
+        subtitle: 'cool blue · 코드 친화',
+        bg: Color(0xFF161B22),
+        surface: Color(0xFF2D333B),
+        highest: Color(0xFF444C56),
+        text: Color(0xFFE6EDF3),
+      ),
+      _DarkPalettePresetSpec(
+        preset: DarkPalettePreset.neutral,
+        label: 'Neutral',
+        subtitle: 'pure gray · 미니멀',
+        bg: Color(0xFF18181B),
+        surface: Color(0xFF2F2F33),
+        highest: Color(0xFF52525B),
+        text: Color(0xFFFAFAFA),
+      ),
+      _DarkPalettePresetSpec(
+        preset: DarkPalettePreset.mild,
+        label: 'Mild',
+        subtitle: 'warm tint · 부드러움',
+        bg: Color(0xFF1B1815),
+        surface: Color(0xFF2A2624),
+        highest: Color(0xFF3D3733),
+        text: Color(0xFFEAE7E5),
+      ),
+      _DarkPalettePresetSpec(
+        preset: DarkPalettePreset.slack,
+        label: 'Slack',
+        subtitle: 'deep canvas · 카드 부상',
+        bg: Color(0xFF19171D),
+        surface: Color(0xFF36373B),
+        highest: Color(0xFF4F5258),
+        text: Color(0xFFF8F8F8),
+      ),
+    ];
+    final selected = themeProvider.darkPalette;
+    return Row(
+      children: [
+        for (var i = 0; i < presets.length; i++) ...[
+          Expanded(
+            child: _DarkPaletteCard(
+              spec: presets[i],
+              selected: selected == presets[i].preset,
+              onTap: () => themeProvider.setDarkPalette(presets[i].preset),
+              colorScheme: colorScheme,
+            ),
+          ),
+          if (i < presets.length - 1) const SizedBox(width: 10),
+        ],
       ],
     );
   }
@@ -5060,6 +5240,129 @@ class _TokenListItem extends StatelessWidget {
               onPressed: onRevoke,
               icon: Icon(Icons.delete_outline, color: colorScheme.error.withValues(alpha: 0.7)),
               tooltip: '폐기',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 다크 팔레트 카드 표시용 스펙
+class _DarkPalettePresetSpec {
+  final DarkPalettePreset preset;
+  final String label;
+  final String subtitle;
+  final Color bg;
+  final Color surface;
+  final Color highest;
+  final Color text;
+  const _DarkPalettePresetSpec({
+    required this.preset,
+    required this.label,
+    required this.subtitle,
+    required this.bg,
+    required this.surface,
+    required this.highest,
+    required this.text,
+  });
+}
+
+/// 다크 팔레트 선택 카드 — mini swatch + 라벨 + 선택 표시
+class _DarkPaletteCard extends StatelessWidget {
+  final _DarkPalettePresetSpec spec;
+  final bool selected;
+  final VoidCallback onTap;
+  final ColorScheme colorScheme;
+
+  const _DarkPaletteCard({
+    required this.spec,
+    required this.selected,
+    required this.onTap,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected
+                ? colorScheme.primary
+                : colorScheme.outlineVariant.withValues(alpha: 0.5),
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 미니 시안 — 4 layer 스트라이프 + 본문 가짜 텍스트
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                height: 56,
+                color: spec.bg,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(height: 6, color: spec.bg),
+                    Container(
+                      height: 30,
+                      margin: const EdgeInsets.symmetric(horizontal: 6),
+                      decoration: BoxDecoration(
+                        color: spec.surface,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          Container(width: 32, height: 3, color: spec.text),
+                          Container(width: 22, height: 3, color: spec.text.withValues(alpha: 0.55)),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      height: 12,
+                      margin: const EdgeInsets.fromLTRB(6, 4, 6, 0),
+                      color: spec.highest,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    spec.label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                if (selected)
+                  Icon(Icons.check_circle, size: 16, color: colorScheme.primary),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              spec.subtitle,
+              style: TextStyle(
+                fontSize: 10.5,
+                color: colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
             ),
           ],
         ),

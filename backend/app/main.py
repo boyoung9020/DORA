@@ -636,6 +636,48 @@ def ensure_users_last_yesterday_review_column() -> None:
 ensure_users_last_yesterday_review_column()
 
 
+def ensure_project_is_archived_column() -> None:
+    """Add projects.is_archived column if missing.
+
+    워크스페이스 전체 단위로 종료된 프로젝트를 보관 처리하기 위한 플래그.
+    데이터는 보존하고 UI 노출만 차단한다 (드롭다운/대시보드).
+    """
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("""
+                ALTER TABLE projects
+                ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE;
+            """))
+            conn.commit()
+            print("[main] ensured projects.is_archived column")
+    except Exception as e:
+        print(f"[main] failed to ensure projects.is_archived: {e}")
+
+
+ensure_project_is_archived_column()
+
+
+def ensure_site_details_name_unique() -> None:
+    """site_details.name 에 UNIQUE INDEX 추가 (중복 행 방지).
+
+    race condition 또는 다른 코드 경로에서 같은 이름의 SiteDetail 이 두 번 INSERT 되는 것을 방지.
+    create 시 IntegrityError 가 발생하면 라우터가 기존 row 를 재조회 → project_id 추가 후 반환하는 경로로 fallback 한다.
+    """
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("""
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_site_details_name
+                    ON site_details(name);
+            """))
+            conn.commit()
+            print("[main] ensured site_details.name UNIQUE index")
+    except Exception as e:
+        print(f"[main] failed to ensure site_details.name UNIQUE: {e}")
+
+
+ensure_site_details_name_unique()
+
+
 def ensure_notification_type_task_created() -> None:
     """notifications.type enum에 'TASK_CREATED' 값 추가 (기존 DB 마이그레이션).
     SQLAlchemy는 enum NAME(대문자)을 DB에 저장하므로 'TASK_CREATED'가 필요함.

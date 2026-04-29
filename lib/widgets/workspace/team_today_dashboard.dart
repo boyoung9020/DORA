@@ -14,11 +14,21 @@ class TeamTodayDashboard extends StatefulWidget {
   final String workspaceId;
   final VoidCallback onRefresh;
 
+  /// 핀(표시할 멤버) 셋이 바뀔 때마다 부모에게 알림.
+  /// 부모는 이 셋으로 다른 위젯(예: 히트맵)도 함께 필터링할 수 있다.
+  final ValueChanged<Set<String>>? onPinnedChanged;
+
+  /// summary 와 멤버 grid 사이에 끼워넣을 위젯 (예: Contribution heatmap).
+  /// 비어있으면 두 영역이 바로 붙는다.
+  final Widget? middleSlot;
+
   const TeamTodayDashboard({
     super.key,
     required this.allMembers,
     required this.workspaceId,
     required this.onRefresh,
+    this.onPinnedChanged,
+    this.middleSlot,
   });
 
   @override
@@ -58,11 +68,17 @@ class _TeamTodayDashboardState extends State<TeamTodayDashboard> {
         _pinnedUserIds = widget.allMembers.map((m) => m.userId).toSet();
       }
     });
+    _notifyPinnedChanged();
   }
 
   Future<void> _savePinned() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_prefKey, _pinnedUserIds.toList());
+    _notifyPinnedChanged();
+  }
+
+  void _notifyPinnedChanged() {
+    widget.onPinnedChanged?.call(Set<String>.from(_pinnedUserIds));
   }
 
   void _toggleMember(String userId) {
@@ -110,6 +126,15 @@ class _TeamTodayDashboardState extends State<TeamTodayDashboard> {
     return Column(
       children: [
         _buildSummaryBar(context, pinned),
+        // 외부에서 주입된 위젯 (예: Contribution heatmap) — summary 와 grid 사이
+        // summary bar 의 좌우 마진(16) 과 동일하게 정렬
+        if (widget.middleSlot != null) ...[
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: widget.middleSlot!,
+          ),
+        ],
         Expanded(
           child: pinned.isEmpty
               ? _buildEmptyState(context)

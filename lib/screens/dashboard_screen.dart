@@ -94,8 +94,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Provider.of<WorkspaceProvider>(context).currentWorkspaceId ?? '';
     final userId = Provider.of<AuthProvider>(context).currentUser?.id ?? '';
     // ProjectProvider도 구독 → 새 워크스페이스의 프로젝트가 로드 완료되면 자동 감지
+    // 보관된 프로젝트는 대시보드 통계/리스트에서도 제외
     final projectIds = Provider.of<ProjectProvider>(context)
-        .projects
+        .visibleProjects
         .map((p) => p.id)
         .toList()
       ..sort();
@@ -519,21 +520,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final dividerColor = colorScheme.onSurface.withValues(alpha: isDark ? 0.1 : 0.08);
 
-    return GlassContainer(
-      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-      borderRadius: 14.0,
-      blur: 20.0,
-      gradientColors: isDark
-          ? [
-              colorScheme.surface.withValues(alpha: 0.85),
-              colorScheme.surface.withValues(alpha: 0.9),
-            ]
-          : [
-              Colors.white.withValues(alpha: 0.95),
-              Colors.white.withValues(alpha: 0.98),
-            ],
-      borderColor: colorScheme.onSurface.withValues(alpha: isDark ? 0.12 : 0.1),
-      borderWidth: 1.0,
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? colorScheme.surfaceContainer : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: colorScheme.onSurface.withValues(alpha: isDark ? 0.12 : 0.1),
+          width: 1.0,
+        ),
+      ),
       child: IntrinsicHeight(
         child: Row(
           children: [
@@ -1752,9 +1747,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final allUsers = await _usersFuture ?? [];
     if (!mounted) return;
 
-    // 내가 속한 프로젝트들의 팀원 ID만 수집
+    // 내가 속한 프로젝트들의 팀원 ID만 수집 (보관된 프로젝트 제외)
     final currentUserId = context.read<AuthProvider>().currentUser?.id;
-    final visibleProjects = context.read<ProjectProvider>().projects;
+    final visibleProjects = context.read<ProjectProvider>().visibleProjects;
     final memberIdSet = <String>{};
     for (final p in visibleProjects) {
       if (currentUserId != null && p.teamMemberIds.contains(currentUserId)) {

@@ -102,9 +102,9 @@ class _ChecklistWidgetState extends State<ChecklistWidget> {
     if (content.isEmpty) return;
     widget.onItemAdded(widget.checklist.id, content);
     _newItemController.clear();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!_newItemFocusNode.hasFocus) {
       _newItemFocusNode.requestFocus();
-    });
+    }
   }
 
   @override
@@ -117,7 +117,7 @@ class _ChecklistWidgetState extends State<ChecklistWidget> {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF242019) : const Color(0xFFFAFAFC),
+        color: isDark ? colorScheme.surfaceContainer : const Color(0xFFFAFAFC),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isDark
@@ -312,37 +312,27 @@ class _ChecklistWidgetState extends State<ChecklistWidget> {
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Focus(
-                        onKeyEvent: (node, event) {
-                          if (event is KeyDownEvent &&
-                              (event.logicalKey == LogicalKeyboardKey.enter ||
-                                  event.logicalKey == LogicalKeyboardKey.numpadEnter)) {
-                            _submitNewItem();
-                            return KeyEventResult.handled;
-                          }
-                          return KeyEventResult.ignored;
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: colorScheme.surface,
-                            border: Border.all(color: colorScheme.primary, width: 1.5),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: TextField(
-                            controller: _newItemController,
-                            focusNode: _newItemFocusNode,
-                            decoration: InputDecoration(
-                              hintText: '항목 내용을 입력하세요',
-                              hintStyle: TextStyle(
-                                color: colorScheme.onSurface.withValues(alpha: 0.4),
-                                fontSize: 13,
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              border: InputBorder.none,
+                      Container(
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface,
+                          border: Border.all(color: colorScheme.primary, width: 1.5),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: TextField(
+                          controller: _newItemController,
+                          focusNode: _newItemFocusNode,
+                          decoration: InputDecoration(
+                            hintText: '항목 내용을 입력하세요',
+                            hintStyle: TextStyle(
+                              color: colorScheme.onSurface.withValues(alpha: 0.4),
+                              fontSize: 13,
                             ),
-                            style: TextStyle(fontSize: 13, color: colorScheme.onSurface),
-                            onSubmitted: (_) => _submitNewItem(),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            border: InputBorder.none,
                           ),
+                          style: TextStyle(fontSize: 13, color: colorScheme.onSurface),
+                          textInputAction: TextInputAction.done,
+                          onEditingComplete: _submitNewItem,
                         ),
                       ),
                       const SizedBox(height: 8),

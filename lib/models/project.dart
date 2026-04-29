@@ -11,6 +11,7 @@ class Project {
   final String? workspaceId;        // 소속 워크스페이스 ID
   final String? creatorId;          // 프로젝트 생성자 (= 프로젝트 PM)
   final bool isGlobal;              // 모든 사용자에게 기본 표시 (워크스페이스 무관)
+  final bool isArchived;            // 보관 처리: UI 노출만 차단, 데이터는 보존
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -23,6 +24,7 @@ class Project {
     this.workspaceId,
     this.creatorId,
     this.isGlobal = false,
+    this.isArchived = false,
     required this.createdAt,
     required this.updatedAt,
   }) : teamMemberIds = teamMemberIds ?? [];
@@ -37,6 +39,8 @@ class Project {
       'teamMemberIds': teamMemberIds,
       'workspaceId': workspaceId,
       'creatorId': creatorId,
+      'isGlobal': isGlobal,
+      'isArchived': isArchived,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -86,6 +90,7 @@ class Project {
     final creatorIdKey = json.containsKey('creator_id') ? 'creator_id' : 'creatorId';
 
     final isGlobalKey = json.containsKey('is_global') ? 'is_global' : 'isGlobal';
+    final isArchivedKey = json.containsKey('is_archived') ? 'is_archived' : 'isArchived';
 
     return Project(
       id: id,
@@ -96,6 +101,7 @@ class Project {
       workspaceId: json[workspaceIdKey] as String?,
       creatorId: json[creatorIdKey] as String?,
       isGlobal: json[isGlobalKey] as bool? ?? false,
+      isArchived: json[isArchivedKey] as bool? ?? false,
       createdAt: parseDate(json[createdAtKey]),
       updatedAt: parseDate(json[updatedAtKey]),
     );
@@ -111,6 +117,7 @@ class Project {
     String? workspaceId,
     String? creatorId,
     bool? isGlobal,
+    bool? isArchived,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -123,6 +130,7 @@ class Project {
       workspaceId: workspaceId ?? this.workspaceId,
       creatorId: creatorId ?? this.creatorId,
       isGlobal: isGlobal ?? this.isGlobal,
+      isArchived: isArchived ?? this.isArchived,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

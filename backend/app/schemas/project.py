@@ -34,6 +34,7 @@ class ProjectResponse(ProjectBase):
     workspace_id: Optional[str] = None
     creator_id: Optional[str] = None
     is_global: bool = False
+    is_archived: bool = False
     created_at: datetime
     updated_at: datetime
 

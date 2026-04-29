@@ -5,6 +5,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from app.database import get_db
 from app.models.project import Project
@@ -132,7 +133,19 @@ async def create_project_site(
             databases=[],
             services=[],
         ))
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            # UNIQUE(name) 위반 — 동시 요청이 같은 이름을 INSERT 한 경우.
+            # 롤백 후 기존 row 를 재조회해서 project_id 만 추가하는 안전 경로로 fallback.
+            db.rollback()
+            existing_detail = db.query(SiteDetail).filter(SiteDetail.name == name).first()
+            if existing_detail is not None:
+                ids = list(existing_detail.project_ids or [])
+                if body.project_id not in ids:
+                    ids.append(body.project_id)
+                    existing_detail.project_ids = ids
+                    db.commit()
 
     return row
 

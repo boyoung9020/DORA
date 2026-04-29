@@ -430,14 +430,14 @@ class _KanbanScreenState extends State<KanbanScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 컬럼 헤더
-          GlassContainer(
+          Container(
             padding: const EdgeInsets.all(16),
-            borderRadius: 15.0,
-            blur: 20.0,
-            gradientColors: [
-              colorScheme.surface.withValues(alpha: 0.6),
-              colorScheme.surface.withValues(alpha: 0.5),
-            ],
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? colorScheme.surfaceContainer
+                  : colorScheme.surface,
+              borderRadius: BorderRadius.circular(15),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/member_stats.dart';
+import '../models/activity_stats.dart';
 import '../providers/workspace_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/workspace_service.dart';
 import '../widgets/workspace/member_stat_card.dart';
 import '../widgets/workspace/member_stat_detail.dart';
 import '../widgets/workspace/team_today_dashboard.dart';
+import '../widgets/workspace/contribution_heatmap.dart';
 
 class WorkspaceMemberStatsScreen extends StatefulWidget {
   const WorkspaceMemberStatsScreen({super.key});
@@ -27,6 +30,14 @@ class _WorkspaceMemberStatsScreenState
   String? _loadedWorkspaceId;
   String? _error;
   String _viewMode = 'dashboard'; // dashboard | detail
+
+  // 히트맵 데이터
+  ActivityHeatmap? _heatmap;
+  bool _heatmapLoading = false;
+
+  // 멤버 관리에서 핀된 사용자 셋 (TeamTodayDashboard 가 콜백으로 알려줌)
+  // null = 아직 로드 전 (히트맵 필터 미적용 — 전체 표시)
+  Set<String>? _pinnedUserIds;
 
   @override
   void didChangeDependencies() {
@@ -50,6 +61,8 @@ class _WorkspaceMemberStatsScreenState
         _applyFilter();
         _isLoading = false;
       });
+      // 히트맵은 비동기로 추가 로드 (대시보드 진입 시 필요)
+      _loadHeatmap(workspaceId);
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -57,6 +70,22 @@ class _WorkspaceMemberStatsScreenState
       });
     }
   }
+
+  Future<void> _loadHeatmap(String workspaceId) async {
+    setState(() => _heatmapLoading = true);
+    try {
+      final hm = await _service.getActivityHeatmap(workspaceId, weeks: 12);
+      if (!mounted) return;
+      setState(() {
+        _heatmap = hm;
+        _heatmapLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _heatmapLoading = false);
+    }
+  }
+
 
   void _applyFilter() {
     switch (_filter) {
@@ -95,7 +124,7 @@ class _WorkspaceMemberStatsScreenState
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: Text(
-          '${ws.name} 팀 현황',
+          '${ws.name} 멤버',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         centerTitle: false,
@@ -161,11 +190,7 @@ class _WorkspaceMemberStatsScreenState
                   ),
                 )
               : _viewMode == 'dashboard'
-                  ? TeamTodayDashboard(
-                      allMembers: _allMembers,
-                      workspaceId: ws.id,
-                      onRefresh: () => _load(ws.id),
-                    )
+                  ? _buildDashboardWithHeatmap(ws.id)
                   : _filtered.isEmpty
                       ? Center(
                           child: Text(
@@ -187,6 +212,58 @@ class _WorkspaceMemberStatsScreenState
                             }
                           },
                         ),
+    );
+  }
+
+  /// 대시보드 + 하단 활동 히트맵
+  /// 순서: 오늘의 팀 현황 (위) → 활동 히트맵 (아래)
+  /// 히트맵은 멤버 관리에서 핀된 멤버만 필터링해서 표시한다.
+  Widget _buildDashboardWithHeatmap(String workspaceId) {
+    final accent = context.watch<ThemeProvider>().accentColor;
+
+    // 핀 필터 적용된 히트맵 데이터
+    ActivityHeatmap? filteredHeatmap;
+    if (_heatmap != null) {
+      final pinned = _pinnedUserIds;
+      if (pinned == null) {
+        filteredHeatmap = _heatmap;
+      } else {
+        filteredHeatmap = ActivityHeatmap(
+          fromDate: _heatmap!.fromDate,
+          toDate: _heatmap!.toDate,
+          weeks: _heatmap!.weeks,
+          members: _heatmap!.members
+              .where((m) => pinned.contains(m.userId))
+              .toList(),
+        );
+      }
+    }
+
+    // 화면 구성 (스크롤 없이 한 화면):
+    //  ┌─ 오늘의 팀 현황 (summary bar)
+    //  ├─ Contribution heatmap  (TeamTodayDashboard 의 middleSlot 으로 주입)
+    //  └─ 오늘 일정 (멤버별 카드 grid)  ← 자체적으로 남은 공간 채움
+    final heatmapWidget = (_heatmapLoading && _heatmap == null)
+        ? const SizedBox(
+            height: 80,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        : (filteredHeatmap != null
+            ? ContributionHeatmap(data: filteredHeatmap, accent: accent)
+            : null);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 12),
+      child: TeamTodayDashboard(
+        allMembers: _allMembers,
+        workspaceId: workspaceId,
+        onRefresh: () => _load(workspaceId),
+        onPinnedChanged: (pinned) {
+          if (!mounted) return;
+          setState(() => _pinnedUserIds = pinned);
+        },
+        middleSlot: heatmapWidget,
+      ),
     );
   }
 

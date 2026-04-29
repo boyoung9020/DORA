@@ -1,5 +1,6 @@
 import '../models/workspace.dart';
 import '../models/member_stats.dart';
+import '../models/activity_stats.dart';
 import '../utils/api_client.dart';
 
 /// 어제 미완료 리뷰 조회 결과
@@ -114,6 +115,19 @@ class WorkspaceService {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('acknowledgeYesterdayReview failed: ${response.statusCode}');
     }
+  }
+
+  /// 워크스페이스 활동 히트맵 (멤버 × 일자, 작업 카드 단위)
+  Future<ActivityHeatmap> getActivityHeatmap(
+    String workspaceId, {
+    int weeks = 12,
+  }) async {
+    final response = await ApiClient.get(
+      '/api/workspaces/$workspaceId/activity-heatmap',
+      queryParams: {'weeks': '$weeks'},
+    );
+    final data = ApiClient.handleResponse(response);
+    return ActivityHeatmap.fromJson(data);
   }
 
   String buildInviteLink(String inviteToken) {
