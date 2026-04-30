@@ -628,6 +628,9 @@ class _TeamTodayDashboardState extends State<TeamTodayDashboard> {
   }
 
   // ── 그리드 레이아웃 ─────────────────────────────────────────────
+  // Wrap + center alignment: 핀 멤버 수가 한 줄 슬롯보다 적으면 가운데 정렬,
+  // 많으면 자연스럽게 다음 줄로 흘려 보냄. 카드 폭은 항상 crossAxisCount 기준
+  // 으로 계산해 멤버 수와 무관하게 일관된 크기를 유지한다.
   Widget _buildGrid(BuildContext context, List<MemberStats> members) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -645,17 +648,30 @@ class _TeamTodayDashboardState extends State<TeamTodayDashboard> {
           crossAxisCount = 1;
         }
 
-        return GridView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 0.85,
+        const horizontalPadding = 16.0;
+        const spacing = 10.0;
+        const aspectRatio = 0.85; // width / height
+        final available = width - horizontalPadding * 2;
+        final cardWidth =
+            (available - spacing * (crossAxisCount - 1)) / crossAxisCount;
+        final cardHeight = cardWidth / aspectRatio;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+              horizontalPadding, 12, horizontalPadding, 16),
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            spacing: spacing,
+            runSpacing: spacing,
+            children: [
+              for (final m in members)
+                SizedBox(
+                  width: cardWidth,
+                  height: cardHeight,
+                  child: _buildMemberCard(context, m),
+                ),
+            ],
           ),
-          itemCount: members.length,
-          itemBuilder: (context, i) =>
-              _buildMemberCard(context, members[i]),
         );
       },
     );

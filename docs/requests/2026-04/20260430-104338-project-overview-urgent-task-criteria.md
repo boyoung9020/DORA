@@ -52,6 +52,7 @@ final urgentTasks = allTasks
 
 - [x] `urgentTasks` 필터를 end_date 존재 + 오늘+2일 이내로 좁힘 (이미 지난 미완료 포함)
 - [x] 빈 상태 문구 갱신
+- [x] **(후속 보완)** backlog 상태도 제외 — 아직 착수 전이라 "임박" 의미와 맞지 않음
 - [x] `flutter analyze lib/widgets/project_info/description_tasks_widget.dart` → No issues
 
 ## 분석

@@ -30,12 +30,14 @@ class DescriptionAndUrgentTasksCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     // 마감 임박: end_date 가 있고 오늘로부터 2일 이내(오늘 포함) 마감 + 이미 지난 미완료
+    // backlog 는 아직 착수 전 상태라 제외 (done 도 제외)
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
     final urgentCutoff = todayStart.add(const Duration(days: 3)); // 오늘+2 까지 포함 (exclusive)
     final urgentTasks = allTasks
         .where((t) =>
             t.status != TaskStatus.done &&
+            t.status != TaskStatus.backlog &&
             t.endDate != null &&
             t.endDate!.isBefore(urgentCutoff))
         .toList()
