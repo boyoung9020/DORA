@@ -915,6 +915,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final overdueTasks = allTasks.where((t) {
       if (t.endDate == null) return false;
       if (t.status == TaskStatus.done) return false;
+      if (t.status == TaskStatus.backlog) return false; // 착수 전이라 기한 초과 의미 없음
       if (currentUserId != null &&
           !t.assignedMemberIds.contains(currentUserId) &&
           t.creatorId != currentUserId) return false;
