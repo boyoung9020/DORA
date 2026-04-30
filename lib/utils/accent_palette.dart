@@ -73,7 +73,7 @@ class AccentPalette {
           sidebarBackground       = const Color(0xFF161B22);
           sidebarText             = const Color(0xFFC9D1D9);
           shellBackground         = sidebarBackground;
-          titleBarBackground      = sidebarBackground;
+          titleBarBackground      = const Color(0xFF0D1117);
           contentBackground       = const Color(0xFF161B22);
           contentOnSurface        = const Color(0xFFE6EDF3);
           contentOnSurfaceVariant = const Color(0xFF8B949E);
@@ -92,7 +92,7 @@ class AccentPalette {
           sidebarBackground       = const Color(0xFF18181B);
           sidebarText             = const Color(0xFFE4E4E7);
           shellBackground         = sidebarBackground;
-          titleBarBackground      = sidebarBackground;
+          titleBarBackground      = const Color(0xFF0F0F0F);
           contentBackground       = const Color(0xFF18181B);
           contentOnSurface        = const Color(0xFFFAFAFA);
           contentOnSurfaceVariant = const Color(0xFFA1A1AA);
@@ -111,7 +111,7 @@ class AccentPalette {
           sidebarBackground       = _derive(0.13, 0.04);
           sidebarText             = _derive(0.85, 0.04);
           shellBackground         = sidebarBackground;
-          titleBarBackground      = sidebarBackground;
+          titleBarBackground      = _derive(0.08, 0.04);
           contentBackground       = _derive(0.13, 0.04);
           contentOnSurface        = _derive(0.92, 0.04);
           contentOnSurfaceVariant = _derive(0.78, 0.04);
@@ -130,7 +130,7 @@ class AccentPalette {
           sidebarBackground       = const Color(0xFF19171D);
           sidebarText             = const Color(0xFFD1D2D3);
           shellBackground         = sidebarBackground;
-          titleBarBackground      = sidebarBackground;
+          titleBarBackground      = const Color(0xFF120F15);
           contentBackground       = const Color(0xFF19171D);
           contentOnSurface        = const Color(0xFFF8F8F8);
           contentOnSurfaceVariant = const Color(0xFFABABAD);
@@ -150,7 +150,7 @@ class AccentPalette {
           sidebarBackground       = const Color(0xFF1B1D22); // 채널 사이드바
           sidebarText             = const Color(0xFFE4E5E8);
           shellBackground         = sidebarBackground;
-          titleBarBackground      = sidebarBackground;
+          titleBarBackground      = const Color(0xFF14171F);
           contentBackground       = const Color(0xFF1F2126); // 메인 패널
           contentOnSurface        = const Color(0xFFF2F3F5);
           contentOnSurfaceVariant = const Color(0xFF909295);
@@ -165,11 +165,11 @@ class AccentPalette {
           break;
       }
     } else {
-      // Chrome 톤 (사이드바·상단·셸이 모두 동일 베이지)
+      // Chrome 톤 (사이드바·셸은 동일 베이지, 타이틀바는 한 톤 진하게 분리)
       sidebarBackground       = _derive(0.92, 0.55);
       sidebarText             = _derive(0.36, 0.50);
       shellBackground         = sidebarBackground;
-      titleBarBackground      = sidebarBackground;
+      titleBarBackground      = _derive(0.86, 0.55);
 
       // 워크스페이스 레일 — chrome 보다 한 단계 진한 톤 (사용자 정체성 강조)
       workspaceRail           = _derive(0.73, 0.55);

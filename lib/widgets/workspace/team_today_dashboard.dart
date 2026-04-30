@@ -210,7 +210,9 @@ class _TeamTodayDashboardState extends State<TeamTodayDashboard> {
             icon: Icons.assignment_outlined,
             label: '전체',
             value: '$totalTasks',
-            color: const Color(0xFF5C6BC0),
+            color: colorScheme.brightness == Brightness.dark
+                ? const Color(0xFF8E99F3)
+                : const Color(0xFF5C6BC0),
           ),
           const SizedBox(width: 16),
           _summaryChip(
@@ -218,7 +220,9 @@ class _TeamTodayDashboardState extends State<TeamTodayDashboard> {
             icon: Icons.trending_up,
             label: '진행',
             value: '$inProgressCount',
-            color: const Color(0xFFFF9800),
+            color: colorScheme.brightness == Brightness.dark
+                ? const Color(0xFFFFB74D)
+                : const Color(0xFFFF9800),
           ),
           const SizedBox(width: 16),
           _summaryChip(
@@ -226,7 +230,9 @@ class _TeamTodayDashboardState extends State<TeamTodayDashboard> {
             icon: Icons.check_circle_outline,
             label: '완료',
             value: '$doneCount',
-            color: const Color(0xFF4CAF50),
+            color: colorScheme.brightness == Brightness.dark
+                ? const Color(0xFF81C784)
+                : const Color(0xFF4CAF50),
           ),
           if (overdueCount > 0) ...[
             const SizedBox(width: 16),
@@ -235,7 +241,9 @@ class _TeamTodayDashboardState extends State<TeamTodayDashboard> {
               icon: Icons.warning_amber_rounded,
               label: '지연',
               value: '$overdueCount',
-              color: const Color(0xFFF44336),
+              color: colorScheme.brightness == Brightness.dark
+                  ? const Color(0xFFEF5350)
+                  : const Color(0xFFF44336),
             ),
           ],
           const Spacer(),
@@ -398,8 +406,14 @@ class _TeamTodayDashboardState extends State<TeamTodayDashboard> {
               ),
               contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
               content: SizedBox(
-                width: 420,
-                height: 400,
+                width: () {
+                  final w = MediaQuery.of(context).size.width;
+                  return w < 480 ? w - 64 : 420.0;
+                }(),
+                height: () {
+                  final h = MediaQuery.of(context).size.height;
+                  return h < 600 ? h * 0.6 : 400.0;
+                }(),
                 child: ListView.separated(
                   itemCount: widget.allMembers.length,
                   separatorBuilder: (_, __) => Divider(

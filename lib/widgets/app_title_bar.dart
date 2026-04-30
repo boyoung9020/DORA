@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:bitsdojo_window/bitsdojo_window.dart';
+import 'package:bitsdojo_window/bitsdojo_window.dart'
+    if (dart.library.html) '../bitsdojo_window_stub.dart';
 
 /// 공통 윈도우 타이틀바 위젯
 ///
@@ -94,7 +95,7 @@ class AppTitleBar extends StatelessWidget {
           ),
         Container(
           height: 1,
-          color: colorScheme.onSurface.withValues(alpha: 0.08),
+          color: colorScheme.onSurface.withValues(alpha: 0.18),
         ),
       ],
     );

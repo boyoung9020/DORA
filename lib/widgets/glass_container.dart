@@ -50,8 +50,11 @@ class GlassContainer extends StatelessWidget {
     // ?쇱씠??紐⑤뱶: ?몃뵒怨??댄듃 ?뚮몢由?+ 洹몃┝?먮줈 移대뱶 援щ텇
     final borderClr = isDarkMode
         ? (gradientColors != null
-            ? gradientColors!.first
-            : Colors.white).withValues(alpha: 0.1)
+                ? gradientColors!.first
+                : (borderColor == Colors.white
+                    ? theme.colorScheme.onSurface
+                    : borderColor))
+            .withValues(alpha: 0.1)
         : const Color(0xFFF3DECA); // Indigo 100 ???몃뵒怨????뚮몢由?
 
     final shadow = isDarkMode

@@ -7,8 +7,6 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
 import '../models/task.dart';
 import '../models/project.dart';
 import '../models/user.dart';
@@ -5668,7 +5666,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       }
 
       // 네이티브 Windows: MethodChannel 로 이미지 추출
-      if (Platform.isWindows) {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
         const platform = MethodChannel('com.sync/clipboard');
         try {
           final result = await platform.invokeMethod('getClipboardImage');

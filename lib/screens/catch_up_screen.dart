@@ -257,19 +257,20 @@ class _NotificationCard extends StatelessWidget {
   }
 
   Color _getTypeColor(models.NotificationType type, ColorScheme colorScheme) {
+    final isDark = colorScheme.brightness == Brightness.dark;
     switch (type) {
       case models.NotificationType.projectMemberAdded:
         return colorScheme.primary;
       case models.NotificationType.taskAssigned:
-        return const Color(0xFFE3833D);
+        return isDark ? const Color(0xFFFBA776) : const Color(0xFFE3833D);
       case models.NotificationType.taskCreated:
-        return const Color(0xFF059669);
+        return isDark ? const Color(0xFF34D399) : const Color(0xFF059669);
       case models.NotificationType.taskOptionChanged:
-        return const Color(0xFFC17E4A);
+        return isDark ? const Color(0xFFE0A878) : const Color(0xFFC17E4A);
       case models.NotificationType.taskCommentAdded:
         return colorScheme.secondary;
       case models.NotificationType.taskMentioned:
-        return const Color(0xFF2563EB);
+        return isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB);
     }
   }
 
