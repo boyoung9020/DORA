@@ -130,7 +130,7 @@ class _YesterdayReviewDialogState extends State<YesterdayReviewDialog> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$dateLabel의 할 일 중 완료되지 않은 작업입니다',
+                  '$dateLabel이 마감이었던 작업 중 미완료 작업입니다',
                   style: TextStyle(
                     fontSize: 11,
                     color: colorScheme.onSurface.withValues(alpha: 0.5),

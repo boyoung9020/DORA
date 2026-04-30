@@ -4300,22 +4300,47 @@ class _SettingsDialogContentState extends State<_SettingsDialogContent> {
         highest: Color(0xFF4F5258),
         text: Color(0xFFF8F8F8),
       ),
+      _DarkPalettePresetSpec(
+        preset: DarkPalettePreset.mattermost,
+        label: 'Mattermost',
+        subtitle: 'cool blue-gray · 채널 도구',
+        bg: Color(0xFF1F2126),
+        surface: Color(0xFF262830),
+        highest: Color(0xFF383A43),
+        text: Color(0xFFF2F3F5),
+      ),
     ];
     final selected = themeProvider.darkPalette;
-    return Row(
-      children: [
-        for (var i = 0; i < presets.length; i++) ...[
-          Expanded(
-            child: _DarkPaletteCard(
-              spec: presets[i],
-              selected: selected == presets[i].preset,
-              onTap: () => themeProvider.setDarkPalette(presets[i].preset),
-              colorScheme: colorScheme,
-            ),
-          ),
-          if (i < presets.length - 1) const SizedBox(width: 10),
-        ],
-      ],
+    // 5개 이상이라 Wrap 으로 자동 줄바꿈 (좁은 폭에서 가독성 확보)
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const cardMinWidth = 110.0;
+        const spacing = 10.0;
+        // 가로 공간에 맞춰 한 줄 카드 수 결정 (최소 2, 최대 5)
+        final maxCardsPerRow = ((constraints.maxWidth + spacing) /
+                (cardMinWidth + spacing))
+            .floor()
+            .clamp(2, presets.length);
+        final cardWidth =
+            (constraints.maxWidth - spacing * (maxCardsPerRow - 1)) /
+                maxCardsPerRow;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final p in presets)
+              SizedBox(
+                width: cardWidth,
+                child: _DarkPaletteCard(
+                  spec: p,
+                  selected: selected == p.preset,
+                  onTap: () => themeProvider.setDarkPalette(p.preset),
+                  colorScheme: colorScheme,
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 

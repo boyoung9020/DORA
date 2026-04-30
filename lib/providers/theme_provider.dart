@@ -4,10 +4,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// 다크 모드 본문 표면/텍스트 톤 프리셋.
 /// chrome (사이드바/타이틀바) 은 항상 accent 파생 톤이며 preset 영향 받지 않음.
 enum DarkPalettePreset {
-  github,   // GitHub Primer Dark — cool blue, sharp (default)
-  neutral,  // Vercel Geist — pure neutral, minimal
-  mild,     // Mild Tint — accent hue 1/4 saturation, current 정체성 유지
-  slack,    // Slack 다크 테마 — very dark canvas + lifted card surface
+  github,      // GitHub Primer Dark — cool blue, sharp (default)
+  neutral,     // Vercel Geist — pure neutral, minimal
+  mild,        // Mild Tint — accent hue 1/4 saturation, current 정체성 유지
+  slack,       // Slack 다크 테마 — very dark canvas + lifted card surface
+  mattermost,  // Mattermost 다크 — cool dark gray, 차분한 채널 도구 느낌
 }
 
 /// 테마 모드 + 글자 크기 + 포인트(브랜드) 색 + 다크 팔레트 프리셋 Provider

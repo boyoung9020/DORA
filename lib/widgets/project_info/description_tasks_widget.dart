@@ -29,14 +29,17 @@ class DescriptionAndUrgentTasksCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
+    // 마감 임박: end_date 가 있고 오늘로부터 2일 이내(오늘 포함) 마감 + 이미 지난 미완료
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final urgentCutoff = todayStart.add(const Duration(days: 3)); // 오늘+2 까지 포함 (exclusive)
     final urgentTasks = allTasks
-        .where((t) => t.status != TaskStatus.done)
+        .where((t) =>
+            t.status != TaskStatus.done &&
+            t.endDate != null &&
+            t.endDate!.isBefore(urgentCutoff))
         .toList()
-      ..sort((a, b) {
-        final aDate = a.endDate ?? DateTime(2099);
-        final bDate = b.endDate ?? DateTime(2099);
-        return aDate.compareTo(bDate);
-      });
+      ..sort((a, b) => a.endDate!.compareTo(b.endDate!));
     final displayUrgent = urgentTasks.take(5).toList();
 
     final p0Tasks = allTasks
@@ -86,7 +89,7 @@ class DescriptionAndUrgentTasksCard extends StatelessWidget {
                     if (displayUrgent.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Text('진행 중인 작업이 없습니다.',
+                        child: Text('마감 임박 작업이 없습니다.',
                             style: TextStyle(
                                 color: colorScheme.onSurface
                                     .withValues(alpha: 0.5))),

@@ -2,6 +2,8 @@
 
 | 파일 | 제목 | 유형 | 영역 | 상태 | 관련 |
 |------|------|------|------|------|------|
+| [20260430-104338-project-overview-urgent-task-criteria.md](20260430-104338-project-overview-urgent-task-criteria.md) | 프로젝트 개요 "마감 임박 작업" 기준을 end_date 2일 이내로 좁힘 | fix | frontend/widgets/project_info | done | description_tasks_widget |
+| [20260430-103547-yesterday-review-end-date-only.md](20260430-103547-yesterday-review-end-date-only.md) | 어제 미완료 리뷰 다이얼로그를 "어제가 마감"인 작업만 보여주도록 좁힘 | fix | backend/routers, frontend/widgets | done | workspaces, yesterday_review_dialog |
 | [20260429-115346-dark-palette-presets.md](20260429-115346-dark-palette-presets.md) | 다크 팔레트 3종 (GitHub/Neutral/Mild) 라이브 토글 — 설정에서 선택 | feat+ui | frontend/providers, frontend/utils, frontend/screens | done | theme_provider, accent_palette, main_layout |
 | [20260429-095107-clean-dialog-unify.md](20260429-095107-clean-dialog-unify.md) | 단일 입력/확인 다이얼로그를 드롭다운 톤의 깔끔한 공통 위젯으로 통합 (프로젝트 생성/보관/삭제, 폴더 생성) | refactor+ui | frontend/widgets, frontend/screens | done | clean_dialog, main_layout, meeting_minutes_screen |
 | [20260428-105919-project-archive-feature.md](20260428-105919-project-archive-feature.md) | 프로젝트 보관(archive) 기능 추가 — 워크스페이스 전체 단위 숨김, PM/Admin 권한, 데이터 보존 | feat | backend/models+routers+schemas, frontend/models+services+providers+screens, schema(projects) | done | projects, project_provider, main_layout, dashboard_screen |

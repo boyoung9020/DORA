@@ -143,6 +143,26 @@ class AccentPalette {
           contentOutline          = const Color(0xFF4F5258);
           contentOutlineVariant   = const Color(0xFF2C2D31);
           break;
+        case DarkPalettePreset.mattermost:
+          // Mattermost 다크 — cool blue-gray rail / canvas + lifted card
+          workspaceRail           = const Color(0xFF14171F); // 가장 깊음 (앱 그리드 레일)
+          workspaceRailForeground = const Color(0xFF909295);
+          sidebarBackground       = const Color(0xFF1B1D22); // 채널 사이드바
+          sidebarText             = const Color(0xFFE4E5E8);
+          shellBackground         = sidebarBackground;
+          titleBarBackground      = sidebarBackground;
+          contentBackground       = const Color(0xFF1F2126); // 메인 패널
+          contentOnSurface        = const Color(0xFFF2F3F5);
+          contentOnSurfaceVariant = const Color(0xFF909295);
+          // 카드/표면 — 메인보다 한 단 밝아 thread row 가 또렷
+          contentSurfaceLowest    = const Color(0xFF1B1D22);
+          contentSurfaceLow       = const Color(0xFF22252B);
+          contentSurface          = const Color(0xFF262830); // 카드 기본
+          contentSurfaceHigh      = const Color(0xFF2D3038);
+          contentSurfaceHighest   = const Color(0xFF383A43);
+          contentOutline          = const Color(0xFF383A43);
+          contentOutlineVariant   = const Color(0xFF262830);
+          break;
       }
     } else {
       // Chrome 톤 (사이드바·상단·셸이 모두 동일 베이지)

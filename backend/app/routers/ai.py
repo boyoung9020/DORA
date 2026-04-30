@@ -32,20 +32,92 @@ _GEMINI_MODEL_CHAIN: tuple[str, ...] = (
 
 
 def _friendly_gemini_http_detail(exc: BaseException, prefix: str) -> str:
-    """클라이언트에 노출할 짧은 메시지 (내부 스택/원문 최소화)."""
+    """클라이언트에 노출할 사용자 친화적 메시지 (내부 스택/원문 최소화).
+
+    Gemini API 의 주요 실패 케이스를 사용자 언어로 매핑한다.
+    매칭 안 되면 원본 메시지를 일정 길이로 잘라 노출.
+    """
     s = str(exc).lower()
+
+    # 1) 토큰/할당량 소진 — 429 RESOURCE_EXHAUSTED, "quota exceeded", "rate limit"
+    if (
+        "quota" in s
+        or "rate limit" in s
+        or "ratelimit" in s
+        or "429" in s
+        or ("limit" in s and "exceed" in s)
+    ):
+        return (
+            f"{prefix}: Gemini API 사용 한도(쿼터)를 모두 소진했습니다. "
+            "관리자에게 문의하거나 결제 한도를 확인해 주세요."
+        )
+
+    # 2) API 키 인증 실패 — 401 / 403 / "api key not valid"
+    if (
+        "api key" in s
+        or "api_key" in s
+        or "unauthenticated" in s
+        or "permission_denied" in s
+        or "permission denied" in s
+        or "401" in s
+        or "403" in s
+    ):
+        return (
+            f"{prefix}: Gemini API 키가 유효하지 않거나 권한이 없습니다. "
+            "관리자에게 키 설정을 확인해 달라고 요청해 주세요."
+        )
+
+    # 3) 서버 과부하 / 일시 장애 — 5xx
     if (
         "high demand" in s
         or "resource exhausted" in s
         or "overloaded" in s
         or "503" in s
+        or "502" in s
+        or "504" in s
         or "unavailable" in s
+        or "internal server error" in s
     ):
         return (
             f"{prefix}: AI 서버가 일시적으로 혼잡합니다. "
             "잠시 후 다시 시도해 주세요."
         )
-    return f"{prefix}: {exc}"
+
+    # 4) 네트워크 / 타임아웃 — DNS, connection refused, timeout
+    if (
+        "timeout" in s
+        or "timed out" in s
+        or "connection" in s
+        or "network" in s
+        or "dns" in s
+        or "unreachable" in s
+    ):
+        return (
+            f"{prefix}: AI 서버에 연결하지 못했습니다. "
+            "네트워크 상태를 확인하고 잠시 후 다시 시도해 주세요."
+        )
+
+    # 5) 콘텐츠 안전 필터 차단 — Gemini safety
+    if (
+        "safety" in s
+        or "blocked" in s
+        or "harm_category" in s
+        or "prohibited" in s
+    ):
+        return (
+            f"{prefix}: AI 가 응답을 안전 정책상 차단했습니다. "
+            "내용에 민감한 표현이 있는지 확인해 주세요."
+        )
+
+    # 6) 빈 응답
+    if "빈 응답" in s or "empty" in s:
+        return f"{prefix}: AI 가 빈 응답을 반환했습니다. 잠시 후 다시 시도해 주세요."
+
+    # 7) 그 외 — 원문을 짧게 (스택 트레이스/내부 경로 노출 방지)
+    raw = str(exc).strip()
+    if len(raw) > 200:
+        raw = raw[:200] + "…"
+    return f"{prefix}: {raw}"
 
 
 async def _generate_with_gemini_model_fallback(

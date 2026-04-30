@@ -468,7 +468,14 @@ async def get_yesterday_incomplete_tasks(
     # 현재 유저에게 할당된 태스크만
     my_tasks = [t for t in all_tasks if current_user.id in (t.assigned_member_ids or [])]
 
-    # 해당 날짜의 "오늘 할일"이었던 것 중 현재 미완료인 것
+    # 해당 날짜가 "마감일(end_date)"인 것 중 현재 미완료인 것만
+    # (start_date 만 있는 작업, 날짜가 둘 다 없는 상시 IN_PROGRESS 작업은 제외)
+    def _due_on_target(t: Task) -> bool:
+        if t.end_date is None:
+            return False
+        ed = t.end_date if t.end_date.tzinfo else t.end_date.replace(tzinfo=timezone.utc)
+        return day_start <= ed <= day_end
+
     incomplete = [
         {
             "id": t.id,
@@ -480,7 +487,7 @@ async def get_yesterday_incomplete_tasks(
             "start_date": t.start_date.isoformat() if t.start_date else None,
         }
         for t in my_tasks
-        if _is_date_task(t, day_start, day_end) and t.status != TaskStatus.DONE
+        if t.status != TaskStatus.DONE and _due_on_target(t)
     ]
 
     # 오늘 UTC 범위 기준으로 현재 유저가 이미 리뷰를 봤는지 판정
