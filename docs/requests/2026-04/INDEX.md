@@ -2,6 +2,7 @@
 
 | 파일 | 제목 | 유형 | 영역 | 상태 | 관련 |
 |------|------|------|------|------|------|
+| [20260430-150836-ai-manager-mine-scope-exclude-backlog.md](20260430-150836-ai-manager-mine-scope-exclude-backlog.md) | AI 매니저 기본 범위 "내 할당"으로 변경 + backlog 제외 | fix | frontend/screens, backend/routers | done | dashboard_screen, ai |
 | [20260430-142918-home-overdue-exclude-backlog.md](20260430-142918-home-overdue-exclude-backlog.md) | 홈 화면 "기한 초과" 섹션에서 backlog 작업 제외 | fix | frontend/screens | done | dashboard_screen |
 | [20260430-110202-team-dashboard-center-align-pinned.md](20260430-110202-team-dashboard-center-align-pinned.md) | 팀 현황 대시보드 핀 멤버 카드를 가변 중앙 정렬로 변경 | ui | frontend/widgets/workspace | done | team_today_dashboard |
 | [20260430-104338-project-overview-urgent-task-criteria.md](20260430-104338-project-overview-urgent-task-criteria.md) | 프로젝트 개요 "마감 임박 작업" 기준을 end_date 2일 이내로 좁힘 | fix | frontend/widgets/project_info | done | description_tasks_widget |

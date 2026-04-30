@@ -379,20 +379,20 @@ async def get_ai_summary(
     urgent_tasks = [
         task
         for task in scoped_tasks
-        if task.status != TaskStatus.DONE
+        if task.status not in (TaskStatus.DONE, TaskStatus.BACKLOG)
         and task.priority in (TaskPriority.P0, TaskPriority.P1)
     ]
     today_due_tasks = [
         task
         for task in scoped_tasks
-        if task.status != TaskStatus.DONE
+        if task.status not in (TaskStatus.DONE, TaskStatus.BACKLOG)
         and task.end_date
         and task.end_date.astimezone().date() == today_local
     ]
     overdue_tasks = [
         task
         for task in scoped_tasks
-        if task.status != TaskStatus.DONE
+        if task.status not in (TaskStatus.DONE, TaskStatus.BACKLOG)
         and task.end_date
         and task.end_date.astimezone().date() < today_local
     ]

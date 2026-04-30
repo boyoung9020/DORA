@@ -1,0 +1,70 @@
+# Dependencies
+node_modules/
+vendor/
+.venv/
+backend/.venv/
+backend/venv/
+
+# Build artifacts
+build/
+dist/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.dart.js
+*.dart.js.map
+
+# Platform ephemeral
+windows/flutter/ephemeral/
+linux/flutter/ephemeral/
+macos/Flutter/ephemeral/
+ios/Flutter/ephemeral/
+android/.gradle/
+ios/Pods/
+macos/Pods/
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# Lock files
+package-lock.json
+yarn.lock
+pubspec.lock
+
+# Minified
+*.min.js
+*.min.css
+
+# Binary assets
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.svg
+*.mp4
+*.mov
+*.pdf
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Logs / temp
+*.log
+*.tmp
+*.bak
+
+# Postgres data
+postgres_data/
+
+# Uploads
+backend/uploads/
+
+# Installer artifacts
+installer/Output/

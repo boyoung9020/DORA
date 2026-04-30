@@ -43,7 +43,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _aiCollapsed = false;
   bool _overdueCollapsed = true;
   /// AI 요약 범위: mine(내 할당), others(다른 팀원 할당), all(전체)
-  String _aiSummaryScope = 'all';
+  String _aiSummaryScope = 'mine';
 
   // 오늘 할 작업 관련
   bool _todayTasksCollapsed = false;
