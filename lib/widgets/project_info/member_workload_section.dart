@@ -53,15 +53,23 @@ class MemberWorkloadSection extends StatelessWidget {
           if (isLoading)
             const Center(child: CircularProgressIndicator(strokeWidth: 2))
           else ...[
-            ...List.generate(teamMembers.length, (i) {
-              final member = teamMembers[i];
-              final memberTasks = tasksByMember[member.id] ?? [];
-              return Padding(
-                padding: EdgeInsets.only(top: i == 0 ? 0 : 12),
-                child: _MemberWorkloadCard(
-                  member: member,
-                  tasks: memberTasks,
-                ),
+            LayoutBuilder(builder: (ctx, c) {
+              final w = c.maxWidth;
+              final cols = w < 600 ? 1 : (w < 1000 ? 2 : 3);
+              const gap = 12.0;
+              final cardW = (w - gap * (cols - 1)) / cols;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: teamMembers
+                    .map((m) => SizedBox(
+                          width: cardW,
+                          child: _MemberWorkloadCard(
+                            member: m,
+                            tasks: tasksByMember[m.id] ?? const [],
+                          ),
+                        ))
+                    .toList(),
               );
             }),
             if (unassignedTasks.isNotEmpty) ...[
@@ -75,28 +83,18 @@ class MemberWorkloadSection extends StatelessWidget {
   }
 }
 
-enum _MemberTaskTab { inProgress, done, ready }
-
-// ── 팀원 개별 카드 ──
-class _MemberWorkloadCard extends StatefulWidget {
+// ── 팀원 개별 카드 (컴팩트: 헤더 + 진행률 바 + inline 카운트) ──
+class _MemberWorkloadCard extends StatelessWidget {
   final User member;
   final List<Task> tasks;
 
   const _MemberWorkloadCard({required this.member, required this.tasks});
 
   @override
-  State<_MemberWorkloadCard> createState() => _MemberWorkloadCardState();
-}
-
-class _MemberWorkloadCardState extends State<_MemberWorkloadCard> {
-  _MemberTaskTab _tab = _MemberTaskTab.inProgress;
-
-  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final project = context.read<ProjectProvider>().currentProject;
-    final isCreator = project?.creatorId == widget.member.id;
-    final tasks = widget.tasks;
+    final isCreator = project?.creatorId == member.id;
 
     final done = tasks.where((t) => t.status == TaskStatus.done).length;
     final inProgress =
@@ -107,10 +105,8 @@ class _MemberWorkloadCardState extends State<_MemberWorkloadCard> {
     final total = tasks.length;
     final donePercent = total > 0 ? (done / total * 100) : 0.0;
 
-    final activeCount = inProgress + inReview;
-
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12),
@@ -120,268 +116,146 @@ class _MemberWorkloadCardState extends State<_MemberWorkloadCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor:
-                    AvatarColor.getColorForUser(widget.member.username),
-                backgroundImage: widget.member.profileImageUrl != null
-                    ? NetworkImage(widget.member.profileImageUrl!)
-                    : null,
-                child: widget.member.profileImageUrl == null
-                    ? Text(
-                        widget.member.username.isNotEmpty
-                            ? widget.member.username[0].toUpperCase()
-                            : '?',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12))
-                    : null,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(widget.member.username,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurface)),
-              ),
-              if (isCreator) ...[
-                const SizedBox(width: 6),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                  decoration: BoxDecoration(
-                      color: Colors.amber.shade100,
-                      borderRadius: BorderRadius.circular(6)),
-                  child: Text('PM',
-                      style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.amber.shade800)),
-                ),
-              ],
-              const SizedBox(width: 8),
-              _MemberWorkloadCardState._countBadge(
-                  '$total건',
-                  colorScheme.primaryContainer,
-                  colorScheme.onPrimaryContainer),
-              const SizedBox(width: 6),
-              if (total > 0)
-                Text('${donePercent.toStringAsFixed(0)}% 완료',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.green.shade600,
-                        fontWeight: FontWeight.w600)),
-            ],
-          ),
-          if (total > 0) ...[
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: SizedBox(
-                height: 6,
-                child: Row(
-                  children: [
-                    if (done > 0)
-                      Flexible(flex: done, child: Container(color: Colors.green)),
-                    if (inReview > 0)
-                      Flexible(
-                          flex: inReview, child: Container(color: Colors.purple)),
-                    if (inProgress > 0)
-                      Flexible(
-                          flex: inProgress,
-                          child: Container(color: Colors.orange)),
-                    if (ready > 0)
-                      Flexible(
-                          flex: ready,
-                          child: Container(color: Colors.blue.shade300)),
-                    if (backlog > 0)
-                      Flexible(
-                          flex: backlog,
-                          child: Container(color: Colors.grey.shade400)),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 12,
-              runSpacing: 4,
-              children: [
-                if (inProgress > 0)
-                  _MemberWorkloadCardState._statusLabel(
-                      '진행 중', inProgress, Colors.orange),
-                if (inReview > 0)
-                  _MemberWorkloadCardState._statusLabel(
-                      '검토', inReview, Colors.purple),
-                if (ready > 0)
-                  _MemberWorkloadCardState._statusLabel(
-                      '준비', ready, Colors.blue.shade300),
-                if (backlog > 0)
-                  _MemberWorkloadCardState._statusLabel(
-                      '백로그', backlog, Colors.grey),
-                if (done > 0)
-                  _MemberWorkloadCardState._statusLabel(
-                      '완료', done, Colors.green),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: SegmentedButton<_MemberTaskTab>(
-                style: ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                segments: [
-                  ButtonSegment<_MemberTaskTab>(
-                    value: _MemberTaskTab.inProgress,
-                    label: Text('진행 $activeCount',
-                        style: const TextStyle(fontSize: 11)),
-                  ),
-                  ButtonSegment<_MemberTaskTab>(
-                    value: _MemberTaskTab.done,
-                    label: Text('완료 $done', style: const TextStyle(fontSize: 11)),
-                  ),
-                  ButtonSegment<_MemberTaskTab>(
-                    value: _MemberTaskTab.ready,
-                    label: Text(
-                        '준비 ${ready + backlog}',
-                        style: const TextStyle(fontSize: 11)),
-                  ),
-                ],
-                selected: {_tab},
-                onSelectionChanged: (s) {
-                  if (s.isEmpty) return;
-                  setState(() => _tab = s.first);
-                },
-              ),
-            ),
-            const SizedBox(height: 10),
-            ..._tasksForTab(colorScheme),
-          ] else
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text('할당된 작업 없음',
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.onSurface.withValues(alpha: 0.4))),
-            ),
+          _buildHeader(colorScheme, isCreator, total),
+          const SizedBox(height: 8),
+          _buildProgress(done, inReview, inProgress, ready, backlog,
+              donePercent, total, colorScheme),
+          const SizedBox(height: 6),
+          _buildCounts(
+              colorScheme, inProgress, inReview, ready, backlog, done, total),
         ],
       ),
     );
   }
 
-  List<Task> _filteredTasks() {
-    switch (_tab) {
-      case _MemberTaskTab.inProgress:
-        return widget.tasks
-            .where((t) =>
-                t.status == TaskStatus.inProgress ||
-                t.status == TaskStatus.inReview)
-            .toList();
-      case _MemberTaskTab.done:
-        return widget.tasks.where((t) => t.status == TaskStatus.done).toList();
-      case _MemberTaskTab.ready:
-        return widget.tasks
-            .where((t) =>
-                t.status == TaskStatus.ready ||
-                t.status == TaskStatus.backlog)
-            .toList();
-    }
-  }
-
-  List<Widget> _tasksForTab(ColorScheme colorScheme) {
-    final list = _filteredTasks()
-      ..sort((a, b) {
-        if (_tab == _MemberTaskTab.inProgress) {
-          const order = {
-            TaskStatus.inProgress: 0,
-            TaskStatus.inReview: 1,
-          };
-          final cmp =
-              (order[a.status] ?? 9).compareTo(order[b.status] ?? 9);
-          if (cmp != 0) return cmp;
-        }
-        return a.priority.index.compareTo(b.priority.index);
-      });
-
-    if (list.isEmpty) {
-      final emptyLabel = switch (_tab) {
-        _MemberTaskTab.inProgress => '진행·검토 중인 작업이 없습니다',
-        _MemberTaskTab.done => '완료된 작업이 없습니다',
-        _MemberTaskTab.ready => '준비·백로그 작업이 없습니다',
-      };
-      return [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Text(emptyLabel,
-              style: TextStyle(
-                  fontSize: 12,
-                  color: colorScheme.onSurface.withValues(alpha: 0.45))),
-        ),
-      ];
-    }
-
-    const maxRows = 8;
-    final display = list.take(maxRows).toList();
-
-    return [
-      Divider(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.3), height: 1),
-      const SizedBox(height: 8),
-      ...display.map((task) {
-        final sc = _MemberWorkloadCardState._statusColor(task.status);
-        final pc = _MemberWorkloadCardState._priorityColor(task.priority);
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Row(
-            children: [
-              Container(
-                  width: 8,
-                  height: 8,
-                  decoration:
-                      BoxDecoration(color: sc, shape: BoxShape.circle)),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                decoration: BoxDecoration(
-                  color: pc.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-                child: Text(task.priority.name.toUpperCase(),
-                    style: TextStyle(
-                        fontSize: 9, fontWeight: FontWeight.bold, color: pc)),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(task.title,
-                    style: TextStyle(fontSize: 12, color: colorScheme.onSurface),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-              ),
-              Text(_MemberWorkloadCardState._statusLabel2(task.status),
-                  style: TextStyle(
-                      fontSize: 10, color: sc, fontWeight: FontWeight.w500)),
-            ],
+  Widget _buildHeader(ColorScheme cs, bool isCreator, int total) => Row(
+        children: [
+          CircleAvatar(
+            radius: 12,
+            backgroundColor: AvatarColor.getColorForUser(member.username),
+            backgroundImage: member.profileImageUrl != null
+                ? NetworkImage(member.profileImageUrl!)
+                : null,
+            child: member.profileImageUrl == null
+                ? Text(
+                    member.username.isNotEmpty
+                        ? member.username[0].toUpperCase()
+                        : '?',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11))
+                : null,
           ),
-        );
-      }),
-      if (list.length > maxRows)
-        Text('외 ${list.length - maxRows}건',
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(member.username,
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurface),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          ),
+          if (isCreator) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                  color: Colors.amber.shade100,
+                  borderRadius: BorderRadius.circular(6)),
+              child: Text('PM',
+                  style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.amber.shade800)),
+            ),
+          ],
+          const SizedBox(width: 6),
+          _countBadge('$total건', cs.primaryContainer, cs.onPrimaryContainer),
+        ],
+      );
+
+  Widget _buildProgress(int done, int inReview, int inProgress, int ready,
+      int backlog, double donePercent, int total, ColorScheme cs) {
+    return Row(
+      children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: SizedBox(
+              height: 6,
+              child: total == 0
+                  ? Container(color: cs.outlineVariant.withValues(alpha: 0.3))
+                  : Row(
+                      children: [
+                        if (done > 0)
+                          Flexible(
+                              flex: done,
+                              child: Container(color: Colors.green)),
+                        if (inReview > 0)
+                          Flexible(
+                              flex: inReview,
+                              child: Container(color: Colors.purple)),
+                        if (inProgress > 0)
+                          Flexible(
+                              flex: inProgress,
+                              child: Container(color: Colors.orange)),
+                        if (ready > 0)
+                          Flexible(
+                              flex: ready,
+                              child: Container(color: Colors.blue.shade300)),
+                        if (backlog > 0)
+                          Flexible(
+                              flex: backlog,
+                              child: Container(color: Colors.grey.shade400)),
+                      ],
+                    ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 36,
+          child: Text(
+            total == 0 ? '―' : '${donePercent.toStringAsFixed(0)}%',
+            textAlign: TextAlign.right,
             style: TextStyle(
                 fontSize: 11,
-                color: colorScheme.onSurface.withValues(alpha: 0.4))),
-    ];
+                color: total == 0
+                    ? cs.onSurface.withValues(alpha: 0.4)
+                    : Colors.green.shade600,
+                fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCounts(ColorScheme cs, int inProgress, int inReview, int ready,
+      int backlog, int done, int total) {
+    if (total == 0) {
+      return Text('할당된 작업 없음',
+          style: TextStyle(
+              fontSize: 11, color: cs.onSurface.withValues(alpha: 0.4)));
+    }
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      children: [
+        if (inProgress > 0) _statusLabel('진행', inProgress, Colors.orange),
+        if (inReview > 0) _statusLabel('검토', inReview, Colors.purple),
+        if (ready > 0) _statusLabel('준비', ready, Colors.blue.shade300),
+        if (backlog > 0) _statusLabel('백로그', backlog, Colors.grey),
+        if (done > 0) _statusLabel('완료', done, Colors.green),
+      ],
+    );
   }
 
   static Widget _countBadge(String text, Color bg, Color fg) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(
+            color: bg, borderRadius: BorderRadius.circular(10)),
         child: Text(text,
             style: TextStyle(
                 fontSize: 11, fontWeight: FontWeight.bold, color: fg)),
@@ -400,35 +274,6 @@ class _MemberWorkloadCardState extends State<_MemberWorkloadCard> {
                   fontSize: 11, color: color, fontWeight: FontWeight.w500)),
         ],
       );
-
-  static Color _statusColor(TaskStatus s) {
-    switch (s) {
-      case TaskStatus.done: return Colors.green;
-      case TaskStatus.inReview: return Colors.purple;
-      case TaskStatus.inProgress: return Colors.orange;
-      case TaskStatus.ready: return Colors.blue.shade300;
-      case TaskStatus.backlog: return Colors.grey;
-    }
-  }
-
-  static Color _priorityColor(TaskPriority p) {
-    switch (p) {
-      case TaskPriority.p0: return Colors.red;
-      case TaskPriority.p1: return Colors.orange;
-      case TaskPriority.p2: return Colors.blue;
-      case TaskPriority.p3: return Colors.grey;
-    }
-  }
-
-  static String _statusLabel2(TaskStatus s) {
-    switch (s) {
-      case TaskStatus.done: return '완료';
-      case TaskStatus.inReview: return '검토 중';
-      case TaskStatus.inProgress: return '진행 중';
-      case TaskStatus.ready: return '준비됨';
-      case TaskStatus.backlog: return '백로그';
-    }
-  }
 }
 
 // ── 미할당 카드 ──
